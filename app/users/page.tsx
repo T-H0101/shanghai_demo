@@ -18,10 +18,11 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { userStats, users as allUsers } from "@/lib/mock/users"
 import { sites as allSites } from "@/lib/mock/sites"
+import { tasks as allTasks } from "@/lib/mock/tasks"
 import { Checkbox } from "@/components/ui/checkbox"
 import type { User } from "@/lib/types/user"
 import type { MockSession } from "@/lib/types/auth"
-import { Users, Shield, RefreshCw, AlertTriangle, Plus, UserCog, Loader2 } from "lucide-react"
+import { Users, Shield, RefreshCw, AlertTriangle, Plus, UserCog, Loader2, KeyRound, Trash2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { getSession } from "@/lib/auth/session"
 
@@ -38,9 +39,18 @@ export default function Page() {
   const [users, setUsers] = useState<User[]>(allUsers)
   const [selected, setSelected] = useState<User | null>(allUsers[0])
   const [showCreate, setShowCreate] = useState(false)
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [showDeleteCheck, setShowDeleteCheck] = useState(false)
   const [newUser, setNewUser] = useState({ username: "", displayName: "", department: "", role: "operator", sites: ["上海研发中心"] as string[] })
   const [syncing, setSyncing] = useState(false)
+  const [resetMode, setResetMode] = useState<"link" | "temp">("link")
   const p = selected?.permissions
+  const pendingTasksForSelected = selected
+    ? allTasks.filter((task) =>
+        task.operator === selected.displayName &&
+        !["completed", "failed", "cancelled"].includes(task.status)
+      )
+    : []
 
   const updatePermissionNodes = (nodes: User["permissions"]["devices"], targetId: string): User["permissions"]["devices"] =>
     nodes.map((node) => {
@@ -217,6 +227,47 @@ export default function Page() {
     toast({ title: "账号已封禁", description: `用户 ${user.displayName} 已限制登录` })
   }
 
+  const handleOpenResetPassword = (user: User) => {
+    setSelected(user)
+    setShowResetPassword(true)
+  }
+
+  const handleConfirmResetPassword = () => {
+    if (!selected) return
+    setShowResetPassword(false)
+    toast({
+      title: "密码重置请求已登记",
+      description: resetMode === "link"
+        ? `已为 ${selected.displayName} 预留发送重置链接的后端接口，当前 Demo 仅记录操作`
+        : `已为 ${selected.displayName} 生成临时密码占位流程，待后端密码服务接入`,
+    })
+  }
+
+  const handleOpenDeleteCheck = (user: User) => {
+    setSelected(user)
+    setShowDeleteCheck(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (!selected) return
+    if (pendingTasksForSelected.length > 0) {
+      toast({
+        title: "删除校验未通过",
+        description: `${selected.displayName} 仍有 ${pendingTasksForSelected.length} 项未完成任务，需后端任务校验通过后才能删除`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUsers((prev) => prev.filter((user) => user.id !== selected.id))
+    setSelected((prev) => prev?.id === selected.id ? null : prev)
+    setShowDeleteCheck(false)
+    toast({
+      title: "账号已删除",
+      description: `${selected.displayName} 已从当前 Demo 列表移除，真实环境需由后端完成最终删除`,
+    })
+  }
+
   return (
     <AppShell>
       <PageHeader title="用户与权限" description="RBAC 角色权限与站点访问控制" badge="RBAC"
@@ -249,15 +300,23 @@ export default function Page() {
                   <TableCell><SyncStatusBadge status={u.permissionSyncStatus} /></TableCell>
                   <TableCell>
                     {session && session.roleLevel === "group_admin" && (
-                      u.status === "locked" || u.status === "disabled" ? (
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleUnlock(u)}>
-                          解锁
+                      <div className="flex flex-wrap gap-1">
+                        {u.status === "locked" || u.status === "disabled" ? (
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleUnlock(u)}>
+                            解锁
+                          </Button>
+                        ) : u.status === "active" ? (
+                          <Button variant="outline" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleBan(u)}>
+                            封禁
+                          </Button>
+                        ) : null}
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleOpenResetPassword(u)}>
+                          重置密码
                         </Button>
-                      ) : u.status === "active" ? (
-                        <Button variant="outline" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleBan(u)}>
-                          封禁
+                        <Button variant="outline" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleOpenDeleteCheck(u)}>
+                          删除
                         </Button>
-                      ) : null
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
@@ -271,6 +330,16 @@ export default function Page() {
               {p.hasConflict && (
                 <div className="flex gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
                   <AlertTriangle className="h-4 w-4 shrink-0"/><span>{p.conflictMessage}</span>
+                </div>
+              )}
+              {session?.roleLevel === "group_admin" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleOpenResetPassword(selected)}>
+                    <KeyRound className="h-3.5 w-3.5 mr-1" />密码重置
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleOpenDeleteCheck(selected)}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />删除校验
+                  </Button>
                 </div>
               )}
               <div className="flex items-center justify-between py-2 border-b">
@@ -367,6 +436,100 @@ export default function Page() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
             <Button onClick={handleCreateUser} className="bg-blue-600 hover:bg-blue-700">确认创建</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>密码重置</DialogTitle>
+          </DialogHeader>
+          {selected && (
+            <div className="space-y-4 py-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                当前为 Demo 预留窗口。真实环境需接入密码重置 API、邮件服务或临时密码服务。
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>账号</Label>
+                  <Input value={selected.username} disabled className="h-9 bg-slate-50" />
+                </div>
+                <div className="space-y-2">
+                  <Label>邮箱</Label>
+                  <Input value={selected.email} disabled className="h-9 bg-slate-50" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>重置方式</Label>
+                <Select value={resetMode} onValueChange={(value) => setResetMode(value as "link" | "temp")}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="link">发送重置链接</SelectItem>
+                    <SelectItem value="temp">生成临时密码</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                {resetMode === "link"
+                  ? "后端接入后：调用密码重置接口，发送邮件/短信链接，并写入审计日志。"
+                  : "后端接入后：生成一次性临时密码，要求用户首次登录后强制修改。"}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResetPassword(false)}>取消</Button>
+            <Button onClick={handleConfirmResetPassword} className="bg-blue-600 hover:bg-blue-700">确认重置</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteCheck} onOpenChange={setShowDeleteCheck}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>删除账号前校验</DialogTitle>
+          </DialogHeader>
+          {selected && (
+            <div className="space-y-4 py-4">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                requirements 要求删除账号前必须校验是否存在未完成任务。当前窗口用于演示该校验流程。
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>账号</Label>
+                  <Input value={selected.username} disabled className="h-9 bg-slate-50" />
+                </div>
+                <div className="space-y-2">
+                  <Label>显示姓名</Label>
+                  <Input value={selected.displayName} disabled className="h-9 bg-slate-50" />
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-sm font-medium text-slate-800">未完成任务校验结果</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  共检测到 {pendingTasksForSelected.length} 项未完成任务
+                </p>
+                {pendingTasksForSelected.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {pendingTasksForSelected.map((task) => (
+                      <div key={task.id} className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                        <p className="font-medium">{task.name}</p>
+                        <p className="mt-1">{task.siteName} · {task.type} · 当前状态 {task.status}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-emerald-700">未发现未完成任务，可继续删除流程。</p>
+                )}
+              </div>
+              <div className="text-xs text-slate-500">
+                真实环境应由后端基于任务表、审批流和审计规则做最终删除校验。
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteCheck(false)}>取消</Button>
+            <Button onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">确认删除</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
