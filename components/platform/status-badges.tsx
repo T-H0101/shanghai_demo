@@ -5,7 +5,6 @@ import type { OnlineStatus, SyncStatus, TaskStatus, Priority, AccountStatus, Log
 const onlineMap: Record<OnlineStatus, { label: string; className: string }> = {
   online: { label: "在线", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   offline: { label: "离线", className: "bg-red-100 text-red-700 border-red-200" },
-  degraded: { label: "降级", className: "bg-amber-100 text-amber-700 border-amber-200" },
 }
 
 const syncMap: Record<SyncStatus, { label: string; className: string }> = {
@@ -16,6 +15,8 @@ const syncMap: Record<SyncStatus, { label: string; className: string }> = {
 }
 
 const taskStatusMap: Record<TaskStatus, { label: string; className: string }> = {
+  pending_dispatch: { label: "待下发", className: "text-purple-600" },
+  dispatched: { label: "已下发", className: "text-violet-600" },
   running: { label: "运行中", className: "text-emerald-600" },
   paused: { label: "已暂停", className: "text-amber-600" },
   completed: { label: "已完成", className: "text-slate-600" },
@@ -33,6 +34,7 @@ const priorityMap: Record<Priority, { label: string; className: string }> = {
 
 export function OnlineStatusBadge({ status }: { status: OnlineStatus }) {
   const s = onlineMap[status]
+  if (!s) return null
   return (
     <Badge variant="outline" className={cn("text-xs font-medium", s.className)}>
       <span className={cn("h-1.5 w-1.5 rounded-full mr-1.5 inline-block", status === "online" ? "bg-emerald-500" : status === "offline" ? "bg-red-500" : "bg-amber-500")} />
@@ -43,16 +45,19 @@ export function OnlineStatusBadge({ status }: { status: OnlineStatus }) {
 
 export function SyncStatusBadge({ status }: { status: SyncStatus }) {
   const s = syncMap[status]
+  if (!s) return <Badge className="text-xs bg-slate-100 text-slate-700">未知</Badge>
   return <Badge className={cn("text-xs hover:opacity-90", s.className)}>{s.label}</Badge>
 }
 
 export function TaskStatusBadge({ status }: { status: TaskStatus }) {
   const s = taskStatusMap[status]
+  if (!s) return <span className="text-xs text-slate-500">未知</span>
   return <span className={cn("text-xs font-medium flex items-center gap-1", s.className)}>{s.label}</span>
 }
 
 export function PriorityBadge({ priority }: { priority: Priority }) {
   const s = priorityMap[priority]
+  if (!s) return <Badge className="text-xs bg-slate-100 text-slate-700">未知</Badge>
   return <Badge className={cn("text-xs hover:opacity-90", s.className)}>{s.label}</Badge>
 }
 

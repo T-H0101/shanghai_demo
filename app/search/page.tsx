@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { searchFiles, searchSites, searchDepartments, searchFileTypes } from "@/lib/mock/search"
 import type { SearchFile } from "@/lib/types/search"
 import { Search, Download, Shield, ChevronLeft, ChevronRight, Filter, RotateCcw } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 
 export default function Page() {
@@ -21,7 +23,15 @@ export default function Page() {
   const [typeFilter, setTypeFilter] = useState("全部类型")
   const [discFilter, setDiscFilter] = useState("")
   const [volumeFilter, setVolumeFilter] = useState("")
-  const pageSize = 5
+  const [showExport, setShowExport] = useState(false)
+  const [exportOptions, setExportOptions] = useState({
+    format: "Excel",
+    range: "all",
+    splitSize: "",
+    targetPath: "\\\\nas-archive\\optical-index\\2026\\05",
+    delivery: "push",
+  })
+  const pageSize = 10
 
   const filtered = searchFiles.filter((f) => {
     const matchKw = !keyword ||
@@ -64,10 +74,18 @@ export default function Page() {
       toast({ title: "无数据可导出", description: "请先执行检索", variant: "destructive" })
       return
     }
-    toast({ title: "导出中...", description: "正在生成导出文件，请稍候..." })
+    setShowExport(true)
+  }
+
+  const handleConfirmExport = () => {
+    setShowExport(false)
+    const exportCount = exportOptions.range === "current" ? paged.length : filtered.length
+    const splitInfo = exportOptions.range === "split" && exportOptions.splitSize ? `，每 ${exportOptions.splitSize} 条分一个文件` : ""
+    const deliveryInfo = exportOptions.delivery === "push" ? `，完成后推送至 ${exportOptions.targetPath}` : "，生成后保留在本地下载区"
+    toast({ title: "正在导出...", description: `正在生成 ${exportOptions.format} 文件，请稍候${splitInfo}${deliveryInfo}` })
     setTimeout(() => {
-      toast({ title: "导出成功", description: `已导出 ${filtered.length} 条检索结果（模拟）` })
-    }, 1000)
+      toast({ title: "导出成功", description: `已导出 ${exportCount} 条检索结果（${exportOptions.format} 格式）${splitInfo}，已添加数字签名并完成${exportOptions.delivery === "push" ? "路径推送" : "本地生成"}` })
+    }, 1500)
   }
 
   const handleRestore = (file: SearchFile) => {
@@ -80,7 +98,7 @@ export default function Page() {
   return (
     <AppShell>
       <PageHeader title="统一检索" description="跨站点全局文件检索" badge="GLOBAL SEARCH"
-        actions={<Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出</Button>} />
+        actions={<Button variant="outline" size="sm" className="h-8" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出</Button>} />
       <Card className="gap-0 border-blue-100 bg-blue-50/30">
         <CardContent className="p-4 flex gap-3">
           <Shield className="h-5 w-5 text-blue-600 shrink-0" />
@@ -118,19 +136,19 @@ export default function Page() {
         </CardContent>
       </Card>
       <Card className="gap-0">
-        <CardHeader className="pb-3"><CardTitle className="text-base">结果 <Badge className="ml-2">{filtered.length}</Badge></CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2">检索结果 <Badge className="ml-2">{filtered.length} 条</Badge><span className="text-xs text-slate-500 font-normal ml-2">（共找到 {filtered.length} 条匹配记录，展示第 {(page-1)*pageSize+1}-{(Math.min(page*pageSize, filtered.length))} 条）</span></CardTitle></CardHeader>
         <CardContent className="pt-0 overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="hover:bg-transparent">
               <TableHead className="text-xs text-slate-500">文件名</TableHead><TableHead className="text-xs text-slate-500">路径</TableHead>
               <TableHead className="text-xs text-slate-500">大小</TableHead><TableHead className="text-xs text-slate-500">站点</TableHead>
               <TableHead className="text-xs text-slate-500">光盘编号</TableHead><TableHead className="text-xs text-slate-500">盘架/盘笼</TableHead>
-              <TableHead className="text-xs text-slate-500">部门</TableHead><TableHead className="text-xs text-slate-500">创建时间</TableHead>
-              <TableHead className="text-xs text-slate-500">操作</TableHead>
+              <TableHead className="text-xs text-slate-500">部门</TableHead><TableHead className="text-xs text-slate-500">校验码</TableHead>
+              <TableHead className="text-xs text-slate-500">创建时间</TableHead><TableHead className="text-xs text-slate-500">操作</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {paged.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-500">未找到匹配的检索结果</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-500">未找到匹配的检索结果</TableCell></TableRow>
               ) : paged.map((f) => (
                 <TableRow key={f.id} className="hover:bg-slate-50">
                   <TableCell><p className="font-medium text-sm text-blue-700">{f.fileName}</p></TableCell>
@@ -140,11 +158,17 @@ export default function Page() {
                   <TableCell className="font-mono text-sm">{f.discNo}</TableCell>
                   <TableCell className="text-sm">{f.rackSlot}</TableCell>
                   <TableCell>{f.department}</TableCell>
+                  <TableCell className="text-xs font-mono text-slate-500">{f.checksum || "—"}</TableCell>
                   <TableCell className="text-slate-500 text-sm">{f.createdAt}</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleRestore(f)}>
-                      发起回迁
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleRestore(f)}>
+                        发起回迁
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-slate-500" onClick={() => toast({ title: "正在跳转", description: `跳转至 ${f.siteName} 站点详情页` })}>
+                        查看站点
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -159,6 +183,69 @@ export default function Page() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showExport} onOpenChange={setShowExport}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>索引导出</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>导出格式</Label>
+              <Select value={exportOptions.format} onValueChange={(v) => setExportOptions({ ...exportOptions, format: v })}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Excel">Excel (.xlsx)</SelectItem>
+                  <SelectItem value="CSV">CSV (.csv)</SelectItem>
+                  <SelectItem value="JSON">JSON (.json)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>导出范围</Label>
+              <Select value={exportOptions.range} onValueChange={(v) => setExportOptions({ ...exportOptions, range: v })}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部结果 ({filtered.length} 条)</SelectItem>
+                  <SelectItem value="current">当前页 ({paged.length} 条)</SelectItem>
+                  <SelectItem value="split">分片导出</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {exportOptions.range === "split" && (
+              <div className="space-y-2">
+                <Label>分片大小（条/文件）</Label>
+                <Input placeholder="如：500" value={exportOptions.splitSize} onChange={(e) => setExportOptions({ ...exportOptions, splitSize: e.target.value })} className="h-9" />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>交付方式</Label>
+              <Select value={exportOptions.delivery} onValueChange={(v) => setExportOptions({ ...exportOptions, delivery: v })}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="push">推送至指定路径</SelectItem>
+                  <SelectItem value="local">生成本地文件</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>目标路径</Label>
+              <Input
+                placeholder="如：\\\\nas-archive\\optical-index\\2026\\05"
+                value={exportOptions.targetPath}
+                onChange={(e) => setExportOptions({ ...exportOptions, targetPath: e.target.value })}
+                className="h-9"
+                disabled={exportOptions.delivery !== "push"}
+              />
+            </div>
+            <p className="text-xs text-slate-500">导出文件将自动添加数字签名，确保数据完整性</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExport(false)}>取消</Button>
+            <Button onClick={handleConfirmExport} className="bg-blue-600 hover:bg-blue-700">确认导出</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   )
 }

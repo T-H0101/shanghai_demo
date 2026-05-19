@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { defaultSettings } from "@/lib/mock/settings"
 import type { SystemSettings } from "@/lib/types/settings"
-import { Save, RotateCcw, Download, Server, Mail } from "lucide-react"
+import { Save, RotateCcw, Download, Server, Mail, Bell, Webhook } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 export default function Page() {
@@ -46,11 +46,11 @@ export default function Page() {
   return (
     <AppShell>
       <PageHeader title="系统设置" description="同步、告警、安全与任务策略配置" badge="SETTINGS"
-        actions={<>
-          <Button variant="outline" size="sm" onClick={handleReset}><RotateCcw className="h-4 w-4 mr-1"/>重置</Button>
-          <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1"/>导出</Button>
-          <Button size="sm" className="bg-blue-600" onClick={handleSave}><Save className="h-4 w-4 mr-1"/>保存</Button>
-        </>} />
+        actions={<div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-8" onClick={handleReset}><RotateCcw className="h-4 w-4 mr-1"/>重置</Button>
+          <Button variant="outline" size="sm" className="h-8" onClick={handleExport}><Download className="h-4 w-4 mr-1"/>导出</Button>
+          <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSave}><Save className="h-4 w-4 mr-1"/>保存</Button>
+        </div>} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         <Card className="gap-0">
@@ -83,6 +83,16 @@ export default function Page() {
         </Card>
 
         <Card className="gap-0">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Webhook className="h-5 w-5"/>推送路径配置</CardTitle><CardDescription>告警与状态变更的回调通知地址</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div><Label className="text-xs">告警回调地址</Label><Input value={settings.alert.pushUrl} onChange={(e) => setSettings({...settings, alert: {...settings.alert, pushUrl: e.target.value}})} placeholder="https://your-webhook-endpoint.com/alerts" className="h-9 mt-1"/></div>
+            <div><Label className="text-xs">状态变更通知地址</Label><Input value={settings.alert.statusChangeCallback} onChange={(e) => setSettings({...settings, alert: {...settings.alert, statusChangeCallback: e.target.value}})} placeholder="https://your-callback.com/status" className="h-9 mt-1"/></div>
+            <div className="flex items-center justify-between"><Label className="text-xs">启用推送</Label><Switch checked={settings.alert.pushEnabled} onCheckedChange={(v) => setSettings({...settings, alert: {...settings.alert, pushEnabled: v}})} /></div>
+            <div className="flex items-center justify-between"><Label className="text-xs">推送失败重试</Label><Switch checked={settings.alert.pushRetryOnFail} onCheckedChange={(v) => setSettings({...settings, alert: {...settings.alert, pushRetryOnFail: v}})} /></div>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0">
           <CardHeader><CardTitle className="text-base">安全设置</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -108,6 +118,19 @@ export default function Page() {
               <div><Label className="text-xs">巡检抽样比例(%)</Label><Input type="number" value={settings.task.inspectSamplePercent} onChange={(e) => setSettings({...settings, task: {...settings.task, inspectSamplePercent: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
             </div>
             <div><Label className="text-xs">日志保留周期(天)</Label><Input type="number" value={settings.task.logRetentionDays} onChange={(e) => setSettings({...settings, task: {...settings.task, logRetentionDays: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0">
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Server className="h-5 w-5"/>监控阈值</CardTitle><CardDescription>系统健康状态判定阈值配置</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">站点离线超时(分钟)</Label><Input type="number" value={settings.alert.siteOfflineThresholdMinutes} onChange={(e) => setSettings({...settings, alert: {...settings.alert, siteOfflineThresholdMinutes: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
+              <div><Label className="text-xs">硬件异常判定次数</Label><Input type="number" value={settings.alert.hardwareAnomalyThreshold} onChange={(e) => setSettings({...settings, alert: {...settings.alert, hardwareAnomalyThreshold: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
+              <div><Label className="text-xs">任务执行超时(分钟)</Label><Input type="number" value={settings.alert.taskTimeoutMinutes} onChange={(e) => setSettings({...settings, alert: {...settings.alert, taskTimeoutMinutes: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
+              <div><Label className="text-xs">容量预警阈值(%)</Label><Input type="number" value={settings.alert.capacityWarningPercent} onChange={(e) => setSettings({...settings, alert: {...settings.alert, capacityWarningPercent: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
+            </div>
+            <div className="flex items-center justify-between"><Label className="text-xs">启用容量预警</Label><Switch checked={settings.alert.emailNotification} onCheckedChange={(v) => setSettings({...settings, alert: {...settings.alert, emailNotification: v}})} /></div>
           </CardContent>
         </Card>
       </div>

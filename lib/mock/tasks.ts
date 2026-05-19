@@ -27,6 +27,24 @@ export const taskAlerts: TaskAlert[] = [
 
 export const tasks: TaskItem[] = [
   {
+    id: "t0",
+    name: "新药研发数据备份_rd-20260519-01",
+    type: "backup",
+    status: "dispatched",
+    priority: "normal",
+    progress: 0,
+    siteName: "上海研发中心",
+    siteCode: "SH-RD-01",
+    operator: "张建国",
+    startedAt: "—",
+    updatedAt: "2026-05-19 10:00:00",
+    deviceId: "dev-sh-01",
+    deviceName: "上海-SAN-A-01",
+    rackId: "rack-A-03",
+    volumeId: "VOL-RD-2024-NEW",
+    retryCount: 0,
+  },
+  {
     id: "t1",
     name: "CT影像数据回迁_20260518-A",
     type: "restore",

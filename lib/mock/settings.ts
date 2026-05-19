@@ -16,6 +16,10 @@ export const defaultSettings: SystemSettings = {
     capacityWarningPercent: 85,
     emailNotification: true,
     emailRecipients: "ops@corp.example.com;alert@corp.example.com",
+    pushUrl: "",
+    statusChangeCallback: "",
+    pushEnabled: false,
+    pushRetryOnFail: true,
   },
   security: {
     jwtExpiryHours: 8,

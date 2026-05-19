@@ -22,20 +22,24 @@ const chartData = [
   { time: "14:00", backup: 35, restore: 25, verify: 18 },
 ]
 
-export function SyncTrendChart() {
+interface SyncTrendChartProps {
+  className?: string
+}
+
+export function SyncTrendChart({ className }: SyncTrendChartProps) {
   return (
-    <Card className="gap-0">
+    <Card className={`gap-0 ${className || ''}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-semibold text-slate-900">
               14日同步统计
             </CardTitle>
-            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-[10px]">
+            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs">
               14:32:05
             </Badge>
           </div>
-          <div className="flex items-center gap-3 text-[10px] text-slate-500">
+          <div className="flex items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-slate-600"></span>备份
             </span>
@@ -48,8 +52,8 @@ export function SyncTrendChart() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="h-44">
+      <CardContent className="pt-0 h-[calc(100%-2.5rem)]">
+        <div className="h-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}

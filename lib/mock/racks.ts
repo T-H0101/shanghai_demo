@@ -1,4 +1,4 @@
-import type { Rack, RackStats, RackSlot } from "@/lib/types/rack"
+import type { Rack, RackStats, RackSlot, TransferRecord } from "@/lib/types/rack"
 
 function generateSlots(total: number, used: number): RackSlot[] {
   return Array.from({ length: total }, (_, i) => ({
@@ -9,6 +9,41 @@ function generateSlots(total: number, used: number): RackSlot[] {
     label: i < used ? `槽${i + 1}` : undefined,
   }))
 }
+
+const sampleTransferHistory: TransferRecord[] = [
+  {
+    id: "tr1",
+    fromSite: "北京总部机房",
+    toSite: "上海研发中心",
+    reason: "容量调配：南京中心存储扩容优先级调整",
+    operator: "张建国",
+    approver: "李明",
+    requestedAt: "2026-05-10 09:30:00",
+    completedAt: "2026-05-12 14:20:00",
+    status: "completed",
+  },
+  {
+    id: "tr2",
+    fromSite: "广州生产基地",
+    toSite: "武汉备份中心",
+    reason: "灾备演练：季度灾备切换测试",
+    operator: "陈强",
+    approver: "周涛",
+    requestedAt: "2026-05-15 08:00:00",
+    completedAt: "2026-05-15 16:45:00",
+    status: "completed",
+  },
+  {
+    id: "tr3",
+    fromSite: "南京中心",
+    toSite: "北京总部机房",
+    reason: "设备维修：R-N05 盘架硬件故障，需返厂维修",
+    operator: "孙丽",
+    approver: "王芳",
+    requestedAt: "2026-05-18 10:00:00",
+    status: "in_transit",
+  },
+]
 
 export const rackStats: RackStats = {
   total: 36,
@@ -34,6 +69,7 @@ export const racks: Rack[] = [
     floor: "3F",
     room: "机房-A区",
     slots: generateSlots(24, 18),
+    transferHistory: sampleTransferHistory,
   },
   {
     id: "r2",
@@ -108,3 +144,5 @@ export const racks: Rack[] = [
     slots: generateSlots(24, 12),
   },
 ]
+
+export const allSites = ["上海研发中心", "北京总部机房", "广州生产基地", "南京中心", "武汉备份中心"]

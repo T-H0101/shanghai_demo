@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
+import { GlobalControlBall } from '@/components/ui/global-control-ball'
 import './globals.css'
+import '@/styles/dark.css'
 
 export const metadata: Metadata = {
   title: '光盘库管理平台 - 控制台',
@@ -35,6 +37,7 @@ export default function RootLayout({
     <html lang="zh-CN" className="bg-slate-100">
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
+        <GlobalControlBall />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

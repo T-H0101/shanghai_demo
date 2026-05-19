@@ -1,0 +1,176 @@
+/* 日间/夜间模式切换样式 */
+
+/* ===== 基础变量（日间模式） ===== */
+:root {
+  /* 背景色 */
+  --bg-page: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-header: #ffffff;
+  --bg-hover: #f8fafc;
+  --bg-active: #eff6ff;
+
+  /* 文字色 */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* 边框色 */
+  --border-color: #e2e8f0;
+  --border-light: #f1f5f9;
+
+  /* 主色调 */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #dbeafe;
+
+  /* 状态色 */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+}
+
+/* ===== 夜间模式变量 ===== */
+.dark {
+  /* 背景色 */
+  --bg-page: #0f172a;
+  --bg-card: #1e293b;
+  --bg-sidebar: #1e293b;
+  --bg-header: #1e293b;
+  --bg-hover: #334155;
+  --bg-active: #1e3a5f;
+
+  /* 文字色 */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
+
+  /* 边框色 */
+  --border-color: #334155;
+  --border-light: #1e293b;
+
+  /* 主色调 */
+  --primary: #60a5fa;
+  --primary-hover: #3b82f6;
+  --primary-light: #1e3a5f;
+
+  /* 状态色 */
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+}
+
+/* ===== 页面背景 ===== */
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ===== 卡片样式 ===== */
+.dark .bg-white,
+.dark [class*="bg-white"] {
+  background-color: var(--bg-card) !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: var(--bg-page) !important;
+}
+
+/* ===== 侧边栏 ===== */
+.dark aside,
+.dark [class*="sidebar"] {
+  background-color: var(--bg-sidebar) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* ===== 文字颜色适配 ===== */
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: var(--text-secondary) !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+/* ===== 边框颜色 ===== */
+.dark .border-slate-200,
+.dark .border-slate-100 {
+  border-color: var(--border-color) !important;
+}
+
+/* ===== 表格样式 ===== */
+.dark table,
+.dark [class*="table"] {
+  border-color: var(--border-color);
+}
+
+.dark tr:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+/* ===== 输入框样式 ===== */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* ===== 下拉菜单/弹窗 ===== */
+.dark [role="dialog"],
+.dark [role="listbox"],
+.dark [role="menu"] {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* ===== 滚动条夜间适配 ===== */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: var(--bg-page);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* ===== 图表/统计卡片 ===== */
+.dark [class*="chart"] {
+  filter: brightness(0.9);
+}
+
+/* ===== 过渡动画 ===== */
+.dark,
+.dark *,
+.dark *::before,
+.dark *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}

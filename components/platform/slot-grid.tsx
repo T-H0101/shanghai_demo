@@ -22,7 +22,7 @@ export function SlotGrid({ slots, columns = 8 }: SlotGridProps) {
               <button
                 type="button"
                 className={cn(
-                  "aspect-square rounded text-[10px] font-medium transition-colors",
+                  "aspect-square rounded text-xs font-medium transition-colors",
                   slot.occupied
                     ? "bg-blue-600 text-white hover:bg-blue-700"
                     : "bg-slate-100 text-slate-400 hover:bg-slate-200 border border-slate-200"

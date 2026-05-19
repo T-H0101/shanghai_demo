@@ -14,6 +14,10 @@ export interface AlertSettings {
   capacityWarningPercent: number
   emailNotification: boolean
   emailRecipients: string
+  pushUrl?: string
+  statusChangeCallback?: string
+  pushEnabled?: boolean
+  pushRetryOnFail?: boolean
 }
 
 export interface SecuritySettings {

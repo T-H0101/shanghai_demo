@@ -47,7 +47,7 @@ export const userStats: UserStats = {
 export const users: User[] = [
   {
     id: "u1",
-    username: "zhangjg",
+    username: "admin",
     displayName: "张建国",
     department: "信息技术部",
     role: "super_admin",
@@ -60,7 +60,7 @@ export const users: User[] = [
     phone: "138****0001",
     permissions: {
       sites: [true, true, true, true, true, true],
-      siteLabels: ["上海", "北京", "广州", "成都", "南京", "武汉"],
+      siteLabels: ["上海研发中心", "北京总部机房", "广州生产基地", "成都研发基地", "南京中⼼", "武汉备份中心"],
       devices: defaultDevices,
       volumes: defaultVolumes,
       tasks: defaultTasks,
@@ -83,7 +83,7 @@ export const users: User[] = [
     email: "wangf@corp.example.com",
     permissions: {
       sites: [false, true, false, false, false, true],
-      siteLabels: ["上海", "北京", "广州", "成都", "南京", "武汉"],
+      siteLabels: ["上海研发中心", "北京总部机房", "广州生产基地", "成都研发基地", "南京中⼼", "武汉备份中心"],
       devices: defaultDevices.map((d) => ({ ...d, checked: d.id !== "d1" })),
       volumes: defaultVolumes,
       tasks: defaultTasks,
@@ -106,7 +106,7 @@ export const users: User[] = [
     email: "chenq@corp.example.com",
     permissions: {
       sites: [false, false, true, false, false, false],
-      siteLabels: ["上海", "北京", "广州", "成都", "南京", "武汉"],
+      siteLabels: ["上海研发中心", "北京总部机房", "广州生产基地", "成都研发基地", "南京中⼼", "武汉备份中心"],
       devices: defaultDevices.map((d) => ({ ...d, checked: d.id === "d2" })),
       volumes: defaultVolumes.map((v) => ({ ...v, checked: v.id === "v4" })),
       tasks: defaultTasks.map((t) => ({ ...t, checked: t.id === "tk1" || t.id === "tk3" })),
@@ -153,7 +153,7 @@ export const users: User[] = [
     email: "guest@partner.example.com",
     permissions: {
       sites: [true, false, false, false, false, false],
-      siteLabels: ["上海", "北京", "广州", "成都", "南京", "武汉"],
+      siteLabels: ["上海研发中心", "北京总部机房", "广州生产基地", "成都研发基地", "南京中⼼", "武汉备份中心"],
       devices: [],
       volumes: defaultVolumes.map((v) => ({ ...v, checked: v.id === "v1" })),
       tasks: [],

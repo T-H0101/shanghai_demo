@@ -7,6 +7,7 @@ export type AuditTab =
   | "task"
   | "compliance"
   | "alerts"
+  | "login"
 
 export type LogType = "operation" | "security" | "system" | "task" | "compliance"
 
@@ -35,4 +36,16 @@ export interface AuditStats {
   securityEvents: number
   failedOps: number
   complianceReports: number
+}
+
+export interface AuditFilters {
+  tab?: AuditTab
+  keyword?: string
+  siteName?: string
+  operator?: string
+  result?: LogResult | "all"
+  taskType?: string
+  errorCode?: string
+  taskId?: string
+  date?: string
 }

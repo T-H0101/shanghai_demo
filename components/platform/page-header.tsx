@@ -6,9 +6,10 @@ interface PageHeaderProps {
   description?: string
   badge?: string
   actions?: ReactNode
+  extra?: ReactNode
 }
 
-export function PageHeader({ title, description, badge, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, badge, actions, extra }: PageHeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
@@ -24,7 +25,10 @@ export function PageHeader({ title, description, badge, actions }: PageHeaderPro
           <p className="text-sm text-slate-500 mt-1">{description}</p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
+      <div className="flex items-center gap-2 flex-wrap">
+        {extra && <div>{extra}</div>}
+        {actions && <div>{actions}</div>}
+      </div>
     </div>
   )
 }

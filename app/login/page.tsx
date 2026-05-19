@@ -43,6 +43,7 @@ import {
   validateSiteAccess,
 } from "@/lib/mock/auth"
 import { isAuthenticated, saveMockSession } from "@/lib/auth/session"
+import { addLoginAuditLog } from "@/store/login-audit"
 import { cn } from "@/lib/utils"
 
 const capabilities = [
@@ -74,8 +75,18 @@ export default function LoginPage() {
   const [account, setAccount] = useState("")
   const [password, setPassword] = useState("")
   const [site, setSite] = useState("")
+  const [accountError, setAccountError] = useState("")
+  const [passwordError, setPasswordError] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
+
+  // 登录失败锁定：连续失败5次后锁定30秒
+  const isLocked = failedAttempts >= 5
+
+  // 清除账号错误
+  const clearAccountError = () => setAccountError("")
+  const clearPasswordError = () => setPasswordError("")
 
   // 根据输入的账号获取可选站点
   const availableSites = (() => {
@@ -102,20 +113,48 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // 清除之前的错误
+    setAccountError("")
+    setPasswordError("")
     setError("")
+
+    // 空账号校验
+    if (!account.trim()) {
+      setAccountError("请输入域账号")
+      return
+    }
+
+    // 空密码校验
+    if (!password) {
+      setPasswordError("请输入密码")
+      return
+    }
+
+    // 检查是否被锁定
+    if (isLocked) {
+      setError("账户已被锁定，请30秒后再试")
+      addLoginAuditLog(account, account, "locked", site, "127.0.0.1", "连续登录失败，账户已锁定")
+      return
+    }
+
     setLoading(true)
 
     // 1. 校验域账号
     const user = validateMockCredentials(account, password)
     if (!user) {
-      setError("Invalid domain credentials")
+      setFailedAttempts(prev => prev + 1)
+      setPasswordError("用户名或密码错误")
+      addLoginAuditLog(account, account, "failed", site, "127.0.0.1", "密码错误")
       setLoading(false)
       return
     }
 
     // 2. 校验站点权限：用户必须被授权访问当前选中的站点
     if (!site || !validateSiteAccess(user, site)) {
-      setError("No access permission for selected site")
+      setFailedAttempts(prev => prev + 1)
+      setError("您没有访问该站点的权限，请联系管理员")
+      addLoginAuditLog(user.username, user.name, "failed", site, "127.0.0.1", "站点权限校验失败")
       setLoading(false)
       return
     }
@@ -123,7 +162,9 @@ export default function LoginPage() {
     // 3. 模拟 enterprise federation 延迟 (1.5s)
     await new Promise((resolve) => setTimeout(resolve, 1500))
 
-    // 4. 通过校验，保存会话并跳转
+    // 4. 通过校验，重置失败计数，保存会话并跳转
+    setFailedAttempts(0)
+    addLoginAuditLog(user.username, user.name, "success", site, "127.0.0.1")
     saveMockSession(user, site)
     router.replace("/")
   }
@@ -231,12 +272,17 @@ export default function LoginPage() {
                     onChange={(e) => {
                       setAccount(e.target.value)
                       setSite("")
+                      setAccountError("")
+                      setPasswordError("")
                     }}
-                    className="pl-10 h-11 bg-slate-950 border-slate-700 text-white placeholder:text-slate-600 focus-visible:ring-blue-600"
+                    onBlur={() => account.trim() === "" && setAccountError("请输入域账号")}
+                    className={cn("pl-10 h-11 bg-slate-950 text-white placeholder:text-slate-600 focus-visible:ring-blue-600", accountError ? "border-red-500" : "border-slate-700")}
                     autoComplete="username"
-                    required
                   />
                 </div>
+                {accountError && (
+                  <p className="text-xs text-red-400">{accountError}</p>
+                )}
               </div>
 
               {/* 可访问站点提示 - 输入账号后显示 */}
@@ -274,12 +320,18 @@ export default function LoginPage() {
                     type="password"
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-11 bg-slate-950 border-slate-700 text-white placeholder:text-slate-600 focus-visible:ring-blue-600"
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      setPasswordError("")
+                    }}
+                    onBlur={() => password === "" && setPasswordError("请输入密码")}
+                    className={cn("pl-10 h-11 bg-slate-950 text-white placeholder:text-slate-600 focus-visible:ring-blue-600", passwordError ? "border-red-500" : "border-slate-700")}
                     autoComplete="current-password"
-                    required
                   />
                 </div>
+                {passwordError && (
+                  <p className="text-xs text-red-400">{passwordError}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -313,9 +365,15 @@ export default function LoginPage() {
                 </p>
               )}
 
+              {isLocked && (
+                <p className="text-sm text-amber-400 bg-amber-950/50 border border-amber-900/50 rounded-lg px-3 py-2">
+                  连续登录失败次数过多，账户已临时锁定，请30秒后再试
+                </p>
+              )}
+
               <Button
                 type="submit"
-                disabled={loading || !site}
+                disabled={loading || !site || isLocked}
                 className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-medium"
               >
                 {loading ? (

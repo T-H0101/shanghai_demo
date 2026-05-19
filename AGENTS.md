@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ---
 
@@ -149,7 +149,7 @@ Agent({ subagent_type: "test-results-analyzer", prompt: "运行 pnpm build 验�
 
 ## 五、文档输出规范
 
-- 除 CLAUDE.md 外，所有代码、注释、文档使用**中文**
+- 除 AGENTS.md 外，所有代码、注释、文档使用**中文**
 - 变量/函数命名保持英文（代码规范）
 - 提交信息使用中文，描述清楚改动内容
 - Agent 生成的文档需人工复核后再提交

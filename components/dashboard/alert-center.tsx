@@ -22,7 +22,7 @@ export function AlertCenter() {
               运维告警
             </CardTitle>
           </div>
-          <Badge className="bg-red-600 text-white hover:bg-red-600 text-[10px]">
+          <Badge className="bg-red-600 text-white hover:bg-red-600 text-xs">
             {taskAlerts.length} ACTIVE
           </Badge>
         </div>
@@ -36,18 +36,18 @@ export function AlertCenter() {
                 <div key={alert.id} className={`p-2 rounded border-l-2 ${cfg.border} ${cfg.bg}`}>
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[9px] px-1 py-0.5 rounded ${cfg.color} text-white font-medium`}>
+                      <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium">
                         {cfg.label}
                       </span>
-                      <span className="text-[10px] font-medium text-slate-700 truncate max-w-[140px]">
+                      <span className="text-xs font-medium text-slate-700 truncate max-w-[140px]">
                         {alert.taskName}
                       </span>
                     </div>
-                    <span className="text-[9px] text-slate-400 shrink-0 flex items-center gap-0.5">
-                      <Clock className="h-2.5 w-2.5" />{alert.time}
+                    <span className="text-xs text-slate-400 shrink-0 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />{alert.time}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-600 leading-snug">
+                  <p className="text-xs text-slate-600 leading-relaxed">
                     {alert.message}
                   </p>
                 </div>
@@ -56,13 +56,13 @@ export function AlertCenter() {
           </div>
         </ScrollArea>
 
-        <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-[9px] text-slate-500">
-            <span className="flex items-center gap-0.5"><XCircle className="h-2.5 w-2.5 text-red-500" />未确认</span>
-            <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5 text-amber-500" />处理中</span>
-            <span className="flex items-center gap-0.5"><CheckCircle className="h-2.5 w-2.5 text-emerald-500" />已解决</span>
+        <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-4 text-xs text-slate-500">
+            <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-red-500" />未确认</span>
+            <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-amber-500" />处理中</span>
+            <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-emerald-500" />已解决</span>
           </div>
-          <button className="text-[10px] text-blue-600 hover:text-blue-700">
+          <button className="text-xs text-blue-600 hover:text-blue-700">
             告警历史 &rarr;
           </button>
         </div>

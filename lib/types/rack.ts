@@ -1,5 +1,17 @@
 export type RackStatus = "normal" | "warning" | "fault" | "maintenance"
 
+export interface TransferRecord {
+  id: string
+  fromSite: string
+  toSite: string
+  reason: string
+  operator: string
+  approver: string
+  requestedAt: string
+  completedAt?: string
+  status: "pending" | "in_transit" | "completed" | "cancelled"
+}
+
 export interface RackSlot {
   id: string
   index: number
@@ -23,6 +35,7 @@ export interface Rack {
   floor?: string
   room?: string
   slots: RackSlot[]
+  transferHistory?: TransferRecord[]
 }
 
 export interface RackStats {

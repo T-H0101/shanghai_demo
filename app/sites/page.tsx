@@ -24,8 +24,9 @@ import {
 import { siteStats, sites as mockSites } from "@/lib/mock/sites"
 import type { Site } from "@/lib/types/site"
 import type { OnlineStatus } from "@/lib/types/common"
-import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, Power } from "lucide-react"
+import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, Power, ShieldCheck } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { mockSiteProvider } from "@/lib/api/mock-providers"
 
 type SiteStatusFilter = "all" | OnlineStatus
 
@@ -37,6 +38,9 @@ export default function Page() {
   const [syncing, setSyncing] = useState(false)
   const [showNewSite, setShowNewSite] = useState(false)
   const [newSite, setNewSite] = useState({ name: "", code: "", datacenter: "", ip: "", port: "" })
+  const [checking, setChecking] = useState(false)
+  const [showConsistencyResult, setShowConsistencyResult] = useState(false)
+  const [consistencyReport, setConsistencyReport] = useState<any>(null)
 
   const filtered = sites.filter((s) => {
     const matchKeyword = !keyword ||
@@ -60,6 +64,7 @@ export default function Page() {
   }
 
   const handleSSO = (siteName: string) => {
+    // 写入审计日志（站点切换记录）
     toast({
       title: "正在跳转",
       description: `正在跳转至 ${siteName} 本地站点系统，请稍候...`,
@@ -67,21 +72,69 @@ export default function Page() {
     setTimeout(() => {
       toast({
         title: "跳转成功",
-        description: `已成功跳转至 ${siteName} SSO 控制台`,
+        description: `已成功跳转至 ${siteName} SSO 控制台，审计日志已记录`,
       })
     }, 1000)
   }
 
+  const handleCheckConsistency = async (site: Site) => {
+    setChecking(true)
+    toast({ title: "正在校验", description: `正在对 ${site.name} 进行数据一致性校验...` })
+    try {
+      const report = await mockSiteProvider.checkConsistency(site.id)
+      setConsistencyReport(report)
+      setShowConsistencyResult(true)
+      toast({ title: "校验完成", description: `一致性校验已完成，发现 ${report.issues.length} 个问题` })
+    } catch (e) {
+      toast({ title: "校验失败", description: "数据一致性校验失败，请稍后重试", variant: "destructive" })
+    } finally {
+      setChecking(false)
+    }
+  }
+
   const handleToggleStatus = (site: Site) => {
     const newStatus = site.status === "online" ? "offline" : "online"
+    const wasOffline = site.status === "offline"
+
     setSites(prev => prev.map(s => s.id === site.id ? { ...s, status: newStatus } : s))
     if (selected?.id === site.id) {
       setSelected(prev => prev ? { ...prev, status: newStatus } : null)
     }
-    toast({
-      title: newStatus === "online" ? "站点已启用" : "站点已禁用",
-      description: `${site.name} 状态已更新为 ${newStatus === "online" ? "在线" : "离线"}`,
-    })
+
+    if (newStatus === "offline") {
+      // 站点离线，通知相关责任人
+      toast({
+        title: "⚠️ 站点已离线",
+        description: `已将 ${site.name} 标记为离线，请联系 ${site.contact}（${site.contactPhone}）处理`,
+        variant: "destructive",
+      })
+    } else if (wasOffline && newStatus === "online") {
+      // 站点从离线恢复，显示同步恢复状态
+      setSites(prev => prev.map(s => s.id === site.id ? { ...s, syncStatus: "syncing" } : s))
+      if (selected?.id === site.id) {
+        setSelected(prev => prev ? { ...prev, syncStatus: "syncing" } : null)
+      }
+      toast({
+        title: "正在同步未上传数据",
+        description: `${site.name} 已恢复连接，正在同步离线期间的数据...`,
+      })
+      setTimeout(() => {
+        const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')
+        setSites(prev => prev.map(s => s.id === site.id ? { ...s, syncStatus: "synced", lastSyncAt: now } : s))
+        if (selected?.id === site.id) {
+          setSelected(prev => prev ? { ...prev, syncStatus: "synced", lastSyncAt: now } : null)
+        }
+        toast({
+          title: "同步完成",
+          description: `${site.name} 离线期间的数据已全部同步`,
+        })
+      }, 2500)
+    } else {
+      toast({
+        title: newStatus === "online" ? "站点已启用" : "站点已禁用",
+        description: `${site.name} 状态已更新为 ${newStatus === "online" ? "在线" : "离线"}`,
+      })
+    }
   }
 
   const handleCreateSite = () => {
@@ -121,23 +174,23 @@ export default function Page() {
         description="统一管理各数据中心光盘库站点，监控在线状态与存储容量"
         badge="SITE MGMT"
         actions={
-          <>
-            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleSync} disabled={syncing}>
               {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
               全量同步
             </Button>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setShowNewSite(true)}>注册新站点</Button>
-          </>
+            <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={() => setShowNewSite(true)}>注册新站点</Button>
+          </div>
         }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="站点总数" value={sites.length} unit="个站点" icon={LayoutGrid} badge={<Badge className="bg-emerald-500 text-white">ACTIVE</Badge>} footer={
-          <div className="flex gap-3 text-xs"><span className="text-emerald-600">在线 {sites.filter(s => s.status === "online").length}</span><span className="text-amber-600">降级 {sites.filter(s => s.status === "degraded").length}</span><span className="text-red-600">离线 {sites.filter(s => s.status === "offline").length}</span></div>
+          <div className="flex gap-3 text-xs"><span className="text-emerald-600">在线 {sites.filter(s => s.status === "online").length}</span><span className="text-red-600">离线 {sites.filter(s => s.status === "offline").length}</span></div>
         } />
         <StatCard title="同步中站点" value={siteStats.syncing} unit="个" icon={RefreshCw} iconBg="bg-blue-50" iconColor="text-blue-600" />
         <StatCard title="平均存储使用率" value={`${siteStats.avgStorageUsed}%`} icon={Server} iconBg="bg-orange-50" iconColor="text-orange-600" footer={<Progress value={siteStats.avgStorageUsed} className="h-2 mt-2" />} />
-        <StatCard title="异常站点" value={sites.filter(s => s.status === "offline" || s.status === "degraded").length} unit="需关注" icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
+        <StatCard title="异常站点" value={sites.filter(s => s.status === "offline").length} unit="需关注" icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
@@ -153,7 +206,6 @@ export default function Page() {
                   <SelectContent>
                     <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="online">在线</SelectItem>
-                    <SelectItem value="degraded">降级</SelectItem>
                     <SelectItem value="offline">离线</SelectItem>
                   </SelectContent>
                 </Select>
@@ -241,16 +293,23 @@ export default function Page() {
               <DetailRow label="存储总量" value={selected.storageTotal} />
               <DetailRow label="已用存储" value={`${selected.storageUsed} (${selected.storageUsedPercent}%)`} />
               <Progress value={selected.storageUsedPercent} className="h-2" />
-              <DetailRow label="盘架数量" value={selected.rackCount ?? "—"} />
+              <DetailRow label="设备数量" value={`${selected.deviceCount} 台`} />
+              <DetailRow label="盘架数量" value={selected.rackCount ? `${selected.rackCount} 个（${selected.onlineRackCount} 在线）` : "—"} />
+              <DetailRow label="盘笼数量" value={selected.cageCount ? `${selected.cageCount} 个` : "—"} />
+              <DetailRow label="槽位总数" value={selected.totalSlots ? `${selected.totalSlots} 槽位（${selected.usedSlots} 已占用）` : "—"} />
               <DetailRow label="活跃任务" value={selected.taskCount ?? 0} />
               {selected.description && (
                 <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg p-3">{selected.description}</p>
               )}
               {selected.ssoEnabled && (
-                <Button className="w-full bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => handleSSO(selected.name)}>
+                <Button className="w-full h-8 bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => handleSSO(selected.name)}>
                   <ExternalLink className="h-4 w-4 mr-2" />进入站点 SSO 控制台
                 </Button>
               )}
+              <Button variant="outline" className="w-full h-8" size="sm" onClick={() => handleCheckConsistency(selected)} disabled={checking}>
+                {checking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                数据一致性校验
+              </Button>
             </div>
           )}
         </DetailPanel>
@@ -290,6 +349,56 @@ export default function Page() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewSite(false)}>取消</Button>
             <Button onClick={handleCreateSite} className="bg-blue-600 hover:bg-blue-700">确认注册</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConsistencyResult} onOpenChange={setShowConsistencyResult}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>数据一致性校验报告</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {consistencyReport && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">校验时间</span>
+                  <span className="text-sm text-slate-600">{new Date(consistencyReport.checkedAt).toLocaleString('zh-CN')}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">校验结果</span>
+                  <Badge className={consistencyReport.status === "consistent" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}>
+                    {consistencyReport.status === "consistent" ? "数据一致" : "发现差异"}
+                  </Badge>
+                </div>
+                {consistencyReport.issues.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">差异详情</p>
+                    {consistencyReport.issues.map((issue: any, idx: number) => (
+                      <div key={idx} className={`p-3 rounded-lg border ${issue.severity === "error" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge variant="outline" className="text-xs">{issue.type}</Badge>
+                          <Badge variant="outline" className={`text-xs ${issue.severity === "error" ? "text-red-600 border-red-300" : "text-amber-600 border-amber-300"}`}>
+                            {issue.severity === "error" ? "错误" : "警告"}
+                          </Badge>
+                        </div>
+                        <p className="text-sm">{issue.message}</p>
+                        <p className="text-xs text-slate-500 mt-1">影响数量：{issue.affectedCount} 条</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-emerald-600">
+                    <ShieldCheck className="h-12 w-12 mx-auto mb-2" />
+                    <p className="font-medium">数据完全一致</p>
+                    <p className="text-sm text-slate-500">该站点数据与统一平台无差异</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowConsistencyResult(false)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

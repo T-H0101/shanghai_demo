@@ -21,10 +21,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { taskStats, tasks as mockTasks, taskLogs as mockTaskLogs, taskAlerts } from "@/lib/mock/tasks"
+import { sites as mockSites } from "@/lib/mock/sites"
 import type { TaskItem, TaskType } from "@/lib/types/task"
 import type { TaskStatus, Priority } from "@/lib/types/common"
-import { Activity, Pause, Play, RotateCcw, RefreshCw, AlertTriangle, ClipboardList, Search, Loader2 } from "lucide-react"
+import { Activity, Pause, Play, RotateCcw, RefreshCw, AlertTriangle, ClipboardList, Search, Loader2, Download, WifiOff } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { getSession } from "@/lib/auth/session"
 
 const typeLabels: Record<TaskType, string> = { backup: "备份任务", restore: "恢复任务", inspect: "巡检任务", burn: "刻录任务" }
 const typeColors: Record<TaskType, string> = {
@@ -43,6 +45,31 @@ export default function Page() {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
   const [showNewTask, setShowNewTask] = useState(false)
   const [newTask, setNewTask] = useState({ name: "", type: "backup" as TaskType, siteCode: "SH-RD-01", priority: "normal" as Priority })
+  const [exporting, setExporting] = useState(false)
+  const [showOfflineQueue, setShowOfflineQueue] = useState(false)
+  const siteNameByCode = Object.fromEntries(mockSites.map((site) => [site.code, site.name]))
+  const nowString = () => new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+  const nowTime = () => new Date().toLocaleTimeString("zh-CN", { hour12: false })
+
+  const appendTaskLog = (taskId: string, level: "info" | "warn" | "error", message: string, operator = "系统") => {
+    setTaskLogs((prev) => [
+      {
+        id: `l${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        taskId,
+        timestamp: nowTime(),
+        level,
+        message,
+        operator,
+      },
+      ...prev,
+    ])
+  }
+
+  // 计算离线队列中的任务（目标站点离线的待下发任务）
+  const offlineQueueTasks = tasks.filter(t => {
+    const site = mockSites.find(s => s.code === t.siteCode)
+    return site?.status === "offline" && (t.status === "pending_dispatch" || t.status === "queued")
+  })
 
   const filtered = tasks.filter((t) => {
     const matchTab = tab === "all" || t.type === tab
@@ -54,34 +81,78 @@ export default function Page() {
   const logs = taskLogs.filter((l) => !selected || l.taskId === selected.id)
 
   const handlePause = (task: TaskItem) => {
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "paused" } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, status: "paused" } : null)
+    const updatedAt = nowString()
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "paused", updatedAt } : t))
+    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, status: "paused", updatedAt } : null)
+    appendTaskLog(task.id, "warn", `[${task.type.toUpperCase()}] 任务已暂停，等待人工恢复`, task.operator)
     toast({ title: "任务已暂停", description: `任务「${task.name}」已暂停执行` })
   }
 
   const handleResume = (task: TaskItem) => {
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "running" } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, status: "running" } : null)
+    const updatedAt = nowString()
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "running", updatedAt } : t))
+    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, status: "running", updatedAt } : null)
+    appendTaskLog(task.id, "info", `[${task.type.toUpperCase()}] 任务已恢复执行`, task.operator)
     toast({ title: "任务已恢复", description: `任务「${task.name}」已恢复执行` })
   }
 
   const handleRetry = (task: TaskItem) => {
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "running", errorMessage: undefined } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, status: "running", errorMessage: undefined } : null)
+    const updatedAt = nowString()
+    setTasks(prev => prev.map(t => t.id === task.id ? {
+      ...t,
+      status: "running",
+      errorMessage: undefined,
+      retryCount: (t.retryCount || 0) + 1,
+      lastRetryAt: updatedAt,
+      updatedAt,
+    } : t))
+    if (selected?.id === task.id) {
+      setSelected(prev => prev ? {
+        ...prev,
+        status: "running",
+        errorMessage: undefined,
+        retryCount: (prev.retryCount || 0) + 1,
+        lastRetryAt: updatedAt,
+        updatedAt,
+      } : null)
+    }
+    appendTaskLog(task.id, "warn", `[${task.type.toUpperCase()}] 任务失败后触发第 ${(task.retryCount || 0) + 1} 次重试`, task.operator)
     toast({ title: "任务重试中", description: `任务「${task.name}」正在重新执行` })
   }
 
   const handleReset = (task: TaskItem) => {
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, progress: 0, status: "queued" } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, progress: 0, status: "queued" } : null)
+    const updatedAt = nowString()
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, progress: 0, status: "queued", updatedAt } : t))
+    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, progress: 0, status: "queued", updatedAt } : null)
+    appendTaskLog(task.id, "info", `[${task.type.toUpperCase()}] 任务已重置，等待重新下发`, task.operator)
     toast({ title: "任务已重置", description: `任务「${task.name}」进度已重置为 0%` })
   }
 
   const handlePriorityBoost = (task: TaskItem) => {
     const newPriority = task.priority === "high" ? "normal" : "high"
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, priority: newPriority } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, priority: newPriority } : null)
+    const updatedAt = nowString()
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, priority: newPriority, updatedAt } : t))
+    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, priority: newPriority, updatedAt } : null)
+    appendTaskLog(task.id, "info", `[${task.type.toUpperCase()}] 任务优先级已调整为 ${newPriority === "high" ? "高" : "普通"}`, task.operator)
     toast({ title: newPriority === "high" ? "优先级已提升" : "优先级已恢复", description: `任务「${task.name}」优先级已设为${newPriority === "high" ? "高" : "普通"}` })
+  }
+
+  const handleExportLog = () => {
+    if (!selected) return
+    setExporting(true)
+    toast({ title: `正在导出任务日志...`, description: "请稍候，正在生成文件并添加数字签名" })
+    setTimeout(() => {
+      setExporting(false)
+      const logContent = logs.map(l => `[${l.timestamp}] [${l.level.toUpperCase()}] ${l.message}`).join('\n')
+      const blob = new Blob([logContent], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `task_${selected.id}_${Date.now()}.log`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: "导出成功", description: `任务「${selected.name}」的日志已导出为 .log 文件，共 ${logs.length} 条记录` })
+    }, 1500)
   }
 
   const handleCreateTask = () => {
@@ -89,29 +160,81 @@ export default function Page() {
       toast({ title: "请填写任务名称", variant: "destructive" })
       return
     }
+
+    // 权限最小化校验：集团管理员不能操作刻录/回迁任务
+    const session = getSession()
+    const isSuperAdmin = session?.role === "集团超级管理员" || session?.roleLevel === "group_admin"
+    if (isSuperAdmin && (newTask.type === "burn" || newTask.type === "restore")) {
+      toast({
+        title: "权限不足",
+        description: "集团管理员账户不能直接发起刻录/回迁任务，此类操作需由站点操作员在本地系统执行",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // 检查目标站点是否离线
+    const targetSite = mockSites.find(s => s.code === newTask.siteCode)
+    const isSiteOffline = targetSite?.status === "offline"
+
     const task: TaskItem = {
       id: `t${Date.now()}`,
       name: newTask.name,
       type: newTask.type,
-      status: "queued",
+      status: isSiteOffline ? "queued" : "pending_dispatch",
       priority: newTask.priority,
       progress: 0,
-      siteName: newTask.siteCode,
+      siteName: siteNameByCode[newTask.siteCode] ?? newTask.siteCode,
       siteCode: newTask.siteCode,
       operator: "张建国",
       startedAt: "—",
-      updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
+      updatedAt: nowString(),
     }
     setTasks(prev => [...prev, task])
+    setSelected(task)
+    appendTaskLog(task.id, "info", `[${task.type.toUpperCase()}] 任务创建完成，进入${isSiteOffline ? "离线队列" : "待下发"}状态`, "张建国")
     setShowNewTask(false)
     setNewTask({ name: "", type: "backup", siteCode: "SH-RD-01", priority: "normal" })
-    toast({ title: "任务创建成功", description: `任务「${task.name}」已提交，等待调度执行` })
+
+    if (isSiteOffline) {
+      toast({
+        title: "任务已创建（离线队列）",
+        description: `目标站点 ${targetSite?.name} 当前离线，任务已加入离线队列等待站点恢复`
+      })
+      return
+    }
+
+    toast({ title: "任务创建成功", description: `任务「${task.name}」已提交，正在等待下发至目标站点...` })
+
+    // 模拟任务下发流程：pending_dispatch -> dispatched -> running
+    setTimeout(() => {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "dispatched" } : t))
+      if (selected?.id === task.id) {
+        setSelected(prev => prev ? { ...prev, status: "dispatched", updatedAt: nowString() } : null)
+      }
+      appendTaskLog(task.id, "info", `[${task.type.toUpperCase()}] 任务已成功下发到站点执行队列`, "系统")
+      toast({ title: "任务已下发", description: `任务「${task.name}」已成功下发至 ${task.siteName}，正在等待执行...` })
+    }, 1500)
+
+    setTimeout(() => {
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "running", startedAt: nowString(), updatedAt: nowString() } : t))
+      if (selected?.id === task.id) {
+        setSelected(prev => prev ? { ...prev, status: "running", startedAt: nowString(), updatedAt: nowString() } : null)
+      }
+      appendTaskLog(task.id, "info", `[${task.type.toUpperCase()}] 任务开始执行`, "系统")
+    }, 3000)
   }
 
   return (
     <AppShell>
       <PageHeader title="任务管理" description="备份、恢复、巡检、刻录任务统一调度" badge="TASK CENTER"
-        actions={<Button size="sm" className="bg-blue-600" onClick={() => setShowNewTask(true)}><ClipboardList className="h-4 w-4 mr-1" />新建任务</Button>} />
+        actions={<Button size="sm" className="bg-blue-600" onClick={() => setShowNewTask(true)}><ClipboardList className="h-4 w-4 mr-1" />新建任务</Button>}
+        extra={offlineQueueTasks.length > 0 ? (
+          <Button variant="outline" size="sm" className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" onClick={() => setShowOfflineQueue(true)}>
+            <WifiOff className="h-4 w-4 mr-1" />离线队列 ({offlineQueueTasks.length})
+          </Button>
+        ) : null}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="任务总数" value={tasks.length} unit="个" icon={Activity} badge={<Badge className="bg-slate-900 text-white">LIVE</Badge>} />
@@ -153,6 +276,8 @@ export default function Page() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部状态</SelectItem>
+                    <SelectItem value="pending_dispatch">待下发</SelectItem>
+                    <SelectItem value="dispatched">已下发</SelectItem>
                     <SelectItem value="running">运行中</SelectItem>
                     <SelectItem value="paused">已暂停</SelectItem>
                     <SelectItem value="failed">失败</SelectItem>
@@ -216,7 +341,13 @@ export default function Page() {
           </CardContent>
         </Card>
 
-        <DetailPanel title="实时任务日志" subtitle={selected?.name} empty={!selected}>
+        <DetailPanel title="实时任务日志" subtitle={selected?.name} empty={!selected}
+          actions={selected && (
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportLog} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+              导出日志
+            </Button>
+          )}>
           <ScrollArea className="h-[400px]">
             <div className="space-y-2 font-mono text-xs">
               {logs.length === 0 ? (
@@ -284,6 +415,35 @@ export default function Page() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewTask(false)}>取消</Button>
             <Button onClick={handleCreateTask} className="bg-blue-600 hover:bg-blue-700">确认创建</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showOfflineQueue} onOpenChange={setShowOfflineQueue}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle><WifiOff className="h-5 w-5 inline mr-2 text-amber-600" />离线任务队列</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-slate-600">以下任务因目标站点离线而暂停下发，等待站点恢复后将自动继续：</p>
+            {offlineQueueTasks.length === 0 ? (
+              <p className="text-center py-8 text-slate-400">当前无离线队列任务</p>
+            ) : (
+              <div className="space-y-2">
+                {offlineQueueTasks.map(t => (
+                  <div key={t.id} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">{t.name}</p>
+                      <p className="text-xs text-slate-500">{t.siteName} · {typeLabels[t.type]}</p>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-700">等待站点恢复</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowOfflineQueue(false)}>关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

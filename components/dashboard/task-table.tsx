@@ -40,7 +40,7 @@ export function TaskTable() {
             <CardTitle className="text-sm font-semibold text-slate-900">
               任务执行队列
             </CardTitle>
-            <Badge className="bg-red-600 text-white hover:bg-red-600 text-[10px] px-1.5">
+            <Badge className="bg-red-600 text-white hover:bg-red-600 text-xs px-1.5">
               {runningTasks.length} ACTIVE
             </Badge>
           </div>
@@ -51,19 +51,19 @@ export function TaskTable() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-slate-100">
-              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+              <TableHead className="text-xs font-medium text-slate-500 uppercase h-8">
                 任务名 / ID
               </TableHead>
-              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+              <TableHead className="text-xs font-medium text-slate-500 uppercase h-8">
                 站点 / 设备
               </TableHead>
-              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+              <TableHead className="text-xs font-medium text-slate-500 uppercase h-8">
                 类型
               </TableHead>
-              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+              <TableHead className="text-xs font-medium text-slate-500 uppercase h-8">
                 进度 / 速率
               </TableHead>
-              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+              <TableHead className="text-xs font-medium text-slate-500 uppercase h-8">
                 状态
               </TableHead>
             </TableRow>
@@ -79,21 +79,21 @@ export function TaskTable() {
               <TableRow key={task.id} className="hover:bg-slate-50 border-b border-slate-50">
                 <TableCell className="py-2">
                   <p className="font-medium text-slate-900 text-xs">{task.name}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{task.id} / {task.siteCode}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{task.id} / {task.siteCode}</p>
                 </TableCell>
                 <TableCell className="py-2">
                   <p className="text-xs text-slate-700">{task.siteName}</p>
-                  <p className="text-[10px] text-slate-400">{task.deviceName || "—"}</p>
+                  <p className="text-xs text-slate-400">{task.deviceName || "—"}</p>
                 </TableCell>
                 <TableCell className="py-2">
-                  <Badge variant="outline" className={`${typeColors[task.type] || "bg-slate-100 text-slate-700"} text-[10px] px-1.5 py-0`}>
+                  <Badge variant="outline" className={`${typeColors[task.type] || "bg-slate-100 text-slate-700"} text-xs px-1.5 py-0`}>
                     {typeLabels[task.type] || task.type}
                   </Badge>
                 </TableCell>
                 <TableCell className="py-2 min-w-[100px]">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] text-slate-600">{task.progress}%</span>
-                    <span className="text-[10px] text-slate-400">{task.speed || "—"}</span>
+                    <span className="text-xs text-slate-600">{task.progress}%</span>
+                    <span className="text-xs text-slate-400">{task.speed || "—"}</span>
                   </div>
                   <Progress value={task.progress} className="h-1" />
                 </TableCell>

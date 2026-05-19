@@ -18,8 +18,14 @@ export interface Site {
   storageUsed: string
   region: string
   ssoEnabled: boolean
+  syncDelay?: number
+  alertCount?: number
   description?: string
   rackCount?: number
+  onlineRackCount?: number
+  cageCount?: number
+  totalSlots?: number
+  usedSlots?: number
   taskCount?: number
 }
 

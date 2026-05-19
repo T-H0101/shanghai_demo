@@ -11,12 +11,12 @@ export default function Page() {
   return (
     <AppShell>
       <StatsCards />
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6 items-stretch">
         <div className="xl:col-span-2">
-          <SyncTrendChart />
+          <SyncTrendChart className="h-full" />
         </div>
         <div>
-          <SiteHealthHeatmap />
+          <SiteHealthHeatmap className="h-full" />
         </div>
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
