@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   BarChart,
   Bar,
@@ -10,64 +10,65 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts"
 
 const chartData = [
-  { date: "05月6", 备份: 45, 还原: 32, 校验: 28 },
-  { date: "05月7", 备份: 52, 还原: 38, 校验: 35 },
-  { date: "05月8", 备份: 48, 还原: 42, 校验: 32 },
-  { date: "05月9", 备份: 55, 还原: 35, 校验: 38 },
-  { date: "05月0", 备份: 62, 还原: 45, 校验: 42 },
-  { date: "05月1", 备份: 58, 还原: 48, 校验: 45 },
-  { date: "今日", 备份: 85, 还原: 65, 校验: 55 },
+  { time: "08:00", backup: 12, restore: 8, verify: 5 },
+  { time: "09:00", backup: 18, restore: 12, verify: 9 },
+  { time: "10:00", backup: 24, restore: 15, verify: 12 },
+  { time: "11:00", backup: 21, restore: 18, verify: 8 },
+  { time: "12:00", backup: 15, restore: 10, verify: 6 },
+  { time: "13:00", backup: 28, restore: 22, verify: 14 },
+  { time: "14:00", backup: 35, restore: 25, verify: 18 },
 ]
 
 export function SyncTrendChart() {
   return (
     <Card className="gap-0">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-semibold text-slate-900">
-              7日同步统计
+              14日同步统计
             </CardTitle>
+            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-[10px]">
+              14:32:05
+            </Badge>
           </div>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-slate-500"></span>
-              备份
+          <div className="flex items-center gap-3 text-[10px] text-slate-500">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-slate-600"></span>备份
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-slate-400"></span>
-              还原
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-slate-400"></span>恢复
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-slate-300"></span>
-              校验
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-slate-300"></span>巡检
             </span>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="h-56">
+        <div className="h-44">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
               margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
-              barCategoryGap="30%"
+              barCategoryGap="25%"
+              barGap={2}
             >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="1 1" vertical={false} stroke="#e2e8f0" />
               <XAxis
-                dataKey="date"
+                dataKey="time"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                width={20}
               />
               <Tooltip
                 contentStyle={{
@@ -78,9 +79,9 @@ export function SyncTrendChart() {
                   fontSize: "11px",
                 }}
               />
-              <Bar dataKey="备份" fill="#64748b" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="还原" fill="#94a3b8" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="校验" fill="#cbd5e1" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="backup" fill="#475569" radius={[1, 1, 0, 0]} />
+              <Bar dataKey="restore" fill="#94a3b8" radius={[1, 1, 0, 0]} />
+              <Bar dataKey="verify" fill="#cbd5e1" radius={[1, 1, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

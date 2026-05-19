@@ -1,92 +1,52 @@
 "use client"
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { sites } from "@/lib/mock/sites"
+import { OnlineStatusBadge } from "@/components/platform/status-badges"
 
-type SiteStatus = "normal" | "warning" | "critical"
-
-interface Site {
-  name: string
-  status: SiteStatus
-  label: string
-  metric?: string
-}
-
-const sites: Site[] = [
-  { name: "北京", status: "normal", label: "健康hy", metric: "Latency: 12ms" },
-  { name: "上海", status: "normal", label: "健康hy", metric: "Latency: 8ms" },
-  { name: "深圳", status: "normal", label: "High Load", metric: "CPU: 88%" },
-  { name: "成都", status: "normal", label: "健康hy", metric: "Latency: 24ms" },
-  { name: "广州", status: "critical", label: "Abnorm异", metric: "Offline" },
-  { name: "天津", status: "normal", label: "健康hy", metric: "Latency: 18ms" },
-]
-
-const statusColors: Record<SiteStatus, string> = {
-  normal: "bg-emerald-500 hover:bg-emerald-600",
-  warning: "bg-amber-500 hover:bg-amber-600",
-  critical: "bg-red-500 hover:bg-red-600",
-}
+const statusRank: Record<string, number> = { online: 0, degraded: 1, offline: 2 }
 
 export function SiteHealthHeatmap() {
+  const sorted = [...sites].sort((a, b) => statusRank[a.status] - statusRank[b.status])
+
   return (
     <Card className="gap-0">
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-base font-semibold text-slate-900">
-              站点健康热力图
-            </CardTitle>
-            <p className="text-xs text-slate-500 mt-1">
-              核心城市机房实时状态
-            </p>
-          </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <RefreshCw className="h-4 w-4 text-slate-500" />
-          </Button>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold text-slate-900">
+            站点状态总览
+          </CardTitle>
+          <span className="text-[10px] text-slate-400">
+            {sites.filter(s => s.status === "online").length}/{sites.length} 在线
+          </span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {/* Sites Grid */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {sites.map((site) => (
-            <div
-              key={site.name}
-              className={cn(
-                "p-3 rounded-lg text-white text-center cursor-pointer transition-colors",
-                statusColors[site.status]
-              )}
-            >
-              <p className="font-semibold text-sm">{site.name}</p>
-              <p className="text-xs opacity-90">{site.label}</p>
+        <div className="space-y-2">
+          {sorted.map((site) => (
+            <div key={site.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-50">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${
+                  site.status === "online" ? "bg-emerald-500" :
+                  site.status === "degraded" ? "bg-amber-500" : "bg-red-500"
+                }`} />
+                <span className="text-xs font-medium text-slate-700">{site.name}</span>
+                <span className="text-[10px] text-slate-400">{site.code}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-slate-400">{site.ip}</span>
+                <OnlineStatusBadge status={site.status} />
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Metrics */}
-        <div className="grid grid-cols-3 gap-3 mb-4 text-xs text-slate-500">
-          <div className="text-center">Latency: 12ms</div>
-          <div className="text-center">Latency: 8ms</div>
-          <div className="text-center">CPU: 88%</div>
-          <div className="text-center">Latency: 24ms</div>
-          <div className="text-center text-red-500">Offline</div>
-          <div className="text-center">Latency: 18ms</div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-6 pt-3 border-t border-slate-100">
-          <span className="flex items-center gap-1.5 text-xs text-slate-600">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-            NORMAL
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-slate-600">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-            WARNING
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-slate-600">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500"></span>
-            CRITICAL
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+          <span>最后同步: 14:32:05</span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> 正常
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 ml-2" /> 降级
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 ml-2" /> 离线
           </span>
         </div>
       </CardContent>

@@ -11,167 +11,94 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { tasks as mockTasks } from "@/lib/mock/tasks"
+import { TaskStatusBadge, PriorityBadge } from "@/components/platform/status-badges"
 
-interface Task {
-  id: string
-  name: string
-  uuid: string
-  site: string
-  siteCode: string
-  opType: "RECOVER" | "BACKUP" | "VERIFY"
-  progress: number
-  speed: string
-  status: "RUNNING" | "PAUSED"
-  hasError?: boolean
+const typeLabels: Record<string, string> = {
+  backup: "备份",
+  restore: "恢复",
+  inspect: "巡检",
+  burn: "刻录",
 }
 
-const tasks: Task[] = [
-  {
-    id: "1",
-    name: "临床试验数据回迁_A09",
-    uuid: "UUID: 82ef-91be-22cc",
-    site: "上海研发中心三",
-    siteCode: "B101",
-    opType: "RECOVER",
-    progress: 78,
-    speed: "420 MB/s",
-    status: "RUNNING",
-  },
-  {
-    id: "2",
-    name: "年度合规归档_2023_P1",
-    uuid: "UUID: a01c-6622-df31",
-    site: "北京总部机房三",
-    siteCode: "V02",
-    opType: "BACKUP",
-    progress: 45,
-    speed: "1.2 GB/s",
-    status: "RUNNING",
-  },
-  {
-    id: "3",
-    name: "磁盘健康度批量校验_H1",
-    uuid: "UUID: d921-bc01-ee0a",
-    site: "广州生产基地三",
-    siteCode: "S04",
-    opType: "VERIFY",
-    progress: 12,
-    speed: "I/O ERROR",
-    status: "PAUSED",
-    hasError: true,
-  },
-]
-
-const opTypeColors = {
-  RECOVER: "bg-cyan-100 text-cyan-700 border-cyan-200",
-  BACKUP: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  VERIFY: "bg-orange-100 text-orange-700 border-orange-200",
+const typeColors: Record<string, string> = {
+  backup: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  restore: "bg-cyan-100 text-cyan-700 border-cyan-200",
+  inspect: "bg-orange-100 text-orange-700 border-orange-200",
+  burn: "bg-purple-100 text-purple-700 border-purple-200",
 }
+
+// 实时任务：只显示running状态的任务
+const runningTasks = mockTasks.filter(t => t.status === "running" || t.status === "paused")
 
 export function TaskTable() {
   return (
     <Card className="gap-0">
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-base font-semibold text-slate-900">
-              实时任务流水线
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-sm font-semibold text-slate-900">
+              任务执行队列
             </CardTitle>
-            <Badge className="bg-slate-900 text-white hover:bg-slate-900 text-xs">
-              LIVE MONITOR
+            <Badge className="bg-red-600 text-white hover:bg-red-600 text-[10px] px-1.5">
+              {runningTasks.length} ACTIVE
             </Badge>
           </div>
-          <button className="text-sm text-blue-600 hover:underline">
-            查看完整控制台
-          </button>
+          <span className="text-xs text-slate-400">实时刷新</span>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="text-xs font-medium text-slate-500 uppercase">
-                TASK INFO
+            <TableRow className="hover:bg-transparent border-b border-slate-100">
+              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+                任务名 / ID
               </TableHead>
-              <TableHead className="text-xs font-medium text-slate-500 uppercase">
-                INFRASTRUCTURE SITE
+              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+                站点 / 设备
               </TableHead>
-              <TableHead className="text-xs font-medium text-slate-500 uppercase">
-                OP TYPE
+              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+                类型
               </TableHead>
-              <TableHead className="text-xs font-medium text-slate-500 uppercase">
-                PERFORMANCE
+              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+                进度 / 速率
               </TableHead>
-              <TableHead className="text-xs font-medium text-slate-500 uppercase">
-                STATUS
+              <TableHead className="text-[10px] font-medium text-slate-500 uppercase h-8">
+                状态
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tasks.map((task) => (
-              <TableRow key={task.id} className="hover:bg-slate-50">
-                <TableCell>
-                  <div>
-                    <p className="font-medium text-slate-900 text-sm">
-                      {task.name}
-                    </p>
-                    <p className="text-xs text-slate-400">{task.uuid}</p>
-                  </div>
+            {runningTasks.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-6 text-slate-400 text-sm">
+                  暂无运行中任务
                 </TableCell>
-                <TableCell>
-                  <div>
-                    <p className="text-sm text-slate-900">{task.site}</p>
-                    <p className="text-xs text-slate-400">{task.siteCode}</p>
-                  </div>
+              </TableRow>
+            ) : runningTasks.map((task) => (
+              <TableRow key={task.id} className="hover:bg-slate-50 border-b border-slate-50">
+                <TableCell className="py-2">
+                  <p className="font-medium text-slate-900 text-xs">{task.name}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{task.id} / {task.siteCode}</p>
                 </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={`${opTypeColors[task.opType]} text-xs font-medium`}
-                  >
-                    {task.opType}
+                <TableCell className="py-2">
+                  <p className="text-xs text-slate-700">{task.siteName}</p>
+                  <p className="text-[10px] text-slate-400">{task.deviceName || "—"}</p>
+                </TableCell>
+                <TableCell className="py-2">
+                  <Badge variant="outline" className={`${typeColors[task.type] || "bg-slate-100 text-slate-700"} text-[10px] px-1.5 py-0`}>
+                    {typeLabels[task.type] || task.type}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <div className="min-w-[120px]">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-slate-600">
-                        {task.progress}% Complete
-                      </span>
-                      <span
-                        className={`text-xs ${
-                          task.hasError ? "text-red-500" : "text-slate-500"
-                        }`}
-                      >
-                        {task.speed}
-                      </span>
-                    </div>
-                    <Progress
-                      value={task.progress}
-                      className={`h-1.5 ${task.hasError ? "bg-red-100" : ""}`}
-                    />
-                    {task.hasError && (
-                      <p className="text-xs text-red-500 mt-1">12% Halted</p>
-                    )}
+                <TableCell className="py-2 min-w-[100px]">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] text-slate-600">{task.progress}%</span>
+                    <span className="text-[10px] text-slate-400">{task.speed || "—"}</span>
                   </div>
+                  <Progress value={task.progress} className="h-1" />
                 </TableCell>
-                <TableCell>
-                  <span
-                    className={`flex items-center gap-1.5 text-xs font-medium ${
-                      task.status === "RUNNING"
-                        ? "text-emerald-600"
-                        : "text-red-500"
-                    }`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        task.status === "RUNNING"
-                          ? "bg-emerald-500"
-                          : "bg-red-500"
-                      }`}
-                    ></span>
-                    {task.status}
-                  </span>
+                <TableCell className="py-2">
+                  <TaskStatusBadge status={task.status} />
                 </TableCell>
               </TableRow>
             ))}
