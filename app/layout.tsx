@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
 import { GlobalControlBall } from '@/components/ui/global-control-ball'
+import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 import '@/styles/dark.css'
 
@@ -34,10 +35,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="zh-CN" className="bg-slate-100">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <Providers>{children}</Providers>
-        <GlobalControlBall />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <Providers>{children}</Providers>
+          <GlobalControlBall />
+        </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

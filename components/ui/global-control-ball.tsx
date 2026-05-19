@@ -41,9 +41,13 @@ import {
   ChevronDown,
   Command,
   Cpu,
+  AlertTriangle,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
+import { notifications } from "@/lib/mock/notifications"
 
 const NAV_ITEMS = [
   { label: "平台概览", path: "/", icon: Home, category: "首页" },
@@ -57,7 +61,7 @@ const NAV_ITEMS = [
 ]
 
 const QUICK_ACTIONS = [
-  { label: "切换主题", icon: Moon, action: "toggleTheme", color: "purple" },
+  { label: "切换主题", icon: Moon, darkIcon: Sun, action: "toggleTheme", color: "purple" },
   { label: "刷新页面", icon: RefreshCw, action: "refresh", color: "blue" },
   { label: "全屏模式", icon: Maximize2, action: "fullscreen", color: "green" },
   { label: "通知中心", icon: Bell, action: "notifications", color: "amber" },
@@ -77,6 +81,8 @@ export function GlobalControlBall() {
   const [routeHistory, setRouteHistory] = useState<RouteHistory[]>([])
   const [pageLoadTime, setPageLoadTime] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [notificationsData, setNotificationsData] = useState(notifications)
 
   const ballRef = useRef<HTMLDivElement>(null)
   const loadStartTime = useRef(Date.now())
@@ -125,11 +131,43 @@ export function GlobalControlBall() {
         }
         break
       case "notifications":
-        router.push("/")
-        setShowPanel(false)
+        setShowNotifications(!showNotifications)
         break
     }
   }
+
+  const handleNotificationClick = (notification: typeof notifications[0]) => {
+    // 标记为已读
+    setNotificationsData(prev =>
+      prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+    )
+    // 如果有目标路径则跳转
+    if (notification.targetPath) {
+      router.push(notification.targetPath)
+      setShowPanel(false)
+      setShowNotifications(false)
+    }
+  }
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "task": return CheckCircle2
+      case "security": return AlertTriangle
+      case "system": return AlertCircle
+      default: return Info
+    }
+  }
+
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case "task": return "text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
+      case "security": return "text-amber-500 bg-amber-50 dark:bg-amber-900/20"
+      case "system": return "text-blue-500 bg-blue-50 dark:bg-blue-900/20"
+      default: return "text-slate-500 bg-slate-50 dark:bg-slate-800"
+    }
+  }
+
+  const unreadCount = notificationsData.filter(n => !n.read).length
 
   const getCurrentPageName = () => {
     const item = NAV_ITEMS.find((i) => i.path === pathname)
@@ -147,11 +185,85 @@ export function GlobalControlBall() {
   }, {} as Record<string, typeof NAV_ITEMS>)
 
   const colorClasses = {
-    purple: "bg-purple-500 hover:bg-purple-600 text-white",
-    blue: "bg-blue-500 hover:bg-blue-600 text-white",
-    green: "bg-green-500 hover:bg-green-600 text-white",
-    amber: "bg-amber-500 hover:bg-amber-600 text-white",
+    purple: "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200",
+    blue: "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200",
+    green: "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200",
+    amber: "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200",
   }
+
+  // 通知中心面板
+  const NotificationPanel = () => (
+    <div className="p-3">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-[13px] font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <Bell className="h-3.5 w-3.5" />
+          通知中心
+        </h4>
+        {unreadCount > 0 && (
+          <Badge className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+            {unreadCount} 条未读
+          </Badge>
+        )}
+      </div>
+      <ScrollArea className="h-[320px] pr-1">
+        <div className="space-y-2">
+          {notificationsData.length === 0 ? (
+            <div className="text-center py-8">
+              <Bell className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <p className="text-[12px] text-slate-500">暂无通知</p>
+            </div>
+          ) : (
+            notificationsData.map((notification) => {
+              const Icon = getNotificationIcon(notification.type)
+              const colorClass = getNotificationColor(notification.type)
+              return (
+                <button
+                  key={notification.id}
+                  className={cn(
+                    "w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left",
+                    "text-[13px] transition-colors",
+                    !notification.read
+                      ? "bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  )}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <div className={cn(
+                    "w-7 h-7 rounded-md flex items-center justify-center shrink-0",
+                    colorClass
+                  )}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <p className={cn(
+                        "text-[13px] font-medium truncate",
+                        !notification.read ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"
+                      )}>
+                        {notification.title}
+                      </p>
+                      {!notification.read && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {notification.description}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                      {notification.time}
+                    </p>
+                  </div>
+                  {notification.targetPath && (
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600 shrink-0 mt-1" />
+                  )}
+                </button>
+              )
+            })
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  )
 
   return (
     <>
@@ -194,9 +306,9 @@ export function GlobalControlBall() {
 
           <div
             className={cn(
-              "fixed z-[9999] w-[340px] max-h-[65vh]",
+              "fixed z-[9999] w-[340px] max-h-[75vh]",
               "bg-white dark:bg-slate-900",
-              "rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-700/80",
+              "rounded-xl shadow-lg border border-slate-200 dark:border-slate-700",
               "overflow-hidden",
               "animate-in slide-in-from-right-4 duration-300 ease-out"
             )}
@@ -207,22 +319,52 @@ export function GlobalControlBall() {
               top: 'auto',
             }}
           >
+            {showNotifications ? (
+              <>
+                {/* Header */}
+                <div className="relative px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                        <Bell className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white tracking-tight">通知中心</h3>
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                          <span className="text-slate-700 dark:text-slate-300">{unreadCount} 条未读</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md"
+                      onClick={() => setShowNotifications(false)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <NotificationPanel />
+              </>
+            ) : (
+              <>
             {/* Header */}
-            <div className="relative px-4 py-3 bg-gradient-to-r from-slate-800 via-slate-800 to-slate-800/90 border-b border-slate-700/50">
+            <div className="relative px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-700/80 border border-slate-600/40 flex items-center justify-center shadow-inner">
-                    <Cpu className="h-4 w-4 text-slate-300" />
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                    <Cpu className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white tracking-tight">全局控制台</h3>
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                      <span className="text-slate-300">{getCurrentPageName()}</span>
-                      <span className="text-slate-600">|</span>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white tracking-tight">全局控制台</h3>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="text-slate-700 dark:text-slate-300">{getCurrentPageName()}</span>
+                      <span className="text-slate-400 dark:text-slate-500">|</span>
                       <span>加载</span>
                       <span className={cn(
                         "font-medium",
-                        pageLoadTime < 500 ? "text-emerald-400" : pageLoadTime < 1000 ? "text-amber-400" : "text-red-400"
+                        pageLoadTime < 500 ? "text-emerald-600 dark:text-emerald-400" : pageLoadTime < 1000 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"
                       )}>
                         {pageLoadTime}ms
                       </span>
@@ -232,7 +374,7 @@ export function GlobalControlBall() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded-md"
+                  className="h-7 w-7 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md"
                   onClick={() => setShowPanel(false)}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -241,28 +383,32 @@ export function GlobalControlBall() {
 
               {/* Quick Actions - 2x2 Grid */}
               <div className="mt-3 grid grid-cols-2 gap-2">
-                {QUICK_ACTIONS.map((action) => (
+                {QUICK_ACTIONS.map((action) => {
+                const ActionIcon = action.action === "toggleTheme" && theme === "dark"
+                  ? (action as any).darkIcon || action.icon
+                  : action.icon
+                return (
                   <Button
                     key={action.action}
                     variant="ghost"
                     size="sm"
                     className={cn(
                       "justify-start text-xs h-8 rounded-lg",
-                      colorClasses[action.color as keyof typeof colorClasses],
-                      "opacity-90 hover:opacity-100 shadow-sm"
+                      colorClasses[action.color as keyof typeof colorClasses]
                     )}
                     onClick={() => handleQuickAction(action.action)}
                   >
-                    <action.icon className="h-3.5 w-3.5 mr-1.5" />
+                    <ActionIcon className="h-3.5 w-3.5 mr-1.5" />
                     {action.label}
                   </Button>
-                ))}
+                )
+              })}
               </div>
             </div>
 
             {/* Tabs */}
             <Tabs defaultValue="nav" className="max-h-[calc(65vh-140px)]">
-              <TabsList className="w-full grid grid-cols-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-700/60 h-10">
+              <TabsList className="w-full grid grid-cols-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 h-10">
                 <TabsTrigger
                   value="nav"
                   className="text-[11px] font-medium text-slate-600 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-none gap-1"
@@ -294,7 +440,7 @@ export function GlobalControlBall() {
               </TabsList>
 
               <TabsContent value="nav" className="p-0 mt-0">
-                <ScrollArea className="h-[280px]">
+                <ScrollArea className="h-[380px]">
                   <div className="p-2.5 space-y-3">
                     {Object.entries(groupedNavItems).map(([category, items]) => (
                       <div key={category}>
@@ -343,7 +489,7 @@ export function GlobalControlBall() {
               </TabsContent>
 
               <TabsContent value="history" className="p-0 mt-0">
-                <ScrollArea className="h-[280px]">
+                <ScrollArea className="h-[380px]">
                   <div className="p-3">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-[13px] font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -420,7 +566,7 @@ export function GlobalControlBall() {
               </TabsContent>
 
               <TabsContent value="system" className="p-0 mt-0">
-                <ScrollArea className="h-[280px]">
+                <ScrollArea className="h-[380px]">
                   <div className="p-3 space-y-3">
                     <h4 className="text-[13px] font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                       <Activity className="h-3.5 w-3.5" />
@@ -508,7 +654,7 @@ export function GlobalControlBall() {
               </TabsContent>
 
               <TabsContent value="about" className="p-0 mt-0">
-                <ScrollArea className="h-[280px]">
+                <ScrollArea className="h-[380px]">
                   <div className="p-3 space-y-3">
                     <div className="text-center py-3">
                       <div className="w-14 h-14 mx-auto mb-2.5 bg-slate-800 dark:bg-slate-700 rounded-xl flex items-center justify-center border border-slate-700 dark:border-slate-600 shadow-lg">
@@ -550,8 +696,8 @@ export function GlobalControlBall() {
             </Tabs>
 
             {/* Footer */}
-            <div className="px-3 py-2 bg-slate-50/80 dark:bg-slate-800/60 border-t border-slate-200/80 dark:border-slate-700/60">
-              <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                 <span>全局控制台</span>
                 <div className="flex items-center gap-1">
                   <Command className="h-2.5 w-2.5" />
@@ -559,6 +705,8 @@ export function GlobalControlBall() {
                 </div>
               </div>
             </div>
+              </>
+            )}
           </div>
         </>
       )}
