@@ -26,74 +26,61 @@ const chartData = [
 export function SyncTrendChart() {
   return (
     <Card className="gap-0">
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-base font-semibold text-slate-900">
-              7日数据同步趋势分析
+            <CardTitle className="text-sm font-semibold text-slate-900">
+              7日同步统计
             </CardTitle>
-            <p className="text-xs text-slate-500 mt-1">
-              多维业务同步流量统计 (单位: TB)
-            </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-4 text-xs">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                备份
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                还原
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-slate-400"></span>
-                校验
-              </span>
-            </div>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" className="h-7 text-xs">
-                本周
-              </Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs text-slate-500">
-                上月
-              </Button>
-            </div>
+          <div className="flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-slate-500"></span>
+              备份
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-slate-400"></span>
+              还原
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-slate-300"></span>
+              校验
+            </span>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="h-72">
+        <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              barCategoryGap="20%"
+              margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
+              barCategoryGap="30%"
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
               <XAxis
                 dataKey="date"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "#64748b" }}
+                tick={{ fontSize: 11, fill: "#64748b" }}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "#64748b" }}
+                tick={{ fontSize: 11, fill: "#64748b" }}
               />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#1e293b",
                   border: "none",
-                  borderRadius: "8px",
+                  borderRadius: "4px",
                   color: "#fff",
-                  fontSize: "12px",
+                  fontSize: "11px",
                 }}
               />
-              <Bar dataKey="备份" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="还原" fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="校验" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="备份" fill="#64748b" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="还原" fill="#94a3b8" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="校验" fill="#cbd5e1" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

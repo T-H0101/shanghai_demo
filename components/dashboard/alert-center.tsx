@@ -1,10 +1,9 @@
 "use client"
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Lightbulb, Plus } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
+import { taskAlerts } from "@/lib/mock/tasks"
 
 type AlertLevel = "CRITICAL" | "WARNING" | "INFO"
 
@@ -19,7 +18,7 @@ interface Alert {
 const alerts: Alert[] = [
   {
     id: "1",
-    level: "CRITICAL",
+    level: "CRITICAL" as AlertLevel,
     title: "核心站点连接超时",
     description:
       "站点 [成都研发基地] 核心交换机无响应，冗余链路尝试切换失败。",
@@ -27,7 +26,7 @@ const alerts: Alert[] = [
   },
   {
     id: "2",
-    level: "WARNING",
+    level: "WARNING" as AlertLevel,
     title: "存储池容量预警",
     description:
       "光盘库 [南京中心_B] 可用空间 < 10%，请执行扩容或迁移计划。",
@@ -35,7 +34,7 @@ const alerts: Alert[] = [
   },
   {
     id: "3",
-    level: "INFO",
+    level: "INFO" as AlertLevel,
     title: "系统版本升级提醒",
     description:
       "发现新固件版本 v3.8.4 (包含3个安全性修补)，建议在非业务时段更新。",
@@ -44,65 +43,64 @@ const alerts: Alert[] = [
 ]
 
 const levelColors: Record<AlertLevel, string> = {
-  CRITICAL: "bg-red-500",
-  WARNING: "bg-amber-500",
-  INFO: "bg-blue-500",
+  CRITICAL: "bg-red-600",
+  WARNING: "bg-amber-600",
+  INFO: "bg-slate-500",
 }
 
 const levelBorderColors: Record<AlertLevel, string> = {
-  CRITICAL: "border-l-red-500",
-  WARNING: "border-l-amber-500",
-  INFO: "border-l-blue-500",
+  CRITICAL: "border-l-red-600",
+  WARNING: "border-l-amber-600",
+  INFO: "border-l-slate-400",
 }
 
 export function AlertCenter() {
+  // 使用真实告警数据
+  const displayAlerts = taskAlerts.slice(0, 3).map(alert => ({
+    id: alert.id,
+    level: (alert.level === "critical" ? "CRITICAL" : "WARNING") as AlertLevel,
+    title: alert.taskName,
+    description: alert.message,
+    time: alert.time,
+  }))
+
   return (
     <Card className="gap-0 h-full flex flex-col">
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Lightbulb className="h-5 w-5 text-slate-600" />
-            <CardTitle className="text-base font-semibold text-slate-900">
-              智能告警中心
+            <AlertTriangle className="h-4 w-4 text-slate-600" />
+            <CardTitle className="text-sm font-semibold text-slate-900">
+              告警中心
             </CardTitle>
           </div>
-          <Badge className="bg-red-500 text-white hover:bg-red-500">
-            5 Priority
-          </Badge>
+          <span className="text-xs text-slate-500">{taskAlerts.length} 未处理</span>
         </div>
       </CardHeader>
       <CardContent className="pt-0 flex-1 flex flex-col">
-        <ScrollArea className="flex-1 -mx-2 px-2">
-          <div className="space-y-3">
-            {alerts.map((alert) => (
+        <ScrollArea className="flex-1">
+          <div className="space-y-2">
+            {displayAlerts.map((alert) => (
               <div
                 key={alert.id}
-                className={`p-3 rounded-lg border-l-4 bg-slate-50 ${
-                  levelBorderColors[alert.level]
-                }`}
+                className={`p-2.5 rounded border-l-2 bg-slate-50 ${levelBorderColors[alert.level]}`}
               >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="flex items-start justify-between gap-2 mb-1">
                   <div className="flex items-center gap-2">
-                    <Badge
-                      className={`${
-                        levelColors[alert.level]
-                      } text-white text-[10px] px-1.5 py-0 hover:${
-                        levelColors[alert.level]
-                      }`}
-                    >
+                    <span className={`text-[10px] px-1 py-0.5 rounded ${levelColors[alert.level]} text-white`}>
                       {alert.level}
-                    </Badge>
-                    <span className="text-sm font-medium text-slate-900">
+                    </span>
+                    <span className="text-xs font-medium text-slate-900">
                       {alert.title}
                     </span>
                   </div>
                   {alert.time && (
-                    <span className="text-xs text-slate-400 shrink-0">
+                    <span className="text-[10px] text-slate-400 shrink-0">
                       {alert.time}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-snug">
                   {alert.description}
                 </p>
               </div>
@@ -110,19 +108,10 @@ export function AlertCenter() {
           </div>
         </ScrollArea>
 
-        {/* Add Button */}
-        <Button
-          size="icon"
-          className="absolute bottom-16 right-6 h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg"
-        >
-          <Plus className="h-5 w-5" />
-        </Button>
-
-        {/* Acknowledge All */}
-        <div className="pt-4 mt-auto border-t border-slate-100">
-          <Button variant="outline" className="w-full text-sm">
-            ACKNOWLEDGE ALL
-          </Button>
+        <div className="pt-3 mt-3 border-t border-slate-200">
+          <button className="w-full text-xs text-slate-500 hover:text-slate-700 py-1">
+            查看全部告警 &rarr;
+          </button>
         </div>
       </CardContent>
     </Card>

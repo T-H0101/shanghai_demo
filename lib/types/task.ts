@@ -18,6 +18,13 @@ export interface TaskItem {
   errorMessage?: string
   discNo?: string
   estimatedEnd?: string
+  deviceId?: string
+  deviceName?: string
+  rackId?: string
+  volumeId?: string
+  retryCount?: number
+  lastRetryAt?: string
+  completedAt?: string
 }
 
 export interface TaskLogEntry {
@@ -26,6 +33,7 @@ export interface TaskLogEntry {
   timestamp: string
   level: "info" | "warn" | "error"
   message: string
+  operator?: string
 }
 
 export interface TaskStats {

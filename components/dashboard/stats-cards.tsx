@@ -9,144 +9,131 @@ import {
   Activity,
   AlertTriangle,
 } from "lucide-react"
+import { siteStats } from "@/lib/mock/sites"
+import { taskStats } from "@/lib/mock/tasks"
 
 const statsData = [
   {
     icon: LayoutGrid,
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-600",
-    badge: { label: "ACTIVE", color: "bg-emerald-500" },
-    title: "全局站点总数",
-    value: "24",
-    unit: "个可用站点",
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-600",
+    title: "全局站点",
+    value: siteStats.total,
+    unit: "个站点",
     details: [
-      { label: "正常", value: "22", color: "text-blue-600" },
-      { label: "负载高", value: "1", color: "text-amber-600" },
-      { label: "离线", value: "1", color: "text-red-600" },
+      { label: "在线", value: siteStats.online, color: "text-slate-600" },
+      { label: "负载高", value: siteStats.degraded, color: "text-amber-600" },
+      { label: "离线", value: siteStats.offline, color: "text-red-600" },
     ],
   },
   {
     icon: Database,
-    iconBg: "bg-orange-50",
-    iconColor: "text-orange-600",
-    badge: { label: "CAPACITY", color: "bg-blue-500" },
-    title: "光盘库容量分析",
-    value: "1.2",
-    unit: "PB 已 0 PB (60%)",
-    subtitle: "预计可储: 18万张",
-    progress: 60,
-    footer: "月环比增长: +4.2%",
-    trend: "↑ 趋势上涨",
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-600",
+    title: "存储容量",
+    value: siteStats.avgStorageUsed,
+    unit: "% 平均使用率",
+    details: [
+      { label: "同步中", value: siteStats.syncing, color: "text-blue-600" },
+    ],
   },
   {
     icon: Activity,
-    iconBg: "bg-purple-50",
-    iconColor: "text-purple-600",
-    title: "活跃流水任务",
-    value: "156",
-    unit: "并发处理中",
-    qps: "QPS: 840 (峰值 1.2k)",
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-600",
+    title: "运行任务",
+    value: taskStats.running,
+    unit: "进行中",
+    extra: taskStats.total,
+    extraUnit: "总任务",
   },
   {
     icon: AlertTriangle,
-    iconBg: "bg-red-50",
+    iconBg: "bg-slate-100",
     iconColor: "text-red-600",
-    title: "异常事件响应 (24h)",
-    value: "3",
-    unit: "未处理告警",
+    title: "未处理告警",
+    value: taskStats.failed + 1,
+    unit: "条",
     alerts: [
-      { level: 1, color: "bg-red-500" },
-      { level: 2, color: "bg-amber-500" },
+      { level: 1, color: "bg-red-600" },
+      { level: 2, color: "bg-amber-600" },
     ],
-    action: "立即查看",
   },
 ]
 
 export function StatsCards() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
       {/* Card 1 - Sites */}
-      <Card className="p-5 gap-0">
-        <div className="flex items-start justify-between mb-4">
-          <div className={`p-3 rounded-lg ${statsData[0].iconBg}`}>
-            <LayoutGrid className={`h-6 w-6 ${statsData[0].iconColor}`} />
+      <Card className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`p-2 rounded ${statsData[0].iconBg}`}>
+            <LayoutGrid className={`h-5 w-5 ${statsData[0].iconColor}`} />
           </div>
-          <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">
-            ACTIVE
-          </Badge>
+          <span className="text-xs text-slate-500">{statsData[0].title}</span>
         </div>
-        <p className="text-sm text-slate-500 mb-1">{statsData[0].title}</p>
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-3xl font-bold text-slate-900">{statsData[0].value}</span>
-          <span className="text-sm text-slate-500">{statsData[0].unit}</span>
+        <div className="flex items-baseline gap-1.5 mb-2">
+          <span className="text-2xl font-bold text-slate-900">{statsData[0].value}</span>
+          <span className="text-xs text-slate-500">{statsData[0].unit}</span>
         </div>
-        <div className="flex items-center gap-4 text-xs">
-          <span className="text-blue-600">● 22 正常</span>
-          <span className="text-amber-600">● 1 负载高</span>
-          <span className="text-red-600">● 1 离线</span>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-slate-600">{statsData[0].details[0].value} 在线</span>
+          <span className="text-amber-600">{statsData[0].details[1].value} 负载高</span>
+          <span className="text-red-600">{statsData[0].details[2].value} 离线</span>
         </div>
       </Card>
 
       {/* Card 2 - Capacity */}
-      <Card className="p-5 gap-0">
-        <div className="flex items-start justify-between mb-4">
-          <div className="p-3 rounded-lg bg-orange-50">
-            <Database className="h-6 w-6 text-orange-600" />
+      <Card className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`p-2 rounded ${statsData[1].iconBg}`}>
+            <Database className={`h-5 w-5 ${statsData[1].iconColor}`} />
           </div>
-          <div className="text-right">
-            <Badge className="bg-blue-500 text-white hover:bg-blue-500">
-              CAPACITY
-            </Badge>
-            <p className="text-xs text-slate-400 mt-1">预计可储: 18万张</p>
-          </div>
+          <span className="text-xs text-slate-500">{statsData[1].title}</span>
         </div>
-        <p className="text-sm text-slate-500 mb-1">光盘库容量分析</p>
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-3xl font-bold text-slate-900">1.2</span>
-          <span className="text-sm text-slate-500">PB 已 0 PB (60%)</span>
+        <div className="flex items-baseline gap-1.5 mb-2">
+          <span className="text-2xl font-bold text-slate-900">{statsData[1].value}</span>
+          <span className="text-xs text-slate-500">{statsData[1].unit}</span>
         </div>
-        <Progress value={60} className="h-2 mb-2" />
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">月环比增长: +4.2%</span>
-          <span className="text-emerald-600">↑ 趋势上涨</span>
+        <div className="flex items-center gap-3 text-xs text-slate-500">
+          <span>使用率: {statsData[1].details[0].value}</span>
         </div>
       </Card>
 
       {/* Card 3 - Active Tasks */}
-      <Card className="p-5 gap-0">
-        <div className="flex items-start justify-between mb-4">
-          <div className="p-3 rounded-lg bg-purple-50">
-            <Activity className="h-6 w-6 text-purple-600" />
+      <Card className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`p-2 rounded ${statsData[2].iconBg}`}>
+            <Activity className={`h-5 w-5 ${statsData[2].iconColor}`} />
           </div>
+          <span className="text-xs text-slate-500">{statsData[2].title}</span>
         </div>
-        <p className="text-sm text-slate-500 mb-1">活跃流水任务</p>
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-3xl font-bold text-slate-900">156</span>
-          <span className="text-sm text-slate-500">并发处理中</span>
+        <div className="flex items-baseline gap-1.5 mb-2">
+          <span className="text-2xl font-bold text-slate-900">{statsData[2].value}</span>
+          <span className="text-xs text-slate-500">{statsData[2].unit}</span>
         </div>
-        <div className="text-xs text-slate-500">
-          <span>↗ QPS: 840 (峰值 1.2k)</span>
-        </div>
+        {statsData[2].extra !== undefined && (
+          <div className="text-xs text-slate-500">
+            {statsData[2].extra} {statsData[2].extraUnit}
+          </div>
+        )}
       </Card>
 
       {/* Card 4 - Alerts */}
-      <Card className="p-5 gap-0">
-        <div className="flex items-start justify-between mb-4">
-          <div className="p-3 rounded-lg bg-red-50">
-            <AlertTriangle className="h-6 w-6 text-red-600" />
+      <Card className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`p-2 rounded ${statsData[3].iconBg}`}>
+            <AlertTriangle className={`h-5 w-5 ${statsData[3].iconColor}`} />
           </div>
+          <span className="text-xs text-slate-500">{statsData[3].title}</span>
         </div>
-        <p className="text-sm text-slate-500 mb-1">异常事件响应 (24h)</p>
-        <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-3xl font-bold text-red-600">3</span>
-          <span className="text-sm text-slate-500">未处理告警</span>
+        <div className="flex items-baseline gap-1.5 mb-2">
+          <span className="text-2xl font-bold text-red-600">{statsData[3].value}</span>
+          <span className="text-xs text-slate-500">{statsData[3].unit}</span>
         </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="h-5 w-5 rounded bg-red-500 text-white text-xs flex items-center justify-center">1</span>
-            <span className="h-5 w-5 rounded bg-amber-500 text-white text-xs flex items-center justify-center">2</span>
-          </div>
-          <button className="text-xs text-orange-600 hover:underline">立即查看</button>
+        <div className="flex items-center gap-2">
+          <span className="h-4 w-4 rounded bg-red-600"></span>
+          <span className="h-4 w-4 rounded bg-amber-600"></span>
         </div>
       </Card>
     </div>
