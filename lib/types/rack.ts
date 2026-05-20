@@ -2,6 +2,7 @@ export type RackStatus = "normal" | "warning" | "fault" | "maintenance"
 
 export interface TransferRecord {
   id: string
+  rackId: string
   fromSite: string
   toSite: string
   reason: string

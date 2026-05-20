@@ -8,6 +8,8 @@ import type {
   ConsistencyReport, SyncResult, SearchResult, FilterOptions, ExportJob
 } from "./providers"
 import type { SystemSettings } from "@/lib/types/settings"
+import type { TransferRecord, Rack } from "@/lib/types/rack"
+import { readMockStore, writeMockStore, getStorageKey } from "./mock-store"
 
 // 导入现有 Mock 数据
 import { sites, siteStats } from "@/lib/mock/sites"
@@ -250,40 +252,125 @@ export const mockUserProvider: UserProvider = {
 // Mock Rack Provider
 // ============================================================
 
+let mockRacks = [...racks]
+
 export const mockRackProvider: RackProvider = {
   getAll: async (siteCode?: string) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
     if (siteCode) {
-      return racks.filter(r => r.siteCode === siteCode)
+      return mockRacks.filter(r => r.siteCode === siteCode)
     }
-    return [...racks]
+    return [...mockRacks]
   },
 
   getById: async (id: string) => {
     await simulateDelay(50)
-    return racks.find(r => r.id === id)
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
+    return mockRacks.find(r => r.id === id)
   },
 
   getStats: async (siteCode?: string) => {
     await simulateDelay(80)
-    return { ...rackStats }
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
+    const filtered = siteCode ? mockRacks.filter(r => r.siteCode === siteCode) : mockRacks
+    const total = filtered.length
+    const normal = filtered.filter(r => r.status === "normal").length
+    const warning = filtered.filter(r => r.status === "warning").length
+    const fault = filtered.filter(r => r.status === "fault").length
+    const avgUsage = total > 0 ? Math.round(filtered.reduce((sum, r) => sum + r.usagePercent, 0) / total) : 0
+    return { total, normal, warning, fault, avgUsage }
   },
 
-  registerTransfer: async (input: TransferInput): Promise<any> => {
-    await simulateDelay(300)
-    const newTransfer = {
-      id: `tr${Date.now()}`,
+  registerTransfer: async (input: TransferInput) => {
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
+
+    const rack = mockRacks.find(r => r.rackId === input.rackId)
+    if (!rack) throw new Error("Rack not found")
+
+    const transferRecord: TransferRecord = {
+      id: `tr-${Date.now()}`,
       rackId: input.rackId,
-      fromSiteCode: input.fromSiteCode,
-      toSiteCode: input.toSiteCode,
+      fromSite: rack.siteName,
+      toSite: input.toSiteCode,
       reason: input.reason,
       operator: input.operator,
       approver: input.approver,
       status: "pending",
-      createdAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
+      requestedAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-"),
     }
-    return newTransfer
-  }
+
+    // 找目标站点 code
+    const siteCodeMap: Record<string, string> = {
+      "上海研发中心": "SH-RD-01",
+      "北京总部机房": "BJ-HQ-02",
+      "广州生产基地": "GZ-PD-03",
+      "南京中心": "NJ-DC-05",
+      "武汉备份中心": "WH-BK-06",
+    }
+
+    // 更新 rack 状态为 maintenance，记录移位历史
+    const idx = mockRacks.findIndex(r => r.rackId === input.rackId)
+    mockRacks[idx] = {
+      ...rack,
+      status: "maintenance",
+      lastSyncAt: transferRecord.requestedAt,
+      siteName: input.toSiteCode,
+      siteCode: siteCodeMap[input.toSiteCode] ?? rack.siteCode,
+      transferHistory: [transferRecord, ...(rack.transferHistory ?? [])],
+    }
+    writeMockStore(getStorageKey("racks"), mockRacks)
+
+    // 模拟状态流转: pending -> in_transit (1.2s) -> completed (3.2s)
+    setTimeout(() => {
+      const s = readMockStore<Rack[]>(getStorageKey("racks"), mockRacks)
+      const ri = s.findIndex(r => r.rackId === input.rackId)
+      if (ri !== -1) {
+        s[ri] = {
+          ...s[ri],
+          transferHistory: s[ri].transferHistory?.map(t =>
+            t.id === transferRecord.id ? { ...t, status: "in_transit" as const } : t
+          ),
+        }
+        writeMockStore(getStorageKey("racks"), s)
+      }
+    }, 1200)
+
+    setTimeout(() => {
+      const s = readMockStore<Rack[]>(getStorageKey("racks"), mockRacks)
+      const ri = s.findIndex(r => r.rackId === input.rackId)
+      if (ri !== -1) {
+        s[ri] = {
+          ...s[ri],
+          status: "normal",
+          lastSyncAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-"),
+          transferHistory: s[ri].transferHistory?.map(t =>
+            t.id === transferRecord.id
+              ? { ...t, status: "completed" as const, completedAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-") }
+              : t
+          ),
+        }
+        writeMockStore(getStorageKey("racks"), s)
+      }
+    }, 3200)
+
+    await simulateDelay(300)
+    return transferRecord
+  },
+
+  syncRacks: async () => {
+    await simulateDelay(1500)
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
+    const now = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+    mockRacks = mockRacks.map(r => ({ ...r, lastSyncAt: now }))
+    writeMockStore(getStorageKey("racks"), mockRacks)
+    return [...mockRacks]
+  },
 }
 
 // ============================================================

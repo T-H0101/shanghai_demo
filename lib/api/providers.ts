@@ -46,6 +46,7 @@ export interface RackProvider {
   getById(id: string): Promise<Rack | undefined>
   getStats(siteCode?: string): Promise<RackStats>
   registerTransfer(transfer: TransferInput): Promise<TransferRecord>
+  syncRacks(): Promise<Rack[]>
 }
 
 export interface SearchProvider {
@@ -135,13 +136,13 @@ export interface SyncResult {
 export interface TransferRecord {
   id: string
   rackId: string
-  fromSiteCode: string
-  toSiteCode: string
+  fromSite: string
+  toSite: string
   reason: string
   operator: string
   approver: string
-  status: "pending" | "approved" | "rejected" | "completed"
-  createdAt: string
+  status: "pending" | "in_transit" | "completed" | "cancelled"
+  requestedAt: string
   completedAt?: string
 }
 

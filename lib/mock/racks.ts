@@ -13,6 +13,7 @@ function generateSlots(total: number, used: number): RackSlot[] {
 const sampleTransferHistory: TransferRecord[] = [
   {
     id: "tr1",
+    rackId: "R-A12",
     fromSite: "北京总部机房",
     toSite: "上海研发中心",
     reason: "容量调配：南京中心存储扩容优先级调整",
@@ -24,6 +25,7 @@ const sampleTransferHistory: TransferRecord[] = [
   },
   {
     id: "tr2",
+    rackId: "R-A12",
     fromSite: "广州生产基地",
     toSite: "武汉备份中心",
     reason: "灾备演练：季度灾备切换测试",
@@ -35,6 +37,7 @@ const sampleTransferHistory: TransferRecord[] = [
   },
   {
     id: "tr3",
+    rackId: "R-A12",
     fromSite: "南京中心",
     toSite: "北京总部机房",
     reason: "设备维修：R-N05 盘架硬件故障，需返厂维修",

@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
@@ -15,23 +15,79 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { rackStats, racks as mockRacks, allSites } from "@/lib/mock/racks"
-import { sites as mockSites } from "@/lib/mock/sites"
-import type { Rack, TransferRecord } from "@/lib/types/rack"
-import { HardDrive, Download, RefreshCw, ArrowRightLeft, Clock, CheckCircle, Truck, XCircle, Loader2 } from "lucide-react"
+import { rackProvider } from "@/lib/api/mock-providers"
+import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
+import { allSites } from "@/lib/mock/racks"
+import type { Rack, RackStats, TransferRecord } from "@/lib/types/rack"
+import { HardDrive, Download, RefreshCw, ArrowRightLeft, Clock, CheckCircle, Truck, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
-const statusMap = { normal: ["正常","bg-emerald-100 text-emerald-700"], warning: ["预警","bg-amber-100 text-amber-700"], fault: ["故障","bg-red-100 text-red-700"], maintenance: ["维护","bg-slate-100 text-slate-700"] }
-const transferStatusMap = { pending: ["待处理","bg-slate-100 text-slate-600"], in_transit: ["移位中","bg-blue-100 text-blue-700"], completed: ["已完成","bg-emerald-100 text-emerald-700"], cancelled: ["已取消","bg-slate-100 text-slate-400"] }
+const statusMap: Record<string, [string, string]> = {
+  normal: ["正常", "bg-emerald-100 text-emerald-700"],
+  warning: ["预警", "bg-amber-100 text-amber-700"],
+  fault: ["故障", "bg-red-100 text-red-700"],
+  maintenance: ["维护", "bg-slate-100 text-slate-700"],
+}
+const transferStatusMap: Record<string, [string, string]> = {
+  pending: ["待处理", "bg-slate-100 text-slate-600"],
+  in_transit: ["移位中", "bg-blue-100 text-blue-700"],
+  completed: ["已完成", "bg-emerald-100 text-emerald-700"],
+  cancelled: ["已取消", "bg-slate-100 text-slate-400"],
+}
 
 export default function Page() {
-  const [rackList, setRackList] = useState<Rack[]>(mockRacks)
-  const [selected, setSelected] = useState<Rack | null>(mockRacks[0])
+  const [rackList, setRackList] = useState<Rack[]>([])
+  const [rackStats, setRackStats] = useState<RackStats>({ total: 0, normal: 0, warning: 0, fault: 0, avgUsage: 0 })
+  const [selected, setSelected] = useState<Rack | null>(null)
   const [showTransfer, setShowTransfer] = useState(false)
   const [transfer, setTransfer] = useState({ toSite: "", reason: "", approver: "" })
   const [exporting, setExporting] = useState(false)
-  const siteCodeMap = Object.fromEntries(mockSites.map((site) => [site.name, site.code]))
-  const nowString = () => new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+  const [syncing, setSyncing] = useState(false)
+
+  // 加载数据
+  const loadRacks = useCallback(async () => {
+    const [racks, stats] = await Promise.all([
+      rackProvider.getAll(),
+      rackProvider.getStats(),
+    ])
+    setRackList(racks)
+    setRackStats(stats)
+    // 保持选中项同步
+    setSelected(prev => {
+      if (!prev) return null
+      const updated = racks.find(r => r.id === prev.id)
+      return updated ?? null
+    })
+  }, [])
+
+  // 页面加载时读取 provider
+  useEffect(() => {
+    loadRacks()
+  }, [loadRacks])
+
+  // 监听 localStorage 变化事件
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key: string }>
+      if (customEvent.detail?.key === getStorageKey("racks")) {
+        loadRacks()
+      }
+    }
+    window.addEventListener(MOCK_STORE_EVENT, handler)
+    return () => window.removeEventListener(MOCK_STORE_EVENT, handler)
+  }, [loadRacks])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      await rackProvider.syncRacks()
+      toast({ title: "同步完成", description: "所有盘架同步时间已更新" })
+    } catch {
+      toast({ title: "同步失败", description: "请稍后重试", variant: "destructive" })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const handleExport = () => {
     setExporting(true)
@@ -43,17 +99,19 @@ export default function Page() {
         siteName: r.siteName,
         siteCode: r.siteCode,
         datacenter: r.datacenter,
-        cages: r.cages.join(', '),
+        cages: r.cages.join(", "),
         usedSlots: r.usedSlots,
         totalSlots: r.totalSlots,
         usagePercent: r.usagePercent,
-        status: statusMap[r.status][0],
-        lastSyncAt: r.lastSyncAt
+        status: statusMap[r.status]?.[0] ?? r.status,
+        lastSyncAt: r.lastSyncAt,
       }))
-      const content = exportData.map(r => `[${r.lastSyncAt}] ${r.rackId} | ${r.siteName} | ${r.datacenter} | ${r.cages} | ${r.usedSlots}/${r.totalSlots} | ${r.usagePercent}% | ${r.status}`).join('\n')
-      const blob = new Blob([content], { type: 'text/plain' })
+      const content = exportData
+        .map(r => `[${r.lastSyncAt}] ${r.rackId} | ${r.siteName} | ${r.datacenter} | ${r.cages} | ${r.usedSlots}/${r.totalSlots} | ${r.usagePercent}% | ${r.status}`)
+        .join("\n")
+      const blob = new Blob([content], { type: "text/plain" })
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
+      const a = document.createElement("a")
       a.href = url
       a.download = `racks_export_${Date.now()}.log`
       a.click()
@@ -62,102 +120,106 @@ export default function Page() {
     }, 1500)
   }
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     if (!selected || !transfer.toSite || !transfer.reason || !transfer.approver) {
       toast({ title: "请填写完整信息", description: "目标站点、移位原因、审批人均为必填项", variant: "destructive" })
       return
     }
-    const requestedAt = nowString()
-    const transferRecord: TransferRecord = {
-      id: `tr-${Date.now()}`,
-      fromSite: selected.siteName,
-      toSite: transfer.toSite,
-      reason: transfer.reason,
-      operator: "张建国",
-      approver: transfer.approver,
-      requestedAt,
-      status: "pending",
-    }
-
-    const applyRackUpdate = (updater: (rack: Rack) => Rack) => {
-      setRackList((prev) => prev.map((rack) => rack.id === selected.id ? updater(rack) : rack))
-      setSelected((prev) => prev && prev.id === selected.id ? updater(prev) : prev)
-    }
-
-    applyRackUpdate((rack) => ({
-      ...rack,
-      status: "maintenance",
-      lastSyncAt: requestedAt,
-      transferHistory: [transferRecord, ...(rack.transferHistory ?? [])],
-    }))
-
     toast({ title: "移位登记已提交", description: `盘架 ${selected.rackId} 移位至 ${transfer.toSite}，等待审批` })
     setShowTransfer(false)
     setTransfer({ toSite: "", reason: "", approver: "" })
 
-    setTimeout(() => {
-      applyRackUpdate((rack) => ({
-        ...rack,
-        lastSyncAt: nowString(),
-        transferHistory: (rack.transferHistory ?? []).map((record) =>
-          record.id === transferRecord.id ? { ...record, status: "in_transit" } : record
-        ),
-      }))
+    try {
+      await rackProvider.registerTransfer({
+        rackId: selected.rackId,
+        fromSiteCode: selected.siteCode,
+        toSiteCode: transfer.toSite,
+        reason: transfer.reason,
+        operator: "张建国",
+        approver: transfer.approver,
+      })
       toast({ title: "盘架移位中", description: `${selected.rackId} 已从 ${selected.siteName} 发出，正在前往 ${transfer.toSite}` })
-    }, 1200)
-
-    setTimeout(() => {
-      applyRackUpdate((rack) => ({
-        ...rack,
-        siteName: transfer.toSite,
-        siteCode: siteCodeMap[transfer.toSite] ?? rack.siteCode,
-        status: "normal",
-        lastSyncAt: nowString(),
-        transferHistory: (rack.transferHistory ?? []).map((record) =>
-          record.id === transferRecord.id ? { ...record, status: "completed", completedAt: nowString() } : record
-        ),
-      }))
-      toast({ title: "移位完成", description: `${selected.rackId} 已完成移入并自动上报统一平台` })
-    }, 3200)
+    } catch {
+      toast({ title: "移位登记失败", description: "请稍后重试", variant: "destructive" })
+    }
   }
+
   return (
     <AppShell>
-      <PageHeader title="盘架管理" description="盘架槽位使用率与盘笼关联管理" badge="RACK MGMT"
-        actions={<div className="flex items-center gap-2"><Button variant="outline" size="sm" className="h-8" onClick={handleExport} disabled={exporting}>{exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1"/>}导出</Button><Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700"><RefreshCw className="h-4 w-4 mr-1"/>同步</Button></div>} />
+      <PageHeader
+        title="盘架管理"
+        description="盘架槽位使用率与盘笼关联管理"
+        badge="RACK MGMT"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-8" onClick={handleExport} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+              导出
+            </Button>
+            <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSync} disabled={syncing}>
+              {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+              同步
+            </Button>
+          </div>
+        }
+      />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="盘架总数" value={rackStats.total} unit="个" icon={HardDrive} />
         <StatCard title="正常" value={rackStats.normal} icon={HardDrive} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
         <StatCard title="预警/故障" value={rackStats.warning + rackStats.fault} icon={HardDrive} iconBg="bg-red-50" iconColor="text-red-600" />
-        <StatCard title="平均使用率" value={`${rackStats.avgUsage}%`} icon={HardDrive} iconBg="bg-orange-50" iconColor="text-orange-600" footer={<Progress value={rackStats.avgUsage} className="h-2 mt-2"/>} />
+        <StatCard title="平均使用率" value={`${rackStats.avgUsage}%`} icon={HardDrive} iconBg="bg-orange-50" iconColor="text-orange-600" footer={<Progress value={rackStats.avgUsage} className="h-2 mt-2" />} />
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
         <Card className="xl:col-span-2 gap-0">
           <CardHeader className="pb-3"><CardTitle className="text-base">盘架列表</CardTitle></CardHeader>
           <CardContent className="pt-0 overflow-x-auto">
             <Table>
-              <TableHeader><TableRow className="hover:bg-transparent">
-                <TableHead className="text-xs text-slate-500">盘架ID</TableHead><TableHead className="text-xs text-slate-500">站点</TableHead>
-                <TableHead className="text-xs text-slate-500">数据中心</TableHead><TableHead className="text-xs text-slate-500">盘笼</TableHead>
-                <TableHead className="text-xs text-slate-500">槽位</TableHead><TableHead className="text-xs text-slate-500">使用率</TableHead>
-                <TableHead className="text-xs text-slate-500">状态</TableHead><TableHead className="text-xs text-slate-500">同步时间</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>{rackList.map((r) => (
-                <TableRow key={r.id} className={`cursor-pointer hover:bg-slate-50 ${selected?.id===r.id?"bg-blue-50":""}`} onClick={() => setSelected(r)}>
-                  <TableCell className="font-mono font-medium text-sm">{r.rackId}</TableCell>
-                  <TableCell><p className="text-sm">{r.siteName}</p><p className="text-xs text-slate-400">{r.siteCode}</p></TableCell>
-                  <TableCell className="text-sm">{r.datacenter}</TableCell>
-                  <TableCell className="text-sm">{r.cages.join(", ")}</TableCell>
-                  <TableCell className="text-sm">{r.usedSlots}/{r.totalSlots}</TableCell>
-                  <TableCell className="min-w-[100px]"><Progress value={r.usagePercent} className="h-1.5 mb-1"/><span className="text-xs">{r.usagePercent}%</span></TableCell>
-                  <TableCell><Badge className={statusMap[r.status][1]}>{statusMap[r.status][0]}</Badge></TableCell>
-                  <TableCell className="text-xs text-slate-500">{r.lastSyncAt}</TableCell>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-xs text-slate-500">盘架ID</TableHead>
+                  <TableHead className="text-xs text-slate-500">站点</TableHead>
+                  <TableHead className="text-xs text-slate-500">数据中心</TableHead>
+                  <TableHead className="text-xs text-slate-500">盘笼</TableHead>
+                  <TableHead className="text-xs text-slate-500">槽位</TableHead>
+                  <TableHead className="text-xs text-slate-500">使用率</TableHead>
+                  <TableHead className="text-xs text-slate-500">状态</TableHead>
+                  <TableHead className="text-xs text-slate-500">同步时间</TableHead>
                 </TableRow>
-              ))}</TableBody>
+              </TableHeader>
+              <TableBody>
+                {rackList.map((r) => (
+                  <TableRow key={r.id} className={`cursor-pointer hover:bg-slate-50 ${selected?.id === r.id ? "bg-blue-50" : ""}`} onClick={() => setSelected(r)}>
+                    <TableCell className="font-mono font-medium text-sm">{r.rackId}</TableCell>
+                    <TableCell>
+                      <p className="text-sm">{r.siteName}</p>
+                      <p className="text-xs text-slate-400">{r.siteCode}</p>
+                    </TableCell>
+                    <TableCell className="text-sm">{r.datacenter}</TableCell>
+                    <TableCell className="text-sm">{r.cages.join(", ")}</TableCell>
+                    <TableCell className="text-sm">{r.usedSlots}/{r.totalSlots}</TableCell>
+                    <TableCell className="min-w-[100px]">
+                      <Progress value={r.usagePercent} className="h-1.5 mb-1" />
+                      <span className="text-xs">{r.usagePercent}%</span>
+                    </TableCell>
+                    <TableCell><Badge className={statusMap[r.status]?.[1]}>{statusMap[r.status]?.[0] ?? r.status}</Badge></TableCell>
+                    <TableCell className="text-xs text-slate-500">{r.lastSyncAt}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
             </Table>
           </CardContent>
         </Card>
-        <DetailPanel title="盘架详情" subtitle={selected?.rackId} empty={!selected}
-          actions={selected && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowTransfer(true)}><ArrowRightLeft className="h-3 w-3 mr-1"/>移位登记</Button>}>
+        <DetailPanel
+          title="盘架详情"
+          subtitle={selected?.rackId}
+          empty={!selected}
+          actions={selected && (
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowTransfer(true)}>
+              <ArrowRightLeft className="h-3 w-3 mr-1" />
+              移位登记
+            </Button>
+          )}
+        >
           {selected && (
             <Tabs defaultValue="slots">
               <TabsList className="h-8 w-full mb-3">
@@ -169,7 +231,7 @@ export default function Page() {
                   <DetailRow label="站点" value={selected.siteName} />
                   <DetailRow label="机房" value={selected.room || "—"} />
                   <DetailRow label="数据中心" value={selected.datacenter} />
-                  <DetailRow label="状态" value={<Badge className={statusMap[selected.status][1]}>{statusMap[selected.status][0]}</Badge>} />
+                  <DetailRow label="状态" value={<Badge className={statusMap[selected.status]?.[1]}>{statusMap[selected.status]?.[0] ?? selected.status}</Badge>} />
                   <DetailRow label="盘笼" value={selected.cages.join(", ")} />
                   <DetailRow label="使用率" value={`${selected.usagePercent}%`} />
                 </div>
@@ -177,8 +239,8 @@ export default function Page() {
                   <p className="text-xs font-medium text-slate-700 mb-2">盘位可视化（{selected.usedSlots}/{selected.totalSlots} 已占用）</p>
                   <SlotGrid slots={selected.slots} columns={8} />
                   <div className="flex gap-4 text-xs text-slate-500 mt-2">
-                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-600"/>已占用</span>
-                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-100 border"/>空闲</span>
+                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-600" />已占用</span>
+                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-100 border" />空闲</span>
                   </div>
                 </div>
               </TabsContent>
@@ -192,7 +254,7 @@ export default function Page() {
                             {t.status === "completed" && <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />}
                             {t.status === "in_transit" && <Truck className="h-3.5 w-3.5 text-blue-600" />}
                             {t.status === "pending" && <Clock className="h-3.5 w-3.5 text-slate-400" />}
-                            <Badge className={transferStatusMap[t.status][1]}>{transferStatusMap[t.status][0]}</Badge>
+                            <Badge className={transferStatusMap[t.status]?.[1]}>{transferStatusMap[t.status]?.[0] ?? t.status}</Badge>
                           </div>
                           <span className="text-[10px] text-slate-400">{t.requestedAt}</span>
                         </div>
@@ -228,7 +290,7 @@ export default function Page() {
               </div>
               <div className="space-y-2">
                 <Label>目标站点 *</Label>
-                <Select value={transfer.toSite} onValueChange={(v) => setTransfer({...transfer, toSite: v})}>
+                <Select value={transfer.toSite} onValueChange={(v) => setTransfer({ ...transfer, toSite: v })}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="选择目标站点" /></SelectTrigger>
                   <SelectContent>
                     {allSites.filter(s => s !== selected?.siteName).map((s) => (
@@ -240,11 +302,11 @@ export default function Page() {
             </div>
             <div className="space-y-2">
               <Label>移位原因 *</Label>
-              <Input value={transfer.reason} onChange={(e) => setTransfer({...transfer, reason: e.target.value})} placeholder="请输入移位原因" className="h-9" />
+              <Input value={transfer.reason} onChange={(e) => setTransfer({ ...transfer, reason: e.target.value })} placeholder="请输入移位原因" className="h-9" />
             </div>
             <div className="space-y-2">
               <Label>审批人 *</Label>
-              <Input value={transfer.approver} onChange={(e) => setTransfer({...transfer, approver: e.target.value})} placeholder="请输入审批人姓名" className="h-9" />
+              <Input value={transfer.approver} onChange={(e) => setTransfer({ ...transfer, approver: e.target.value })} placeholder="请输入审批人姓名" className="h-9" />
             </div>
           </div>
           <DialogFooter>
