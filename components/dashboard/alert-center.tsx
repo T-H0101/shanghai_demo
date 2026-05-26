@@ -1,71 +1,85 @@
 "use client"
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, XCircle, CheckCircle, Clock } from "lucide-react"
-import { taskAlerts } from "@/lib/mock/tasks"
+import { taskProvider } from "@/lib/api/mock-providers"
+import type { TaskAlert } from "@/lib/types/task"
+import {
+  Bell,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  ChevronRight,
+} from "lucide-react"
 
-const levelConfig = {
-  critical: { label: "严重", color: "bg-red-600", text: "text-red-600", border: "border-l-red-600", bg: "bg-red-50" },
-  warning: { label: "警告", color: "bg-amber-600", text: "text-amber-600", border: "border-l-amber-600", bg: "bg-amber-50" },
+const alertLevelIcon: Record<string, typeof AlertCircle> = {
+  error: AlertCircle,
+  warning: AlertTriangle,
+  info: Info,
+}
+
+const alertLevelColor: Record<string, string> = {
+  error: "text-red-600",
+  warning: "text-amber-600",
+  info: "text-blue-600",
 }
 
 export function AlertCenter() {
+  const [alerts, setAlerts] = useState<TaskAlert[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    taskProvider.getAlerts().then((data) => {
+      setAlerts(data.slice(0, 6))
+      setLoading(false)
+    })
+  }, [])
+
   return (
-    <Card className="gap-0 h-full flex flex-col">
-      <CardHeader className="pb-2">
+    <Card className="gap-0 relative">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <CardTitle className="text-sm font-semibold text-slate-900">
-              运维告警
-            </CardTitle>
-          </div>
-          <Badge className="bg-red-600 text-white hover:bg-red-600 text-xs">
-            {taskAlerts.length} ACTIVE
-          </Badge>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="h-5 w-5 text-slate-400" />
+            系统告警
+          </CardTitle>
+          <button
+            onClick={() => {}}
+            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          >
+            查看全部 <ChevronRight className="h-3 w-3" />
+          </button>
         </div>
       </CardHeader>
-      <CardContent className="pt-0 flex-1 flex flex-col">
-        <ScrollArea className="flex-1">
-          <div className="space-y-1.5">
-            {taskAlerts.map((alert) => {
-              const cfg = levelConfig[alert.level]
+      <CardContent className="pt-0">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : alerts.length === 0 ? (
+          <div className="text-center py-8 text-slate-400 text-sm">暂无告警信息</div>
+        ) : (
+          <div className="space-y-2">
+            {alerts.map((alert) => {
+              const Icon = alertLevelIcon[alert.level] ?? Info
               return (
-                <div key={alert.id} className={`p-2 rounded border-l-2 ${cfg.border} ${cfg.bg}`}>
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs px-1.5 py-0.5 rounded text-white font-medium">
-                        {cfg.label}
-                      </span>
-                      <span className="text-xs font-medium text-slate-700 truncate max-w-[140px]">
-                        {alert.taskName}
-                      </span>
-                    </div>
-                    <span className="text-xs text-slate-400 shrink-0 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />{alert.time}
-                    </span>
+                <div
+                  key={alert.id}
+                  className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <Icon className={cn("h-4 w-4 shrink-0 mt-0.5", alertLevelColor[alert.level])} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{alert.message}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{alert.timestamp}</p>
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {alert.message}
-                  </p>
                 </div>
               )
             })}
           </div>
-        </ScrollArea>
-
-        <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-4 text-xs text-slate-500">
-            <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-red-500" />未确认</span>
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-amber-500" />处理中</span>
-            <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-emerald-500" />已解决</span>
-          </div>
-          <button className="text-xs text-blue-600 hover:text-blue-700">
-            告警历史 &rarr;
-          </button>
-        </div>
+        )}
       </CardContent>
     </Card>
   )
