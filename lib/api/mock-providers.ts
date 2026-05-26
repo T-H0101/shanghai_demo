@@ -5,20 +5,27 @@ import type {
   SiteProvider, TaskProvider, UserProvider, RackProvider,
   SearchProvider, AuditProvider, SettingsProvider,
   TaskFilters, CreateTaskInput, CreateUserInput, TransferInput, ExportConfig,
-  ConsistencyReport, SyncResult, SearchResult, FilterOptions, ExportJob
+  ConsistencyReport, SyncResult, SearchResult, FilterOptions, ExportJob,
+  AddMediaInput, MountInput,
 } from "./providers"
 import type { SystemSettings } from "@/lib/types/settings"
 import type { TransferRecord, Rack } from "@/lib/types/rack"
+import type { TaskPhase } from "@/lib/types/task"
+import { TASK_PHASES_BY_TYPE } from "@/lib/types/task"
 import { readMockStore, writeMockStore, getStorageKey } from "./mock-store"
 
 // 导入现有 Mock 数据
 import { sites, siteStats } from "@/lib/mock/sites"
 import { tasks, taskStats, taskLogs, taskAlerts } from "@/lib/mock/tasks"
 import { users, userStats } from "@/lib/mock/users"
-import { racks, rackStats } from "@/lib/mock/racks"
+import { racks as defaultRacks, rackStats as defaultRackStats } from "@/lib/mock/racks"
 import { searchFiles, searchSites, searchDepartments, searchFileTypes } from "@/lib/mock/search"
 import { auditLogs, auditStats } from "@/lib/mock/audit"
 import { defaultSettings } from "@/lib/mock/settings"
+
+// 保持可变性（用于模拟状态变化）
+let mockTasks = [...tasks]
+let mockRacks = [...defaultRacks]
 
 // ============================================================
 // Mock Site Provider
@@ -81,8 +88,6 @@ export const mockSiteProvider: SiteProvider = {
 // Mock Task Provider
 // ============================================================
 
-let mockTasks = [...tasks]
-
 export const mockTaskProvider: TaskProvider = {
   getAll: async (filters?: TaskFilters) => {
     await simulateDelay(100)
@@ -94,11 +99,19 @@ export const mockTaskProvider: TaskProvider = {
       if (filters.status) {
         result = result.filter(t => t.status === filters.status)
       }
+      if (filters.phase && filters.phase !== "all") {
+        result = result.filter(t => t.phase === filters.phase)
+      }
       if (filters.siteCode) {
         result = result.filter(t => t.siteCode === filters.siteCode)
       }
       if (filters.keyword) {
-        result = result.filter(t => t.name.includes(filters.keyword!) || t.siteName.includes(filters.keyword!))
+        result = result.filter(t =>
+          t.name.includes(filters.keyword!) ||
+          (t.taskNo ?? "").includes(filters.keyword!) ||
+          t.siteName.includes(filters.keyword!) ||
+          (t.archiveName ?? "").includes(filters.keyword!)
+        )
       }
     }
     return result
@@ -126,18 +139,42 @@ export const mockTaskProvider: TaskProvider = {
 
   createTask: async (input: CreateTaskInput) => {
     await simulateDelay(200)
+    const now = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+    const nowTime = new Date().toLocaleTimeString("zh-CN", { hour12: false })
     const newTask = {
       id: `t${Date.now()}`,
+      taskNo: input.taskNo ?? `TK-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(mockTasks.length + 1).padStart(3, "0")}`,
       name: input.name,
       type: input.type,
+      phase: "pending" as const,
       status: "pending_dispatch" as const,
       priority: input.priority,
       progress: 0,
+      archiveName: input.archiveName,
+      dataClassification: input.dataClassification,
       siteName: input.siteCode,
       siteCode: input.siteCode,
-      operator: "当前用户",
+      operator: input.operator,
+      department: input.department,
+      sourcePath: input.sourcePath,
+      packagePath: input.packagePath,
+      volumeId: input.volumeId,
+      backupScope: input.backupScope ?? "full",
+      packagingMode: input.packagingMode ?? "scan_while_package",
+      deviceId: input.deviceId,
+      rackId: input.rackId,
       startedAt: "—",
-      updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
+      updatedAt: now,
+      recentLogs: [
+        {
+          id: `log-${Date.now()}`,
+          taskId: `t${Date.now()}`,
+          timestamp: nowTime,
+          level: "info" as const,
+          message: `任务创建成功，等待调度`,
+          operator: input.operator,
+        },
+      ],
     }
     mockTasks = [newTask, ...mockTasks]
     return newTask
@@ -168,10 +205,122 @@ export const mockTaskProvider: TaskProvider = {
     const task = mockTasks.find(t => t.id === id)
     if (task) {
       task.status = "running"
+      task.phase = task.phase === "failed" ? "pending" : task.phase
       task.errorMessage = undefined
       task.retryCount = (task.retryCount || 0) + 1
     }
-  }
+  },
+
+  advancePhase: async (id: string) => {
+    await simulateDelay(100)
+    const task = mockTasks.find(t => t.id === id)
+    if (!task) throw new Error("Task not found")
+    const phases = TASK_PHASES_BY_TYPE[task.type]
+    const currentIndex = phases.indexOf(task.phase as TaskPhase)
+    if (currentIndex < 0 || currentIndex >= phases.length - 1) {
+      // Already at end, complete it
+      task.phase = "completed"
+      task.status = "completed"
+      task.progress = 100
+      task.completedAt = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+      return task
+    }
+    const nextPhase = phases[currentIndex + 1]
+    task.phase = nextPhase
+    task.status = nextPhase === "completed" ? "completed" : nextPhase === "failed" ? "failed" : "running"
+    if (nextPhase === "completed") {
+      task.progress = 100
+      task.completedAt = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+    } else {
+      task.progress = Math.min(100, task.progress + Math.floor(15 + Math.random() * 20))
+    }
+    // Append log
+    const phaseLog: Record<string, string> = {
+      pending: "任务已创建，等待调度",
+      scanning: "进入扫描阶段，开始扫描源目录",
+      preparing: "扫描完成，进入准备阶段",
+      splitting: "准备完成，开始分盘操作",
+      packaging: "分盘完成，开始多线程封包",
+      verifying: "封包完成，开始 SM3 校验",
+      writing: "校验完成，开始写入目标存储",
+      completed: "任务执行完成",
+      failed: "任务执行失败",
+      paused: "任务已暂停",
+    }
+    task.recentLogs = [
+      {
+        id: `log-${Date.now()}`,
+        taskId: task.id,
+        timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+        level: nextPhase === "failed" ? "error" : "info",
+        message: phaseLog[nextPhase] ?? `进入阶段：${nextPhase}`,
+        operator: "系统",
+      },
+      ...task.recentLogs,
+    ]
+    return task
+  },
+
+  completeTask: async (id: string) => {
+    await simulateDelay(100)
+    const task = mockTasks.find(t => t.id === id)
+    if (task) {
+      task.phase = "completed"
+      task.status = "completed"
+      task.progress = 100
+      task.completedAt = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+    }
+  },
+
+  failTask: async (id: string, reason: string) => {
+    await simulateDelay(100)
+    const task = mockTasks.find(t => t.id === id)
+    if (task) {
+      task.phase = "failed"
+      task.status = "failed"
+      task.errorMessage = reason
+    }
+  },
+
+  createTaskFromDevice: async (deviceId: string, taskType: import("@/lib/types/task").TaskType, params?: Record<string, string>) => {
+    await simulateDelay(300)
+    const device = mockRacks.find(r => r.id === deviceId)
+    const newTask: import("@/lib/types/task").TaskItem = {
+      id: `t${Date.now()}`,
+      taskNo: `TK-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(mockTasks.length + 1).padStart(3, "0")}`,
+      name: params?.name ?? `${device?.rackName ?? "设备"}-${taskType === "device_scan" ? "设备扫描" : taskType === "raid_check" ? "RAID校验" : "任务"}`,
+      type: taskType,
+      phase: "pending",
+      status: "pending_dispatch",
+      priority: "normal",
+      progress: 0,
+      archiveName: device?.rackName ?? "—",
+      dataClassification: taskType === "device_scan" ? "设备扫描" : taskType === "raid_check" ? "RAID校验" : "其他",
+      siteName: device?.siteName ?? "—",
+      siteCode: device?.siteCode ?? "—",
+      operator: "当前用户",
+      department: "设备运维部",
+      sourcePath: params?.sourcePath ?? "/dev/sda",
+      packagePath: params?.packagePath ?? "/output/",
+      deviceId,
+      deviceName: device?.rackId,
+      rackId: deviceId,
+      startedAt: "—",
+      updatedAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-"),
+      recentLogs: [
+        {
+          id: `log-${Date.now()}`,
+          taskId: `t${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+          level: "info",
+          message: `从设备 ${device?.rackId} 生成任务，等待调度`,
+          operator: "系统",
+        },
+      ],
+    }
+    mockTasks = [newTask, ...mockTasks]
+    return newTask
+  },
 }
 
 // ============================================================
@@ -252,8 +401,6 @@ export const mockUserProvider: UserProvider = {
 // Mock Rack Provider
 // ============================================================
 
-let mockRacks = [...racks]
-
 export const mockRackProvider: RackProvider = {
   getAll: async (siteCode?: string) => {
     await simulateDelay(100)
@@ -281,8 +428,19 @@ export const mockRackProvider: RackProvider = {
     const normal = filtered.filter(r => r.status === "normal").length
     const warning = filtered.filter(r => r.status === "warning").length
     const fault = filtered.filter(r => r.status === "fault").length
-    const avgUsage = total > 0 ? Math.round(filtered.reduce((sum, r) => sum + r.usagePercent, 0) / total) : 0
-    return { total, normal, warning, fault, avgUsage }
+    const maintenance = filtered.filter(r => r.status === "maintenance").length
+    const online = filtered.filter(r => r.deviceStatus === "online").length
+    const offline = filtered.filter(r => r.deviceStatus === "offline" || r.deviceStatus === "error").length
+    const usedSlots = filtered.reduce((s, r) => s + (r.usedSlots || 0), 0)
+    const totalSlotsAll = filtered.reduce((s, r) => s + (r.totalSlots || 0), 0)
+    const avgUsage = total > 0 ? Math.round(filtered.reduce((s, r) => s + r.usagePercent, 0) / total) : 0
+    return {
+      total, normal, warning, fault, maintenance,
+      online, offline,
+      totalCapacity: defaultRackStats.totalCapacity,
+      remainingCapacity: defaultRackStats.remainingCapacity,
+      usedSlots, totalSlotsAll, avgUsage,
+    }
   },
 
   registerTransfer: async (input: TransferInput) => {
@@ -313,14 +471,12 @@ export const mockRackProvider: RackProvider = {
       "武汉备份中心": "WH-BK-06",
     }
 
-    // 更新 rack 状态为 maintenance，记录移位历史
+    // 移位完成前保留原站点，避免列表在 pending 阶段提前显示为目标站点
     const idx = mockRacks.findIndex(r => r.rackId === input.rackId)
     mockRacks[idx] = {
       ...rack,
       status: "maintenance",
       lastSyncAt: transferRecord.requestedAt,
-      siteName: input.toSiteCode,
-      siteCode: siteCodeMap[input.toSiteCode] ?? rack.siteCode,
       transferHistory: [transferRecord, ...(rack.transferHistory ?? [])],
     }
     writeMockStore(getStorageKey("racks"), mockRacks)
@@ -347,6 +503,8 @@ export const mockRackProvider: RackProvider = {
         s[ri] = {
           ...s[ri],
           status: "normal",
+          siteName: input.toSiteCode,
+          siteCode: siteCodeMap[input.toSiteCode] ?? s[ri].siteCode,
           lastSyncAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-"),
           transferHistory: s[ri].transferHistory?.map(t =>
             t.id === transferRecord.id
@@ -370,6 +528,129 @@ export const mockRackProvider: RackProvider = {
     mockRacks = mockRacks.map(r => ({ ...r, lastSyncAt: now }))
     writeMockStore(getStorageKey("racks"), mockRacks)
     return [...mockRacks]
+  },
+
+  addMedia: async (rackId: string, slotIndex: number, media: AddMediaInput) => {
+    await simulateDelay(200)
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
+    const rack = mockRacks.find(r => r.id === rackId)
+    if (!rack) throw new Error("Rack not found")
+    const slot = rack.slots.find(s => s.index === slotIndex)
+    if (!slot) throw new Error("Slot not found")
+    if (slot.occupied) throw new Error("Slot already occupied")
+    slot.occupied = true
+    slot.status = "used"
+    slot.discNo = media.discNo
+    slot.mediaType = media.mediaType
+    slot.capacity = media.capacity
+    slot.volumeId = media.volumeId
+    rack.usedSlots = (rack.usedSlots || 0) + 1
+    // Recalculate usage percent
+    if (rack.totalSlots > 0) {
+      rack.usagePercent = Math.round((rack.usedSlots / rack.totalSlots) * 100)
+    }
+    // Add device log
+    if (!rack.deviceLogs) rack.deviceLogs = []
+    rack.deviceLogs = [
+      {
+        id: `dl-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+        level: "info" as const,
+        message: `介质 ${media.discNo} 已添加到 ${rack.rackId} 槽位 ${slotIndex}`,
+      },
+      ...rack.deviceLogs,
+    ]
+    writeMockStore(getStorageKey("racks"), mockRacks)
+  },
+
+  mountNetworkDrive: async (mount: MountInput) => {
+    await simulateDelay(2000)
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
+    // Create new CIFS network drive as a rack
+    const newRack: Rack = {
+      id: `r-${Date.now()}`,
+      rackId: `R-NAS-${Date.now() % 10000}`,
+      rackName: `${mount.protocol}网盘-${mount.deviceName}`,
+      siteName: mount.siteName || mount.deviceGroup,
+      siteCode: mount.siteName || mount.deviceGroup,
+      datacenter: mount.datacenter || "网络存储",
+      cages: ["网盘挂载"],
+      totalSlots: 0,
+      usedSlots: 0,
+      usagePercent: 0,
+      status: "normal",
+      lastSyncAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-"),
+      slots: [],
+      ip: mount.deviceName,
+      deviceType: `${mount.protocol} 网盘`,
+      deviceStatus: "online",
+      totalCapacity: "待挂载后确定",
+      remainingCapacity: "待挂载后确定",
+      currentTaskCount: 0,
+      trays: [],
+      mode: "standard",
+      volumes: [{
+        id: `v-${Date.now()}`,
+        name: mount.mountPath.split("/").pop() || mount.deviceName,
+        type: "magnetic",
+        totalCapacity: "待挂载后确定",
+        remainingCapacity: "待挂载后确定",
+        info: `挂载路径: ${mount.mountPath} | 数据源: ${mount.dataSource} | 权限: ${mount.permission === "readonly" ? "只读" : "读写"}`,
+      }],
+      deviceLogs: [
+        {
+          id: `dl-${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+          level: "info" as const,
+          message: `网盘挂载启动：${mount.dataSource}`,
+        },
+        {
+          id: `dl-${Date.now() + 1}`,
+          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+          level: "info" as const,
+          message: `权限测试通过（${mount.permission === "readonly" ? "只读" : "读写"}）`,
+        },
+        {
+          id: `dl-${Date.now() + 2}`,
+          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+          level: "info" as const,
+          message: `挂载成功：${mount.mountPath} -> ${mount.dataSource}`,
+        },
+      ],
+    }
+    mockRacks = [newRack, ...mockRacks]
+    writeMockStore(getStorageKey("racks"), mockRacks)
+    return newRack
+  },
+
+  updateDeviceMode: async (rackId: string, mode: string) => {
+    await simulateDelay(300)
+    const stored = readMockStore(getStorageKey("racks"), null)
+    if (stored) mockRacks = stored
+    const rack = mockRacks.find(r => r.id === rackId)
+    if (!rack) throw new Error("Rack not found")
+    const modeMap: Record<string, import("@/lib/types/rack").DeviceMode> = {
+      "关": "off",
+      "开-标准模式": "standard",
+      "开-高速模式（深度休眠不下电）": "high_speed",
+      off: "off",
+      standard: "standard",
+      high_speed: "high_speed",
+    }
+    rack.mode = modeMap[mode] ?? "off"
+    if (!rack.deviceLogs) rack.deviceLogs = []
+    rack.deviceLogs = [
+      {
+        id: `dl-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+        level: "info" as const,
+        message: `设备模式切换：${mode}`,
+      },
+      ...rack.deviceLogs,
+    ]
+    writeMockStore(getStorageKey("racks"), mockRacks)
   },
 }
 

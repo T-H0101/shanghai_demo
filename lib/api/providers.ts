@@ -1,5 +1,5 @@
 import type { Site, SiteStats } from "@/lib/types/site"
-import type { TaskItem, TaskStats, TaskLogEntry, TaskAlert } from "@/lib/types/task"
+import type { TaskItem, TaskStats, TaskLogEntry, TaskAlert, TaskType, TaskPhase } from "@/lib/types/task"
 import type { User, UserStats } from "@/lib/types/user"
 import type { Rack, RackStats } from "@/lib/types/rack"
 import type { SearchFile, SearchFilters } from "@/lib/types/search"
@@ -27,9 +27,13 @@ export interface TaskProvider {
   getAlerts(): Promise<TaskAlert[]>
   createTask(task: CreateTaskInput): Promise<TaskItem>
   updateTask(id: string, updates: Partial<TaskItem>): Promise<TaskItem>
+  advancePhase(id: string): Promise<TaskItem>       // 推进进度（演示用）
   pauseTask(id: string): Promise<void>
   resumeTask(id: string): Promise<void>
   retryTask(id: string): Promise<void>
+  completeTask(id: string): Promise<void>
+  failTask(id: string, reason: string): Promise<void>
+  createTaskFromDevice(deviceId: string, taskType: TaskType, params?: Record<string, string>): Promise<TaskItem>
 }
 
 export interface UserProvider {
@@ -47,6 +51,9 @@ export interface RackProvider {
   getStats(siteCode?: string): Promise<RackStats>
   registerTransfer(transfer: TransferInput): Promise<TransferRecord>
   syncRacks(): Promise<Rack[]>
+  addMedia(rackId: string, slotIndex: number, media: AddMediaInput): Promise<void>
+  mountNetworkDrive(mount: MountInput): Promise<Rack>
+  updateDeviceMode(rackId: string, mode: string): Promise<void>
 }
 
 export interface SearchProvider {
@@ -71,17 +78,31 @@ export interface SettingsProvider {
 // ============================================================
 
 export interface TaskFilters {
-  type?: "backup" | "restore" | "inspect" | "burn" | "all"
+  type?: TaskType | "all"
   status?: string
   siteCode?: string
   keyword?: string
+  phase?: TaskPhase | "all"
 }
 
 export interface CreateTaskInput {
   name: string
-  type: "backup" | "restore" | "inspect" | "burn"
+  taskNo?: string
+  type: TaskType
+  archiveName: string
+  dataClassification: string
   siteCode: string
+  sourcePath: string
+  packagePath: string
+  volumeId?: string
+  backupScope?: "full" | "incremental"
+  packagingMode?: "scan_while_package" | "scan_then_package"
+  deviceId?: string
+  rackId?: string
   priority: "critical" | "high" | "normal" | "low"
+  operator: string
+  department?: string
+  notes?: string
 }
 
 export interface CreateUserInput {
@@ -101,6 +122,30 @@ export interface TransferInput {
   reason: string
   operator: string
   approver: string
+}
+
+export interface AddMediaInput {
+  discNo: string
+  mediaType: "hdd" | "bd" | "offline"
+  capacity: string
+  volumeId?: string
+}
+
+export interface MountInput {
+  deviceName: string
+  deviceGroup: string
+  protocol: "CIFS" | "NFS"
+  encoding: "UTF-8" | "GBK"
+  mountPath: string
+  managePath: string
+  dataSource: string
+  username?: string
+  password?: string
+  permission: "readonly" | "readwrite"
+  speedLimit?: number
+  extraParams?: string
+  siteName?: string      // 所属站点（可选，挂载时指定）
+  datacenter?: string    // 数据中心
 }
 
 export interface ExportConfig {
@@ -131,19 +176,6 @@ export interface SyncResult {
   status: "success" | "failed" | "syncing"
   message?: string
   syncedAt?: string
-}
-
-export interface TransferRecord {
-  id: string
-  rackId: string
-  fromSite: string
-  toSite: string
-  reason: string
-  operator: string
-  approver: string
-  status: "pending" | "in_transit" | "completed" | "cancelled"
-  requestedAt: string
-  completedAt?: string
 }
 
 export interface SearchResult {

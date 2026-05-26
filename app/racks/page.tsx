@@ -1,317 +1,803 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
-import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
-import { SlotGrid } from "@/components/platform/slot-grid"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { rackProvider } from "@/lib/api/mock-providers"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { rackProvider, taskProvider } from "@/lib/api/mock-providers"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
-import { allSites } from "@/lib/mock/racks"
-import type { Rack, RackStats, TransferRecord } from "@/lib/types/rack"
-import { HardDrive, Download, RefreshCw, ArrowRightLeft, Clock, CheckCircle, Truck, Loader2 } from "lucide-react"
+import { racks as mockRacks } from "@/lib/mock/racks"
+import { sites as mockSites } from "@/lib/mock/sites"
+import type { Rack, RackSlot, RackStats } from "@/lib/types/rack"
+import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
+import type { TaskItem } from "@/lib/types/task"
+import type { AddMediaInput, MountInput } from "@/lib/api/providers"
+import {
+  Server, HardDrive, Database, Wifi, WifiOff, AlertTriangle, Layers,
+  Search, RefreshCw, Download, Eye, ListChecks, ChevronRight,
+  Info, Grid3X3, Link2, CheckCircle2, XCircle, Clock, Wrench,
+  Activity, Plus, Plug, Eye as ScanIcon, Shield, Settings,
+  Box, Timer, Power, RotateCcw,
+} from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
-const statusMap: Record<string, [string, string]> = {
-  normal: ["正常", "bg-emerald-100 text-emerald-700"],
-  warning: ["预警", "bg-amber-100 text-amber-700"],
-  fault: ["故障", "bg-red-100 text-red-700"],
-  maintenance: ["维护", "bg-slate-100 text-slate-700"],
+type DeviceCategory = "all" | "hdd" | "optical" | "offline" | "nas" | "abnormal"
+
+const deviceStatusMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
+  online: { label: "在线", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+  offline: { label: "离线", color: "bg-slate-100 text-slate-600", icon: XCircle },
+  error: { label: "异常", color: "bg-red-100 text-red-700", icon: AlertTriangle },
+  maintenance: { label: "维护中", color: "bg-amber-100 text-amber-700", icon: Wrench },
 }
-const transferStatusMap: Record<string, [string, string]> = {
-  pending: ["待处理", "bg-slate-100 text-slate-600"],
-  in_transit: ["移位中", "bg-blue-100 text-blue-700"],
-  completed: ["已完成", "bg-emerald-100 text-emerald-700"],
-  cancelled: ["已取消", "bg-slate-100 text-slate-400"],
+
+const slotStatusColor: Record<string, { bg: string; text: string; border: string }> = {
+  used:   { bg: "bg-blue-600",   text: "text-white", border: "border-blue-600" },
+  free:   { bg: "bg-slate-100",  text: "text-slate-400", border: "border-slate-200" },
+  error:  { bg: "bg-red-500",    text: "text-white", border: "border-red-500" },
+  empty:  { bg: "bg-slate-50",   text: "text-slate-300", border: "border-dashed border-slate-300" },
+}
+
+const logLevelColor: Record<string, string> = {
+  info: "bg-slate-50 text-slate-700", warn: "bg-amber-50 text-amber-800", error: "bg-red-50 text-red-800",
+}
+
+interface TreeNode {
+  id: DeviceCategory
+  label: string
+  icon: typeof HardDrive
+}
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 py-2 border-b border-slate-50 last:border-0 text-sm">
+      <span className="text-slate-400 shrink-0 w-24 text-right">{label}</span>
+      <span className="text-slate-900 min-w-0 break-words">{value}</span>
+    </div>
+  )
 }
 
 export default function Page() {
+  const router = useRouter()
   const [rackList, setRackList] = useState<Rack[]>([])
-  const [rackStats, setRackStats] = useState<RackStats>({ total: 0, normal: 0, warning: 0, fault: 0, avgUsage: 0 })
+  const [stats, setStats] = useState<RackStats & { online: number; offline: number; maintenance: number }>({
+    total: 0, normal: 0, warning: 0, fault: 0, maintenance: 0,
+    online: 0, offline: 0, totalCapacity: "0 TB", remainingCapacity: "0 TB",
+    usedSlots: 0, totalSlotsAll: 0, avgUsage: 0,
+  })
   const [selected, setSelected] = useState<Rack | null>(null)
-  const [showTransfer, setShowTransfer] = useState(false)
-  const [transfer, setTransfer] = useState({ toSite: "", reason: "", approver: "" })
-  const [exporting, setExporting] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [category, setCategory] = useState<DeviceCategory>("all")
+  const [keyword, setKeyword] = useState("")
   const [syncing, setSyncing] = useState(false)
+
+  // 弹窗状态
+  const [showAddMedia, setShowAddMedia] = useState(false)
+  const [addMediaSlot, setAddMediaSlot] = useState<number | null>(null)
+  const [addMediaForm, setAddMediaForm] = useState<Partial<AddMediaInput>>({ mediaType: "hdd" })
+
+  const [showMount, setShowMount] = useState(false)
+  const [mountForm, setMountForm] = useState<Partial<MountInput>>({ protocol: "CIFS", encoding: "UTF-8", permission: "readonly" })
+
+  const [showCreateTask, setShowCreateTask] = useState(false)
+  const [createTaskType, setCreateTaskType] = useState<string>("device_scan")
+  const [createTaskName, setCreateTaskName] = useState("")
 
   // 加载数据
   const loadRacks = useCallback(async () => {
-    const [racks, stats] = await Promise.all([
-      rackProvider.getAll(),
-      rackProvider.getStats(),
-    ])
-    setRackList(racks)
-    setRackStats(stats)
-    // 保持选中项同步
-    setSelected(prev => {
-      if (!prev) return null
-      const updated = racks.find(r => r.id === prev.id)
-      return updated ?? null
-    })
-  }, [])
+    try {
+      const [racksData, statsData] = await Promise.all([rackProvider.getAll(), rackProvider.getStats()])
+      setRackList(racksData.length > 0 ? racksData : mockRacks)
+      setStats(statsData as any)
+      if (!selected) setSelected((racksData.length > 0 ? racksData : mockRacks)[0] ?? null)
+    } catch {
+      setRackList(mockRacks)
+    }
+  }, [selected])
 
-  // 页面加载时读取 provider
-  useEffect(() => {
-    loadRacks()
-  }, [loadRacks])
+  useEffect(() => { loadRacks() }, [loadRacks])
 
-  // 监听 localStorage 变化事件
   useEffect(() => {
     const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key: string }>
-      if (customEvent.detail?.key === getStorageKey("racks")) {
-        loadRacks()
-      }
+      const ce = e as CustomEvent<{ key: string }>
+      if (ce.detail?.key === getStorageKey("racks")) loadRacks()
     }
     window.addEventListener(MOCK_STORE_EVENT, handler)
     return () => window.removeEventListener(MOCK_STORE_EVENT, handler)
   }, [loadRacks])
 
+  // 设备分类树
+  const treeNodes: TreeNode[] = [
+    { id: "all", label: "全部设备", icon: Server },
+    { id: "hdd", label: "硬盘库", icon: HardDrive },
+    { id: "optical", label: "光盘库", icon: Database },
+    { id: "offline", label: "离线库", icon: WifiOff },
+    { id: "nas", label: "网盘/网络存储", icon: Layers },
+    { id: "abnormal", label: "异常设备", icon: AlertTriangle },
+  ]
+
+  // 筛选
+  const filtered = useMemo(() => {
+    return rackList.filter(r => {
+      const matchCat = category === "all" ? true :
+        category === "hdd" ? r.deviceType === "智能硬盘库" :
+        category === "optical" ? r.deviceType === "光盘库" :
+        category === "offline" ? r.deviceStatus === "offline" :
+        category === "nas" ? (r.deviceType?.includes("网盘") || r.deviceType?.includes("NAS") || r.deviceType?.includes("CIFS")) :
+        category === "abnormal" ? (r.deviceStatus === "error" || r.status === "maintenance" || r.status === "fault") : true
+      const matchKw = !keyword || r.rackId.includes(keyword) || r.siteName.includes(keyword) || (r.ip ?? "").includes(keyword) || (r.deviceType ?? "").includes(keyword)
+      return matchCat && matchKw
+    })
+  }, [rackList, category, keyword])
+
+  // 树节点计数
+  const treeCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    treeNodes.forEach(n => {
+      map[n.id] = rackList.filter(r => {
+        if (n.id === "all") return true
+        if (n.id === "hdd") return r.deviceType === "智能硬盘库"
+        if (n.id === "optical") return r.deviceType === "光盘库"
+        if (n.id === "offline") return r.deviceStatus === "offline"
+        if (n.id === "nas") return r.deviceType?.includes("网盘") || r.deviceType?.includes("NAS") || r.deviceType?.includes("CIFS")
+        if (n.id === "abnormal") return r.deviceStatus === "error" || r.status === "maintenance" || r.status === "fault"
+        return false
+      }).length
+    })
+    return map
+  }, [rackList])
+
+  const openDetail = (rack: Rack) => { setSelected(rack); setDrawerOpen(true) }
+
   const handleSync = async () => {
     setSyncing(true)
     try {
       await rackProvider.syncRacks()
-      toast({ title: "同步完成", description: "所有盘架同步时间已更新" })
-    } catch {
-      toast({ title: "同步失败", description: "请稍后重试", variant: "destructive" })
-    } finally {
-      setSyncing(false)
-    }
+      await loadRacks()
+      toast({ title: "同步完成", description: "所有设备同步时间已更新" })
+    } catch { toast({ title: "同步失败", variant: "destructive" }) }
+    finally { setSyncing(false) }
   }
 
-  const handleExport = () => {
-    setExporting(true)
-    toast({ title: "正在导出盘架数据...", description: "请稍候，正在生成文件" })
-    setTimeout(() => {
-      setExporting(false)
-      const exportData = rackList.map(r => ({
-        rackId: r.rackId,
-        siteName: r.siteName,
-        siteCode: r.siteCode,
-        datacenter: r.datacenter,
-        cages: r.cages.join(", "),
-        usedSlots: r.usedSlots,
-        totalSlots: r.totalSlots,
-        usagePercent: r.usagePercent,
-        status: statusMap[r.status]?.[0] ?? r.status,
-        lastSyncAt: r.lastSyncAt,
-      }))
-      const content = exportData
-        .map(r => `[${r.lastSyncAt}] ${r.rackId} | ${r.siteName} | ${r.datacenter} | ${r.cages} | ${r.usedSlots}/${r.totalSlots} | ${r.usagePercent}% | ${r.status}`)
-        .join("\n")
-      const blob = new Blob([content], { type: "text/plain" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `racks_export_${Date.now()}.log`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast({ title: "导出成功", description: `已导出 ${rackList.length} 条盘架数据` })
-    }, 1500)
+  const handleViewTasks = (rack: Rack) => {
+    router.push(`/tasks?device=${rack.rackId}`)
   }
 
-  const handleTransfer = async () => {
-    if (!selected || !transfer.toSite || !transfer.reason || !transfer.approver) {
-      toast({ title: "请填写完整信息", description: "目标站点、移位原因、审批人均为必填项", variant: "destructive" })
+  const handleScan = async (rack: Rack, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    try {
+      const task = await taskProvider.createTaskFromDevice(rack.id, "device_scan", { name: `${rack.rackId}-设备扫描` })
+      toast({ title: "设备扫描任务已生成", description: `「${task.name}」已创建` })
+    } catch { toast({ title: "操作失败", variant: "destructive" }) }
+  }
+
+  const handleRaidCheck = async (rack: Rack, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    try {
+      const task = await taskProvider.createTaskFromDevice(rack.id, "raid_check", { name: `${rack.rackId}-RAID校验` })
+      toast({ title: "RAID 校验任务已生成", description: `「${task.name}」已创建` })
+    } catch { toast({ title: "操作失败", variant: "destructive" }) }
+  }
+
+  const handleCreateTaskFromDevice = async () => {
+    if (!selected) return
+    try {
+      const task = await taskProvider.createTaskFromDevice(selected.id, createTaskType as any, { name: createTaskName || undefined })
+      toast({ title: "任务已生成", description: `「${task.name}」已创建` })
+      setShowCreateTask(false); setCreateTaskName("")
+    } catch { toast({ title: "生成失败", variant: "destructive" }) }
+  }
+
+  const handleMount = async () => {
+    if (!mountForm.deviceName || !mountForm.deviceGroup || !mountForm.mountPath || !mountForm.managePath || !mountForm.dataSource) {
+      toast({ title: "请填写必填项", description: "设备名称、设备组、挂载目录、管理目录、数据源为必填项", variant: "destructive" })
       return
     }
-    toast({ title: "移位登记已提交", description: `盘架 ${selected.rackId} 移位至 ${transfer.toSite}，等待审批` })
-    setShowTransfer(false)
-    setTransfer({ toSite: "", reason: "", approver: "" })
-
     try {
-      await rackProvider.registerTransfer({
-        rackId: selected.rackId,
-        fromSiteCode: selected.siteCode,
-        toSiteCode: transfer.toSite,
-        reason: transfer.reason,
-        operator: "张建国",
-        approver: transfer.approver,
-      })
-      toast({ title: "盘架移位中", description: `${selected.rackId} 已从 ${selected.siteName} 发出，正在前往 ${transfer.toSite}` })
+      const newRack = await rackProvider.mountNetworkDrive(mountForm as MountInput)
+      await loadRacks()
+      setSelected(newRack)
+      setShowMount(false)
+      setMountForm({ protocol: "CIFS", encoding: "UTF-8", permission: "readonly" })
+      toast({ title: "挂载成功", description: `网盘 ${mountForm.deviceName} 已挂载并添加到设备列表` })
+    } catch { toast({ title: "挂载失败", variant: "destructive" }) }
+  }
+
+  const openAddMedia = (slotIndex: number, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setAddMediaSlot(slotIndex)
+    setAddMediaForm({ mediaType: "hdd" })
+    setShowAddMedia(true)
+  }
+
+  const handleAddMedia = async () => {
+    if (!selected || addMediaSlot === null) return
+    if (!addMediaForm.discNo) {
+      toast({ title: "请填写介质编号", variant: "destructive" })
+      return
+    }
+    try {
+      await rackProvider.addMedia(selected.id, addMediaSlot, addMediaForm as AddMediaInput)
+      await loadRacks()
+      const updated = rackList.find(r => r.id === selected.id)
+      if (updated) setSelected(updated)
+      setShowAddMedia(false)
+      toast({ title: "介质添加成功", description: `介质 ${addMediaForm.discNo} 已添加到槽位 ${addMediaSlot}` })
+    } catch { toast({ title: "添加失败", variant: "destructive" }) }
+  }
+
+  const handleModeChange = async (rack: Rack, mode: string) => {
+    // 立即更新 UI
+    setRackList(prev => prev.map(r => r.id === rack.id ? { ...r, mode: mode as DeviceMode } : r))
+    setSelected(prev => prev ? { ...prev, mode: mode as DeviceMode } : prev)
+    try {
+      await rackProvider.updateDeviceMode(rack.id, mode)
+      toast({ title: "模式切换成功", description: `设备已切换为 ${DEVICE_MODE_LABELS[mode as DeviceMode] ?? mode}` })
     } catch {
-      toast({ title: "移位登记失败", description: "请稍后重试", variant: "destructive" })
+      // 回滚
+      setRackList(prev => prev.map(r => r.id === rack.id ? { ...r, mode: rack.mode as DeviceMode } : r))
+      setSelected(prev => prev ? { ...prev, mode: rack.mode as DeviceMode } : prev)
+      toast({ title: "切换失败", variant: "destructive" })
     }
   }
+
+  const openDrawerDetail = (rack: Rack) => { setSelected(rack); setDrawerOpen(true) }
 
   return (
     <AppShell>
       <PageHeader
         title="盘架管理"
-        description="盘架槽位使用率与盘笼关联管理"
-        badge="RACK MGMT"
+        description="存储设备总览、盘位监控与任务关联"
+        badge="DEVICE MGMT"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8" onClick={handleExport} disabled={exporting}>
-              {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-              导出
+            <Button variant="outline" size="sm" className="h-8" onClick={() => setShowMount(true)}>
+              <Plug className="h-4 w-4 mr-1" />挂载网盘
+            </Button>
+            <Button variant="outline" size="sm" className="h-8" onClick={() => {
+              toast({ title: "导出功能", description: "设备数据导出功能开发中" })
+            }}>
+              <Download className="h-4 w-4 mr-1" />导出
             </Button>
             <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSync} disabled={syncing}>
-              {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-              同步
+              <RefreshCw className={cn("h-4 w-4 mr-1", syncing && "animate-spin")} />同步
             </Button>
           </div>
         }
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="盘架总数" value={rackStats.total} unit="个" icon={HardDrive} />
-        <StatCard title="正常" value={rackStats.normal} icon={HardDrive} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-        <StatCard title="预警/故障" value={rackStats.warning + rackStats.fault} icon={HardDrive} iconBg="bg-red-50" iconColor="text-red-600" />
-        <StatCard title="平均使用率" value={`${rackStats.avgUsage}%`} icon={HardDrive} iconBg="bg-orange-50" iconColor="text-orange-600" footer={<Progress value={rackStats.avgUsage} className="h-2 mt-2" />} />
-      </div>
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
-        <Card className="xl:col-span-2 gap-0">
-          <CardHeader className="pb-3"><CardTitle className="text-base">盘架列表</CardTitle></CardHeader>
-          <CardContent className="pt-0 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-xs text-slate-500">盘架ID</TableHead>
-                  <TableHead className="text-xs text-slate-500">站点</TableHead>
-                  <TableHead className="text-xs text-slate-500">数据中心</TableHead>
-                  <TableHead className="text-xs text-slate-500">盘笼</TableHead>
-                  <TableHead className="text-xs text-slate-500">槽位</TableHead>
-                  <TableHead className="text-xs text-slate-500">使用率</TableHead>
-                  <TableHead className="text-xs text-slate-500">状态</TableHead>
-                  <TableHead className="text-xs text-slate-500">同步时间</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rackList.map((r) => (
-                  <TableRow key={r.id} className={`cursor-pointer hover:bg-slate-50 ${selected?.id === r.id ? "bg-blue-50" : ""}`} onClick={() => setSelected(r)}>
-                    <TableCell className="font-mono font-medium text-sm">{r.rackId}</TableCell>
-                    <TableCell>
-                      <p className="text-sm">{r.siteName}</p>
-                      <p className="text-xs text-slate-400">{r.siteCode}</p>
-                    </TableCell>
-                    <TableCell className="text-sm">{r.datacenter}</TableCell>
-                    <TableCell className="text-sm">{r.cages.join(", ")}</TableCell>
-                    <TableCell className="text-sm">{r.usedSlots}/{r.totalSlots}</TableCell>
-                    <TableCell className="min-w-[100px]">
-                      <Progress value={r.usagePercent} className="h-1.5 mb-1" />
-                      <span className="text-xs">{r.usagePercent}%</span>
-                    </TableCell>
-                    <TableCell><Badge className={statusMap[r.status]?.[1]}>{statusMap[r.status]?.[0] ?? r.status}</Badge></TableCell>
-                    <TableCell className="text-xs text-slate-500">{r.lastSyncAt}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <DetailPanel
-          title="盘架详情"
-          subtitle={selected?.rackId}
-          empty={!selected}
-          actions={selected && (
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowTransfer(true)}>
-              <ArrowRightLeft className="h-3 w-3 mr-1" />
-              移位登记
-            </Button>
-          )}
-        >
-          {selected && (
-            <Tabs defaultValue="slots">
-              <TabsList className="h-8 w-full mb-3">
-                <TabsTrigger value="slots" className="text-xs flex-1">盘位信息</TabsTrigger>
-                <TabsTrigger value="transfer" className="text-xs flex-1">移位历史</TabsTrigger>
-              </TabsList>
-              <TabsContent value="slots" className="space-y-4">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <DetailRow label="站点" value={selected.siteName} />
-                  <DetailRow label="机房" value={selected.room || "—"} />
-                  <DetailRow label="数据中心" value={selected.datacenter} />
-                  <DetailRow label="状态" value={<Badge className={statusMap[selected.status]?.[1]}>{statusMap[selected.status]?.[0] ?? selected.status}</Badge>} />
-                  <DetailRow label="盘笼" value={selected.cages.join(", ")} />
-                  <DetailRow label="使用率" value={`${selected.usagePercent}%`} />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-700 mb-2">盘位可视化（{selected.usedSlots}/{selected.totalSlots} 已占用）</p>
-                  <SlotGrid slots={selected.slots} columns={8} />
-                  <div className="flex gap-4 text-xs text-slate-500 mt-2">
-                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-600" />已占用</span>
-                    <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-100 border" />空闲</span>
-                  </div>
-                </div>
-              </TabsContent>
-              <TabsContent value="transfer">
-                <div className="space-y-2">
-                  {selected.transferHistory && selected.transferHistory.length > 0 ? (
-                    selected.transferHistory.map((t) => (
-                      <div key={t.id} className="p-2.5 rounded border border-slate-100 bg-slate-50">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            {t.status === "completed" && <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />}
-                            {t.status === "in_transit" && <Truck className="h-3.5 w-3.5 text-blue-600" />}
-                            {t.status === "pending" && <Clock className="h-3.5 w-3.5 text-slate-400" />}
-                            <Badge className={transferStatusMap[t.status]?.[1]}>{transferStatusMap[t.status]?.[0] ?? t.status}</Badge>
-                          </div>
-                          <span className="text-[10px] text-slate-400">{t.requestedAt}</span>
-                        </div>
-                        <p className="text-xs text-slate-700 mb-1">{t.fromSite} → {t.toSite}</p>
-                        <p className="text-[10px] text-slate-500">{t.reason}</p>
-                        <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400">
-                          <span>操作人: {t.operator}</span>
-                          <span>审批人: {t.approver}</span>
-                          {t.completedAt && <span>完成: {t.completedAt}</span>}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-400 text-center py-4">暂无移位记录</p>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
-        </DetailPanel>
+
+      {/* ── 统计卡片 ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+        <StatCard title="设备总数" value={stats.total} unit="台" icon={Server} />
+        <StatCard title="在线" value={stats.online} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+        <StatCard title="离线" value={stats.offline} icon={WifiOff} iconBg="bg-slate-50" iconColor="text-slate-600" />
+        <StatCard title="异常" value={stats.fault + stats.maintenance} icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
+        <StatCard title="总容量" value={stats.totalCapacity} icon={Database} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard title="剩余容量" value={stats.remainingCapacity} icon={Activity} iconBg="bg-cyan-50" iconColor="text-cyan-600" />
+        <StatCard title="已用盘位" value={stats.usedSlots} unit="个" icon={Grid3X3} iconBg="bg-violet-50" iconColor="text-violet-600" />
+        <StatCard title="平均使用率" value={`${stats.avgUsage}%`} icon={Box} iconBg="bg-amber-50" iconColor="text-amber-600" />
       </div>
 
-      <Dialog open={showTransfer} onOpenChange={setShowTransfer}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>盘笼移位登记</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>当前站点</Label>
-                <Input value={selected?.siteName || ""} disabled className="h-9 bg-slate-50" />
+      {/* ── 主体：左侧树 + 右侧表格 ─────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-[200px_1fr] gap-4 lg:gap-6">
+        {/* 左侧设备分类树 */}
+        <Card className="gap-0 h-fit">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">设备分类</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-0.5">
+              {treeNodes.map(node => {
+                const Icon = node.icon
+                const isActive = category === node.id
+                const count = treeCounts[node.id] ?? 0
+                return (
+                  <button
+                    key={node.id}
+                    onClick={() => setCategory(node.id)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left",
+                      isActive ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-blue-600" : "text-slate-400")} />
+                    <span className="flex-1">{node.label}</span>
+                    <span className={cn("text-xs tabular-nums", isActive ? "text-blue-600" : "text-slate-400")}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 右侧设备表格 */}
+        <div className="space-y-4">
+          {/* 搜索 */}
+          <Card className="gap-0">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input placeholder="搜索设备名称 / IP / 类型..." className="pl-9 h-9" value={keyword} onChange={e => setKeyword(e.target.value)} />
+                </div>
+                <span className="text-xs text-slate-400 shrink-0">{filtered.length} 台设备</span>
               </div>
-              <div className="space-y-2">
-                <Label>目标站点 *</Label>
-                <Select value={transfer.toSite} onValueChange={(v) => setTransfer({ ...transfer, toSite: v })}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="选择目标站点" /></SelectTrigger>
-                  <SelectContent>
-                    {allSites.filter(s => s !== selected?.siteName).map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+            </CardContent>
+          </Card>
+
+          {/* 设备表格 */}
+          <Card className="gap-0">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">设备列表</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">设备名称</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">IP 地址</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">设备类型</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">所属站点</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">总容量</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">剩余容量</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap min-w-[100px]">使用率</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">盘位</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">任务数</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">最近同步</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">状态</TableHead>
+                    <TableHead className="text-xs text-slate-500 whitespace-nowrap text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={12} className="text-center py-10 text-slate-400">未找到匹配设备</TableCell></TableRow>
+                  ) : filtered.map(r => {
+                    const ds = deviceStatusMap[r.deviceStatus ?? "online"] ?? deviceStatusMap.online
+                    const DsIcon = ds.icon
+                    return (
+                      <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => openDrawerDetail(r)}>
+                        <TableCell>
+                          <p className="font-medium text-sm font-mono">{r.rackId}</p>
+                          <p className="text-[10px] text-slate-400">{r.room ?? r.datacenter}</p>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{r.ip ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{r.deviceType ?? "—"}</TableCell>
+                        <TableCell><p className="text-sm">{r.siteName}</p><p className="text-[10px] text-slate-400">{r.siteCode}</p></TableCell>
+                        <TableCell className="text-xs">{r.totalCapacity ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{r.remainingCapacity ?? "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Progress value={r.usagePercent} className="h-1.5 flex-1" />
+                            <span className="text-xs tabular-nums min-w-[32px] text-right">{r.usagePercent}%</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs">{r.totalSlots > 0 ? `${r.usedSlots}/${r.totalSlots}` : "—"}</TableCell>
+                        <TableCell className="text-xs tabular-nums">{r.currentTaskCount ?? 0}</TableCell>
+                        <TableCell className="text-[10px] text-slate-400 whitespace-nowrap">{r.lastSyncAt}</TableCell>
+                        <TableCell>
+                          <Badge className={cn("text-[10px]", ds.color)}>
+                            <DsIcon className="h-3 w-3 mr-1" />{ds.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-0.5 justify-end" onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(r)}><Eye className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="查看任务" onClick={() => handleViewTasks(r)}><ListChecks className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="扫描" onClick={e => handleScan(r, e)}><ScanIcon className="h-3.5 w-3.5" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ── 设备详情抽屉 ─────────────────────────────────────── */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
+        <DrawerContent className="!w-[720px] !max-w-[90vw]">
+          <DrawerHeader className="border-b border-slate-100">
+            <div className="flex items-start justify-between">
+              <div>
+                <DrawerTitle className="text-base font-mono">{selected?.rackId}</DrawerTitle>
+                <DrawerDescription className="text-xs mt-1">{selected?.deviceType} · {selected?.siteName}</DrawerDescription>
+              </div>
+              {selected && (() => {
+                const ds = deviceStatusMap[selected.deviceStatus ?? "online"]
+                return <Badge className={cn("text-xs", ds.color)}>{ds.label}</Badge>
+              })()}
+            </div>
+          </DrawerHeader>
+          <ScrollArea className="flex-1 h-[calc(100vh-100px)]">
+            {selected && (
+              <div className="p-5 space-y-5">
+                {/* 基础信息 */}
+                <section>
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-slate-400" />基础信息</h4>
+                  <div className="text-sm">
+                    <DetailRow label="设备名称" value={selected.rackId} />
+                    <DetailRow label="IP 地址" value={<span className="font-mono">{selected.ip ?? "—"}</span>} />
+                    <DetailRow label="设备类型" value={selected.deviceType ?? "—"} />
+                    <DetailRow label="所属站点" value={selected.siteName} />
+                    <DetailRow label="总容量" value={selected.totalCapacity ?? "—"} />
+                    <DetailRow label="剩余容量" value={selected.remainingCapacity ?? "—"} />
+                    <DetailRow label="使用率" value={<div className="flex items-center gap-2"><Progress value={selected.usagePercent} className="h-1.5 w-20" /><span>{selected.usagePercent}%</span></div>} />
+                    <DetailRow label="最近同步" value={selected.lastSyncAt} />
+                    <DetailRow label="当前任务数" value={(selected.currentTaskCount ?? 0).toString()} />
+                  </div>
+                </section>
+
+                <Separator />
+
+                {/* 模式控制 */}
+                <section>
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Power className="h-4 w-4 text-slate-400" />模式控制</h4>
+                  <div className="bg-slate-100 p-1 rounded-full flex relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
+                    {/* 滑动指示器 */}
+                    <div
+                      className="absolute top-1 bottom-1 bg-white rounded-full shadow-md transition-[left] duration-200 ease-out"
+                      style={{
+                        width: "calc(33.333% - 2px)",
+                        left: selected ? `calc(2px + ${["off", "standard", "high_speed"].indexOf(selected.mode) * (100 / 3)}%)` : "2px",
+                      }}
+                    />
+                    {(["off", "standard", "high_speed"] as DeviceMode[]).map(mode => (
+                      <button
+                        key={mode}
+                        className={cn(
+                          "flex-1 relative z-10 h-8 text-xs font-medium rounded-full transition-colors duration-200",
+                          selected.mode === mode ? "text-blue-600" : "text-slate-500 hover:text-slate-700"
+                        )}
+                        onClick={() => handleModeChange(selected, mode)}
+                      >
+                        {DEVICE_MODE_LABELS[mode]}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-2">模式切换需在设备本地控制台操作，此处仅做演示</p>
+                </section>
+
+                {/* 控制按钮 */}
+                <section>
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Settings className="h-4 w-4 text-slate-400" />设备操作</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleScan(selected)}>
+                      <ScanIcon className="h-3.5 w-3.5 mr-1" />扫描设备
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleRaidCheck(selected)}>
+                      <Shield className="h-3.5 w-3.5 mr-1" />RAID 校验
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setShowCreateTask(true) }}>
+                      <Plus className="h-3.5 w-3.5 mr-1" />生成任务
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleViewTasks(selected)}>
+                      <ListChecks className="h-3.5 w-3.5 mr-1" />查看任务
+                    </Button>
+                  </div>
+                </section>
+
+                {/* 托盘信息 */}
+                {selected.trays && selected.trays.length > 0 && (
+                  <>
+                    <Separator />
+                    <section>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Layers className="h-4 w-4 text-slate-400" />托盘信息</h4>
+                      <div className="grid grid-cols-4 gap-2">
+                        {selected.trays.map(tray => (
+                          <div key={tray.id} className="p-3 rounded-lg border border-slate-100 bg-white text-center">
+                            <p className="text-xs text-slate-400">{tray.label}</p>
+                            <p className="text-lg font-bold text-slate-900 mt-1">{tray.usedCount}/{tray.slotCount}</p>
+                            <p className="text-[10px] text-slate-400">块/位</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </>
+                )}
+
+                {/* 盘位信息 */}
+                {selected.totalSlots > 0 && (
+                  <>
+                    <Separator />
+                    <section>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                        <Grid3X3 className="h-4 w-4 text-slate-400" />盘位信息
+                        <span className="text-xs font-normal text-slate-400">（{selected.usedSlots}/{selected.totalSlots} 已占用）</span>
+                      </h4>
+                      <TooltipProvider>
+                        <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(8, selected.totalSlots)}, minmax(0, 1fr))` }}>
+                          {Array.from({ length: selected.totalSlots }, (_, i) => {
+                            const slot = selected.slots?.find(s => s.index === i + 1)
+                            const isOccupied = slot?.occupied
+                            const isError = slot?.status === "error"
+                            const status = isOccupied ? "used" : slot ? "free" : "empty"
+                            const sc = slotStatusColor[status]
+                            return (
+                              <Tooltip key={i}>
+                                <TooltipTrigger asChild>
+                                  {isOccupied ? (
+                                    <button
+                                      className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer transition-colors", sc.bg, sc.text, isError && "ring-2 ring-red-400")}
+                                      onClick={() => {
+                                        toast({
+                                          title: `盘位 ${i + 1} 信息`,
+                                          description: `编号: ${slot.discNo ?? "—"} | 类型: ${slot.mediaType === "hdd" ? "硬盘" : slot.mediaType === "bd" ? "蓝光" : "离线"} | 容量: ${slot.capacity ?? "—"}`
+                                        })
+                                      }}
+                                    >
+                                      <span>{i + 1}</span>
+                                      <span className="text-[8px] opacity-75">{isError ? "异常" : "已用"}</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer border transition-colors", sc.bg, sc.text, sc.border)}
+                                      onClick={() => openAddMedia(i + 1)}
+                                    >
+                                      <span>{i + 1}</span>
+                                      <Plus className="h-2.5 w-2.5" />
+                                    </button>
+                                  )}
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">
+                                    盘位 {i + 1}: {slot?.occupied ? `${slot.discNo ?? "已占用"} (${slot.mediaType === "hdd" ? "硬盘" : slot.mediaType === "bd" ? "蓝光" : "离线"})` : "空闲 — 点击上方 + 添加"}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )
+                          })}
+                        </div>
+                      </TooltipProvider>
+                      <div className="flex gap-4 text-xs text-slate-500 mt-3">
+                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-600" />已使用</span>
+                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-100 border border-slate-200" />空闲</span>
+                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-red-500" />异常</span>
+                      </div>
+                    </section>
+                  </>
+                )}
+
+                {/* 关联任务 */}
+                {selected.recentTasks && selected.recentTasks.length > 0 && (
+                  <>
+                    <Separator />
+                    <section>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                        <Link2 className="h-4 w-4 text-slate-400" />关联任务
+                        <Button variant="link" size="sm" className="h-auto p-0 text-xs ml-auto" onClick={() => handleViewTasks(selected)}>
+                          查看全部 <ChevronRight className="h-3 w-3" />
+                        </Button>
+                      </h4>
+                      <div className="space-y-2">
+                        {selected.recentTasks.map(task => (
+                          <div key={task.id} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{task.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-[10px]">{task.type}</Badge>
+                                <span className="text-[10px] text-slate-400">{task.startedAt}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 ml-3 shrink-0">
+                              <div className="text-right">
+                                <Progress value={task.progress} className="h-1.5 w-16 mb-0.5" />
+                                <span className="text-[10px] text-slate-400">{task.progress}%</span>
+                              </div>
+                              <Badge className={cn("text-[10px]",
+                                task.status === "completed" ? "bg-emerald-100 text-emerald-700" :
+                                task.status === "failed" ? "bg-red-100 text-red-700" :
+                                task.status === "running" ? "bg-blue-100 text-blue-700" :
+                                "bg-slate-100 text-slate-600"
+                              )}>
+                                {task.status === "completed" ? "已完成" : task.status === "failed" ? "已失败" : task.status === "running" ? "运行中" : task.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </>
+                )}
+
+                {/* 设备日志 */}
+                {selected.deviceLogs && selected.deviceLogs.length > 0 && (
+                  <>
+                    <Separator />
+                    <section>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Timer className="h-4 w-4 text-slate-400" />设备日志</h4>
+                      <div className="space-y-1.5">
+                        {selected.deviceLogs.slice(0, 6).map(log => (
+                          <div key={log.id} className={cn("p-2 rounded text-xs font-mono", logLevelColor[log.level])}>
+                            <span className="text-slate-400">[{log.timestamp}]</span> {log.message}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </>
+                )}
               </div>
+            )}
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
+
+      {/* ── 添加介质弹窗 ─────────────────────────────────────── */}
+      <Dialog open={showAddMedia} onOpenChange={setShowAddMedia}>
+        <DialogContent className="!max-w-md">
+          <DialogHeader><DialogTitle>添加介质</DialogTitle><DialogDescription>为盘位 {addMediaSlot} 添加新介质</DialogDescription></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>介质编号 *</Label>
+              <Input value={addMediaForm.discNo ?? ""} onChange={e => setAddMediaForm(f => ({ ...f, discNo: e.target.value }))} placeholder="如：DISC-2026-0801" />
             </div>
             <div className="space-y-2">
-              <Label>移位原因 *</Label>
-              <Input value={transfer.reason} onChange={(e) => setTransfer({ ...transfer, reason: e.target.value })} placeholder="请输入移位原因" className="h-9" />
+              <Label>介质类型</Label>
+              <Select value={addMediaForm.mediaType ?? "hdd"} onValueChange={v => setAddMediaForm(f => ({ ...f, mediaType: v as AddMediaInput["mediaType"] }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hdd">硬盘</SelectItem>
+                  <SelectItem value="bd">蓝光光盘</SelectItem>
+                  <SelectItem value="offline">离线盘</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label>审批人 *</Label>
-              <Input value={transfer.approver} onChange={(e) => setTransfer({ ...transfer, approver: e.target.value })} placeholder="请输入审批人姓名" className="h-9" />
+              <Label>容量</Label>
+              <Input value={addMediaForm.capacity ?? ""} onChange={e => setAddMediaForm(f => ({ ...f, capacity: e.target.value }))} placeholder="如：4 TB" />
+            </div>
+            <div className="space-y-2">
+              <Label>所属卷</Label>
+              <Input value={addMediaForm.volumeId ?? ""} onChange={e => setAddMediaForm(f => ({ ...f, volumeId: e.target.value }))} placeholder="如：VOL-2026-001" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowTransfer(false)}>取消</Button>
-            <Button onClick={handleTransfer} className="bg-blue-600 hover:bg-blue-700">提交登记</Button>
+            <Button variant="outline" onClick={() => setShowAddMedia(false)}>取消</Button>
+            <Button onClick={handleAddMedia} className="bg-blue-600 hover:bg-blue-700">确认添加</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── 挂载网盘弹窗 ─────────────────────────────────────── */}
+      <Dialog open={showMount} onOpenChange={setShowMount}>
+        <DialogContent className="!max-w-2xl">
+          <DialogHeader><DialogTitle><Plug className="h-5 w-5 inline mr-1" />挂载网盘 / 网络存储</DialogTitle><DialogDescription>配置 CIFS/NFS 网络存储挂载参数</DialogDescription></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2">
+              <Label>设备名称 / IP *</Label>
+              <Input value={mountForm.deviceName ?? ""} onChange={e => setMountForm(f => ({ ...f, deviceName: e.target.value }))} placeholder="如：172.168.6.15" />
+            </div>
+            <div className="space-y-2">
+              <Label>设备组 *</Label>
+              <Select value={mountForm.deviceGroup ?? ""} onValueChange={v => setMountForm(f => ({ ...f, deviceGroup: v }))}>
+                <SelectTrigger><SelectValue placeholder="选择设备组" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="网盘">网盘</SelectItem>
+                  <SelectItem value="备份存储">备份存储</SelectItem>
+                  <SelectItem value="共享存储">共享存储</SelectItem>
+                  <SelectItem value="归档存储">归档存储</SelectItem>
+                  <SelectItem value="临时存储">临时存储</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>所属站点</Label>
+              <Select value={mountForm.siteName ?? ""} onValueChange={v => setMountForm(f => ({ ...f, siteName: v }))}>
+                <SelectTrigger><SelectValue placeholder="选择站点" /></SelectTrigger>
+                <SelectContent>
+                  {mockSites.map(site => (
+                    <SelectItem key={site.id} value={site.name}>{site.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>协议类型</Label>
+              <Select value={mountForm.protocol ?? "CIFS"} onValueChange={v => setMountForm(f => ({ ...f, protocol: v as MountInput["protocol"] }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CIFS">CIFS / SMB</SelectItem>
+                  <SelectItem value="NFS">NFS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>编码类型</Label>
+              <Select value={mountForm.encoding ?? "UTF-8"} onValueChange={v => setMountForm(f => ({ ...f, encoding: v as MountInput["encoding"] }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="UTF-8">UTF-8</SelectItem>
+                  <SelectItem value="GBK">GBK</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>管理目录 *</Label>
+              <Input value={mountForm.managePath ?? ""} onChange={e => setMountForm(f => ({ ...f, managePath: e.target.value }))} placeholder="如：/netshare/172.168.6.15/manage" />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>挂载目录 *</Label>
+              <Input value={mountForm.mountPath ?? ""} onChange={e => setMountForm(f => ({ ...f, mountPath: e.target.value }))} placeholder="如：/netshare/172.168.6.15/" />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>数据源 *</Label>
+              <Input value={mountForm.dataSource ?? ""} onChange={e => setMountForm(f => ({ ...f, dataSource: e.target.value }))} placeholder="如：\\172.168.6.15\public" />
+            </div>
+            <div className="space-y-2">
+              <Label>用户名</Label>
+              <Input value={mountForm.username ?? ""} onChange={e => setMountForm(f => ({ ...f, username: e.target.value }))} placeholder="CIFS 认证用户（可选）" />
+            </div>
+            <div className="space-y-2">
+              <Label>密码</Label>
+              <Input type="password" value={mountForm.password ?? ""} onChange={e => setMountForm(f => ({ ...f, password: e.target.value }))} placeholder="CIFS 认证密码（可选）" />
+            </div>
+            <div className="space-y-2">
+              <Label>权限</Label>
+              <Select value={mountForm.permission ?? "readonly"} onValueChange={v => setMountForm(f => ({ ...f, permission: v as MountInput["permission"] }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="readonly">只读</SelectItem>
+                  <SelectItem value="readwrite">读写</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>限速 (MB/s)</Label>
+              <Input type="number" value={mountForm.speedLimit?.toString() ?? ""} onChange={e => setMountForm(f => ({ ...f, speedLimit: e.target.value ? Number(e.target.value) : undefined }))} placeholder="不限速" />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>附加参数</Label>
+              <Input value={mountForm.extraParams ?? ""} onChange={e => setMountForm(f => ({ ...f, extraParams: e.target.value }))} placeholder="如：vers=2.0" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMount(false)}>取消</Button>
+            <Button onClick={handleMount} className="bg-blue-600 hover:bg-blue-700"><Plug className="h-4 w-4 mr-1" />挂载</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── 从设备生成任务弹窗 ───────────────────────────────── */}
+      <Dialog open={showCreateTask} onOpenChange={setShowCreateTask}>
+        <DialogContent className="!max-w-md">
+          <DialogHeader><DialogTitle>从设备生成任务</DialogTitle><DialogDescription>在设备 {selected?.rackId} 上创建新任务</DialogDescription></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>任务类型</Label>
+              <Select value={createTaskType} onValueChange={setCreateTaskType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="device_scan">设备扫描任务</SelectItem>
+                  <SelectItem value="raid_check">RAID 校验任务</SelectItem>
+                  <SelectItem value="full_package">封包任务</SelectItem>
+                  <SelectItem value="full_scan">全量扫描任务</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>任务名称（可选）</Label>
+              <Input value={createTaskName} onChange={e => setCreateTaskName(e.target.value)} placeholder="留空则自动生成" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateTask(false)}>取消</Button>
+            <Button onClick={handleCreateTaskFromDevice} className="bg-blue-600 hover:bg-blue-700">生成任务</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
