@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { taskProvider, rackProvider } from "@/lib/api/mock-providers"
 import type { TaskItem } from "@/lib/types/task"
 import type { Rack } from "@/lib/types/rack"
 import { cn } from "@/lib/utils"
+import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
 import {
   Bell,
   AlertCircle,
@@ -30,59 +32,70 @@ interface AlertItem {
 
 export function AlertCenter() {
   const router = useRouter()
+  const pathname = usePathname()
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [loading, setLoading] = useState(true)
 
+  const loadAlerts = async () => {
+    try {
+      setLoading(true)
+      const [tasks, racks] = await Promise.all([taskProvider.getAll(), rackProvider.getAll()])
+      const items: AlertItem[] = []
+
+      // 失败任务
+      tasks.filter(t => t.phase === "failed").forEach(t => {
+        items.push({
+          id: `task-${t.id}`,
+          type: "task_failed",
+          level: "error",
+          message: `任务失败：${t.name}`,
+          detail: t.errorMessage || "任务执行异常",
+          time: t.updatedAt,
+          target: "/tasks",
+        })
+      })
+
+      // 异常/离线设备
+      racks.filter(r => r.deviceStatus === "offline" || r.deviceStatus === "error").forEach(r => {
+        items.push({
+          id: `device-${r.id}`,
+          type: r.deviceStatus === "offline" ? "device_offline" : "device_error",
+          level: r.deviceStatus === "offline" ? "warning" : "error",
+          message: `设备${r.deviceStatus === "offline" ? "离线" : "异常"}：${r.rackId}`,
+          detail: `${r.siteName} · ${r.ip || "未知IP"}`,
+          time: r.lastSyncAt,
+          target: "/racks",
+        })
+      })
+
+      // 高使用率设备
+      racks.filter(r => r.usagePercent >= 90).forEach(r => {
+        items.push({
+          id: `usage-${r.id}`,
+          type: "device_error",
+          level: "warning",
+          message: `容量告警：${r.rackId}`,
+          detail: `使用率 ${r.usagePercent}%`,
+          time: r.lastSyncAt,
+          target: "/racks",
+        })
+      })
+
+      setAlerts(items.slice(0, 8))
+    } catch { /* ignore */ }
+    finally { setLoading(false) }
+  }
+
+  // 首次加载 + 路由变化时重新读取
   useEffect(() => {
-    const loadAlerts = async () => {
-      try {
-        const [tasks, racks] = await Promise.all([taskProvider.getAll(), rackProvider.getAll()])
-        const items: AlertItem[] = []
-
-        // 失败任务
-        tasks.filter(t => t.phase === "failed").forEach(t => {
-          items.push({
-            id: `task-${t.id}`,
-            type: "task_failed",
-            level: "error",
-            message: `任务失败：${t.name}`,
-            detail: t.errorMessage || "任务执行异常",
-            time: t.updatedAt,
-            target: "/tasks",
-          })
-        })
-
-        // 异常/离线设备
-        racks.filter(r => r.deviceStatus === "offline" || r.deviceStatus === "error").forEach(r => {
-          items.push({
-            id: `device-${r.id}`,
-            type: r.deviceStatus === "offline" ? "device_offline" : "device_error",
-            level: r.deviceStatus === "offline" ? "warning" : "error",
-            message: `设备${r.deviceStatus === "offline" ? "离线" : "异常"}：${r.rackId}`,
-            detail: `${r.siteName} · ${r.ip || "未知IP"}`,
-            time: r.lastSyncAt,
-            target: "/racks",
-          })
-        })
-
-        // 高使用率设备
-        racks.filter(r => r.usagePercent >= 90).forEach(r => {
-          items.push({
-            id: `usage-${r.id}`,
-            type: "device_error",
-            level: "warning",
-            message: `容量告警：${r.rackId}`,
-            detail: `使用率 ${r.usagePercent}%`,
-            time: r.lastSyncAt,
-            target: "/racks",
-          })
-        })
-
-        setAlerts(items.slice(0, 8))
-      } catch { /* ignore */ }
-      finally { setLoading(false) }
-    }
     loadAlerts()
+  }, [pathname])
+
+  // 监听 localStorage 变化
+  useEffect(() => {
+    const handler = () => loadAlerts()
+    window.addEventListener(MOCK_STORE_EVENT, handler)
+    return () => window.removeEventListener(MOCK_STORE_EVENT, handler)
   }, [])
 
   const getIcon = (type: string) => {

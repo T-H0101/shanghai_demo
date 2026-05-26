@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -14,20 +15,31 @@ import {
   XCircle,
 } from "lucide-react"
 import { taskProvider, rackProvider } from "@/lib/api/mock-providers"
+import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
 
 export function StatsCards() {
+  const pathname = usePathname()
   const [taskStats, setTaskStats] = useState({ total: 0, running: 0, completed: 0, failed: 0, pending: 0 })
   const [rackStats, setRackStats] = useState({ total: 0, online: 0, offline: 0, avgUsage: 0, totalCapacity: "0 TB", remainingCapacity: "0 TB", usedSlots: 0, totalSlotsAll: 0 })
 
+  const loadStats = async () => {
+    try {
+      const [tStats, rStats] = await Promise.all([taskProvider.getStats(), rackProvider.getStats()])
+      setTaskStats(tStats)
+      setRackStats(rStats)
+    } catch { /* ignore */ }
+  }
+
+  // 首次加载 + 路由变化时重新读取
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const [tStats, rStats] = await Promise.all([taskProvider.getStats(), rackProvider.getStats()])
-        setTaskStats(tStats)
-        setRackStats(rStats)
-      } catch { /* ignore */ }
-    }
     loadStats()
+  }, [pathname])
+
+  // 监听 localStorage 变化
+  useEffect(() => {
+    const handler = () => loadStats()
+    window.addEventListener(MOCK_STORE_EVENT, handler)
+    return () => window.removeEventListener(MOCK_STORE_EVENT, handler)
   }, [])
 
   return (

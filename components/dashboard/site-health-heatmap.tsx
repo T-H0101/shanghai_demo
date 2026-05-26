@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { rackProvider } from "@/lib/api/mock-providers"
 import type { Rack } from "@/lib/types/rack"
 import { cn } from "@/lib/utils"
+import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
 
 const statusBadge: Record<string, { label: string; color: string }> = {
   online: { label: "在线", color: "bg-emerald-100 text-emerald-700" },
@@ -20,10 +22,23 @@ interface SiteHealthHeatmapProps {
 }
 
 export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
+  const pathname = usePathname()
   const [racks, setRacks] = useState<Rack[]>([])
 
-  useEffect(() => {
+  const loadRacks = () => {
     rackProvider.getAll().then(setRacks).catch(() => {})
+  }
+
+  // 首次加载 + 路由变化时重新读取
+  useEffect(() => {
+    loadRacks()
+  }, [pathname])
+
+  // 监听 localStorage 变化
+  useEffect(() => {
+    const handler = () => loadRacks()
+    window.addEventListener(MOCK_STORE_EVENT, handler)
+    return () => window.removeEventListener(MOCK_STORE_EVENT, handler)
   }, [])
 
   const sorted = [...racks].sort((a, b) => {
