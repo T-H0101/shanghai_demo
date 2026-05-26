@@ -41,3 +41,19 @@ export function writeMockStore<T>(key: string, value: T): void {
     // localStorage 满了或不可用，静默失败
   }
 }
+
+// 重置指定类型的 mock 数据
+export function resetMockStore(key: StorageKey): void {
+  if (typeof window === "undefined") return
+  window.localStorage.removeItem(STORAGE_KEYS[key])
+  window.dispatchEvent(new CustomEvent(MOCK_STORE_EVENT, { detail: { key: STORAGE_KEYS[key] } }))
+}
+
+// 重置所有 mock 数据
+export function resetAllMockStores(): void {
+  if (typeof window === "undefined") return
+  Object.values(STORAGE_KEYS).forEach(key => {
+    window.localStorage.removeItem(key)
+  })
+  window.dispatchEvent(new CustomEvent(MOCK_STORE_EVENT, { detail: { key: "all" } }))
+}

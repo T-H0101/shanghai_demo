@@ -425,7 +425,16 @@ function TasksPageContent() {
                     <DetailRow label="封包流程" value={selected.packagingMode === "scan_while_package" ? "边扫描边封包" : "先扫描后封包"} />
                     <DetailRow label="负责人" value={selected.operator} />
                     <DetailRow label="分配部门" value={selected.department ?? "—"} />
-                    <DetailRow label="关联设备" value={selected.deviceName ? <span className="text-blue-600">{selected.deviceName}</span> : "—"} />
+                    <DetailRow label="关联设备" value={
+                      selected.deviceName ? (
+                        <button
+                          className="text-blue-600 hover:text-blue-700 underline"
+                          onClick={() => { setDrawerOpen(false); router.push(`/racks?device=${selected.deviceId}`) }}
+                        >
+                          {selected.deviceName}
+                        </button>
+                      ) : "—"
+                    } />
                     <DetailRow label="目标存储卷" value={selected.volumeId ?? "—"} />
                   </div>
                 </section>
@@ -548,6 +557,45 @@ function TasksPageContent() {
                       </div>
                     ))}
                     {selected.recentLogs.length === 0 && <p className="text-xs text-slate-400 text-center py-4">暂无日志</p>}
+                  </div>
+                </section>
+
+                {/* 任务操作 */}
+                <Separator />
+                <section>
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-slate-400" />任务操作</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selected.phase !== "completed" && selected.phase !== "failed" && (
+                      <Button size="sm" variant="default" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAdvance(selected)}>
+                        <SkipForward className="h-3.5 w-3.5 mr-1" />推进进度
+                      </Button>
+                    )}
+                    {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(selected.phase) && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => handlePause(selected)}>
+                          <Pause className="h-3.5 w-3.5 mr-1" />暂停
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleComplete(selected)}>
+                          <CheckCheck className="h-3.5 w-3.5 mr-1" />标记完成
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleFail(selected)}>
+                          <XCircle className="h-3.5 w-3.5 mr-1" />标记失败
+                        </Button>
+                      </>
+                    )}
+                    {selected.phase === "paused" && (
+                      <Button size="sm" variant="outline" onClick={() => handleResume(selected)}>
+                        <Play className="h-3.5 w-3.5 mr-1" />恢复
+                      </Button>
+                    )}
+                    {selected.phase === "failed" && (
+                      <Button size="sm" variant="outline" onClick={() => handleRetry(selected)}>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" />重试
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => handleExport(selected)}>
+                      <Download className="h-3.5 w-3.5 mr-1" />导出
+                    </Button>
                   </div>
                 </section>
               </div>

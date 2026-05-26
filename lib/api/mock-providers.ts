@@ -91,6 +91,9 @@ export const mockSiteProvider: SiteProvider = {
 export const mockTaskProvider: TaskProvider = {
   getAll: async (filters?: TaskFilters) => {
     await simulateDelay(100)
+    // 优先从 localStorage 读取，确保数据一致性
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     let result = [...mockTasks]
     if (filters) {
       if (filters.type && filters.type !== "all") {
@@ -110,7 +113,9 @@ export const mockTaskProvider: TaskProvider = {
           t.name.includes(filters.keyword!) ||
           (t.taskNo ?? "").includes(filters.keyword!) ||
           t.siteName.includes(filters.keyword!) ||
-          (t.archiveName ?? "").includes(filters.keyword!)
+          (t.archiveName ?? "").includes(filters.keyword!) ||
+          (t.deviceName ?? "").includes(filters.keyword!) ||
+          (t.deviceId ?? "").includes(filters.keyword!)
         )
       }
     }
@@ -119,17 +124,30 @@ export const mockTaskProvider: TaskProvider = {
 
   getById: async (id: string) => {
     await simulateDelay(50)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     return mockTasks.find(t => t.id === id)
   },
 
   getStats: async () => {
     await simulateDelay(80)
-    return { ...taskStats }
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
+    return {
+      total: mockTasks.length,
+      pending: mockTasks.filter(t => t.phase === "pending").length,
+      running: mockTasks.filter(t => ["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase)).length,
+      completed: mockTasks.filter(t => t.phase === "completed").length,
+      failed: mockTasks.filter(t => t.phase === "failed").length,
+      paused: mockTasks.filter(t => t.phase === "paused").length,
+    }
   },
 
   getLogs: async (taskId: string) => {
     await simulateDelay(80)
-    return taskLogs.filter(l => !taskId || l.taskId === taskId)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
+    return mockTasks.find(t => t.id === taskId)?.recentLogs ?? []
   },
 
   getAlerts: async () => {
@@ -177,52 +195,97 @@ export const mockTaskProvider: TaskProvider = {
       ],
     }
     mockTasks = [newTask, ...mockTasks]
+    writeMockStore(getStorageKey("tasks"), mockTasks)
+    // 如果指定了设备，同步更新设备的关联任务
+    if (input.deviceId) {
+      await syncDeviceRecentTasks(input.deviceId)
+    }
     return newTask
   },
 
   updateTask: async (id: string, updates: Partial<import("@/lib/types/task").TaskItem>) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     const index = mockTasks.findIndex(t => t.id === id)
     if (index === -1) throw new Error("Task not found")
-    mockTasks[index] = { ...mockTasks[index], ...updates }
+    mockTasks[index] = { ...mockTasks[index], ...updates, updatedAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-") }
+    writeMockStore(getStorageKey("tasks"), mockTasks)
+    // 如果更新了设备，同步设备的关联任务
+    if (updates.deviceId) {
+      await syncDeviceRecentTasks(updates.deviceId)
+    }
     return mockTasks[index]
   },
 
   pauseTask: async (id: string) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     const task = mockTasks.find(t => t.id === id)
-    if (task) task.status = "paused"
+    if (task) {
+      task.status = "paused"
+      task.phase = "paused"
+      task.recentLogs = [
+        { id: `log-${Date.now()}`, taskId: task.id, timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }), level: "warn" as const, message: "任务已暂停", operator: "当前用户" },
+        ...task.recentLogs,
+      ]
+      writeMockStore(getStorageKey("tasks"), mockTasks)
+    }
   },
 
   resumeTask: async (id: string) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     const task = mockTasks.find(t => t.id === id)
-    if (task) task.status = "running"
+    if (task) {
+      task.status = "running"
+      task.phase = task.phase === "paused" ? "pending" : task.phase
+      task.recentLogs = [
+        { id: `log-${Date.now()}`, taskId: task.id, timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }), level: "info" as const, message: "任务已恢复执行", operator: "当前用户" },
+        ...task.recentLogs,
+      ]
+      writeMockStore(getStorageKey("tasks"), mockTasks)
+    }
   },
 
   retryTask: async (id: string) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     const task = mockTasks.find(t => t.id === id)
     if (task) {
       task.status = "running"
       task.phase = task.phase === "failed" ? "pending" : task.phase
       task.errorMessage = undefined
       task.retryCount = (task.retryCount || 0) + 1
+      task.recentLogs = [
+        { id: `log-${Date.now()}`, taskId: task.id, timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }), level: "info" as const, message: `任务重试（第 ${task.retryCount} 次）`, operator: "当前用户" },
+        ...task.recentLogs,
+      ]
+      writeMockStore(getStorageKey("tasks"), mockTasks)
     }
   },
 
   advancePhase: async (id: string) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     const task = mockTasks.find(t => t.id === id)
     if (!task) throw new Error("Task not found")
     const phases = TASK_PHASES_BY_TYPE[task.type]
     const currentIndex = phases.indexOf(task.phase as TaskPhase)
     if (currentIndex < 0 || currentIndex >= phases.length - 1) {
-      // Already at end, complete it
       task.phase = "completed"
       task.status = "completed"
       task.progress = 100
       task.completedAt = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+      task.recentLogs = [
+        { id: `log-${Date.now()}`, taskId: task.id, timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }), level: "info" as const, message: "任务执行完成", operator: "系统" },
+        ...task.recentLogs,
+      ]
+      writeMockStore(getStorageKey("tasks"), mockTasks)
       return task
     }
     const nextPhase = phases[currentIndex + 1]
@@ -248,47 +311,62 @@ export const mockTaskProvider: TaskProvider = {
       paused: "任务已暂停",
     }
     task.recentLogs = [
-      {
-        id: `log-${Date.now()}`,
-        taskId: task.id,
-        timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-        level: nextPhase === "failed" ? "error" : "info",
-        message: phaseLog[nextPhase] ?? `进入阶段：${nextPhase}`,
-        operator: "系统",
-      },
+      { id: `log-${Date.now()}`, taskId: task.id, timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }), level: nextPhase === "failed" ? "error" as const : "info" as const, message: phaseLog[nextPhase] ?? `进入阶段：${nextPhase}`, operator: "系统" },
       ...task.recentLogs,
     ]
+    writeMockStore(getStorageKey("tasks"), mockTasks)
     return task
   },
 
   completeTask: async (id: string) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     const task = mockTasks.find(t => t.id === id)
     if (task) {
       task.phase = "completed"
       task.status = "completed"
       task.progress = 100
       task.completedAt = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+      task.recentLogs = [
+        { id: `log-${Date.now()}`, taskId: task.id, timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }), level: "info" as const, message: "任务已标记完成", operator: "当前用户" },
+        ...task.recentLogs,
+      ]
+      writeMockStore(getStorageKey("tasks"), mockTasks)
     }
   },
 
   failTask: async (id: string, reason: string) => {
     await simulateDelay(100)
+    const stored = readMockStore(getStorageKey("tasks"), null)
+    if (stored) mockTasks = stored
     const task = mockTasks.find(t => t.id === id)
     if (task) {
       task.phase = "failed"
       task.status = "failed"
       task.errorMessage = reason
+      task.recentLogs = [
+        { id: `log-${Date.now()}`, taskId: task.id, timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }), level: "error" as const, message: `任务失败：${reason}`, operator: "当前用户" },
+        ...task.recentLogs,
+      ]
+      writeMockStore(getStorageKey("tasks"), mockTasks)
     }
   },
 
   createTaskFromDevice: async (deviceId: string, taskType: import("@/lib/types/task").TaskType, params?: Record<string, string>) => {
     await simulateDelay(300)
+    // 先同步 racks 数据
+    const storedRacks = readMockStore(getStorageKey("racks"), null)
+    if (storedRacks) mockRacks = storedRacks
     const device = mockRacks.find(r => r.id === deviceId)
+    const now = new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-")
+    const nowTime = new Date().toLocaleTimeString("zh-CN", { hour12: false })
+    const taskId = `t${Date.now()}`
+    const taskTypeLabel = taskType === "device_scan" ? "设备扫描" : taskType === "raid_check" ? "RAID校验" : taskType === "full_package" ? "封包任务" : "任务"
     const newTask: import("@/lib/types/task").TaskItem = {
-      id: `t${Date.now()}`,
+      id: taskId,
       taskNo: `TK-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(mockTasks.length + 1).padStart(3, "0")}`,
-      name: params?.name ?? `${device?.rackName ?? "设备"}-${taskType === "device_scan" ? "设备扫描" : taskType === "raid_check" ? "RAID校验" : "任务"}`,
+      name: params?.name ?? `${device?.rackName ?? "设备"}-${taskTypeLabel}`,
       type: taskType,
       phase: "pending",
       status: "pending_dispatch",
@@ -305,22 +383,58 @@ export const mockTaskProvider: TaskProvider = {
       deviceId,
       deviceName: device?.rackId,
       rackId: deviceId,
+      rackName: device?.rackName,
       startedAt: "—",
-      updatedAt: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-"),
+      updatedAt: now,
       recentLogs: [
-        {
-          id: `log-${Date.now()}`,
-          taskId: `t${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-          level: "info",
-          message: `从设备 ${device?.rackId} 生成任务，等待调度`,
-          operator: "系统",
-        },
+        { id: `log-${Date.now()}`, taskId, timestamp: nowTime, level: "info", message: `从设备 ${device?.rackId} 生成${taskTypeLabel}任务，等待调度`, operator: "系统" },
       ],
     }
     mockTasks = [newTask, ...mockTasks]
+    writeMockStore(getStorageKey("tasks"), mockTasks)
+    // 同步更新设备的关联任务
+    if (device) {
+      const recentTask = {
+        id: newTask.id,
+        name: newTask.name,
+        type: taskTypeLabel,
+        progress: 0,
+        status: "pending_dispatch" as const,
+        startedAt: now,
+      }
+      device.recentTasks = [recentTask, ...(device.recentTasks ?? []).slice(0, 4)]
+      device.currentTaskCount = (device.currentTaskCount ?? 0) + 1
+      device.deviceLogs = [
+        { id: `dl-${Date.now()}`, timestamp: nowTime, level: "info" as const, message: `生成${taskTypeLabel}任务：${newTask.name}` },
+        ...device.deviceLogs,
+      ]
+      writeMockStore(getStorageKey("racks"), mockRacks)
+    }
     return newTask
   },
+}
+
+// 同步设备的关联任务列表
+async function syncDeviceRecentTasks(deviceId: string) {
+  const storedRacks = readMockStore(getStorageKey("racks"), null)
+  if (storedRacks) mockRacks = storedRacks
+  const device = mockRacks.find(r => r.id === deviceId)
+  if (device) {
+    const deviceTasks = mockTasks
+      .filter(t => t.deviceId === deviceId || t.rackId === deviceId)
+      .slice(0, 5)
+      .map(t => ({
+        id: t.id,
+        name: t.name,
+        type: t.type,
+        progress: t.progress,
+        status: t.status as "pending_dispatch" | "running" | "completed" | "failed" | "paused",
+        startedAt: t.startedAt,
+      }))
+    device.recentTasks = deviceTasks
+    device.currentTaskCount = deviceTasks.filter(t => t.status === "running" || t.status === "pending_dispatch").length
+    writeMockStore(getStorageKey("racks"), mockRacks)
+  }
 }
 
 // ============================================================
@@ -550,6 +664,26 @@ export const mockRackProvider: RackProvider = {
     if (rack.totalSlots > 0) {
       rack.usagePercent = Math.round((rack.usedSlots / rack.totalSlots) * 100)
     }
+    // 更新剩余容量（简化计算）
+    const usedCapacityGB = rack.usedSlots * 1.5 // 假设每个槽位平均 1.5 TB
+    const totalTB = parseFloat(rack.totalCapacity) || 0
+    if (totalTB > 0) {
+      const remainingTB = Math.max(0, totalTB - usedCapacityGB)
+      rack.remainingCapacity = `${remainingTB.toFixed(1)} TB`
+    }
+    // 更新存储卷信息
+    if (rack.volumes && rack.volumes.length > 0) {
+      rack.volumes = rack.volumes.map(v => {
+        if (v.type === "optical" || v.type === "composite") {
+          return {
+            ...v,
+            usedCount: (v.usedCount || 0) + 1,
+            info: `总盘数:${v.discCount || 0}, 使用:${v.usedCount || 0 + 1}, 新盘:${v.newCount || 0}`,
+          }
+        }
+        return v
+      })
+    }
     // Add device log
     if (!rack.deviceLogs) rack.deviceLogs = []
     rack.deviceLogs = [
@@ -557,7 +691,7 @@ export const mockRackProvider: RackProvider = {
         id: `dl-${Date.now()}`,
         timestamp: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
         level: "info" as const,
-        message: `介质 ${media.discNo} 已添加到 ${rack.rackId} 槽位 ${slotIndex}`,
+        message: `介质 ${media.discNo} (${media.mediaType === "hdd" ? "硬盘" : media.mediaType === "bd" ? "蓝光" : "离线"}, ${media.capacity}) 已添加到 ${rack.rackId} 槽位 ${slotIndex}`,
       },
       ...rack.deviceLogs,
     ]
@@ -774,6 +908,26 @@ export const mockSettingsProvider: SettingsProvider = {
 
 function simulateDelay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// 重置 Mock 数据（回到初始状态）
+export function resetMockData() {
+  mockTasks = [...tasks]
+  mockRacks = [...defaultRacks]
+  mockSites = [...sites]
+  mockUsers = [...users]
+  mockSettings = { ...defaultSettings }
+  // 清除所有 localStorage
+  if (typeof window !== "undefined") {
+    Object.values({
+      racks: "odlm:v1:racks",
+      sites: "odlm:v1:sites",
+      tasks: "odlm:v1:tasks",
+      users: "odlm:v1:users",
+      settings: "odlm:v1:settings",
+    }).forEach(key => window.localStorage.removeItem(key))
+    window.dispatchEvent(new CustomEvent(MOCK_STORE_EVENT, { detail: { key: "all" } }))
+  }
 }
 
 // ============================================================

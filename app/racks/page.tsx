@@ -180,24 +180,27 @@ export default function Page() {
   const handleScan = async (rack: Rack, e?: React.MouseEvent) => {
     e?.stopPropagation()
     try {
-      const task = await taskProvider.createTaskFromDevice(rack.id, "device_scan", { name: `${rack.rackId}-设备扫描` })
-      toast({ title: "设备扫描任务已生成", description: `「${task.name}」已创建` })
+      await taskProvider.createTaskFromDevice(rack.id, "device_scan", { name: `${rack.rackId}-设备扫描` })
+      await loadRacks() // 刷新设备列表，更新关联任务
+      toast({ title: "设备扫描任务已生成", description: `「${rack.rackId}-设备扫描」已创建，可在任务管理页查看` })
     } catch { toast({ title: "操作失败", variant: "destructive" }) }
   }
 
   const handleRaidCheck = async (rack: Rack, e?: React.MouseEvent) => {
     e?.stopPropagation()
     try {
-      const task = await taskProvider.createTaskFromDevice(rack.id, "raid_check", { name: `${rack.rackId}-RAID校验` })
-      toast({ title: "RAID 校验任务已生成", description: `「${task.name}」已创建` })
+      await taskProvider.createTaskFromDevice(rack.id, "raid_check", { name: `${rack.rackId}-RAID校验` })
+      await loadRacks() // 刷新设备列表，更新关联任务
+      toast({ title: "RAID 校验任务已生成", description: `「${rack.rackId}-RAID校验」已创建，可在任务管理页查看` })
     } catch { toast({ title: "操作失败", variant: "destructive" }) }
   }
 
   const handleCreateTaskFromDevice = async () => {
     if (!selected) return
     try {
-      const task = await taskProvider.createTaskFromDevice(selected.id, createTaskType as any, { name: createTaskName || undefined })
-      toast({ title: "任务已生成", description: `「${task.name}」已创建` })
+      await taskProvider.createTaskFromDevice(selected.id, createTaskType as any, { name: createTaskName || undefined })
+      await loadRacks() // 刷新设备列表
+      toast({ title: "任务已生成", description: `「${createTaskName || "设备任务"}」已创建，可在任务管理页查看` })
       setShowCreateTask(false); setCreateTaskName("")
     } catch { toast({ title: "生成失败", variant: "destructive" }) }
   }
@@ -587,7 +590,11 @@ export default function Page() {
                       </h4>
                       <div className="space-y-2">
                         {selected.recentTasks.map(task => (
-                          <div key={task.id} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50">
+                          <div
+                            key={task.id}
+                            className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-100/50 cursor-pointer transition-colors"
+                            onClick={() => { setDrawerOpen(false); router.push(`/tasks?device=${selected.rackId}`) }}
+                          >
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium truncate">{task.name}</p>
                               <div className="flex items-center gap-2 mt-1">
