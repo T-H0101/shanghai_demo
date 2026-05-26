@@ -1,87 +1,104 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
 import {
   LayoutGrid,
   Database,
   Activity,
   AlertTriangle,
+  HardDrive,
+  CheckCircle2,
+  Clock,
+  XCircle,
 } from "lucide-react"
-import { siteStats } from "@/lib/mock/sites"
-import { taskStats } from "@/lib/mock/tasks"
+import { taskProvider, rackProvider } from "@/lib/api/mock-providers"
 
 export function StatsCards() {
+  const [taskStats, setTaskStats] = useState({ total: 0, running: 0, completed: 0, failed: 0, pending: 0 })
+  const [rackStats, setRackStats] = useState({ total: 0, online: 0, offline: 0, avgUsage: 0, totalCapacity: "0 TB", remainingCapacity: "0 TB", usedSlots: 0, totalSlotsAll: 0 })
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const [tStats, rStats] = await Promise.all([taskProvider.getStats(), rackProvider.getStats()])
+        setTaskStats(tStats)
+        setRackStats(rStats)
+      } catch { /* ignore */ }
+    }
+    loadStats()
+  }, [])
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Card 1 - Sites */}
+      {/* Card 1 - 任务总数 */}
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 rounded bg-slate-100">
-            <LayoutGrid className="h-4 w-4 text-slate-600" />
+          <div className="p-1.5 rounded bg-blue-50">
+            <Activity className="h-4 w-4 text-blue-600" />
           </div>
-          <span className="text-xs text-slate-500 uppercase tracking-wide">全局站点</span>
+          <span className="text-xs text-slate-500 uppercase tracking-wide">任务总数</span>
         </div>
         <div className="flex items-baseline gap-1.5 mb-1">
-          <span className="text-2xl font-bold text-slate-900">{siteStats.total}</span>
+          <span className="text-2xl font-bold text-slate-900">{taskStats.total}</span>
           <span className="text-xs text-slate-500">个</span>
         </div>
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-slate-600">{siteStats.online} 在线</span>
-          <span className="text-amber-600">{siteStats.degraded} 降级</span>
-          <span className="text-red-600">{siteStats.offline} 离线</span>
+          <span className="text-blue-600 flex items-center gap-1"><Clock className="h-3 w-3" />{taskStats.running} 运行中</span>
+          <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{taskStats.completed} 已完成</span>
         </div>
       </Card>
 
-      {/* Card 2 - Capacity */}
+      {/* Card 2 - 运行任务 */}
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 rounded bg-slate-100">
-            <Database className="h-4 w-4 text-slate-600" />
-          </div>
-          <span className="text-xs text-slate-500 uppercase tracking-wide">存储容量</span>
-        </div>
-        <div className="flex items-baseline gap-1.5 mb-1">
-          <span className="text-2xl font-bold text-slate-900">{siteStats.avgStorageUsed}</span>
-          <span className="text-xs text-slate-500">% 使用率</span>
-        </div>
-        <div className="text-xs text-slate-500">
-          {siteStats.syncing} 站点同步中
-        </div>
-      </Card>
-
-      {/* Card 3 - Active Tasks */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 rounded bg-slate-100">
-            <Activity className="h-4 w-4 text-slate-600" />
+          <div className="p-1.5 rounded bg-emerald-50">
+            <Activity className="h-4 w-4 text-emerald-600" />
           </div>
           <span className="text-xs text-slate-500 uppercase tracking-wide">运行任务</span>
         </div>
         <div className="flex items-baseline gap-1.5 mb-1">
-          <span className="text-2xl font-bold text-slate-900">{taskStats.running}</span>
+          <span className="text-2xl font-bold text-emerald-600">{taskStats.running}</span>
           <span className="text-xs text-slate-500">进行中</span>
         </div>
         <div className="text-xs text-slate-500">
-          共 {taskStats.total} 个任务
+          {taskStats.pending} 待处理 · {taskStats.failed} 失败
         </div>
       </Card>
 
-      {/* Card 4 - Alerts */}
+      {/* Card 3 - 设备在线 */}
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 rounded bg-red-50">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+          <div className="p-1.5 rounded bg-indigo-50">
+            <HardDrive className="h-4 w-4 text-indigo-600" />
           </div>
-          <span className="text-xs text-slate-500 uppercase tracking-wide">未处理告警</span>
+          <span className="text-xs text-slate-500 uppercase tracking-wide">设备在线</span>
         </div>
         <div className="flex items-baseline gap-1.5 mb-1">
-          <span className="text-2xl font-bold text-red-600">{taskStats.failed + 1}</span>
-          <span className="text-xs text-slate-500">条</span>
+          <span className="text-2xl font-bold text-slate-900">{rackStats.online}/{rackStats.total}</span>
+          <span className="text-xs text-slate-500">台</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded bg-red-600"></span>
-          <span className="h-2 w-2 rounded bg-amber-600"></span>
-          <span className="text-xs text-slate-500">严重 / 警告</span>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-emerald-600">{rackStats.online} 在线</span>
+          <span className="text-red-600">{rackStats.offline} 离线</span>
+        </div>
+      </Card>
+
+      {/* Card 4 - 存储使用率 */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="p-1.5 rounded bg-amber-50">
+            <Database className="h-4 w-4 text-amber-600" />
+          </div>
+          <span className="text-xs text-slate-500 uppercase tracking-wide">存储使用率</span>
+        </div>
+        <div className="flex items-baseline gap-1.5 mb-1">
+          <span className="text-2xl font-bold text-slate-900">{rackStats.avgUsage}%</span>
+        </div>
+        <Progress value={rackStats.avgUsage} className="h-1.5 mb-1" />
+        <div className="text-xs text-slate-500">
+          已用 {rackStats.usedSlots}/{rackStats.totalSlotsAll} 盘位
         </div>
       </Card>
     </div>

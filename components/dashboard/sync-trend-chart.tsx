@@ -33,21 +33,21 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-semibold text-slate-900">
-              14日同步统计
+              任务执行趋势
             </CardTitle>
             <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs">
-              14:32:05
+              最近7日
             </Badge>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-slate-600"></span>备份
+              <span className="h-2 w-2 rounded-full bg-slate-600"></span>封包
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-slate-400"></span>恢复
+              <span className="h-2 w-2 rounded-full bg-slate-400"></span>扫描
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-slate-300"></span>巡检
+              <span className="h-2 w-2 rounded-full bg-slate-300"></span>校验
             </span>
           </div>
         </div>
