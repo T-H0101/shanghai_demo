@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { taskProvider } from "@/lib/api/mock-providers"
 import type { TaskAlert } from "@/lib/types/task"
+import { cn } from "@/lib/utils"
 import {
   Bell,
   AlertCircle,
