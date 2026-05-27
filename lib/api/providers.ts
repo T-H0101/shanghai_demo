@@ -103,6 +103,16 @@ export interface CreateTaskInput {
   operator: string
   department?: string
   notes?: string
+
+  // ============================================================
+  // 数据恢复相关字段（restore 任务类型）
+  // ============================================================
+  restoreMode?: "server" | "local"       // 恢复模式
+  sourceVolumeId?: string                  // 源存储卷 ID
+  sourceVolumeName?: string                // 源存储卷名称
+  selectedFiles?: import("@/lib/types/rack").RestoreItem[]  // 已选文件
+  sourcePaths?: string[]                   // 源路径列表
+  targetPath?: string                      // 目标路径
 }
 
 export interface CreateUserInput {

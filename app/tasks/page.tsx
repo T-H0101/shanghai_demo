@@ -87,7 +87,7 @@ function TasksPageContent() {
   const [selected, setSelected] = useState<TaskItem | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState<Partial<TaskItem>>({})
+  const [createForm, setCreateForm] = useState<Partial<TaskItem & { packagingThreads: number }>>({})
   const [tab, setTab] = useState<string>("all")
 
   // 加载数据
@@ -214,12 +214,13 @@ function TasksPageContent() {
         priority: (createForm.priority as any) ?? "normal",
         operator: "张建国",
         department: createForm.department ?? "设备运维部",
+        packagingThreads: createForm.packagingThreads,
       } as any)
       setTasks(prev => [newTask, ...prev])
       setSelected(newTask)
       setShowCreate(false)
       setCreateForm({})
-      toast({ title: "任务创建成功", description: `「${newTask.name}」已创建` })
+      toast({ title: "任务创建成功", description: `「${newTask.name}」已创建${createForm.packagingThreads?.length ? `，使用 ${createForm.packagingThreads.length} 线程封包` : ""}` })
     } catch {
       toast({ title: "创建失败", variant: "destructive" })
     }
@@ -647,6 +648,28 @@ function TasksPageContent() {
                 <SelectContent>
                   <SelectItem value="scan_while_package">边扫描边封包</SelectItem>
                   <SelectItem value="scan_then_package">先扫描后封包</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>封包线程数</Label>
+              <Select value={String(createForm.packagingThreads?.length ?? 4)} onValueChange={v => {
+                const count = parseInt(v)
+                const threads = Array.from({ length: count }, (_, i) => ({
+                  id: `thread-${i + 1}`,
+                  name: `线程 ${i + 1}`,
+                  status: "waiting" as const,
+                  progress: 0,
+                }))
+                setCreateForm(f => ({ ...f, packagingThreads: threads }))
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 线程（单线程）</SelectItem>
+                  <SelectItem value="2">2 线程</SelectItem>
+                  <SelectItem value="4">4 线程（默认）</SelectItem>
+                  <SelectItem value="8">8 线程（高速）</SelectItem>
+                  <SelectItem value="16">16 线程（极速）</SelectItem>
                 </SelectContent>
               </Select>
             </div>

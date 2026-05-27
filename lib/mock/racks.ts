@@ -1,4 +1,4 @@
-import type { Rack, RackSlot, RackStats, StorageVolume, DeviceLog } from "@/lib/types/rack"
+import type { Rack, RackSlot, RackStats, StorageVolume, DeviceLog, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 
 function generateSlots(total: number, used: number, mediaType: RackSlot["mediaType"] = "hdd"): RackSlot[] {
   return Array.from({ length: total }, (_, i) => ({
@@ -208,3 +208,128 @@ export const allSites = ["上海数据中心", "北京总部", "南京中心", "
 export const deviceNameToRackId: Record<string, string> = Object.fromEntries(
   racks.map(r => [r.rackId, r.rackId])
 )
+
+// ============================================================
+// 存储浏览 / 数据恢复 Mock 数据
+// ============================================================
+
+// 备份文件目录树（模拟已备份数据）
+export const mockBackupFiles: BackupFile[] = [
+  {
+    id: "bf-root",
+    name: "已备份数据",
+    type: "folder",
+    path: "/backup",
+    children: [
+      {
+        id: "bf-hdd",
+        name: "硬盘卷",
+        type: "folder",
+        path: "/backup/hdd",
+        children: [
+          { id: "bf-hdd-1", name: "苏州市档案馆", type: "folder", path: "/backup/hdd/suzhou", children: [
+            { id: "bf-hdd-1-1", name: "2024年度档案", type: "folder", path: "/backup/hdd/suzhou/2024", children: [
+              { id: "bf-hdd-1-1-1", name: "文书档案", type: "folder", path: "/backup/hdd/suzhou/2024/docs", children: [
+                { id: "bf-hdd-1-1-1-1", name: "2024-01.zip", type: "file", size: "2.3 GB", path: "/backup/hdd/suzhou/2024/docs/2024-01.zip", extension: "zip", updatedAt: "2024-02-01" },
+                { id: "bf-hdd-1-1-1-2", name: "2024-02.zip", type: "file", size: "1.8 GB", path: "/backup/hdd/suzhou/2024/docs/2024-02.zip", extension: "zip", updatedAt: "2024-03-01" },
+              ]},
+              { id: "bf-hdd-1-1-2", name: "科技档案", type: "folder", path: "/backup/hdd/suzhou/2024/tech", children: [
+                { id: "bf-hdd-1-1-2-1", name: "项目材料.pdf", type: "file", size: "156 MB", path: "/backup/hdd/suzhou/2024/tech/项目材料.pdf", extension: "pdf", updatedAt: "2024-03-15" },
+              ]},
+            ]},
+            { id: "bf-hdd-1-2", name: "2023年度档案", type: "folder", path: "/backup/hdd/suzhou/2023", children: [] },
+          ]},
+          { id: "bf-hdd-2", name: "湖州市档案馆", type: "folder", path: "/backup/hdd/huzhou", children: [
+            { id: "bf-hdd-2-1", name: "全量备份", type: "folder", path: "/backup/hdd/huzhou/full", children: [
+              { id: "bf-hdd-2-1-1", name: "backup_full_2024Q4.tar", type: "file", size: "45.6 GB", path: "/backup/hdd/huzhou/full/backup_full_2024Q4.tar", extension: "tar", updatedAt: "2024-12-31" },
+            ]},
+          ]},
+        ],
+      },
+      {
+        id: "bf-optical",
+        name: "光盘卷",
+        type: "folder",
+        path: "/backup/optical",
+        children: [
+          { id: "bf-optical-1", name: "历史档案光盘", type: "folder", path: "/backup/optical/history", children: [
+            { id: "bf-optical-1-1", name: "1990-2000年档案", type: "folder", path: "/backup/optical/history/1990-2000", children: [
+              { id: "bf-optical-1-1-1", name: "光盘镜像_001.iso", type: "file", size: "4.7 GB", path: "/backup/optical/history/1990-2000/光盘镜像_001.iso", extension: "iso", updatedAt: "2020-05-15" },
+              { id: "bf-optical-1-1-2", name: "光盘镜像_002.iso", type: "file", size: "4.7 GB", path: "/backup/optical/history/1990-2000/光盘镜像_002.iso", extension: "iso", updatedAt: "2020-05-16" },
+            ]},
+            { id: "bf-optical-1-2", name: "2001-2010年档案", type: "folder", path: "/backup/optical/history/2001-2010", children: [
+              { id: "bf-optical-1-2-1", name: "archive_dvd_001.iso", type: "file", size: "7.2 GB", path: "/backup/optical/history/2001-2010/archive_dvd_001.iso", extension: "iso", updatedAt: "2021-08-20" },
+            ]},
+          ]},
+          { id: "bf-optical-2", name: "近期归档", type: "folder", path: "/backup/optical/recent", children: [
+            { id: "bf-optical-2-1", name: "2025年第一季度", type: "folder", path: "/backup/optical/recent/2025Q1", children: [
+              { id: "bf-optical-2-1-1", name: "Q1_documents.zip", type: "file", size: "8.4 GB", path: "/backup/optical/recent/2025Q1/Q1_documents.zip", extension: "zip", updatedAt: "2025-04-01" },
+              { id: "bf-optical-2-1-2", name: "Q1_media.zip", type: "file", size: "12.1 GB", path: "/backup/optical/recent/2025Q1/Q1_media.zip", extension: "zip", updatedAt: "2025-04-01" },
+            ]},
+          ]},
+        ],
+      },
+      {
+        id: "bf-nas",
+        name: "外部存储设备",
+        type: "folder",
+        path: "/backup/nas",
+        children: [
+          { id: "bf-nas-1", name: "NAS-主存储", type: "folder", path: "/backup/nas/main", children: [
+            { id: "bf-nas-1-1", name: "共享文件", type: "folder", path: "/backup/nas/main/shared", children: [
+              { id: "bf-nas-1-1-1", name: "会议纪要.pdf", type: "file", size: "2.3 MB", path: "/backup/nas/main/shared/会议纪要.pdf", extension: "pdf", updatedAt: "2026-01-15" },
+              { id: "bf-nas-1-1-2", name: "项目计划.xlsx", type: "file", size: "456 KB", path: "/backup/nas/main/shared/项目计划.xlsx", extension: "xlsx", updatedAt: "2026-02-20" },
+            ]},
+          ]},
+        ],
+      },
+    ],
+  },
+]
+
+// 服务器磁盘目录（用于恢复目标选择）
+export const mockServerPaths: RestoreTarget[] = [
+  { id: "sp-1", name: "C盘", path: "C:\\", type: "server", remainingCapacity: "120 GB", remainingBytes: 128849018880 },
+  { id: "sp-2", name: "D盘-数据", path: "D:\\", type: "server", remainingCapacity: "500 GB", remainingBytes: 536870912000 },
+  { id: "sp-3", name: "E盘-临时", path: "E:\\", type: "server", remainingCapacity: "200 GB", remainingBytes: 214748364800 },
+  { id: "sp-4", name: "F盘-归档", path: "F:\\", type: "server", remainingCapacity: "1 TB", remainingBytes: 1099511627776 },
+]
+
+// 本地下载目录
+export const mockLocalPaths: RestoreTarget[] = [
+  { id: "lp-1", name: "下载", path: "/Users/tian/Downloads", type: "local", remainingCapacity: "—", remainingBytes: -1 },
+  { id: "lp-2", name: "桌面", path: "/Users/tian/Desktop", type: "local", remainingCapacity: "—", remainingBytes: -1 },
+  { id: "lp-3", name: "文档", path: "/Users/tian/Documents", type: "local", remainingCapacity: "—", remainingBytes: -1 },
+]
+
+// 将文件节点转换为 RestoreItem
+export function toRestoreItems(files: BackupFile[]): RestoreItem[] {
+  const items: RestoreItem[] = []
+  function traverse(file: BackupFile, volumeId: string, volumeName: string) {
+    if (file.type === "file") {
+      items.push({
+        id: file.id,
+        name: file.name,
+        type: "file",
+        size: file.size,
+        sourcePath: file.path,
+        volumeId,
+        volumeName,
+      })
+    }
+    if (file.children) {
+      file.children.forEach(child => traverse(child, volumeId, volumeName))
+    }
+  }
+  // 根据路径确定卷ID和名称
+  files.forEach(file => {
+    if (file.path.startsWith("/backup/hdd")) {
+      traverse(file, "v1", "硬盘卷")
+    } else if (file.path.startsWith("/backup/optical")) {
+      traverse(file, "v2", "光盘卷")
+    } else if (file.path.startsWith("/backup/nas")) {
+      traverse(file, "v6", "NAS-主存储")
+    }
+  })
+  return items
+}

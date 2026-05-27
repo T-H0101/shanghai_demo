@@ -193,6 +193,23 @@ export const mockTaskProvider: TaskProvider = {
           operator: input.operator,
         },
       ],
+      // ============================================================
+      // 数据恢复相关字段（restore 任务类型）
+      // ============================================================
+      restoreMode: input.restoreMode,
+      sourceVolumeId: input.sourceVolumeId,
+      sourceVolumeName: input.sourceVolumeName,
+      selectedFiles: input.selectedFiles,
+      sourcePaths: input.sourcePaths,
+      targetPath: input.targetPath,
+      recoveryLogs: input.restoreMode ? [
+        {
+          id: `recovery-log-${Date.now()}`,
+          timestamp: nowTime,
+          level: "info" as const,
+          message: `恢复任务已创建，准备从 ${input.sourceVolumeName || input.sourceVolumeId} 恢复数据`,
+        },
+      ] : undefined,
     }
     mockTasks = [newTask, ...mockTasks]
     writeMockStore(getStorageKey("tasks"), mockTasks)

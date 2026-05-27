@@ -47,6 +47,67 @@ export interface RelatedTask {
   startedAt: string
 }
 
+// ============================================================
+// 存储浏览 / 数据恢复相关类型
+// ============================================================
+
+// 备份文件/文件夹节点
+export interface BackupFile {
+  id: string
+  name: string
+  type: "folder" | "file"
+  size?: string       // 文件大小，文件夹不显示
+  path: string        // 完整路径
+  updatedAt?: string  // 更新时间
+  children?: BackupFile[] // 文件夹包含的子项
+  extension?: string   // 文件扩展名
+}
+
+// 待恢复数据项
+export interface RestoreItem {
+  id: string
+  name: string
+  type: "folder" | "file"
+  size?: string
+  sourcePath: string    // 源路径
+  volumeId: string      // 所属存储卷 ID
+  volumeName: string    // 所属存储卷名称
+}
+
+// 恢复模式
+export type RestoreMode = "server" | "local"
+
+// 恢复目标路径
+export interface RestoreTarget {
+  id: string
+  name: string
+  path: string
+  type: RestoreMode
+  remainingCapacity: string  // 剩余容量
+  remainingBytes: number     // 字节数（用于计算）
+}
+
+// 恢复任务详情（扩展 TaskItem）
+export interface RestoreTaskDetail {
+  restoreMode: RestoreMode
+  sourceVolumeId: string
+  sourceVolumeName: string
+  selectedFiles: RestoreItem[]
+  sourcePaths: string[]
+  targetPath: string
+  fileCount: number
+  totalSize: string
+  totalSizeBytes: number
+  recoveryLogs: RecoveryLogEntry[]
+}
+
+export interface RecoveryLogEntry {
+  id: string
+  timestamp: string
+  level: "info" | "warn" | "error"
+  message: string
+}
+
 // 设备模式
 export type DeviceMode = "off" | "standard" | "high_speed"
 

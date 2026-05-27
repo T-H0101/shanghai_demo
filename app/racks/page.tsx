@@ -20,18 +20,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { rackProvider, taskProvider } from "@/lib/api/mock-providers"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
-import { racks as mockRacks } from "@/lib/mock/racks"
+import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
 import { sites as mockSites } from "@/lib/mock/sites"
-import type { Rack, RackSlot, RackStats } from "@/lib/types/rack"
+import type { Rack, RackSlot, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
 import type { TaskItem } from "@/lib/types/task"
-import type { AddMediaInput, MountInput } from "@/lib/api/providers"
+import type { AddMediaInput, MountInput, CreateTaskInput } from "@/lib/api/providers"
 import {
   Server, HardDrive, Database, Wifi, WifiOff, AlertTriangle, Layers,
-  Search, RefreshCw, Download, Eye, ListChecks, ChevronRight,
+  Search, RefreshCw, Download, ListChecks, ChevronRight,
   Info, Grid3X3, Link2, CheckCircle2, XCircle, Clock, Wrench,
   Activity, Plus, Plug, Eye as ScanIcon, Shield, Settings,
-  Box, Timer, Power, RotateCcw,
+  Box, Timer, Power, RotateCcw, FolderOpen, FileText, ArrowRight,
+  FolderTree, ChevronDown, ChevronRight as ChevronRightIcon, Loader2,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -96,6 +97,235 @@ export default function Page() {
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [createTaskType, setCreateTaskType] = useState<string>("device_scan")
   const [createTaskName, setCreateTaskName] = useState("")
+
+  // ============================================================
+  // 存储浏览 / 数据恢复状态
+  // ============================================================
+  const [storageTab, setStorageTab] = useState<"overview" | "browse" | "restore">("overview")
+  const [restoreMode, setRestoreMode] = useState<"server" | "local">("server")
+  // 目录树状态
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(["/backup", "/backup/hdd", "/backup/optical"]))
+  const [currentVolumeId, setCurrentVolumeId] = useState<string>("v1")
+  // 文件浏览
+  const [browsedFiles, setBrowsedFiles] = useState<BackupFile[]>([])
+  const [selectedPath, setSelectedPath] = useState<string>("")
+  // 待恢复列表
+  const [restoreList, setRestoreList] = useState<RestoreItem[]>([])
+  const [targetPath, setTargetPath] = useState<string>("")
+  // 恢复目标
+  const [targetOptions, setTargetOptions] = useState<RestoreTarget[]>([])
+  // 恢复提交中
+  const [restoreSubmitting, setRestoreSubmitting] = useState(false)
+
+  // 初始化浏览文件
+  useEffect(() => {
+    if (storageTab === "browse" || storageTab === "restore") {
+      const root = mockBackupFiles[0]
+      setBrowsedFiles(root?.children ?? [])
+    }
+  }, [storageTab])
+
+  // 切换恢复模式时更新目标选项
+  useEffect(() => {
+    setTargetOptions(restoreMode === "server" ? mockServerPaths : mockLocalPaths)
+    setTargetPath("")
+  }, [restoreMode])
+
+  // 获取当前卷的名称
+  const getVolumeName = (volumeId: string): string => {
+    const names: Record<string, string> = {
+      v1: "硬盘卷", v2: "光盘卷", v3: "硬盘卷", v4: "光盘卷242",
+      v5: "光盘卷242-iso", v6: "NAS-主存储",
+    }
+    return names[volumeId] ?? volumeId
+  }
+
+  // 切换目录展开/折叠
+  const togglePath = (path: string) => {
+    setExpandedPaths(prev => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
+
+  // 计算目录树中文件大小汇总
+  const calcFolderSize = (files: BackupFile[]): string => {
+    let total = 0
+    const traverse = (items: BackupFile[]) => {
+      items.forEach(f => {
+        if (f.type === "file" && f.size) {
+          const sizeStr = f.size.replace(/[^\d.]/g, "")
+          total += parseFloat(sizeStr) || 0
+        }
+        if (f.children) traverse(f.children)
+      })
+    }
+    traverse(files)
+    if (total >= 1000) return `${(total / 1000).toFixed(1)} TB`
+    return `${total.toFixed(1)} GB`
+  }
+
+  // 将文件/文件夹添加到待恢复列表
+  const addToRestoreList = (file: BackupFile) => {
+    const item: RestoreItem = {
+      id: file.id,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      sourcePath: file.path,
+      volumeId: currentVolumeId,
+      volumeName: getVolumeName(currentVolumeId),
+    }
+    setRestoreList(prev => {
+      if (prev.some(i => i.id === file.id)) return prev
+      return [...prev, item]
+    })
+  }
+
+  // 从待恢复列表移除
+  const removeFromRestoreList = (id: string) => {
+    setRestoreList(prev => prev.filter(i => i.id !== id))
+  }
+
+  // 计算已选数据总大小
+  const calcTotalSize = (items: RestoreItem[]): { display: string; bytes: number } => {
+    let totalBytes = 0
+    items.forEach(item => {
+      if (item.size) {
+        const sizeStr = item.size.replace(/[^\d.]/g, "")
+        const num = parseFloat(sizeStr) || 0
+        if (item.size.includes("TB")) totalBytes += num * 1024 * 1024 * 1024 * 1024
+        else if (item.size.includes("GB")) totalBytes += num * 1024 * 1024 * 1024
+        else if (item.size.includes("MB")) totalBytes += num * 1024 * 1024
+        else totalBytes += num * 1024
+      }
+    })
+    const gb = totalBytes / (1024 * 1024 * 1024)
+    if (gb >= 1024) return { display: `${(gb / 1024).toFixed(2)} TB`, bytes: totalBytes }
+    return { display: `${gb.toFixed(2)} GB`, bytes: totalBytes }
+  }
+
+  // 获取目标剩余容量
+  const getTargetRemaining = (): string => {
+    if (!targetPath) return "—"
+    const target = targetOptions.find(t => t.path === targetPath)
+    return target?.remainingCapacity ?? "—"
+  }
+
+  // 检查是否容量不足
+  const isCapacityInsufficient = (): boolean => {
+    if (!targetPath) return false
+    const target = targetOptions.find(t => t.path === targetPath)
+    if (!target || target.remainingBytes < 0) return false
+    const { bytes: needed } = calcTotalSize(restoreList)
+    return needed > target.remainingBytes
+  }
+
+  // 提交恢复任务
+  const handleRestoreSubmit = async () => {
+    if (!targetPath || restoreList.length === 0) {
+      toast({ title: "请选择目标和文件", variant: "destructive" })
+      return
+    }
+    if (isCapacityInsufficient()) {
+      toast({ title: "目标容量不足", description: "请选择其他目标路径或减少恢复文件", variant: "destructive" })
+      return
+    }
+    setRestoreSubmitting(true)
+    try {
+      const { display: totalSize, bytes: totalSizeBytes } = calcTotalSize(restoreList)
+      const target = targetOptions.find(t => t.path === targetPath)
+      const input: CreateTaskInput = {
+        name: `数据恢复-${new Date().toISOString().slice(0, 10)}`,
+        type: "restore",
+        archiveName: "数据恢复",
+        dataClassification: "数据恢复",
+        siteCode: "数据恢复",
+        sourcePath: restoreList.map(i => i.sourcePath).join(";"),
+        packagePath: targetPath,
+        priority: "normal",
+        operator: "当前用户",
+        restoreMode,
+        sourceVolumeId: currentVolumeId,
+        sourceVolumeName: getVolumeName(currentVolumeId),
+        selectedFiles: restoreList,
+        sourcePaths: restoreList.map(i => i.sourcePath),
+        targetPath,
+      }
+      await taskProvider.createTask(input)
+      toast({ title: "恢复任务已创建", description: `已将 ${restoreList.length} 个文件/文件夹加入恢复队列` })
+      setRestoreList([])
+      setStorageTab("overview")
+    } catch {
+      toast({ title: "创建失败", variant: "destructive" })
+    } finally {
+      setRestoreSubmitting(false)
+    }
+  }
+
+  // 渲染目录树项
+  const renderTreeItem = (file: BackupFile, depth: number = 0) => {
+    const isFolder = file.type === "folder"
+    const isExpanded = expandedPaths.has(file.path)
+    const isSelected = selectedPath === file.path
+    const isInRestoreList = restoreList.some(i => i.id === file.id)
+
+    return (
+      <div key={file.id}>
+        <div
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded cursor-pointer text-sm transition-colors",
+            isSelected ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50",
+            isInRestoreList && "opacity-60",
+          )}
+          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          onClick={() => {
+            if (isFolder) {
+              togglePath(file.path)
+              setSelectedPath(file.path)
+            } else {
+              setSelectedPath(file.path)
+            }
+          }}
+        >
+          {isFolder ? (
+            isExpanded ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" /> : <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
+          ) : (
+            <FileText className="h-3 w-3 text-slate-400 shrink-0 ml-4" />
+          )}
+          {isFolder ? (
+            <FolderOpen className={cn("h-4 w-4 shrink-0", isSelected ? "text-blue-600" : "text-amber-500")} />
+          ) : (
+            <FileText className={cn("h-4 w-4 shrink-0", isSelected ? "text-blue-600" : "text-slate-400")} />
+          )}
+          <span className="flex-1 truncate">{file.name}</span>
+          {file.size && !isFolder && <span className="text-xs text-slate-400 shrink-0">{file.size}</span>}
+          {!isFolder && (
+            <button
+              className={cn(
+                "h-5 px-1.5 rounded text-[10px] shrink-0",
+                isInRestoreList ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (isInRestoreList) removeFromRestoreList(file.id)
+                else addToRestoreList(file)
+              }}
+            >
+              {isInRestoreList ? "移除" : "添加"}
+            </button>
+          )}
+        </div>
+        {isFolder && isExpanded && file.children && (
+          <div>
+            {file.children.map(child => renderTreeItem(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // 加载数据
   const loadRacks = useCallback(async () => {
@@ -398,7 +628,6 @@ export default function Page() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-0.5 justify-end" onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(r)}><Eye className="h-3.5 w-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" title="查看任务" onClick={() => handleViewTasks(r)}><ListChecks className="h-3.5 w-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" title="扫描" onClick={e => handleScan(r, e)}><ScanIcon className="h-3.5 w-3.5" /></Button>
                           </div>
@@ -808,6 +1037,216 @@ export default function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    {/* ── 存储浏览 / 数据恢复 Tab ───────────────────────────── */}
+      <div className="border border-slate-200 rounded-lg overflow-hidden">
+        {/* Tab 切换区 */}
+        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
+          <Tabs value={storageTab} onValueChange={v => setStorageTab(v as any)} className="w-auto">
+            <TabsList className="h-8 bg-slate-100">
+              <TabsTrigger value="overview" className="h-7 text-xs data-[state=active]:bg-white">设备总览</TabsTrigger>
+              <TabsTrigger value="browse" className="h-7 text-xs data-[state=active]:bg-white">
+                <FolderTree className="h-3.5 w-3.5 mr-1" />存储浏览
+              </TabsTrigger>
+              <TabsTrigger value="restore" className="h-7 text-xs data-[state=active]:bg-white">
+                <RotateCcw className="h-3.5 w-3.5 mr-1" />数据恢复
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {storageTab === "restore" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">恢复模式：</span>
+              <div className="flex bg-slate-100 rounded-lg p-0.5">
+                <button
+                  className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "server" ? "bg-white shadow text-blue-600" : "text-slate-500")}
+                  onClick={() => setRestoreMode("server")}
+                >
+                  恢复到服务器路径
+                </button>
+                <button
+                  className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "local" ? "bg-white shadow text-blue-600" : "text-slate-500")}
+                  onClick={() => setRestoreMode("local")}
+                >
+                  下载到本地目录
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 内容区 */}
+        <div className="p-4 bg-slate-50">
+          {/* 存储浏览 */}
+          {storageTab === "browse" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* 左侧目录树 */}
+              <div className="bg-white rounded-lg p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium">备份数据目录树</h4>
+                  <Select value={currentVolumeId} onValueChange={setCurrentVolumeId} className="w-32">
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="v1">硬盘卷</SelectItem>
+                      <SelectItem value="v2">光盘卷</SelectItem>
+                      <SelectItem value="v6">NAS存储</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <ScrollArea className="h-[400px]">
+                  <div className="text-xs">
+                    {mockBackupFiles.map(file => renderTreeItem(file, 0))}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* 右侧选中详情 */}
+              <div className="bg-white rounded-lg p-3">
+                <h4 className="text-sm font-medium mb-3">文件详情</h4>
+                {selectedPath ? (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-sm font-medium">{selectedPath.split("/").pop()}</p>
+                      <p className="text-xs text-slate-500 mt-1">{selectedPath}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 bg-slate-50 rounded">
+                        <p className="text-slate-400">所属卷</p>
+                        <p className="font-medium">{getVolumeName(currentVolumeId)}</p>
+                      </div>
+                      <div className="p-2 bg-slate-50 rounded">
+                        <p className="text-slate-400">路径</p>
+                        <p className="font-medium truncate">{selectedPath}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-slate-400 text-sm">
+                    <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                    <p>请在左侧选择文件或文件夹</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 数据恢复 */}
+          {storageTab === "restore" && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* 左侧目录树 */}
+              <div className="bg-white rounded-lg p-3">
+                <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
+                <ScrollArea className="h-[320px]">
+                  <div className="text-xs">
+                    {mockBackupFiles.map(file => renderTreeItem(file, 0))}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* 中间待恢复列表 */}
+              <div className="bg-white rounded-lg p-3">
+                <h4 className="text-sm font-medium mb-3">
+                  待恢复列表
+                  {restoreList.length > 0 && (
+                    <Badge variant="outline" className="ml-2 text-xs">{restoreList.length} 项</Badge>
+                  )}
+                </h4>
+                {restoreList.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-sm">
+                    <FileText className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                    <p>点击左侧"添加"加入恢复列表</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[280px]">
+                    <div className="space-y-1">
+                      {restoreList.map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-xs">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{item.name}</p>
+                            <p className="text-slate-400 truncate">{item.sourcePath}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {item.size && <span className="text-slate-500">{item.size}</span>}
+                            <button
+                              className="h-5 w-5 rounded text-red-500 hover:bg-red-50 flex items-center justify-center"
+                              onClick={() => removeFromRestoreList(item.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+
+              {/* 右侧目标选择 + 容量看板 */}
+              <div className="bg-white rounded-lg p-3">
+                <h4 className="text-sm font-medium mb-3">恢复目标</h4>
+                <div className="space-y-3">
+                  <Select value={targetPath} onValueChange={setTargetPath}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="选择目标路径" /></SelectTrigger>
+                    <SelectContent>
+                      {targetOptions.map(t => (
+                        <SelectItem key={t.id} value={t.path}>{t.name} ({t.path})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* 容量看板 */}
+                  <div className="p-3 bg-slate-50 rounded-lg space-y-2">
+                    <p className="text-xs text-slate-500 font-medium">容量看板</p>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">已选文件数</span>
+                        <span className="font-medium">{restoreList.length} 个</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">计划使用</span>
+                        <span className="font-medium">{calcTotalSize(restoreList).display}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">目标剩余</span>
+                        <span className="font-medium">{getTargetRemaining()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">恢复模式</span>
+                        <span className="font-medium">{restoreMode === "server" ? "恢复到服务器" : "下载到本地"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">源存储卷</span>
+                        <span className="font-medium">{getVolumeName(currentVolumeId)}</span>
+                      </div>
+                    </div>
+                    {isCapacityInsufficient() && (
+                      <div className="mt-2 p-2 bg-red-50 rounded text-red-600 text-xs">
+                        目标容量不足，请选择其他路径或减少文件
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    disabled={restoreList.length === 0 || !targetPath || isCapacityInsufficient() || restoreSubmitting}
+                    onClick={handleRestoreSubmit}
+                  >
+                    {restoreSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+                    开始恢复
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 设备总览（默认） */}
+          {storageTab === "overview" && (
+            <div className="text-sm text-slate-500 text-center py-8">
+              <HardDrive className="h-12 w-12 mx-auto mb-2 opacity-20" />
+              <p>当前 {filtered.length} 台设备在线</p>
+              <p className="text-xs mt-1">点击上方 Tab 切换到"存储浏览"或"数据恢复"</p>
+            </div>
+          )}
+        </div>
+      </div>
     </AppShell>
   )
 }

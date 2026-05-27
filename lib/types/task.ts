@@ -1,4 +1,5 @@
 import type { Priority, TaskStatus } from "./common"
+import type { RestoreItem, RecoveryLogEntry } from "./rack"
 
 export type TaskType =
   | "full_scan"       // 全量扫描
@@ -158,6 +159,17 @@ export interface TaskItem {
 
   // 运行时日志（每次推进自动追加）
   recentLogs: TaskLogEntry[]
+
+  // ============================================================
+  // 数据恢复相关字段（restore 任务类型）
+  // ============================================================
+  restoreMode?: "server" | "local"       // 恢复模式：恢复到服务器 / 下载到本地
+  sourceVolumeId?: string                  // 源存储卷 ID
+  sourceVolumeName?: string                // 源存储卷名称
+  selectedFiles?: RestoreItem[]            // 已选择的恢复文件列表
+  sourcePaths?: string[]                   // 源路径列表
+  targetPath?: string                      // 目标路径
+  recoveryLogs?: RecoveryLogEntry[]        // 恢复日志
 }
 
 export interface TaskLogEntry {
