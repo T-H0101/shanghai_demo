@@ -52,4 +52,8 @@ __v0_jsx-dev-runtime.ts
 .snowflake/
 .v0-trash/
 
+# docs
 docs/screenshots/
+docs/archive/
+docs/database-analysis/schema-inventory.json
+docs/database-analysis/schema-inventory.md

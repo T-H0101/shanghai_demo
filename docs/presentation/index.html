@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>统一光盘库管理平台 - 方案展示</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-light">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-dark" disabled>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <!-- 侧边导航 -->
+    <nav class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">光</div>
+        <div class="logo-text">
+          <span class="title">统一平台</span>
+          <span class="subtitle">方案展示</span>
+        </div>
+      </div>
+      <ul class="nav-list">
+        <li class="nav-item active" data-section="overview">
+          <span class="nav-icon">📋</span>
+          <span>项目概览</span>
+        </li>
+        <li class="nav-item" data-section="architecture">
+          <span class="nav-icon">🏗️</span>
+          <span>系统架构</span>
+        </li>
+        <li class="nav-item" data-section="sync">
+          <span class="nav-icon">🔄</span>
+          <span>数据同步方案</span>
+        </li>
+        <li class="nav-item" data-section="scope">
+          <span class="nav-icon">📊</span>
+          <span>同步范围</span>
+        </li>
+        <li class="nav-item" data-section="large-table">
+          <span class="nav-icon">💾</span>
+          <span>大表处理</span>
+        </li>
+        <li class="nav-item" data-section="id-strategy">
+          <span class="nav-icon">🔢</span>
+          <span>ID策略</span>
+        </li>
+        <li class="nav-item" data-section="demo">
+          <span class="nav-icon">🖥️</span>
+          <span>当前Demo</span>
+        </li>
+        <li class="nav-item" data-section="roadmap">
+          <span class="nav-icon">📅</span>
+          <span>下一阶段</span>
+        </li>
+      </ul>
+      <div class="theme-toggle">
+        <button id="themeBtn" title="切换主题">
+          <span id="themeIcon">🌙</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 项目概览 -->
+      <section id="section-overview" class="content-section active">
+        <div class="section-header">
+          <h1>项目概览</h1>
+          <p class="section-desc">统一光盘库管理平台方案概述</p>
+        </div>
+        <div class="content-body" id="content-overview">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+
+      <!-- 系统架构 -->
+      <section id="section-architecture" class="content-section">
+        <div class="section-header">
+          <h1>系统架构</h1>
+          <p class="section-desc">多站点数据采集与同步架构</p>
+        </div>
+        <div class="content-body" id="content-architecture">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+
+      <!-- 数据同步方案 -->
+      <section id="section-sync" class="content-section">
+        <div class="section-header">
+          <h1>数据同步方案</h1>
+          <p class="section-desc">增量同步流程与Staging/Mirror架构</p>
+        </div>
+        <div class="content-body" id="content-sync">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+
+      <!-- 同步范围 -->
+      <section id="section-scope" class="content-section">
+        <div class="section-header">
+          <h1>数据库同步范围</h1>
+          <p class="section-desc">P0/P1/P2/P3 分层同步策略</p>
+        </div>
+        <div class="content-body" id="content-scope">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+
+      <!-- 大表处理 -->
+      <section id="section-large-table" class="content-section">
+        <div class="section-header">
+          <h1>大表处理策略</h1>
+          <p class="section-desc">tbl_file/tbl_folder 等大表处理方案</p>
+        </div>
+        <div class="content-body" id="content-large-table">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+
+      <!-- ID策略 -->
+      <section id="section-id-strategy" class="content-section">
+        <div class="section-header">
+          <h1>多站点ID策略</h1>
+          <p class="section-desc">source_site_id + source_id 复合主键方案</p>
+        </div>
+        <div class="content-body" id="content-id-strategy">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+
+      <!-- 当前Demo -->
+      <section id="section-demo" class="content-section">
+        <div class="section-header">
+          <h1>当前Demo展示</h1>
+          <p class="section-desc">已完成功能页面截图</p>
+        </div>
+        <div class="content-body" id="content-demo">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+
+      <!-- 下一阶段 -->
+      <section id="section-roadmap" class="content-section">
+        <div class="section-header">
+          <h1>下一阶段计划</h1>
+          <p class="section-desc">数据库接入与同步服务实现</p>
+        </div>
+        <div class="content-body" id="content-roadmap">
+          <!-- 动态加载 -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
