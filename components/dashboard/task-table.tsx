@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { taskProvider } from "@/lib/api/mock-providers"
+import { taskProvider } from "@/lib/api"
 import type { TaskItem } from "@/lib/types/task"
 import { TASK_PHASE_LABELS } from "@/lib/types/task"
 import {

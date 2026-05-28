@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { rackProvider, taskProvider } from "@/lib/api/mock-providers"
+import { rackProvider, taskProvider } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
 import { sites as mockSites } from "@/lib/mock/sites"
@@ -428,7 +428,7 @@ export default function Page() {
   const handleCreateTaskFromDevice = async () => {
     if (!selected) return
     try {
-      await taskProvider.createTaskFromDevice(selected.id, createTaskType as any, { name: createTaskName || undefined })
+      await taskProvider.createTaskFromDevice(selected.id, createTaskType as any, { name: createTaskName ?? '' })
       await loadRacks() // 刷新设备列表
       toast({ title: "任务已生成", description: `「${createTaskName || "设备任务"}」已创建，可在任务管理页查看` })
       setShowCreateTask(false); setCreateTaskName("")
@@ -687,7 +687,7 @@ export default function Page() {
                       className="absolute top-1 bottom-1 bg-white rounded-full shadow-md transition-[left] duration-200 ease-out"
                       style={{
                         width: "calc(33.333% - 2px)",
-                        left: selected ? `calc(2px + ${["off", "standard", "high_speed"].indexOf(selected.mode) * (100 / 3)}%)` : "2px",
+                        left: selected ? `calc(2px + ${(["off", "standard", "high_speed"].indexOf(selected.mode ?? 'off') * (100 / 3))}%)` : "2px",
                       }}
                     />
                     {(["off", "standard", "high_speed"] as DeviceMode[]).map(mode => (
@@ -1082,8 +1082,8 @@ export default function Page() {
               <div className="bg-white rounded-lg p-3">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-medium">备份数据目录树</h4>
-                  <Select value={currentVolumeId} onValueChange={setCurrentVolumeId} className="w-32">
-                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <Select value={currentVolumeId} onValueChange={setCurrentVolumeId}>
+                    <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="v1">硬盘卷</SelectItem>
                       <SelectItem value="v2">光盘卷</SelectItem>

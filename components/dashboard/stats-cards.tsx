@@ -14,7 +14,7 @@ import {
   Clock,
   XCircle,
 } from "lucide-react"
-import { taskProvider, rackProvider } from "@/lib/api/mock-providers"
+import { taskProvider, rackProvider } from "@/lib/api"
 import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
 
 export function StatsCards() {

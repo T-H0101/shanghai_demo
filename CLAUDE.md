@@ -21,40 +21,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 数据关联强化 | ✅ 完成 | 任务↔站点↔设备↔存储卷 关联 |
 | **企业控制台 UI 收敛** | ✅ 完成 | NOC/SOC 风格收敛 |
 | Mock 流程补充 | ✅ 完成 | M6-M14 全部完成：日志错误码检索、索引导出Dialog、分片导出、推送路径、监控阈值、登录锁定、权限同步 |
-| **真实数据库接入** | ✅ Sprint 1 完成 | API Skeleton + DTO + Adapter + Mock Response |
+| **真实数据库接入** | ✅ Sprint 2A 完成 | API Mode Switch + Mock Fallback |
 
-### 1.3 Sprint 1 完成内容
+### 1.3 Sprint 进度
 
-**新增 API 端点 (10个)**:
-| 端点 | 说明 |
-|------|------|
-| `/api/dashboard/summary` | 首页统计 |
-| `/api/tasks` | 任务列表 |
-| `/api/tasks/[id]` | 任务详情 |
-| `/api/racks` | 盘架列表 |
-| `/api/racks/[id]` | 盘架详情 |
-| `/api/racks/[id]/slots` | 盘位列表 |
-| `/api/volumes` | 存储卷列表 |
-| `/api/alerts` | 告警列表 |
-| `/api/sites` | 站点列表 |
-| `/api/users` | 用户列表 |
+| Sprint | 状态 | 说明 |
+|--------|------|------|
+| Sprint 1 | ✅ 完成 | API Skeleton + DTO + Adapter |
+| Sprint 2A | ✅ 完成 | API Mode Switch + Mock Fallback |
+| Sprint 2B | 🔲 待做 | PostgreSQL 连接 |
 
-**新增 DTO**: `lib/api/dto/index.ts`
-**新增 Adapter**: `lib/api/adapters/*` (7个)
-**新增文档**:
-- `docs/database-analysis/sprint1/sprint1-summary.md` - Sprint 1 完成总结
-- `docs/database-analysis/sprint1/api-contract.md` - API 契约文档
-- `docs/testing/sprint1/test-plan.md` - 测试计划
-- `docs/testing/sprint1/acceptance-checklist.md` - 手动验收清单
+### 1.4 Sprint 2A 完成内容
 
-**Sprint 1 约束**:
+**新增文件**:
+- `lib/api/index.ts` - Provider Factory（模式切换）
+- `lib/api/fallback.ts` - Mock Fallback 工具
+- `lib/api/api-providers.ts` - API Providers
+- `.env.example` - 环境变量示例
+
+**页面接入**:
+- Dashboard (stats-cards, alert-center)
+- 任务管理
+- 盘架管理
+- 站点管理
+
+**Sprint 2A 约束**:
 - ✅ 不连接真实 PostgreSQL
-- ✅ 不替换前端 Provider
-- ✅ 不破坏现有 Demo
+- ✅ 不实现同步服务
 - ✅ 不修改页面 UI
-- ✅ 不实现 P1/P2/P3 功能
-- ✅ 不实现真实同步服务
-- ✅ 不实现复杂认证系统
+- ✅ 不新增业务功能
+- ✅ 不实现登录/权限
+- ✅ API 失败自动 fallback 到 mock
 
 ### 1.4 技术栈
 

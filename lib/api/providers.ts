@@ -1,7 +1,7 @@
 import type { Site, SiteStats } from "@/lib/types/site"
 import type { TaskItem, TaskStats, TaskLogEntry, TaskAlert, TaskType, TaskPhase } from "@/lib/types/task"
 import type { User, UserStats } from "@/lib/types/user"
-import type { Rack, RackStats } from "@/lib/types/rack"
+import type { Rack, RackStats, TransferRecord } from "@/lib/types/rack"
 import type { SearchFile, SearchFilters } from "@/lib/types/search"
 import type { AuditLog, AuditStats, AuditFilters } from "@/lib/types/audit"
 import type { SystemSettings } from "@/lib/types/settings"

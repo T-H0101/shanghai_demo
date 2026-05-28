@@ -397,6 +397,8 @@ export const mockTaskProvider: TaskProvider = {
       department: "设备运维部",
       sourcePath: params?.sourcePath ?? "/dev/sda",
       packagePath: params?.packagePath ?? "/output/",
+      backupScope: "full",
+      packagingMode: "scan_then_package",
       deviceId,
       deviceName: device?.rackId,
       rackId: deviceId,
@@ -423,7 +425,7 @@ export const mockTaskProvider: TaskProvider = {
       device.currentTaskCount = (device.currentTaskCount ?? 0) + 1
       device.deviceLogs = [
         { id: `dl-${Date.now()}`, timestamp: nowTime, level: "info" as const, message: `生成${taskTypeLabel}任务：${newTask.name}` },
-        ...device.deviceLogs,
+        ...(device.deviceLogs ?? []),
       ]
       writeMockStore(getStorageKey("racks"), mockRacks)
     }
@@ -683,7 +685,7 @@ export const mockRackProvider: RackProvider = {
     }
     // 更新剩余容量（简化计算）
     const usedCapacityGB = rack.usedSlots * 1.5 // 假设每个槽位平均 1.5 TB
-    const totalTB = parseFloat(rack.totalCapacity) || 0
+    const totalTB = parseFloat(rack.totalCapacity ?? '') || 0
     if (totalTB > 0) {
       const remainingTB = Math.max(0, totalTB - usedCapacityGB)
       rack.remainingCapacity = `${remainingTB.toFixed(1)} TB`
@@ -943,7 +945,7 @@ export function resetMockData() {
       users: "odlm:v1:users",
       settings: "odlm:v1:settings",
     }).forEach(key => window.localStorage.removeItem(key))
-    window.dispatchEvent(new CustomEvent(MOCK_STORE_EVENT, { detail: { key: "all" } }))
+    window.dispatchEvent(new CustomEvent("mock-store:cleared", { detail: { key: "all" } }))
   }
 }
 

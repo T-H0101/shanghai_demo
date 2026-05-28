@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   taskProvider,
-} from "@/lib/api/mock-providers"
+} from "@/lib/api"
 import { racks as mockRacks } from "@/lib/mock/racks"
 import type { TaskItem, TaskType, TaskPhase, TaskLogEntry } from "@/lib/types/task"
 import { TASK_TYPE_LABELS, TASK_PHASE_LABELS, TASK_PHASE_COLORS, TASK_PHASES_BY_TYPE } from "@/lib/types/task"
@@ -167,6 +167,14 @@ function TasksPageContent() {
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: (previousPhase === "paused" ? "pending" : t.phase), status: "running" as const } : t))
     if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: (previousPhase === "paused" ? "pending" : prev.phase), status: "running" as const } : null)
     toast({ title: "任务已恢复", description: `「${task.name}」已恢复执行` })
+  }
+
+  const handleRetry = async (task: TaskItem, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    await taskProvider.retryTask(task.id)
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "pending", status: "running" as const, progress: 0 } : t))
+    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "pending", status: "running" as const, progress: 0 } : null)
+    toast({ title: "任务已重试", description: `「${task.name}」已重新执行` })
   }
 
   const handleComplete = async (task: TaskItem, e?: React.MouseEvent) => {
@@ -661,7 +669,7 @@ function TasksPageContent() {
                   status: "waiting" as const,
                   progress: 0,
                 }))
-                setCreateForm(f => ({ ...f, packagingThreads: threads }))
+                setCreateForm(f => ({ ...f, packagingThreads: threads as any }))
               }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

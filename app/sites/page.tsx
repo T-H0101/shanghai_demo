@@ -26,7 +26,7 @@ import type { Site } from "@/lib/types/site"
 import type { OnlineStatus } from "@/lib/types/common"
 import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, Power, ShieldCheck } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { mockSiteProvider } from "@/lib/api/mock-providers"
+import { mockSiteProvider } from "@/lib/api"
 
 type SiteStatusFilter = "all" | OnlineStatus
 
