@@ -292,18 +292,30 @@ Sprint 2A.2 完成所有目标:
 
 ---
 
-## 附录：ignoreBuildErrors 配置建议
+## 附录：ignoreBuildErrors 配置
 
-当前 `next.config.ts` 中 `ignoreBuildErrors: true`。
+> 更新: 2026-05-29
 
-修复完成后建议修改为:
-```typescript
-experimental: {
-  // ignoreBuildErrors: true,  // 注释掉或删除
-}
+### ignoreBuildErrors 已关闭
+
+`next.config.mjs` 中 `ignoreBuildErrors: false`，TypeScript 检查强制执行。
+
+### pnpm 11 兼容性问题
+
+当前本地 pnpm 11 环境下 `onlyBuiltDependencies` 配置存在兼容性问题，pnpm build 会报错：
+
+```
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: sharp@0.34.5
+Run "pnpm approve-builds" to pick which dependencies should allow build scripts.
 ```
 
-或保持开启直到 Sprint 2B 稳定后再关闭。
+**临时解决方案**：
+- 使用 `npx next build` 替代 `pnpm build` 作为稳定构建命令
+- 或等待 pnpm 后续版本修复
+
+**验证结果**（2026-05-29）：
+- `npx tsc --noEmit`: ✅ 0 errors
+- `npx next build`: ✅ 18 pages generated
 
 ---
 
