@@ -1,0 +1,47 @@
+# ============================================================
+# Docker PostgreSQL 17 - 统一平台中心库
+# Sprint 2B.1 - 本地开发环境
+# ============================================================
+#
+# 用途：
+#   - 本地开发验证 PostgreSQL 连接
+#   - 中心库 Schema 初始化
+#   - 不连接真实源库，不同步真实数据
+#
+# 使用方法：
+#   docker compose up -d postgres
+#   docker compose logs postgres
+#   docker compose down -v  # 停止并删除数据卷
+#
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: unified_disc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: unified
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unified123}
+      POSTGRES_DB: unified_disc_platform
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unified -d unified_disc_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - unified_disc_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  unified_disc_network:
+    driver: bridge

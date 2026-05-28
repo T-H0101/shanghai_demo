@@ -7,7 +7,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:down:volumes": "docker compose down -v",
+    "db:logs": "docker compose logs postgres",
+    "db:health": "docker compose exec postgres pg_isready -U unified -d unified_disc_platform",
+    "db:init": "bash databases/sprint-2b0/init.sh -d 'postgresql://unified:unified123@localhost:5432/unified_disc_platform'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -58,9 +64,11 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.11.0",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^22",
     "@types/react": "^19",
@@ -70,8 +78,5 @@
     "tailwindcss": "^4.2.0",
     "tw-animate-css": "1.3.3",
     "typescript": "5.7.3"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["sharp"]
   }
 }

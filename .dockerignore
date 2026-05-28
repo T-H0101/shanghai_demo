@@ -1,0 +1,45 @@
+# Docker
+.dockerignore
+
+# Dependencies
+node_modules
+
+# Environment files (包含密码)
+.env.local
+.env.production
+.env.*.local
+
+# Build outputs
+.next
+out
+dist
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Test
+coverage
+*.lcov
+
+# Database
+*.sql.bak
+databases/*.bak
+
+# Screenshots
+docs/screenshots/*.png
+docs/screenshots/*.jpg
