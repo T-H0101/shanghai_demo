@@ -21,53 +21,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 数据关联强化 | ✅ 完成 | 任务↔站点↔设备↔存储卷 关联 |
 | **企业控制台 UI 收敛** | ✅ 完成 | NOC/SOC 风格收敛 |
 | Mock 流程补充 | ✅ 完成 | M6-M14 全部完成：日志错误码检索、索引导出Dialog、分片导出、推送路径、监控阈值、登录锁定、权限同步 |
-| **真实数据库接入** | 🔲 Sprint 0 完成 | 方案修正完成，准备 Sprint 1 |
+| **真实数据库接入** | ✅ Sprint 1 完成 | API Skeleton + DTO + Adapter + Mock Response |
 
-### 1.3 当前阶段详情
+### 1.3 Sprint 1 完成内容
 
-前端 Demo 已冻结（2026-05-28），进入真实数据库接入阶段。
+**新增 API 端点 (10个)**:
+| 端点 | 说明 |
+|------|------|
+| `/api/dashboard/summary` | 首页统计 |
+| `/api/tasks` | 任务列表 |
+| `/api/tasks/[id]` | 任务详情 |
+| `/api/racks` | 盘架列表 |
+| `/api/racks/[id]` | 盘架详情 |
+| `/api/racks/[id]/slots` | 盘位列表 |
+| `/api/volumes` | 存储卷列表 |
+| `/api/alerts` | 告警列表 |
+| `/api/sites` | 站点列表 |
+| `/api/users` | 用户列表 |
 
-**已完成文档**:
-- `docs/database-analysis/真实数据库接入实施方案.md` - 同步范围、Schema、同步策略
-- `docs/database-analysis/后端接入方案-完整版.md` - API Contract、DTO/Adapter 设计、替换顺序
-- `docs/database-analysis/后端接入清单.md` - 完整替换对照表
-- `docs/database-analysis/sync-candidates.md` - P0/P1/P2/P3 表分层
-- `docs/database-analysis/后端接入方案审查报告.md` - 方案审查与修正清单
-- `docs/database-analysis/后端接入方案审查报告.md` 中 10 项审查问题已全部修正
+**新增 DTO**: `lib/api/dto/index.ts`
+**新增 Adapter**: `lib/api/adapters/*` (7个)
+**新增文档**:
+- `docs/database-analysis/sprint1/sprint1-summary.md` - Sprint 1 完成总结
+- `docs/database-analysis/sprint1/api-contract.md` - API 契约文档
+- `docs/testing/sprint1/test-plan.md` - 测试计划
+- `docs/testing/sprint1/acceptance-checklist.md` - 手动验收清单
 
-**接入架构**:
-```
-源站点 MySQL (只读)
-    ↓
-同步服务 (定时/增量)
-    ↓
-PostgreSQL 中心库 (统一视图)
-    ↓
-API Layer (Node.js/Go)
-    ↓
-前端 Provider (只换数据源)
-                                                              ↑
-                                                    Adapter 做字段映射，前端类型不变
-```
+**Sprint 1 约束**:
+- ✅ 不连接真实 PostgreSQL
+- ✅ 不替换前端 Provider
+- ✅ 不破坏现有 Demo
+- ✅ 不修改页面 UI
+- ✅ 不实现 P1/P2/P3 功能
+- ✅ 不实现真实同步服务
+- ✅ 不实现复杂认证系统
 
-**第一阶段只读 API 范围 (P0)**:
-| 表 | 用途 |
-|----|------|
-| `tbl_task` | 任务列表/统计 |
-| `tbl_disc_lib` | 设备/盘架 |
-| `tbl_slots` | 盘位 |
-| `tbl_magzines` | 盘笼 |
-| `tbl_drivers` | 光驱 |
-| `tbl_hd_info` | 硬盘健康度 |
-| `tbl_logical_volume` | 存储卷容量 |
-| `tbl_early_warning` | 告警 |
-| `tbl_lib_group` | 设备分组 |
-| `tbl_user` | 用户列表 |
-
-**Sprint 1 目标** (下一阶段):
-- API 项目骨架初始化
-- Mock response 实现
-- 不连接真实数据库，不替换前端 Provider
+### 1.4 技术栈
 
 ### 1.4 技术栈
 
