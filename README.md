@@ -109,24 +109,30 @@ pnpm build && pnpm start
 
 ```
 docs/
+├── requirements/           # 需求文档
+│   ├── 01_需求分析.md ~ 11_运行部署说明.md
+│   ├── FINAL_RELEASE_CHECKLIST.md
+│   └── 任务管理功能规格书-参考.md
 ├── architecture/           # 架构文档
 │   ├── system-architecture.md
 │   ├── sync-flow.md
 │   ├── large-table-strategy.md
 │   └── id-strategy.md
 ├── database-analysis/      # 数据库分析
-│   ├── sync-candidates.md  # P0/P1 同步表清单
+│   ├── sync-candidates.md
 │   ├── 真实数据库接入实施方案.md
-│   └── schema-inventory.json
-├── presentation/           # 方案展示站
-│   └── index.html          # 双击打开
-├── screenshots/            # 截图
-├── demo-backlog.md         # 开发 backlog
-└── 后端接入清单.md          # Mock 替换映射
+│   └── 后端接入清单.md
+├── development/           # 开发文档
+│   ├── demo-backlog.md
+│   └── 完整版更新文档.md
+├── presentation/          # 方案展示站
+│   └── index.html
+├── screenshots/           # 截图
+└── source/                # 原始需求
 
-docs/archive/               # 归档
-├── reference-site-analysis/ # 参考竞品分析
-└── superpowers/            # Agent 工作流记录
+docs/archive/              # 归档（不在 git）
+├── reference-site-analysis/
+└── superpowers/
 ```
 
 ---
