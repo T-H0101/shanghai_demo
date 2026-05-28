@@ -38,6 +38,10 @@ yarn-error.log*
 # System
 Thumbs.db
 
+# Database
+databases/
+*.sql
+
 # Vercel
 .vercel
 
