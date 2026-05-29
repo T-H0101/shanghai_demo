@@ -1,17 +1,15 @@
 // lib/sync/field-mapper.ts
 
 import type { TaskSourceRecord, UnifiedTaskRecord } from './types'
-
-const SITE_CODE = 'SH01'
-const SOURCE_TABLE = 'tbl_task'
+import { DEFAULT_SITE_CODE, TASK_SYNC_CONFIG } from './config'
 
 /**
  * 将源数据映射到统一表结构
  */
 export function mapTask(source: TaskSourceRecord): UnifiedTaskRecord {
   return {
-    source_site_id: SITE_CODE,
-    source_table: SOURCE_TABLE,
+    source_site_id: DEFAULT_SITE_CODE,
+    source_table: TASK_SYNC_CONFIG.sourceTable,
     source_id: String(source.id),
     synced_at: new Date(),
     task_no: source.task_no,
