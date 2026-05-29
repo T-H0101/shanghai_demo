@@ -4,6 +4,7 @@
  */
 
 import type { SyncResult } from './types'
+import { DEFAULT_SITE_CODE, TASK_SYNC_CONFIG } from './config'
 import { readSourceRecords } from './source-reader'
 import { mapTasks } from './field-mapper'
 import {
@@ -12,11 +13,8 @@ import {
   updateJobLogFailed,
   updateJobLogSkipped,
 } from './sync-job-log'
-import { getOrCreateProgress, updateProgressFailed } from './sync-progress'
+import { getOrCreateProgress, updateProgressInTransaction, updateProgressFailed } from './sync-progress'
 import { transaction } from '@/lib/db'
-
-const SITE_CODE = 'SH01'
-const SOURCE_TABLE = 'tbl_task'
 
 /**
  * 同步 tasks 数据
@@ -33,11 +31,11 @@ export async function syncTasks(): Promise<SyncResult> {
 
   try {
     // 1. 获取 sync_progress
-    const progress = await getOrCreateProgress()
+    const progress = await getOrCreateProgress(DEFAULT_SITE_CODE, TASK_SYNC_CONFIG.sourceTable)
     lastSourceIdBefore = progress?.last_source_id ?? 0
 
     // 2. 写入 sync_job_log（状态: running）
-    jobId = await createJobLog()
+    jobId = await createJobLog(DEFAULT_SITE_CODE, TASK_SYNC_CONFIG.sourceTable)
 
     // 3. 读取源数据
     const sourceRecords = await readSourceRecords(lastSourceIdBefore)
@@ -123,17 +121,7 @@ export async function syncTasks(): Promise<SyncResult> {
       }
 
       // 更新 sync_progress（事务内）
-      const updateProgressSql = `
-        UPDATE sync_progress
-        SET last_source_id = $1,
-            last_sync_time = NOW(),
-            last_status = 'success',
-            synced_rows = $2,
-            last_error = NULL,
-            updated_at = NOW()
-        WHERE source_site_id = $3 AND source_table = $4
-      `
-      await client.query(updateProgressSql, [maxSourceId, rowsUpserted, SITE_CODE, SOURCE_TABLE])
+      await updateProgressInTransaction(client, DEFAULT_SITE_CODE, TASK_SYNC_CONFIG.sourceTable, maxSourceId, rowsUpserted)
 
       return { rowsUpserted, maxSourceId }
     })
@@ -162,7 +150,7 @@ export async function syncTasks(): Promise<SyncResult> {
     }
 
     // 更新 sync_progress 为失败（不更新游标）
-    await updateProgressFailed(SITE_CODE, SOURCE_TABLE, errorMessage)
+    await updateProgressFailed(DEFAULT_SITE_CODE, TASK_SYNC_CONFIG.sourceTable, errorMessage)
 
     return {
       status: 'failed',
