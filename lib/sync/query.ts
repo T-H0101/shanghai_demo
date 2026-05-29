@@ -69,8 +69,7 @@ export async function queryLogs(
   filters: LogsFilters = {},
   limit: number = 10
 ): Promise<SyncLogDTO[]> {
-  // limit 限制在 1-100 范围内
-  const safeLimit = Math.min(Math.max(1, limit), 100)
+  const safeLimit = clampLimit(limit)
 
   const conditions: string[] = []
   const params: unknown[] = []
