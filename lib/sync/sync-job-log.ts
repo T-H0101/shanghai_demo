@@ -2,22 +2,23 @@
 
 import { query } from '@/lib/db'
 import type { SyncJobLog } from './types'
-
-const SITE_CODE = 'SH01'
-const SOURCE_TABLE = 'tbl_task'
+import { DEFAULT_SITE_CODE, TASK_SYNC_CONFIG } from './config'
 
 /**
  * 创建同步任务日志（状态: running）
  */
-export async function createJobLog(): Promise<string> {
-  const jobId = `sync-${SOURCE_TABLE}-${Date.now()}`
+export async function createJobLog(
+  siteCode: string = DEFAULT_SITE_CODE,
+  sourceTable: string = TASK_SYNC_CONFIG.sourceTable
+): Promise<string> {
+  const jobId = `sync-${sourceTable}-${Date.now()}`
   const sql = `
     INSERT INTO sync_job_log (job_id, source_site_id, source_table, status)
     VALUES ($1, $2, $3, 'running')
     RETURNING id
   `
 
-  await query(sql, [jobId, SITE_CODE, SOURCE_TABLE])
+  await query(sql, [jobId, siteCode, sourceTable])
   return jobId
 }
 
@@ -85,7 +86,9 @@ export async function updateJobLogSkipped(jobId: string): Promise<void> {
 /**
  * 获取最近的同步日志
  */
-export async function getLatestJobLog(): Promise<SyncJobLog | null> {
+export async function getLatestJobLog(
+  sourceTable: string = TASK_SYNC_CONFIG.sourceTable
+): Promise<SyncJobLog | null> {
   const sql = `
     SELECT id, job_id, source_site_id, source_table, started_at,
            finished_at, status, rows_read, rows_upserted, rows_skipped,
@@ -96,6 +99,6 @@ export async function getLatestJobLog(): Promise<SyncJobLog | null> {
     LIMIT 1
   `
 
-  const result = await query(sql, [SOURCE_TABLE])
+  const result = await query(sql, [sourceTable])
   return (result.rows[0] as SyncJobLog) ?? null
 }
