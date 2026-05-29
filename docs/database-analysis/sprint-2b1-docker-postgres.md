@@ -92,18 +92,40 @@ grep DATABASE_URL .env.local
 ### 4.1 执行初始化脚本
 
 ```bash
-# 使用 npm script
+# 使用 npm script（使用 Docker 容器内的 psql，无需本机安装）
 pnpm db:init
 
-# 或手动指定连接字符串
-bash databases/sprint-2b0/init.sh -d 'postgresql://unified:unified123@localhost:5432/unified_disc_platform'
+# 或直接执行脚本
+bash databases/sprint-2b0/init-docker.sh
+
+# 查看帮助
+bash databases/sprint-2b0/init-docker.sh --help
 ```
 
-### 4.2 验证表创建
+**脚本特点:**
+- 使用 Docker 容器内的 `psql`，不要求本机安装 PostgreSQL 客户端
+- 自动检查容器状态，未启动时给出清晰错误提示
+- 支持 `--dry-run` 仅验证连接
+- 支持 `--reset` 重置数据库（删除所有表后重建）
+
+### 4.2 npm scripts 说明
+
+| 脚本 | 说明 | 前提条件 |
+|------|------|----------|
+| `pnpm db:up` | 启动 PostgreSQL 容器 | Docker Desktop 运行 |
+| `pnpm db:init` | 初始化 schema + seed | 容器已启动 |
+| `pnpm db:init:reset` | 重置数据库后重新初始化 | 容器已启动 |
+| `pnpm db:seed` | 仅执行 seed 数据 | 容器已启动 |
+| `pnpm db:health` | 检查容器健康状态 | 容器已启动 |
+| `pnpm db:down` | 停止容器（保留数据） | - |
+| `pnpm db:down:volumes` | 停止容器并删除数据卷 | - |
+
+### 4.3 验证表创建
 
 ```bash
-# 连接数据库查看表
-psql 'postgresql://unified:unified123@localhost:5432/unified_disc_platform' -c "\dt"
+# 查看容器内表列表
+pnpm db:logs 2>/dev/null | grep -E "CREATE TABLE|unified_" || \
+docker exec unified_disc_postgres psql -U unified -d unified_disc_platform -c "\dt"
 ```
 
 **预期输出:**
@@ -145,6 +167,9 @@ curl http://localhost:3000/api/system/health
 
 # 测试数据库健康检查
 curl http://localhost:3000/api/system/db-health
+
+# 测试数据库统计
+curl http://localhost:3000/api/system/db-summary
 ```
 
 **预期响应 (db-health):**
@@ -157,6 +182,22 @@ curl http://localhost:3000/api/system/db-health
     "connected": true,
     "latencyMs": 5,
     "pool": { "total": 1, "idle": 1, "waiting": 0 }
+  }
+}
+```
+
+**预期响应 (db-summary):**
+```json
+{
+  "status": "ok",
+  "connected": true,
+  "counts": {
+    "sites": 2,
+    "syncSites": 2,
+    "tasks": 3,
+    "devices": 3,
+    "volumes": 3,
+    "alerts": 2
   }
 }
 ```
@@ -293,20 +334,24 @@ pnpm db:down
 
 ---
 
-## 十、Seed 数据执行（可选）
+## 十、Seed 数据执行
 
 ### 10.1 执行 Seed
 
 ```bash
-# 方式1: 使用 npm script（依赖 DATABASE_URL 环境变量）
+# 方式1: 使用 npm script（使用 Docker psql）
 pnpm db:seed
 
-# 方式2: 直接执行 seed.sql
-psql 'postgresql://unified:unified123@localhost:5432/unified_disc_platform' -f databases/sprint-2b1/seed.sql
+# 方式2: 直接执行 seed.sql（使用 Docker psql）
+docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b1/seed.sql
 
-# 方式3: init.sh 自动执行
-bash databases/sprint-2b0/init.sh -d 'postgresql://unified:unified123@localhost:5432/unified_disc_platform'
+# 方式3: init-docker.sh 自动执行
+bash databases/sprint-2b0/init-docker.sh
 ```
+
+**特点:**
+- 使用 Docker 容器内的 `psql`，不要求本机安装 PostgreSQL 客户端
+- seed.sql 使用 `ON CONFLICT DO NOTHING`，可重复执行不会重复插入
 
 ### 10.2 Seed 数据内容
 
@@ -325,8 +370,8 @@ bash databases/sprint-2b0/init.sh -d 'postgresql://unified:unified123@localhost:
 # 查看各表记录数
 curl http://localhost:3000/api/system/db-summary
 
-# 或直接 SQL 查询
-psql 'postgresql://unified:unified123@localhost:5432/unified_disc_platform' -c "
+# 或直接 SQL 查询（使用 Docker psql）
+docker exec unified_disc_postgres psql -U unified -d unified_disc_platform -c "
 SELECT 'sites' as tbl, COUNT(*) as cnt FROM sites
 UNION ALL SELECT 'sync_sites', COUNT(*) FROM sync_sites
 UNION ALL SELECT 'unified_tasks', COUNT(*) FROM unified_tasks
