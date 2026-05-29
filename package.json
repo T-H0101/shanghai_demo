@@ -13,7 +13,8 @@
     "db:down:volumes": "docker compose down -v",
     "db:logs": "docker compose logs postgres",
     "db:health": "docker compose exec postgres pg_isready -U unified -d unified_disc_platform",
-    "db:init": "bash databases/sprint-2b0/init.sh -d 'postgresql://unified:unified123@localhost:5432/unified_disc_platform'"
+    "db:init": "bash databases/sprint-2b0/init.sh -d 'postgresql://unified:unified123@localhost:5432/unified_disc_platform'",
+    "db:seed": "psql \"$DATABASE_URL\" -f databases/sprint-2b1/seed.sql"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

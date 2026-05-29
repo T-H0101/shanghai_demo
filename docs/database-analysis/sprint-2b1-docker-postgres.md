@@ -290,3 +290,67 @@ pnpm db:down
 ---
 
 *Report updated: 2026-05-29*
+
+---
+
+## 十、Seed 数据执行（可选）
+
+### 10.1 执行 Seed
+
+```bash
+# 方式1: 使用 npm script（依赖 DATABASE_URL 环境变量）
+pnpm db:seed
+
+# 方式2: 直接执行 seed.sql
+psql 'postgresql://unified:unified123@localhost:5432/unified_disc_platform' -f databases/sprint-2b1/seed.sql
+
+# 方式3: init.sh 自动执行
+bash databases/sprint-2b0/init.sh -d 'postgresql://unified:unified123@localhost:5432/unified_disc_platform'
+```
+
+### 10.2 Seed 数据内容
+
+| 表名 | 记录数 | 说明 |
+|------|--------|------|
+| sites | 2 | 上海 SH01、北京 BJ02 |
+| sync_sites | 2 | 对应站点的源库连接配置 |
+| unified_tasks | 3 | 备份、归档、导出任务各1条 |
+| unified_devices | 3 | 光盘库、硬盘阵列设备各1条 |
+| unified_volumes | 3 | 蓝光盘、硬盘卷各1条 |
+| unified_alerts | 2 | 容量告警、设备离线各1条 |
+
+### 10.3 验证 Seed 数据
+
+```bash
+# 查看各表记录数
+curl http://localhost:3000/api/system/db-summary
+
+# 或直接 SQL 查询
+psql 'postgresql://unified:unified123@localhost:5432/unified_disc_platform' -c "
+SELECT 'sites' as tbl, COUNT(*) as cnt FROM sites
+UNION ALL SELECT 'sync_sites', COUNT(*) FROM sync_sites
+UNION ALL SELECT 'unified_tasks', COUNT(*) FROM unified_tasks
+UNION ALL SELECT 'unified_devices', COUNT(*) FROM unified_devices
+UNION ALL SELECT 'unified_volumes', COUNT(*) FROM unified_volumes
+UNION ALL SELECT 'unified_alerts', COUNT(*) FROM unified_alerts;"
+```
+
+**预期响应:**
+```json
+{
+  "status": "ok",
+  "connected": true,
+  "counts": {
+    "sites": 2,
+    "syncSites": 2,
+    "tasks": 3,
+    "devices": 3,
+    "volumes": 3,
+    "alerts": 2
+  }
+}
+```
+
+---
+
+*Section added: 2026-05-29*
