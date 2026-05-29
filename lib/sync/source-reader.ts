@@ -5,9 +5,7 @@
 
 import { query } from '@/lib/db'
 import type { TaskSourceRecord } from './types'
-
-const SITE_CODE = 'SH01'
-const SOURCE_TABLE = 'tbl_task'
+import { TASK_SYNC_CONFIG } from './config'
 
 /**
  * 读取源数据（ID > lastSourceId）
