@@ -162,7 +162,7 @@ export async function syncTasks(): Promise<SyncResult> {
     }
 
     // 更新 sync_progress 为失败（不更新游标）
-    await updateProgressFailed(errorMessage)
+    await updateProgressFailed(SITE_CODE, SOURCE_TABLE, errorMessage)
 
     return {
       status: 'failed',

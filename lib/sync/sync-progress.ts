@@ -1,15 +1,19 @@
-// lib/sync/sync-progress.ts
+/**
+ * 同步进度管理
+ * Sprint 2B.3.1 - 参数化改造
+ */
 
 import { query } from '@/lib/db'
+import { DEFAULT_SITE_CODE, TASK_SYNC_CONFIG } from './config'
 import type { SyncProgress } from './types'
-
-const SITE_CODE = 'SH01'
-const SOURCE_TABLE = 'tbl_task'
 
 /**
  * 获取同步进度
  */
-export async function getProgress(): Promise<SyncProgress | null> {
+export async function getProgress(
+  siteCode: string = DEFAULT_SITE_CODE,
+  sourceTable: string = TASK_SYNC_CONFIG.sourceTable
+): Promise<SyncProgress | null> {
   const sql = `
     SELECT id, source_site_id, source_table, last_sync_time,
            last_source_id, last_status, synced_rows, last_error,
@@ -18,15 +22,18 @@ export async function getProgress(): Promise<SyncProgress | null> {
     WHERE source_site_id = $1 AND source_table = $2
   `
 
-  const result = await query(sql, [SITE_CODE, SOURCE_TABLE])
+  const result = await query(sql, [siteCode, sourceTable])
   return (result.rows[0] as SyncProgress) ?? null
 }
 
 /**
  * 获取或创建同步进度（如果不存在）
  */
-export async function getOrCreateProgress(): Promise<SyncProgress> {
-  let progress = await getProgress()
+export async function getOrCreateProgress(
+  siteCode: string = DEFAULT_SITE_CODE,
+  sourceTable: string = TASK_SYNC_CONFIG.sourceTable
+): Promise<SyncProgress> {
+  let progress = await getProgress(siteCode, sourceTable)
 
   if (!progress) {
     // 创建初始记录
@@ -38,7 +45,7 @@ export async function getOrCreateProgress(): Promise<SyncProgress> {
                 last_source_id, last_status, synced_rows, last_error,
                 created_at, updated_at
     `
-    const result = await query(sql, [SITE_CODE, SOURCE_TABLE])
+    const result = await query(sql, [siteCode, sourceTable])
     progress = result.rows[0] as SyncProgress
   }
 
@@ -50,6 +57,8 @@ export async function getOrCreateProgress(): Promise<SyncProgress> {
  */
 export async function updateProgressInTransaction(
   client: any,
+  siteCode: string,
+  sourceTable: string,
   newSourceId: number,
   syncedRows: number
 ): Promise<void> {
@@ -64,13 +73,17 @@ export async function updateProgressInTransaction(
     WHERE source_site_id = $3 AND source_table = $4
   `
 
-  await client.query(sql, [newSourceId, syncedRows, SITE_CODE, SOURCE_TABLE])
+  await client.query(sql, [newSourceId, syncedRows, siteCode, sourceTable])
 }
 
 /**
  * 更新同步状态为失败
  */
-export async function updateProgressFailed(error: string): Promise<void> {
+export async function updateProgressFailed(
+  siteCode: string,
+  sourceTable: string,
+  error: string
+): Promise<void> {
   const sql = `
     UPDATE sync_progress
     SET last_status = 'failed',
@@ -79,5 +92,5 @@ export async function updateProgressFailed(error: string): Promise<void> {
     WHERE source_site_id = $2 AND source_table = $3
   `
 
-  await query(sql, [error, SITE_CODE, SOURCE_TABLE])
+  await query(sql, [error, siteCode, sourceTable])
 }
