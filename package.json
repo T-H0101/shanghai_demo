@@ -15,6 +15,7 @@
     "db:health": "docker compose exec postgres pg_isready -U unified -d unified_disc_platform",
     "db:init": "bash databases/sprint-2b0/init-docker.sh",
     "db:init:reset": "bash databases/sprint-2b0/init-docker.sh --reset",
+    "db:init:sync": "docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b2/mock-tbl-task.sql",
     "db:seed": "docker exec unified_disc_postgres psql -U unified -d unified_disc_platform -f /docker-entrypoint-initdb.d/seed.sql || docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b1/seed.sql"
   },
   "dependencies": {
