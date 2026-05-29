@@ -6,7 +6,7 @@ export interface SyncStatusDTO {
   tableName: string
   lastSourceId: number
   lastSyncTime: string | null
-  lastStatus: string
+  lastStatus: 'success' | 'failed' | 'skipped' | 'running'
   syncedRows: number
   lastError: string | null
 }
