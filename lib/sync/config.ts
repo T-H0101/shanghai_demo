@@ -14,6 +14,14 @@ export const TASK_SYNC_CONFIG = {
   sourceSiteCode: DEFAULT_SITE_CODE,
 } as const
 
+// Devices 同步对象配置（disc_lib / 盘库设备）
+export const DEVICE_SYNC_CONFIG = {
+  sourceTable: 'tbl_disc_lib',
+  targetTable: 'unified_devices',
+  mockSourceTable: 'mock_tbl_disc_lib',
+  sourceSiteCode: DEFAULT_SITE_CODE,
+} as const
+
 // 类型定义
 export interface SyncObjectConfig {
   sourceTable: string
