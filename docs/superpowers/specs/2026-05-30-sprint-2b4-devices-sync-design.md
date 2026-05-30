@@ -27,20 +27,20 @@
 1. **最小 sync-engine**：~50 行公共逻辑，不引入接口/工厂/调度
 2. **复用现有 schema**：不 ALTER unified_devices
 3. **统一源字段规范**：source_site_id + source_table + source_id
-4. **扩展字段存 raw_data**：last_heartbeat/operator（不在主字段存储）
+4. **扩展字段存 raw_data**：last_heartbeat/operator/device_status
 
 ---
 
 ## unified_devices 字段核对
 
-| mock 字段 | unified_devices 字段 | 状态 |
+| mock 字段 | unified_devices 字段 | 处理 |
 |-----------|----------------------|------|
 | id | source_id | ✅ |
 | device_no | device_id | ✅ |
 | device_name | device_name | ✅ |
 | device_type | device_type | ✅ |
-| device_status | status | ✅，原始值存 raw_data |
-| ip_address | ip_address | ✅（VARCHAR(50)，够用） |
+| device_status | status | ✅ 主字段存储，原始值存 raw_data |
+| ip_address | ip_address | ✅ 直接映射（主字段 VARCHAR(50)） |
 | location | location | ✅ |
 | room | room | ✅ |
 | floor | floor | ✅ |
@@ -49,7 +49,7 @@
 | last_heartbeat | - | raw_data |
 | operator | - | raw_data |
 
-**结论**：现有 unified_devices 字段足够，无需 ALTER。
+**结论**：现有 unified_devices 字段足够，ip_address 直接映射，无需 ALTER。
 
 ---
 
@@ -65,14 +65,37 @@ lib/sync/
 ├── upsert.ts                 # 修改：新增 upsertDevice/upsertDevicesInTransaction
 ├── tasks-sync.ts             # 修改：改用 sync-engine + upsert
 ├── devices-sync.ts           # 新增
-├── types.ts                  # 修改：添加 DeviceSourceRecord
+├── types.ts                  # 修改：添加 DeviceSourceRecord/UnifiedDeviceRecord
 ├── source-reader.ts          # 修改：新增 readDiscLibSource
+├── field-mapper.ts           # 修改：新增 mapDiscLibToTarget
 └── dto.ts                    # 已有
 
 app/api/sync/
 ├── tasks/route.ts            # 已有
 └── devices/route.ts          # 新增
 ```
+
+---
+
+## SyncResult 结构（必须与现有类型一致）
+
+```typescript
+// lib/sync/types.ts
+interface SyncResult {
+  status: 'success' | 'skipped' | 'failed'
+  rowsRead: number
+  rowsUpserted: number
+  rowsSkipped: number
+  startedAt: string
+  finishedAt: string
+  lastSourceIdBefore: number
+  lastSourceIdAfter: number
+  message?: string
+  error?: string
+}
+```
+
+**sync-engine 返回必须与此结构一致**，确保 /api/sync/tasks 行为不变。
 
 ---
 
@@ -110,22 +133,15 @@ interface SyncInput<T> {
   config: SyncObjectConfig
   readSource: (lastId: number) => Promise<T[]>
   mapToTarget: (source: T) => Record<string, unknown>
-  getSourceId: (source: T) => number  // 新增：提取 source id
+  getSourceId: (source: T) => number  // 提取 source id
   upsertBatch: (
     records: Record<string, unknown>[],
     onProgressUpdate: (maxSourceId: number, syncedRows: number) => Promise<void>
   ) => Promise<{ rowsUpserted: number; maxSourceId: number }>
 }
 
-interface SyncResult {
-  rowsRead: number
-  rowsUpserted: number
-  rowsSkipped: number
-  maxSourceId: number
-}
-
 export async function runSync<T>(input: SyncInput<T>): Promise<SyncResult>
-// 职责：读源 → 计算 maxSourceId → UPSERT → 更新进度
+// 返回结构与现有 types.ts SyncResult 完全一致
 ```
 
 ---
@@ -148,12 +164,6 @@ export const DEVICE_SYNC_CONFIG = {
 
 ```typescript
 // lib/sync/devices-sync.ts
-import { DEVICE_SYNC_CONFIG } from './config'
-import { upsertDevicesInTransaction } from './upsert'
-import { readDiscLibSource } from './source-reader'
-import { mapDiscLibToTarget } from './field-mapper'
-import { runSync } from './sync-engine'
-
 export async function syncDevices(): Promise<SyncResult> {
   return runSync({
     config: DEVICE_SYNC_CONFIG,
@@ -201,25 +211,26 @@ ON CONFLICT (device_no) DO NOTHING;
 
 ## 字段映射规则
 
-| mock_tbl_disc_lib | unified_devices | 说明 |
+| mock_tbl_disc_lib | unified_devices | 处理 |
 |-------------------|------------------|------|
 | id | source_id | 转为字符串 |
-| device_no | device_id | |
-| device_name | device_name | |
-| device_type | device_type | |
-| device_status | status | 原始值存 raw_data |
-| ip_address | ip_address | 直接映射 |
-| location | location | |
-| room | room | |
-| floor | floor | |
-| total_capacity | total_capacity | |
-| used_capacity | used_capacity | |
+| device_no | device_id | ✅ |
+| device_name | device_name | ✅ |
+| device_type | device_type | ✅ |
+| device_status | status | ✅ 主字段存储 |
+| ip_address | ip_address | ✅ 直接映射 |
+| location | location | ✅ |
+| room | room | ✅ |
+| floor | floor | ✅ |
+| total_capacity | total_capacity | ✅ |
+| used_capacity | used_capacity | ✅ |
 | last_heartbeat | - | raw_data |
 | operator | - | raw_data |
 
-**raw_data 结构**：
+**raw_data 结构**（保存完整 source record）：
 ```json
 {
+  "device_no": "DL-SH01-001",
   "device_status": "online",
   "last_heartbeat": "2026-05-30T10:00:00Z",
   "operator": "张三"
@@ -234,23 +245,38 @@ ON CONFLICT (device_no) DO NOTHING;
 
 1. **重构 tasks-sync.ts 使用 sync-engine + upsert**
 2. **单独验收 tasks**：
-   - 运行 `pnpm db:init` 确保环境干净
-   - `POST /api/sync/tasks`
-   - 确认 `sync_job_log` 有记录
-   - 确认 `unified_tasks` 有数据
-   - **必须行为不变**：返回结构、记录数、状态一致
+   ```
+   # 干净环境
+   pnpm db:down && pnpm db:up
+   pnpm db:init
+   pnpm db:init:sync
+
+   # 验收 tasks 同步
+   curl -X POST http://localhost:3000/api/sync/tasks
+
+   # 验证返回结构
+   - status: "success" 或 "skipped"
+   - rowsRead, rowsUpserted, rowsSkipped
+   - startedAt, finishedAt
+   - lastSourceIdBefore, lastSourceIdAfter
+
+   # 验证数据
+   SELECT * FROM unified_tasks;
+   SELECT * FROM sync_job_log WHERE source_table = 'tbl_task';
+   ```
+
+   **必须行为不变**：返回结构、记录数、状态与重构前一致
 
 ### Phase 2: 实现 devices 同步
 
 1. 添加 `DEVICE_SYNC_CONFIG` 到 config.ts
-2. 添加 `DeviceSourceRecord` 类型到 types.ts
-3. 添加 `UnifiedDeviceRecord` 类型到 types.ts
-4. 创建 `mock_tbl_disc_lib`（seed 数据）
-5. 实现 `readDiscLibSource` 函数（source-reader.ts）
-6. 实现 `mapDiscLibToTarget` 函数（field-mapper.ts）
-7. 新增 `upsertDevice` / `upsertDevicesInTransaction`（upsert.ts）
-8. 创建 `devices-sync.ts`
-9. 创建 `POST /api/sync/devices`
+2. 添加 `DeviceSourceRecord` / `UnifiedDeviceRecord` 类型到 types.ts
+3. 创建 `mock_tbl_disc_lib`（seed 数据）
+4. 实现 `readDiscLibSource` 函数（source-reader.ts）
+5. 实现 `mapDiscLibToTarget` 函数（field-mapper.ts）
+6. 新增 `upsertDevice` / `upsertDevicesInTransaction`（upsert.ts）
+7. 创建 `devices-sync.ts`
+8. 创建 `POST /api/sync/devices`
 
 ### Phase 3: 验收
 
@@ -258,7 +284,7 @@ ON CONFLICT (device_no) DO NOTHING;
 2. 第二次 `POST /api/sync/devices` status=skipped（无新数据）
 3. `GET /api/sync/status` 同时出现 `tbl_task` 和 `tbl_disc_lib`
 4. `GET /api/sync/logs` 同时出现 `tbl_task` 和 `tbl_disc_lib` 的 job
-5. 查询 `unified_devices` raw_data 包含 `ip_address`、`last_heartbeat`、`operator`、`device_status`
+5. 查询 `unified_devices` raw_data 包含扩展字段
 
 ---
 
@@ -278,14 +304,14 @@ ON CONFLICT (device_no) DO NOTHING;
 
 | # | 标准 | 验证方式 |
 |---|------|----------|
-| 1 | tasks 同步仍正常 | POST /api/sync/tasks 原行为不变 |
+| 1 | tasks 同步仍正常 | POST /api/sync/tasks 返回结构与原来一致 |
 | 2 | devices 首次同步 | POST /api/sync/devices → rowsRead=3, rowsUpserted=3 |
 | 3 | devices 二次同步 | 再次 POST → status=skipped |
 | 4 | sync_progress 两类 | GET /api/sync/status 包含 tbl_task 和 tbl_disc_lib |
 | 5 | sync_job_log 两类 | GET /api/sync/logs 包含两类 job |
-| 6 | raw_data 完整 | 查询 unified_devices raw_data 验证扩展字段 |
+| 6 | raw_data 完整 | 查询 unified_devices raw_data 验证 last_heartbeat/operator/device_status |
 
 ---
 
 *设计完成: 2026-05-30*
-*修正: 字段核对、UPSERT 策略、sync-engine 输入、幂等 seed、分步验收*
+*修正: ip_address 直接映射、验收命令修正、SyncResult 结构对齐*
