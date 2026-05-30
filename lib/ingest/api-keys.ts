@@ -6,6 +6,17 @@
  * INGEST_API_KEY_{siteCode}=your-secret-key
  */
 
+// 模块加载时构建 API Key 映射表（O(1) 查找）
+const apiKeyMap = new Map<string, string>()
+for (const [key, value] of Object.entries(process.env)) {
+  if (key.startsWith('INGEST_API_KEY_') && value) {
+    const siteCode = key.replace('INGEST_API_KEY_', '')
+    if (siteCode) {
+      apiKeyMap.set(value, siteCode)
+    }
+  }
+}
+
 /**
  * 校验 API Key 是否有效
  * @returns 有效返回 siteCode，无效返回 null
@@ -14,28 +25,15 @@ export function validateApiKey(apiKey: string): string | null {
   if (!apiKey) {
     return null
   }
-
-  // 遍历环境变量，查找匹配的 API Key
-  for (const [key, value] of Object.entries(process.env)) {
-    if (key.startsWith('INGEST_API_KEY_') && value === apiKey) {
-      // 提取 siteCode: INGEST_API_KEY_SH01 -> SH01
-      const siteCode = key.replace('INGEST_API_KEY_', '')
-      if (siteCode && siteCode.length > 0) {
-        return siteCode
-      }
-    }
-  }
-
-  return null
+  return apiKeyMap.get(apiKey) || null
 }
 
 /**
- * 校验 siteCode 是否与 API Key 匹配
+ * 校验 siteCode 是否与已验证的 siteCode 匹配
  */
 export function validateSiteCodeMatch(
-  apiKey: string,
-  siteCode: string
+  matchedSiteCode: string,
+  requestSiteCode: string
 ): boolean {
-  const matchedSiteCode = validateApiKey(apiKey)
-  return matchedSiteCode !== null && matchedSiteCode === siteCode
+  return matchedSiteCode === requestSiteCode
 }

@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
       return validationError('Invalid JSON body')
     }
 
-    // 4. 校验 siteCode 与 API Key 匹配
-    if (!validateSiteCodeMatch(apiKey, body.siteCode)) {
+    // 4. 校验 siteCode 与已验证的 siteCode 匹配
+    if (!validateSiteCodeMatch(matchedSiteCode, body.siteCode)) {
       return authMismatchError(body.siteCode)
     }
 

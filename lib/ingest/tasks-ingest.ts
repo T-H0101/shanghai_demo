@@ -125,11 +125,11 @@ export async function ingestTasks(
     }
   }
 
-  // 3. 计算 payload hash
-  const payloadHash = await calculatePayloadHash(body)
-
-  // 4. 检查 batchId 幂等
-  const existingBatch = await getSuccessfulBatch(batchId, siteCode, sourceTable)
+  // 4. 计算 payload hash 和检查 batchId 幂等（并行执行）
+  const [payloadHash, existingBatch] = await Promise.all([
+    calculatePayloadHash(body),
+    getSuccessfulBatch(batchId, siteCode, sourceTable),
+  ])
   if (existingBatch) {
     // 检查 payload hash 是否一致
     if (existingBatch.payload_hash === payloadHash) {
