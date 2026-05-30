@@ -4,8 +4,8 @@
  */
 
 import { query } from '@/lib/db'
-import type { TaskSourceRecord } from './types'
-import { TASK_SYNC_CONFIG } from './config'
+import type { TaskSourceRecord, DeviceSourceRecord } from './types'
+import { TASK_SYNC_CONFIG, DEVICE_SYNC_CONFIG } from './config'
 
 /**
  * 读取源数据（ID > lastSourceId）
@@ -33,4 +33,21 @@ export async function getMaxSourceId(): Promise<number> {
   const sql = `SELECT COALESCE(MAX(id), 0) as max_id FROM ${TASK_SYNC_CONFIG.mockSourceTable}`
   const result = await query(sql)
   return result.rows[0]?.max_id ?? 0
+}
+
+/**
+ * 读取 disc_lib 源数据（ID > lastSourceId）
+ */
+export async function readDiscLibSource(lastSourceId: number = 0): Promise<DeviceSourceRecord[]> {
+  const sql = `
+    SELECT id, device_id, device_name, device_type, status,
+           ip_address, location, room, floor,
+           total_capacity, used_capacity, created_at, updated_at
+    FROM ${DEVICE_SYNC_CONFIG.mockSourceTable}
+    WHERE id > $1
+    ORDER BY id ASC
+  `
+
+  const result = await query(sql, [lastSourceId])
+  return result.rows as DeviceSourceRecord[]
 }
