@@ -43,7 +43,9 @@ export interface DeviceSourceRecord {
   device_id: string
   device_name: string
   device_type: string
-  status: string
+  device_status: string
+  last_heartbeat: Date | null
+  operator: string
   ip_address: string
   location: string
   room: string
