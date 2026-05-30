@@ -17,7 +17,7 @@ export async function readSourceRecords(lastSourceId: number = 0): Promise<TaskS
     SELECT id, task_no, task_name, task_type, status, phase, priority,
            data_classification, archive_name, source_path, package_path,
            operator, department, created_at, updated_at
-    FROM mock_tbl_task
+    FROM ${TASK_SYNC_CONFIG.mockSourceTable}
     WHERE id > $1
     ORDER BY id ASC
   `
@@ -30,7 +30,7 @@ export async function readSourceRecords(lastSourceId: number = 0): Promise<TaskS
  * 获取源表的最大 ID
  */
 export async function getMaxSourceId(): Promise<number> {
-  const sql = `SELECT COALESCE(MAX(id), 0) as max_id FROM mock_tbl_task`
+  const sql = `SELECT COALESCE(MAX(id), 0) as max_id FROM ${TASK_SYNC_CONFIG.mockSourceTable}`
   const result = await query(sql)
   return result.rows[0]?.max_id ?? 0
 }
