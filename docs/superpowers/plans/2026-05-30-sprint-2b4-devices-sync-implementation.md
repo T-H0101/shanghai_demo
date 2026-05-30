@@ -4,15 +4,65 @@
 
 **Goal:** 实现第二个同步对象（devices），验证多同步对象模式，解决 UPSERT 重复
 
-**Architecture:** 最小 sync-engine 封装公共逻辑，tasks-sync 重构使用新引擎，新增 devices-sync 验证多对象模式
+**Architecture:** sync-engine 负责事务管理，upsertBatch 执行 SQL，tasks-sync 重构使用新引擎，新增 devices-sync 验证多对象模式
 
 **Tech Stack:** Next.js, PostgreSQL, TypeScript
 
 ---
 
+## 关键设计决策
+
+### 事务管理策略
+
+**sync-engine 负责事务，upsertBatch 不自己开启 transaction**
+
+```typescript
+// sync-engine.ts
+const { rowsUpserted, maxSourceId } = await transaction(async (client) => {
+  // 1. 批量 UPSERT（使用传入的 client）
+  const result = await input.upsertBatch(mappedRecords, client)
+
+  // 2. 更新 sync_progress（使用传入的 client）
+  await updateProgressInTransaction(client, siteCode, sourceTable, maxSourceId, rowsUpserted)
+
+  return result
+})
+```
+
+**upsertBatch 签名变更**：
+
+```typescript
+// 原签名
+upsertBatch: (
+  records: Record<string, unknown>[],
+  onProgressUpdate: (maxSourceId: number, syncedRows: number) => Promise<void>
+) => Promise<{ rowsUpserted: number; maxSourceId: number }>
+
+// 新签名（统一传入 client）
+upsertBatch: (
+  records: Record<string, unknown>[],
+  client: PoolClient
+) => Promise<{ rowsUpserted: number; maxSourceId: number }>
+```
+
+---
+
+## mock 数据核对
+
+| 源表 | 记录数 | 备注 |
+|------|--------|------|
+| mock_tbl_task | **5 条** | TASK-001 ~ TASK-005 |
+| mock_tbl_disc_lib | **3 条** | DL-SH01-001, DL-SH01-002, DL-SH02-001 |
+
+**验收预期**：
+- `POST /api/sync/tasks` → rowsRead=5, rowsUpserted=5
+- `POST /api/sync/devices` → rowsRead=3, rowsUpserted=3
+
+---
+
 ## Phase 1: 重构 tasks-sync（必须先单独验收）
 
-### Task 1: 创建 sync-engine.ts
+### Task 1: 重写 sync-engine.ts
 
 **Files:**
 - Create: `lib/sync/sync-engine.ts`
@@ -23,22 +73,14 @@
 /**
  * 最小同步引擎
  * Sprint 2B.4 - 封装公共同步逻辑
+ * 事务由 sync-engine 管理，upsertBatch 使用传入的 client
  */
 
 import type { SyncObjectConfig } from './config'
 import type { SyncResult } from './types'
-import {
-  getOrCreateProgress,
-  updateProgressInTransaction,
-  updateProgressFailed,
-} from './sync-progress'
-import {
-  createJobLog,
-  updateJobLogSuccess,
-  updateJobLogSkipped,
-  updateJobLogFailed,
-} from './sync-job-log'
 import { transaction } from '@/lib/db'
+import { getOrCreateProgress, updateProgressInTransaction, updateProgressFailed } from './sync-progress'
+import { createJobLog, updateJobLogSuccess, updateJobLogSkipped, updateJobLogFailed } from './sync-job-log'
 
 interface SyncInput<T> {
   config: SyncObjectConfig
@@ -47,12 +89,15 @@ interface SyncInput<T> {
   getSourceId: (source: T) => number
   upsertBatch: (
     records: Record<string, unknown>[],
-    onProgressUpdate: (maxSourceId: number, syncedRows: number) => Promise<void>
+    client: Parameters<typeof updateProgressInTransaction>[0]
   ) => Promise<{ rowsUpserted: number; maxSourceId: number }>
 }
 
 /**
  * 通用同步引擎
+ * - sync-engine 负责事务
+ * - upsertBatch 使用传入的 client 执行 UPSERT
+ * - updateProgressInTransaction 使用同一 client
  */
 export async function runSync<T>(input: SyncInput<T>): Promise<SyncResult> {
   const startedAt = new Date().toISOString()
@@ -95,19 +140,22 @@ export async function runSync<T>(input: SyncInput<T>): Promise<SyncResult> {
     // 5. 字段映射
     const mappedRecords = sourceRecords.map((source) => input.mapToTarget(source))
 
-    // 6. UPSERT + 更新游标（事务）
-    const { rowsUpserted, maxSourceId } = await input.upsertBatch(
-      mappedRecords,
-      async (newMaxSourceId, syncedRows) => {
-        await updateProgressInTransaction(
-          {} as Parameters<typeof updateProgressInTransaction>[0], // placeholder
-          input.config.sourceSiteCode,
-          input.config.sourceTable,
-          newMaxSourceId,
-          syncedRows
-        )
-      }
-    )
+    // 6. 事务内执行 UPSERT + 更新游标
+    const { rowsUpserted, maxSourceId } = await transaction(async (client) => {
+      // 6.1 批量 UPSERT
+      const result = await input.upsertBatch(mappedRecords, client)
+
+      // 6.2 更新 sync_progress（同一事务）
+      await updateProgressInTransaction(
+        client,
+        input.config.sourceSiteCode,
+        input.config.sourceTable,
+        result.maxSourceId,
+        result.rowsUpserted
+      )
+
+      return result
+    })
 
     // 7. 更新 sync_job_log（事务外）
     await updateJobLogSuccess(jobId, rowsRead, rowsUpserted, 0)
@@ -150,389 +198,139 @@ export async function runSync<T>(input: SyncInput<T>): Promise<SyncResult> {
 }
 ```
 
-**注意**: 上述代码需要与 upsert 配合，第 6 步的 upsertBatch 调用方式待后续调整。
-
-- [ ] **Step 2: 提交**
-
-```bash
-git add lib/sync/sync-engine.ts
-git commit -m "feat: add minimal sync-engine"
-```
-
----
-
-### Task 2: 重构 tasks-sync.ts 使用 sync-engine
-
-**Files:**
-- Modify: `lib/sync/tasks-sync.ts`
-
-- [ ] **Step 1: 读取现有 tasks-sync.ts 内容**
-
-查看现有实现，理解：
-- readSourceRecords 函数
-- mapTasks 函数
-- UPSERT 逻辑
-- sync_progress 更新逻辑
-
-- [ ] **Step 2: 重构 tasks-sync.ts**
-
-将 tasks-sync.ts 改为使用 sync-engine：
-
-```typescript
-/**
- * Tasks 同步逻辑
- * Sprint 2B.4 - 重构使用 sync-engine
- */
-
-import type { SyncResult } from './types'
-import { DEFAULT_SITE_CODE, TASK_SYNC_CONFIG } from './config'
-import { readSourceRecords } from './source-reader'
-import { mapTasks } from './field-mapper'
-import { upsertTasksInTransaction } from './upsert'
-import { runSync } from './sync-engine'
-
-/**
- * 同步 tasks 数据
- */
-export async function syncTasks(): Promise<SyncResult> {
-  return runSync({
-    config: TASK_SYNC_CONFIG,
-    readSource: readSourceRecords,
-    mapToTarget: mapTasks,
-    getSourceId: (source) => source.id,
-    upsertBatch: upsertTasksInTransaction,
-  })
-}
-```
-
-- [ ] **Step 3: 验证类型正确性**
-
-运行: `pnpm exec tsc --noEmit`
-
-预期: 无错误
-
----
-
-### Task 3: Phase 1 单独验收 tasks
-
-**Files:**
-- Test: `app/api/sync/tasks/route.ts`
-
-- [ ] **Step 1: 准备干净环境**
-
-```bash
-pnpm db:down && pnpm db:up
-pnpm db:init
-pnpm db:init:sync
-```
-
-- [ ] **Step 2: 运行 tasks 同步**
-
-```bash
-curl -X POST http://localhost:3000/api/sync/tasks
-```
-
-预期返回:
-```json
-{
-  "status": "success",
-  "rowsRead": 3,
-  "rowsUpserted": 3,
-  "rowsSkipped": 0,
-  "startedAt": "...",
-  "finishedAt": "...",
-  "lastSourceIdBefore": 0,
-  "lastSourceIdAfter": 3,
-  "message": undefined
-}
-```
-
-- [ ] **Step 3: 验证数据**
-
-```sql
-SELECT * FROM unified_tasks;
-SELECT * FROM sync_job_log WHERE source_table = 'tbl_task';
-SELECT * FROM sync_progress WHERE source_table = 'tbl_task';
-```
-
-预期:
-- unified_tasks 有 3 条记录
-- sync_job_log 有 1 条记录，status='success'
-- sync_progress last_source_id = 3
-
-- [ ] **Step 4: 验证构建**
+- [ ] **Step 2: 验证类型**
 
 ```bash
 pnpm exec tsc --noEmit
-pnpm build
 ```
 
-预期: 全部通过
-
-- [ ] **Step 5: 提交**
-
-```bash
-git add lib/sync/tasks-sync.ts
-git commit -m "refactor: tasks-sync use sync-engine"
-```
-
-**Phase 1 完成标记**: tasks 同步行为与重构前完全一致
-
----
-
-## Phase 2: 实现 devices 同步
-
-### Task 4: 添加 DEVICE_SYNC_CONFIG
-
-**Files:**
-- Modify: `lib/sync/config.ts`
-
-- [ ] **Step 1: 添加 DEVICE_SYNC_CONFIG**
-
-```typescript
-// lib/sync/config.ts 添加
-
-export const DEVICE_SYNC_CONFIG = {
-  sourceTable: 'tbl_disc_lib',
-  targetTable: 'unified_devices',
-  mockSourceTable: 'mock_tbl_disc_lib',
-  sourceSiteCode: DEFAULT_SITE_CODE,
-} as const
-```
-
-- [ ] **Step 2: 提交**
-
-```bash
-git add lib/sync/config.ts
-git commit -m "feat: add DEVICE_SYNC_CONFIG"
-```
-
----
-
-### Task 5: 添加 types
-
-**Files:**
-- Modify: `lib/sync/types.ts`
-
-- [ ] **Step 1: 添加 DeviceSourceRecord 类型**
-
-```typescript
-// lib/sync/types.ts 添加
-
-/**
- * 源数据记录（mock_tbl_disc_lib）
- */
-export interface DeviceSourceRecord {
-  id: number
-  device_no: string
-  device_name: string
-  device_type: string
-  device_status: string
-  ip_address: string
-  location: string
-  room: string
-  floor: string
-  total_capacity: number
-  used_capacity: number
-  last_heartbeat: Date
-  operator: string
-  created_at: Date
-  updated_at: Date
-}
-
-/**
- * 统一设备记录（unified_devices）
- */
-export interface UnifiedDeviceRecord {
-  source_site_id: string
-  source_table: string
-  source_id: string
-  synced_at: Date
-  device_id: string
-  device_name: string
-  device_type: string
-  status: string
-  ip_address: string
-  location: string
-  room: string
-  floor: string
-  total_capacity: number
-  used_capacity: number
-  device_id_field?: string // 兼容
-  raw_data: DeviceSourceRecord
-}
-```
-
-- [ ] **Step 2: 提交**
-
-```bash
-git add lib/sync/types.ts
-git commit -m "feat: add DeviceSourceRecord and UnifiedDeviceRecord types"
-```
-
----
-
-### Task 6: 创建 mock_tbl_disc_lib
-
-**Files:**
-- Create: `databases/sprint-2b4/mock-tbl-disc-lib.sql`
-
-- [ ] **Step 1: 创建 SQL 文件**
-
-```sql
--- mock_tbl_disc_lib seed 数据
--- Sprint 2B.4
-
-CREATE TABLE IF NOT EXISTS mock_tbl_disc_lib (
-  id BIGSERIAL PRIMARY KEY,
-  device_no VARCHAR(100) UNIQUE NOT NULL,
-  device_name VARCHAR(200),
-  device_type VARCHAR(50),
-  device_status VARCHAR(50),
-  ip_address VARCHAR(100),
-  location VARCHAR(200),
-  room VARCHAR(100),
-  floor VARCHAR(50),
-  total_capacity BIGINT DEFAULT 0,
-  used_capacity BIGINT DEFAULT 0,
-  last_heartbeat TIMESTAMPTZ,
-  operator VARCHAR(100),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 幂等 seed 数据
-INSERT INTO mock_tbl_disc_lib (device_no, device_name, device_type, device_status, ip_address, location, room, floor, total_capacity, used_capacity, last_heartbeat, operator)
-VALUES
-  ('DL-SH01-001', '光盘库-上海01', 'disc_library', 'online', '192.168.1.101', '上海数据中心', 'A区机房', '1楼', 10000000000000, 5000000000000, NOW(), '张三'),
-  ('DL-SH01-002', '光盘库-上海02', 'disc_library', 'offline', '192.168.1.102', '上海数据中心', 'A区机房', '2楼', 8000000000000, 2000000000000, NOW(), '李四'),
-  ('DL-SH02-001', '光盘库-苏州01', 'disc_library', 'online', '192.168.2.101', '苏州数据中心', 'B区机房', '1楼', 12000000000000, 8000000000000, NOW(), '王五')
-ON CONFLICT (device_no) DO NOTHING;
-```
-
-- [ ] **Step 2: 创建数据库初始化脚本**
-
-在 `package.json` 添加脚本或创建 `scripts/init-devices.sh`：
-
-```bash
-#!/bin/bash
-psql -f databases/sprint-2b4/mock-tbl-disc-lib.sql
-```
+预期: 无错误
 
 - [ ] **Step 3: 提交**
 
 ```bash
-git add databases/sprint-2b4/mock-tbl-disc-lib.sql
-git commit -m "feat: add mock_tbl_disc_lib seed data"
+git add lib/sync/sync-engine.ts
+git commit -m "feat: add minimal sync-engine with transaction management"
 ```
 
 ---
 
-### Task 7: 实现 readDiscLibSource
-
-**Files:**
-- Modify: `lib/sync/source-reader.ts`
-
-- [ ] **Step 1: 添加 readDiscLibSource 函数**
-
-```typescript
-// lib/sync/source-reader.ts 添加
-
-import type { DeviceSourceRecord } from './types'
-import { DEVICE_SYNC_CONFIG } from './config'
-
-/**
- * 读取源数据（ID > lastSourceId）
- */
-export async function readDiscLibSource(lastSourceId: number = 0): Promise<DeviceSourceRecord[]> {
-  const sql = `
-    SELECT id, device_no, device_name, device_type, device_status,
-           ip_address, location, room, floor,
-           total_capacity, used_capacity, last_heartbeat, operator,
-           created_at, updated_at
-    FROM ${DEVICE_SYNC_CONFIG.mockSourceTable}
-    WHERE id > $1
-    ORDER BY id ASC
-  `
-
-  const result = await query(sql, [lastSourceId])
-  return result.rows as DeviceSourceRecord[]
-}
-```
-
-- [ ] **Step 2: 提交**
-
-```bash
-git add lib/sync/source-reader.ts
-git commit -m "feat: add readDiscLibSource function"
-```
-
----
-
-### Task 8: 实现 mapDiscLibToTarget
-
-**Files:**
-- Modify: `lib/sync/field-mapper.ts`
-
-- [ ] **Step 1: 添加 mapDiscLibToTarget 函数**
-
-```typescript
-// lib/sync/field-mapper.ts 添加
-
-import type { DeviceSourceRecord } from './types'
-import { DEVICE_SYNC_CONFIG, DEFAULT_SITE_CODE } from './config'
-
-/**
- * 映射 disc_lib 源数据到 unified_devices 目标
- */
-export function mapDiscLibToTarget(source: DeviceSourceRecord): Record<string, unknown> {
-  // 扩展字段存入 raw_data
-  const rawData = {
-    device_status: source.device_status,
-    last_heartbeat: source.last_heartbeat,
-    operator: source.operator,
-  }
-
-  return {
-    source_site_id: DEFAULT_SITE_CODE,
-    source_table: DEVICE_SYNC_CONFIG.sourceTable,
-    source_id: String(source.id),
-    synced_at: new Date(),
-    device_id: source.device_no,
-    device_name: source.device_name,
-    device_type: source.device_type,
-    status: source.device_status,
-    ip_address: source.ip_address,
-    location: source.location,
-    room: source.room,
-    floor: source.floor,
-    total_capacity: source.total_capacity,
-    used_capacity: source.used_capacity,
-    raw_data: rawData,
-  }
-}
-```
-
-- [ ] **Step 2: 提交**
-
-```bash
-git add lib/sync/field-mapper.ts
-git commit -m "feat: add mapDiscLibToTarget function"
-```
-
----
-
-### Task 9: 实现 upsertDevice
+### Task 2: 修改 upsert.ts（事务签名变更）
 
 **Files:**
 - Modify: `lib/sync/upsert.ts`
 
-- [ ] **Step 1: 添加 upsertDevice 函数**
+- [ ] **Step 1: 修改 upsertTasksInTransaction 签名**
+
+将 `onProgressUpdate` 回调改为直接传入 `client`：
 
 ```typescript
-// lib/sync/upsert.ts 添加
+// 原签名
+export async function upsertTasksInTransaction(
+  records: UnifiedTaskRecord[],
+  onProgressUpdate: (maxSourceId: number, syncedRows: number) => Promise<void>
+): Promise<{ rowsUpserted: number; maxSourceId: number }>
 
-import { query, transaction } from '@/lib/db'
+// 新签名
+export async function upsertTasksInTransaction(
+  records: UnifiedTaskRecord[],
+  client: Parameters<typeof updateProgressInTransaction>[0]
+): Promise<{ rowsUpserted: number; maxSourceId: number }>
+```
+
+修改后的实现：
+
+```typescript
+/**
+ * 批量 UPSERT（事务内）
+ * 不自己开启 transaction，由 sync-engine 管理事务
+ */
+export async function upsertTasksInTransaction(
+  records: UnifiedTaskRecord[],
+  client: Parameters<typeof updateProgressInTransaction>[0]
+): Promise<{ rowsUpserted: number; maxSourceId: number }> {
+  if (records.length === 0) {
+    return { rowsUpserted: 0, maxSourceId: 0 }
+  }
+
+  let rowsUpserted = 0
+  let maxSourceId = 0
+
+  for (const record of records) {
+    const sql = `
+      INSERT INTO unified_tasks (
+        source_site_id, source_table, source_id, synced_at,
+        task_no, task_name, task_type, status, phase, priority,
+        data_classification, archive_name, source_path, package_path,
+        operator, department, total_files, total_size, raw_data
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15, $16, $17, $18, $19
+      )
+      ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
+        synced_at = EXCLUDED.synced_at,
+        task_no = EXCLUDED.task_no,
+        task_name = EXCLUDED.task_name,
+        task_type = EXCLUDED.task_type,
+        status = EXCLUDED.status,
+        phase = EXCLUDED.phase,
+        priority = EXCLUDED.priority,
+        data_classification = EXCLUDED.data_classification,
+        archive_name = EXCLUDED.archive_name,
+        source_path = EXCLUDED.source_path,
+        package_path = EXCLUDED.package_path,
+        operator = EXCLUDED.operator,
+        department = EXCLUDED.department,
+        total_files = EXCLUDED.total_files,
+        total_size = EXCLUDED.total_size,
+        raw_data = EXCLUDED.raw_data,
+        updated_at = NOW()
+      RETURNING id
+    `
+
+    const res = await client.query(sql, [
+      record.source_site_id,
+      record.source_table,
+      record.source_id,
+      record.synced_at,
+      record.task_no,
+      record.task_name,
+      record.task_type,
+      record.status,
+      record.phase,
+      record.priority,
+      record.data_classification,
+      record.archive_name,
+      record.source_path,
+      record.package_path,
+      record.operator,
+      record.department,
+      record.total_files,
+      record.total_size,
+      JSON.stringify(record.raw_data),
+    ])
+
+    if (res.rowCount && res.rowCount > 0) {
+      rowsUpserted += res.rowCount
+    }
+
+    // 计算最大 source_id
+    const sourceIdNum = parseInt(record.source_id, 10)
+    if (sourceIdNum > maxSourceId) {
+      maxSourceId = sourceIdNum
+    }
+  }
+
+  // 不再调用 onProgressUpdate，由 sync-engine 在同一事务内更新
+  return { rowsUpserted, maxSourceId }
+}
+```
+
+**注意**：同步移除 `onProgressUpdate` 调用，事务管理统一由 sync-engine 处理。
+
+- [ ] **Step 2: 添加 upsertDevice 和 upsertDevicesInTransaction**
+
+```typescript
 import type { UnifiedDeviceRecord } from './types'
 
 /**
@@ -592,86 +390,445 @@ export async function upsertDevice(record: UnifiedDeviceRecord): Promise<number>
  */
 export async function upsertDevicesInTransaction(
   records: UnifiedDeviceRecord[],
-  onProgressUpdate: (maxSourceId: number, syncedRows: number) => Promise<void>
+  client: Parameters<typeof updateProgressInTransaction>[0]
 ): Promise<{ rowsUpserted: number; maxSourceId: number }> {
   if (records.length === 0) {
     return { rowsUpserted: 0, maxSourceId: 0 }
   }
 
-  return transaction(async (client) => {
-    let rowsUpserted = 0
-    let maxSourceId = 0
+  let rowsUpserted = 0
+  let maxSourceId = 0
 
-    for (const record of records) {
-      const sql = `
-        INSERT INTO unified_devices (
-          source_site_id, source_table, source_id, synced_at,
-          device_id, device_name, device_type, status,
-          ip_address, location, room, floor,
-          total_capacity, used_capacity,
-          raw_data
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-        )
-        ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
-          synced_at = EXCLUDED.synced_at,
-          device_id = EXCLUDED.device_id,
-          device_name = EXCLUDED.device_name,
-          device_type = EXCLUDED.device_type,
-          status = EXCLUDED.status,
-          ip_address = EXCLUDED.ip_address,
-          location = EXCLUDED.location,
-          room = EXCLUDED.room,
-          floor = EXCLUDED.floor,
-          total_capacity = EXCLUDED.total_capacity,
-          used_capacity = EXCLUDED.used_capacity,
-          raw_data = EXCLUDED.raw_data,
-          updated_at = NOW()
-        RETURNING id
-      `
+  for (const record of records) {
+    const sql = `
+      INSERT INTO unified_devices (
+        source_site_id, source_table, source_id, synced_at,
+        device_id, device_name, device_type, status,
+        ip_address, location, room, floor,
+        total_capacity, used_capacity,
+        raw_data
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      )
+      ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
+        synced_at = EXCLUDED.synced_at,
+        device_id = EXCLUDED.device_id,
+        device_name = EXCLUDED.device_name,
+        device_type = EXCLUDED.device_type,
+        status = EXCLUDED.status,
+        ip_address = EXCLUDED.ip_address,
+        location = EXCLUDED.location,
+        room = EXCLUDED.room,
+        floor = EXCLUDED.floor,
+        total_capacity = EXCLUDED.total_capacity,
+        used_capacity = EXCLUDED.used_capacity,
+        raw_data = EXCLUDED.raw_data,
+        updated_at = NOW()
+      RETURNING id
+    `
 
-      const res = await client.query(sql, [
-        record.source_site_id,
-        record.source_table,
-        record.source_id,
-        record.synced_at,
-        record.device_id,
-        record.device_name,
-        record.device_type,
-        record.status,
-        record.ip_address,
-        record.location,
-        record.room,
-        record.floor,
-        record.total_capacity,
-        record.used_capacity,
-        JSON.stringify(record.raw_data),
-      ])
+    const res = await client.query(sql, [
+      record.source_site_id,
+      record.source_table,
+      record.source_id,
+      record.synced_at,
+      record.device_id,
+      record.device_name,
+      record.device_type,
+      record.status,
+      record.ip_address,
+      record.location,
+      record.room,
+      record.floor,
+      record.total_capacity,
+      record.used_capacity,
+      JSON.stringify(record.raw_data),
+    ])
 
-      if (res.rowCount && res.rowCount > 0) {
-        rowsUpserted += res.rowCount
-      }
-
-      // 计算最大 source_id
-      const sourceIdNum = parseInt(String(record.source_id), 10)
-      if (sourceIdNum > maxSourceId) {
-        maxSourceId = sourceIdNum
-      }
+    if (res.rowCount && res.rowCount > 0) {
+      rowsUpserted += res.rowCount
     }
 
-    // 更新 sync_progress
-    await onProgressUpdate(maxSourceId, rowsUpserted)
+    // 计算最大 source_id
+    const sourceIdNum = parseInt(String(record.source_id), 10)
+    if (sourceIdNum > maxSourceId) {
+      maxSourceId = sourceIdNum
+    }
+  }
 
-    return { rowsUpserted, maxSourceId }
+  return { rowsUpserted, maxSourceId }
+}
+```
+
+- [ ] **Step 3: 验证类型**
+
+```bash
+pnpm exec tsc --noEmit
+```
+
+- [ ] **Step 4: 提交**
+
+```bash
+git add lib/sync/upsert.ts
+git commit -m "refactor: upsert use client param, add upsertDevice"
+```
+
+---
+
+### Task 3: 重构 tasks-sync.ts
+
+**Files:**
+- Modify: `lib/sync/tasks-sync.ts`
+
+- [ ] **Step 1: 重构 tasks-sync.ts**
+
+使用 sync-engine + mapTask（单条映射）：
+
+```typescript
+/**
+ * Tasks 同步逻辑
+ * Sprint 2B.4 - 重构使用 sync-engine
+ */
+
+import type { SyncResult } from './types'
+import { TASK_SYNC_CONFIG } from './config'
+import { readSourceRecords } from './source-reader'
+import { mapTask } from './field-mapper'
+import { upsertTasksInTransaction } from './upsert'
+import { runSync } from './sync-engine'
+
+/**
+ * 同步 tasks 数据
+ */
+export async function syncTasks(): Promise<SyncResult> {
+  return runSync({
+    config: TASK_SYNC_CONFIG,
+    readSource: readSourceRecords,
+    mapToTarget: mapTask as (source: unknown) => Record<string, unknown>,
+    getSourceId: (source) => (source as { id: number }).id,
+    upsertBatch: upsertTasksInTransaction as (
+      records: Record<string, unknown>[],
+      client: Parameters<typeof import('./sync-progress').updateProgressInTransaction>[0]
+    ) => Promise<{ rowsUpserted: number; maxSourceId: number }>,
   })
+}
+```
+
+**注意**：
+- 使用 `mapTask`（单条）而非 `mapTasks`（批量），因为 sync-engine 内部处理批量
+- 类型断言处理泛型约束
+
+- [ ] **Step 2: 验证类型**
+
+```bash
+pnpm exec tsc --noEmit
+```
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add lib/sync/tasks-sync.ts
+git commit -m "refactor: tasks-sync use sync-engine"
+```
+
+---
+
+### Task 4: Phase 1 单独验收 tasks
+
+**Files:**
+- Test: `app/api/sync/tasks/route.ts`
+
+- [ ] **Step 1: 准备干净环境**
+
+```bash
+pnpm db:down && pnpm db:up
+pnpm db:init
+pnpm db:init:sync
+```
+
+- [ ] **Step 2: 运行 tasks 同步**
+
+```bash
+curl -X POST http://localhost:3000/api/sync/tasks
+```
+
+预期返回:
+```json
+{
+  "status": "success",
+  "rowsRead": 5,
+  "rowsUpserted": 5,
+  "rowsSkipped": 0,
+  "startedAt": "...",
+  "finishedAt": "...",
+  "lastSourceIdBefore": 0,
+  "lastSourceIdAfter": 5
+}
+```
+
+**注意**：rowsRead=5（不是 3），因为 mock_tbl_task 有 5 条记录。
+
+- [ ] **Step 3: 验证数据**
+
+```sql
+SELECT * FROM unified_tasks;
+SELECT * FROM sync_job_log WHERE source_table = 'tbl_task';
+SELECT * FROM sync_progress WHERE source_table = 'tbl_task';
+```
+
+预期:
+- unified_tasks 有 5 条记录
+- sync_job_log 有 1 条记录，status='success'
+- sync_progress last_source_id = 5
+
+- [ ] **Step 4: 验证构建**
+
+```bash
+pnpm exec tsc --noEmit
+pnpm build
+```
+
+预期: 全部通过
+
+- [ ] **Step 5: 提交**
+
+```bash
+git commit --allow-empty -m "chore: Phase 1 tasks sync verified"
+```
+
+**Phase 1 完成标记**: tasks 同步行为与重构前完全一致
+
+---
+
+## Phase 2: 实现 devices 同步
+
+### Task 5: 添加 DEVICE_SYNC_CONFIG
+
+**Files:**
+- Modify: `lib/sync/config.ts`
+
+- [ ] **Step 1: 添加 DEVICE_SYNC_CONFIG**
+
+```typescript
+// lib/sync/config.ts 添加
+
+export const DEVICE_SYNC_CONFIG = {
+  sourceTable: 'tbl_disc_lib',
+  targetTable: 'unified_devices',
+  mockSourceTable: 'mock_tbl_disc_lib',
+  sourceSiteCode: DEFAULT_SITE_CODE,
+} as const
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add lib/sync/config.ts
+git commit -m "feat: add DEVICE_SYNC_CONFIG"
+```
+
+---
+
+### Task 6: 添加 types
+
+**Files:**
+- Modify: `lib/sync/types.ts`
+
+- [ ] **Step 1: 添加 DeviceSourceRecord 类型**
+
+```typescript
+// lib/sync/types.ts 添加
+
+/**
+ * 源数据记录（mock_tbl_disc_lib）
+ */
+export interface DeviceSourceRecord {
+  id: number
+  device_no: string
+  device_name: string
+  device_type: string
+  device_status: string
+  ip_address: string
+  location: string
+  room: string
+  floor: string
+  total_capacity: number
+  used_capacity: number
+  last_heartbeat: Date
+  operator: string
+  created_at: Date
+  updated_at: Date
+}
+
+/**
+ * 统一设备记录（unified_devices）
+ */
+export interface UnifiedDeviceRecord {
+  source_site_id: string
+  source_table: string
+  source_id: string
+  synced_at: Date
+  device_id: string
+  device_name: string
+  device_type: string
+  status: string
+  ip_address: string
+  location: string
+  room: string
+  floor: string
+  total_capacity: number
+  used_capacity: number
+  raw_data: DeviceSourceRecord
 }
 ```
 
 - [ ] **Step 2: 提交**
 
 ```bash
-git add lib/sync/upsert.ts
-git commit -m "feat: add upsertDevice and upsertDevicesInTransaction"
+git add lib/sync/types.ts
+git commit -m "feat: add DeviceSourceRecord and UnifiedDeviceRecord types"
+```
+
+---
+
+### Task 7: 创建 mock_tbl_disc_lib
+
+**Files:**
+- Create: `databases/sprint-2b4/mock-tbl-disc-lib.sql`
+
+- [ ] **Step 1: 创建 SQL 文件**
+
+```sql
+-- mock_tbl_disc_lib seed 数据
+-- Sprint 2B.4
+-- 幂等性：device_no UNIQUE + ON CONFLICT DO NOTHING
+
+CREATE TABLE IF NOT EXISTS mock_tbl_disc_lib (
+  id BIGSERIAL PRIMARY KEY,
+  device_no VARCHAR(100) UNIQUE NOT NULL,
+  device_name VARCHAR(200),
+  device_type VARCHAR(50),
+  device_status VARCHAR(50),
+  ip_address VARCHAR(100),
+  location VARCHAR(200),
+  room VARCHAR(100),
+  floor VARCHAR(50),
+  total_capacity BIGINT DEFAULT 0,
+  used_capacity BIGINT DEFAULT 0,
+  last_heartbeat TIMESTAMPTZ,
+  operator VARCHAR(100),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 幂等 seed 数据（3条）
+INSERT INTO mock_tbl_disc_lib (device_no, device_name, device_type, device_status, ip_address, location, room, floor, total_capacity, used_capacity, last_heartbeat, operator)
+VALUES
+  ('DL-SH01-001', '光盘库-上海01', 'disc_library', 'online', '192.168.1.101', '上海数据中心', 'A区机房', '1楼', 10000000000000, 5000000000000, NOW(), '张三'),
+  ('DL-SH01-002', '光盘库-上海02', 'disc_library', 'offline', '192.168.1.102', '上海数据中心', 'A区机房', '2楼', 8000000000000, 2000000000000, NOW(), '李四'),
+  ('DL-SH02-001', '光盘库-苏州01', 'disc_library', 'online', '192.168.2.101', '苏州数据中心', 'B区机房', '1楼', 12000000000000, 8000000000000, NOW(), '王五')
+ON CONFLICT (device_no) DO NOTHING;
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add databases/sprint-2b4/mock-tbl-disc-lib.sql
+git commit -m "feat: add mock_tbl_disc_lib seed data"
+```
+
+---
+
+### Task 8: 实现 readDiscLibSource
+
+**Files:**
+- Modify: `lib/sync/source-reader.ts`
+
+- [ ] **Step 1: 添加 readDiscLibSource 函数**
+
+```typescript
+// lib/sync/source-reader.ts 添加
+
+import type { DeviceSourceRecord } from './types'
+import { DEVICE_SYNC_CONFIG } from './config'
+
+/**
+ * 读取 disc_lib 源数据（ID > lastSourceId）
+ */
+export async function readDiscLibSource(lastSourceId: number = 0): Promise<DeviceSourceRecord[]> {
+  const sql = `
+    SELECT id, device_no, device_name, device_type, device_status,
+           ip_address, location, room, floor,
+           total_capacity, used_capacity, last_heartbeat, operator,
+           created_at, updated_at
+    FROM ${DEVICE_SYNC_CONFIG.mockSourceTable}
+    WHERE id > $1
+    ORDER BY id ASC
+  `
+
+  const result = await query(sql, [lastSourceId])
+  return result.rows as DeviceSourceRecord[]
+}
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add lib/sync/source-reader.ts
+git commit -m "feat: add readDiscLibSource function"
+```
+
+---
+
+### Task 9: 实现 mapDiscLibToTarget
+
+**Files:**
+- Modify: `lib/sync/field-mapper.ts`
+
+- [ ] **Step 1: 添加 mapDiscLibToTarget 函数**
+
+```typescript
+// lib/sync/field-mapper.ts 添加
+
+import type { DeviceSourceRecord } from './types'
+import { DEVICE_SYNC_CONFIG, DEFAULT_SITE_CODE } from './config'
+
+/**
+ * 映射 disc_lib 源数据到 unified_devices 目标
+ */
+export function mapDiscLibToTarget(source: DeviceSourceRecord): Record<string, unknown> {
+  // 扩展字段存入 raw_data
+  const rawData = {
+    device_status: source.device_status,
+    last_heartbeat: source.last_heartbeat,
+    operator: source.operator,
+  }
+
+  return {
+    source_site_id: DEFAULT_SITE_CODE,
+    source_table: DEVICE_SYNC_CONFIG.sourceTable,
+    source_id: String(source.id),
+    synced_at: new Date(),
+    device_id: source.device_no,
+    device_name: source.device_name,
+    device_type: source.device_type,
+    status: source.device_status,
+    ip_address: source.ip_address,
+    location: source.location,
+    room: source.room,
+    floor: source.floor,
+    total_capacity: source.total_capacity,
+    used_capacity: source.used_capacity,
+    raw_data: rawData,
+  }
+}
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add lib/sync/field-mapper.ts
+git commit -m "feat: add mapDiscLibToTarget function"
 ```
 
 ---
@@ -695,6 +852,7 @@ import { readDiscLibSource } from './source-reader'
 import { mapDiscLibToTarget } from './field-mapper'
 import { upsertDevicesInTransaction } from './upsert'
 import { runSync } from './sync-engine'
+import type { updateProgressInTransaction as UpdateProgressFn } from './sync-progress'
 
 /**
  * 同步 devices 数据
@@ -707,7 +865,7 @@ export async function syncDevices(): Promise<SyncResult> {
     getSourceId: (source) => (source as { id: number }).id,
     upsertBatch: upsertDevicesInTransaction as (
       records: Record<string, unknown>[],
-      onProgressUpdate: (maxSourceId: number, syncedRows: number) => Promise<void>
+      client: Parameters<UpdateProgressFn>[0]
     ) => Promise<{ rowsUpserted: number; maxSourceId: number }>,
   })
 }
@@ -776,8 +934,8 @@ pnpm db:down && pnpm db:up
 pnpm db:init
 pnpm db:init:sync
 
-# 初始化 devices mock 数据
-psql -f databases/sprint-2b4/mock-tbl-disc-lib.sql
+# 初始化 devices mock 数据（使用 Docker psql）
+docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b4/mock-tbl-disc-lib.sql
 ```
 
 - [ ] **Step 2: 验证 TypeScript 编译**
@@ -796,15 +954,15 @@ pnpm build
 
 预期: 成功
 
-- [ ] **Step 4: 同步 tasks**
+- [ ] **Step 4: 同步 tasks（5条）**
 
 ```bash
 curl -X POST http://localhost:3000/api/sync/tasks
 ```
 
-预期: `status: "success"`, `rowsRead: 3`, `rowsUpserted: 3`
+预期: `status: "success"`, `rowsRead: 5`, `rowsUpserted: 5`
 
-- [ ] **Step 5: 首次同步 devices**
+- [ ] **Step 5: 首次同步 devices（3条）**
 
 ```bash
 curl -X POST http://localhost:3000/api/sync/devices
@@ -854,20 +1012,21 @@ SELECT device_id, ip_address FROM unified_devices LIMIT 1;
 
 ---
 
-### Task 13: 最终提交
+### Task 13: 最终状态确认
 
-- [ ] **Step 1: 确保所有验收通过后提交**
+- [ ] **Step 1: 检查 git 状态**
 
 ```bash
 git status
-git log --oneline -5
+git log --oneline -10
 ```
 
-- [ ] **Step 2: 提交最终变更**
+预期: 所有任务已提交，工作区干净
+
+- [ ] **Step 2: 如需推送则推送**
 
 ```bash
-git add -A
-git commit -m "feat: complete Sprint 2B.4 - devices sync implementation"
+git push
 ```
 
 ---
@@ -878,8 +1037,8 @@ git commit -m "feat: complete Sprint 2B.4 - devices sync implementation"
 |---|--------|----------|
 | 1 | pnpm exec tsc --noEmit | 通过 |
 | 2 | pnpm build | 成功 |
-| 3 | POST /api/sync/tasks | status: success, rowsRead: 3 |
-| 4 | POST /api/sync/devices | status: success, rowsRead: 3 |
+| 3 | POST /api/sync/tasks | status: success, rowsRead: **5** |
+| 4 | POST /api/sync/devices | status: success, rowsRead: **3** |
 | 5 | 第二次 POST /api/sync/devices | status: skipped |
 | 6 | GET /api/sync/status | 包含 tbl_task 和 tbl_disc_lib |
 | 7 | GET /api/sync/logs | 包含两类 job |
@@ -889,5 +1048,5 @@ git commit -m "feat: complete Sprint 2B.4 - devices sync implementation"
 ---
 
 *计划完成: 2026-05-30*
-*Phase 1 → Phase 2 → Phase 3 分步执行*
+*修正: 事务管理策略、mock 数据数量、Docker psql、mapTask vs mapTasks*
 *Phase 1 验收通过后进入 Phase 2*
