@@ -6,9 +6,8 @@
  */
 
 import { transaction } from '@/lib/db'
-import { mapTask } from '@/lib/sync/field-mapper'
 import { upsertTasksInTransaction } from '@/lib/sync/upsert'
-import type { TaskSourceRecord } from '@/lib/sync/types'
+import type { TaskSourceRecord, UnifiedTaskRecord } from '@/lib/sync/types'
 import type { IngestRequest, IngestSuccessResponse } from './types'
 import {
   validationError,
@@ -78,6 +77,33 @@ function validateRequest(body: IngestRequest) {
   }
 
   return errors
+}
+
+/**
+ * Map task source record for ingest (uses API-provided siteCode)
+ */
+function mapTaskForIngest(source: TaskSourceRecord, siteCode: string, sourceTable: string): UnifiedTaskRecord {
+  return {
+    source_site_id: siteCode,
+    source_table: sourceTable,
+    source_id: String(source.id),
+    synced_at: new Date(),
+    task_no: source.task_no,
+    task_name: source.task_name,
+    task_type: source.task_type,
+    status: source.status,
+    phase: source.phase,
+    priority: source.priority,
+    data_classification: source.data_classification,
+    archive_name: source.archive_name,
+    source_path: source.source_path,
+    package_path: source.package_path,
+    operator: source.operator,
+    department: source.department,
+    total_files: 0,
+    total_size: 0,
+    raw_data: source,
+  }
 }
 
 /**
@@ -154,7 +180,7 @@ export async function ingestTasks(
     }))
 
     // 7. 映射为统一格式
-    const mappedRecords = taskRecords.map(mapTask)
+    const mappedRecords = taskRecords.map((r) => mapTaskForIngest(r, siteCode, sourceTable))
 
     // 8. 事务内 UPSERT
     const { rowsUpserted } = await transaction(async (client) => {
