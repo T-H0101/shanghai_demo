@@ -36,6 +36,25 @@ export interface TaskSourceRecord {
 }
 
 /**
+ * 源数据记录（mock_tbl_device）
+ */
+export interface DeviceSourceRecord {
+  id: number
+  device_id: string
+  device_name: string
+  device_type: string
+  status: string
+  ip_address: string
+  location: string
+  room: string
+  floor: string
+  total_capacity: number
+  used_capacity: number
+  created_at: Date
+  updated_at: Date
+}
+
+/**
  * 统一任务记录（unified_tasks）
  */
 export interface UnifiedTaskRecord {
@@ -58,6 +77,27 @@ export interface UnifiedTaskRecord {
   total_files: number
   total_size: number
   raw_data: TaskSourceRecord
+}
+
+/**
+ * 统一设备记录（unified_devices）
+ */
+export interface UnifiedDeviceRecord {
+  source_site_id: string
+  source_table: string
+  source_id: string
+  synced_at: Date
+  device_id: string
+  device_name: string
+  device_type: string
+  status: string
+  ip_address: string
+  location: string
+  room: string
+  floor: string
+  total_capacity: number
+  used_capacity: number
+  raw_data: DeviceSourceRecord
 }
 
 /**
