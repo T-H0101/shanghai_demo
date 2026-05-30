@@ -64,69 +64,127 @@ pnpm dev          # 启动开发服务器
 
 **Step 1: 检查数据库健康**
 
-```
-GET http://localhost:3000/api/system/db-health
+```bash
+curl http://localhost:3000/api/system/db-health | jq .
 ```
 
-预期响应：`{ status: "ok", message: "Database connected" }`
+预期响应结构：
+
+```json
+{
+  "service": "db-health",
+  "timestamp": "2026-05-30T09:00:08.600Z",
+  "database": {
+    "status": "healthy",
+    "connected": true,
+    "latencyMs": 2,
+    "pool": { "total": 1, "idle": 1, "waiting": 0 }
+  }
+}
+```
 
 **Step 2: 查看数据汇总**
 
-```
-GET http://localhost:3000/api/system/db-summary
+```bash
+curl http://localhost:3000/api/system/db-summary | jq .
 ```
 
-预期响应：显示中心库关键表记录数——sites、syncSites、unified_tasks、unified_devices、unified_volumes、sync_progress、sync_job_log、alerts 等
+预期响应结构：返回 `counts` 对象，包含 sites、syncSites、tasks、devices、volumes、alerts 等表记录数
 
 **Step 3: 执行 Tasks 同步**
 
-```
-POST http://localhost:3000/api/sync/tasks
+```bash
+curl -X POST http://localhost:3000/api/sync/tasks | jq .
 ```
 
-预期响应：
+首次同步成功响应结构：
 
 ```json
 {
   "status": "success",
   "rowsRead": 5,
   "rowsUpserted": 5,
-  "source_table": "tbl_task"
+  "rowsSkipped": 0,
+  "startedAt": "...",
+  "finishedAt": "...",
+  "lastSourceIdBefore": 0,
+  "lastSourceIdAfter": 5
+}
+```
+
+增量同步（无新数据）响应：
+
+```json
+{
+  "status": "skipped",
+  "rowsRead": 0,
+  "rowsUpserted": 0,
+  "rowsSkipped": 0,
+  "lastSourceIdBefore": "5",
+  "lastSourceIdAfter": "5",
+  "message": "No new records to sync"
 }
 ```
 
 **Step 4: 执行 Devices 同步**
 
-```
-POST http://localhost:3000/api/sync/devices
+```bash
+curl -X POST http://localhost:3000/api/sync/devices | jq .
 ```
 
-预期响应：
-
-```json
-{
-  "status": "success",
-  "rowsRead": 3,
-  "rowsUpserted": 3,
-  "source_table": "tbl_disc_lib"
-}
-```
+首次同步成功响应结构：与 tasks 相同，`rowsRead: 3`
 
 **Step 5: 查看同步状态**
 
-```
-GET http://localhost:3000/api/sync/status
+```bash
+curl http://localhost:3000/api/sync/status | jq .
 ```
 
-预期响应：显示 tbl_task 和 tbl_disc_lib 的最后同步时间、最大 ID
+预期响应结构：
+
+```json
+{
+  "data": [
+    {
+      "siteId": "SH01",
+      "tableName": "tbl_task",
+      "lastSourceId": 5,
+      "lastSyncTime": "2026-05-30T08:06:59.934Z",
+      "lastStatus": "success",
+      "syncedRows": 5,
+      "lastError": null
+    }
+  ]
+}
+```
 
 **Step 6: 查看同步日志**
 
-```
-GET http://localhost:3000/api/sync/logs
+```bash
+curl http://localhost:3000/api/sync/logs | jq .
 ```
 
-预期响应：列出所有同步任务的执行记录
+预期响应结构：
+
+```json
+{
+  "data": [
+    {
+      "siteId": "SH01",
+      "tableName": "tbl_task",
+      "jobId": "sync-tbl_task-...",
+      "status": "success",
+      "rowsRead": 5,
+      "rowsUpserted": 5,
+      "rowsSkipped": 0,
+      "error": null,
+      "startedAt": "...",
+      "finishedAt": "..."
+    }
+  ],
+  "limit": 10
+}
+```
 
 ### 4.3 演示技巧
 
