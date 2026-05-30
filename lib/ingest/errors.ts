@@ -61,12 +61,15 @@ export function authError(message: string = 'API Key missing or invalid') {
 
 /**
  * siteCode 与 API Key 不匹配
+ * HTTP 403 Forbidden
  */
 export function authMismatchError(siteCode: string) {
-  return createErrorResponse(
-    ERROR_CODES.AUTH_ERROR,
-    `API Key does not match siteCode: ${siteCode}`,
-  )
+  const response: IngestErrorResponse = {
+    status: 'error',
+    code: ERROR_CODES.AUTH_ERROR,
+    message: `API Key does not match siteCode: ${siteCode}`,
+  }
+  return NextResponse.json(response, { status: 403 })
 }
 
 /**

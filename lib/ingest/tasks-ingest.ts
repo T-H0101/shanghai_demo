@@ -56,24 +56,16 @@ function validateRequest(body: IngestRequest) {
     errors.push({ field: 'records', message: 'records must be an array' })
   }
 
-  // recordCount 校验
-  if (Array.isArray(body.records) && body.recordCount !== body.records.length) {
-    errors.push({
-      field: 'recordCount',
-      expected: body.recordCount,
-      actual: body.records.length,
-      message: 'recordCount does not match records.length',
-    })
-  }
-
-  // 记录数限制
-  if (Array.isArray(body.records) && body.records.length > MAX_RECORDS) {
-    errors.push({
-      field: 'records',
-      expected: MAX_RECORDS,
-      actual: body.records.length,
-      message: `Records array length exceeds maximum limit ${MAX_RECORDS}`,
-    })
+  // recordCount 校验（只在 recordCount 未超过限制时检查 mismatch）
+  if (body.recordCount !== undefined && body.recordCount !== null && body.recordCount <= MAX_RECORDS) {
+    if (Array.isArray(body.records) && body.recordCount !== body.records.length) {
+      errors.push({
+        field: 'recordCount',
+        expected: body.recordCount,
+        actual: body.records.length,
+        message: 'recordCount does not match records.length',
+      })
+    }
   }
 
   return errors
@@ -120,7 +112,12 @@ export async function ingestTasks(
     throw { response: unsupportedSourceTableError(sourceTable) }
   }
 
-  // 2. 校验请求体
+  // 2. 校验记录数限制（检查 recordCount，返回 413）
+  if (body.recordCount > MAX_RECORDS) {
+    throw { response: recordLimitExceededError(body.recordCount, MAX_RECORDS) }
+  }
+
+  // 3. 校验请求体
   const validationErrors = validateRequest(body)
   if (validationErrors.length > 0) {
     throw {
