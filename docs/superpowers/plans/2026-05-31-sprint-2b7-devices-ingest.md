@@ -4,9 +4,11 @@
 
 **Goal:** 实现 POST /api/ingest/devices，接收站点推送的 devices 数据包，复用现有 mapper/upsert 和 ingest 基础设施。
 
-**Architecture:** 复制 tasks-ingest 结构，替换字段映射为 mapDeviceForIngest（适配 siteCode），替换 upsert 为 upsertDevicesInTransaction。不修改任何现有文件。
+**Architecture:** 复制 tasks-ingest 结构，替换字段映射为 mapDeviceForIngest（适配 siteCode），替换 upsert 为 upsertDevicesInTransaction。原则上不修改现有业务逻辑文件；如需修改，只允许做最小类型/导出适配，并必须说明原因。
 
 **Tech Stack:** Next.js API Routes, PostgreSQL (pg), TypeScript
+
+**前置条件：** `.env.local` 需配置 `INGEST_API_KEY_SH01=test-api-key-123`。不允许提交 `.env.local`。
 
 ---
 
@@ -186,10 +188,7 @@ function mapDeviceForIngest(source: DeviceSourceRecord, siteCode: string, source
     floor: source.floor,
     total_capacity: source.total_capacity,
     used_capacity: source.used_capacity,
-    raw_data: {
-      last_heartbeat: source.last_heartbeat,
-      operator: source.operator,
-    },
+    raw_data: source,
   }
 }
 
@@ -559,7 +558,7 @@ Expected: 409
 - [ ] **Step 10: 验证 unified_devices 写入**
 
 ```bash
-docker exec -i $(docker ps -q --filter "ancestor=postgres:17" | head -1) psql -U unified -d unified_disc_platform -c "SELECT source_site_id, source_id, device_id, device_name, status FROM unified_devices WHERE source_id IN ('5001', '5002');"
+docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform -c "SELECT source_site_id, source_id, device_id, device_name, status FROM unified_devices WHERE source_id IN ('5001', '5002');"
 ```
 
 Expected: 2 条记录，source_site_id = 'SH01'
@@ -567,7 +566,7 @@ Expected: 2 条记录，source_site_id = 'SH01'
 - [ ] **Step 11: 验证 ingest_batch_log**
 
 ```bash
-docker exec -i $(docker ps -q --filter "ancestor=postgres:17" | head -1) psql -U unified -d unified_disc_platform -c "SELECT batch_id, site_code, source_table, status, rows_upserted, duplicated FROM ingest_batch_log WHERE source_table = 'tbl_disc_lib' ORDER BY created_at DESC LIMIT 3;"
+docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform -c "SELECT batch_id, site_code, source_table, status, rows_upserted, duplicated FROM ingest_batch_log WHERE source_table = 'tbl_disc_lib' ORDER BY created_at DESC LIMIT 3;"
 ```
 
 Expected: 显示 devices 批次记录
