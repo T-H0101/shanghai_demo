@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>站点推送式同步方案</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    header {
+      background: linear-gradient(135deg, #1a73e8, #0d47a1);
+      color: #fff;
+      padding: 48px 40px;
+      text-align: center;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    header .subtitle {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    main {
+      padding: 40px;
+    }
+    section {
+      margin-bottom: 40px;
+    }
+    h2 {
+      font-size: 20px;
+      color: #1a73e8;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+    h3 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    p {
+      margin-bottom: 16px;
+      color: #555;
+    }
+    .arch-diagram {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 32px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .arch-diagram .flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 14px;
+    }
+    .arch-diagram .box {
+      background: #1a73e8;
+      color: #fff;
+      padding: 16px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+    .arch-diagram .box.secondary {
+      background: #0d47a1;
+    }
+    .arch-diagram .box.highlight {
+      background: #e53935;
+    }
+    .arch-diagram .arrow {
+      color: #1a73e8;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .arch-diagram .sublabel {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+    }
+    .two-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .card h3 {
+      margin-bottom: 8px;
+    }
+    .card ul {
+      list-style: none;
+      font-size: 14px;
+      color: #555;
+    }
+    .card li {
+      padding: 4px 0;
+    }
+    .card li::before {
+      content: "• ";
+      color: #1a73e8;
+    }
+    .card li.secondary::before {
+      content: "○ ";
+      color: #999;
+    }
+    .check-list {
+      list-style: none;
+    }
+    .check-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    .check-list li:last-child {
+      border-bottom: none;
+    }
+    .check-list .tag {
+      display: inline-block;
+      background: #e8f0fe;
+      color: #1a73e8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-right: 8px;
+    }
+    .check-list .tag.tag-success {
+      background: #e6f4ea;
+      color: #137333;
+    }
+    .check-list .tag.tag-warning {
+      background: #fef7e0;
+      color: #b05a00;
+    }
+    .check-list .tag.tag-es {
+      background: #fce8e6;
+      color: #c5221f;
+    }
+    .roadmap {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .roadmap-item {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .roadmap-item:last-child {
+      margin-bottom: 0;
+    }
+    .roadmap-item .step {
+      width: 32px;
+      height: 32px;
+      background: #1a73e8;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      margin-right: 16px;
+      flex-shrink: 0;
+    }
+    .roadmap-item.current .step {
+      background: #e53935;
+    }
+    .roadmap-item .content {
+      font-size: 14px;
+    }
+    .roadmap-item .title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .roadmap-item .desc {
+      color: #666;
+      font-size: 13px;
+    }
+    footer {
+      background: #f8f9fa;
+      padding: 24px 40px;
+      text-align: center;
+      font-size: 12px;
+      color: #999;
+      border-top: 1px solid #e0e0e0;
+    }
+    @media (max-width: 600px) {
+      .two-columns {
+        grid-template-columns: 1fr;
+      }
+      main {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>站点推送式同步方案</h1>
+      <div class="subtitle">Sprint 2B.5 设计文档 | 2026-05-30</div>
+    </header>
+
+    <main>
+      <!-- 背景 -->
+      <section>
+        <h2>背景与决策</h2>
+        <p>原方案规划中心库跨城市直连各站点数据库同步数据。经评估存在以下风险：</p>
+        <ul class="check-list">
+          <li><span class="tag tag-warning">跨城市延迟</span> 跨城市直连延迟高，影响同步效率</li>
+          <li><span class="tag tag-warning">稳定性风险</span> 网络波动可能导致同步中断</li>
+          <li><span class="tag tag-warning">网络策略复杂</span> 需要协调各站点防火墙策略</li>
+        </ul>
+        <p style="margin-top: 16px; font-weight: 600; color: #1a73e8;">领导决策：采用站点推送式架构，不做中心库跨城市直连。</p>
+      </section>
+
+      <!-- 总体架构 -->
+      <section>
+        <h2>总体架构</h2>
+        <div class="arch-diagram">
+          <div class="flow">
+            <div class="box">站点系统</div>
+            <span class="arrow">→</span>
+            <div class="box secondary">数据包推送<br><span style="font-size:12px;font-weight:normal">默认每小时一次</span></div>
+            <span class="arrow">→</span>
+            <div class="box highlight">Ingest API<br><span style="font-size:12px;font-weight:normal">/api/ingest/{table}</span></div>
+            <span class="arrow">→</span>
+            <div class="box secondary">PostgreSQL</div>
+          </div>
+          <div class="sublabel">小表（tasks/devices/sites/volumes）进入 PostgreSQL</div>
+        </div>
+        <p style="font-size: 14px; color: #666;">
+          各站点按统一规范导出数据包，通过 HTTP POST 推送至中心平台。<br>
+          中心平台负责接收、校验、幂等入库和日志记录。
+        </p>
+      </section>
+
+      <!-- 数据分层 -->
+      <section>
+        <h2>数据分层策略</h2>
+        <div class="two-columns">
+          <div class="card">
+            <h3>小表 / 核心元数据</h3>
+            <ul>
+              <li>全量快照进入 PostgreSQL</li>
+              <li>tasks（任务表）</li>
+              <li>devices（设备表）</li>
+              <li>sites（站点表）</li>
+              <li>volumes（存储卷表）</li>
+            </ul>
+            <p style="margin-top: 12px; font-size: 13px; color: #666;">
+              数据量不大，变化不频繁，全量快照最简单可靠
+            </p>
+          </div>
+          <div class="card">
+            <h3>大表 / 文件索引</h3>
+            <ul>
+              <li class="secondary">暂不进入中心库</li>
+              <li class="secondary">tbl_file（文件表）</li>
+              <li class="secondary">tbl_folder（文件夹表）</li>
+            </ul>
+            <p style="margin-top: 12px; font-size: 13px; color: #666;">
+              数据量大，后续走 Elasticsearch 增量检索
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 第一版范围 -->
+      <section>
+        <h2>第一版范围</h2>
+        <div class="two-columns">
+          <div class="card">
+            <h3>进入同步</h3>
+            <ul>
+              <li>tasks（任务表）</li>
+              <li>devices（设备表）</li>
+            </ul>
+            <p style="margin-top: 12px; font-size: 13px; color: #137333;">
+              已有 mock 数据验证，同步链路已验证
+            </p>
+          </div>
+          <div class="card">
+            <h3>暂缓</h3>
+            <ul>
+              <li class="secondary">sites、volumes（字段待确认）</li>
+              <li class="secondary">permissions（安全风险高）</li>
+              <li class="secondary">alerts（依赖规则）</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 接口方案 -->
+      <section>
+        <h2>接口方案</h2>
+        <div class="card" style="background: #e8f0fe;">
+          <h3 style="color: #1a73e8;">接收接口</h3>
+          <ul>
+            <li><strong>POST /api/ingest/tasks</strong> — 任务数据接收</li>
+            <li><strong>POST /api/ingest/devices</strong> — 设备数据接收</li>
+          </ul>
+        </div>
+        <h3 style="margin-top: 20px;">数据包格式</h3>
+        <div class="card">
+          <pre style="background: #1a1a1a; color: #d4d4d4; padding: 16px; border-radius: 8px; font-size: 13px; overflow-x: auto;">
+{
+  "siteCode": "SH01",
+  "sourceTable": "tbl_task",
+  "batchId": "SH01-tbl_task-20260530-1000",
+  "snapshotAt": "2026-05-30T10:00:00Z",
+  "recordCount": 5,
+  "records": [...]
+}</pre>
+          <p style="font-size: 12px; color: #666; margin-top: 12px;">
+            batchId 用于幂等，snapshotAt 记录站点生成时间，recordCount 用于校验完整性
+          </p>
+        </div>
+      </section>
+
+      <!-- 安全与可靠性 -->
+      <section>
+        <h2>安全与可靠性</h2>
+        <div class="two-columns">
+          <div class="card">
+            <h3>安全保障</h3>
+            <ul>
+              <li>API Key 认证（每个站点独立 key）</li>
+              <li>可选 IP 白名单限制</li>
+              <li>全站 HTTPS</li>
+              <li>API Key 不入库明文</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>可靠性保障</h3>
+            <ul>
+              <li>batchId 幂等（重复推送返回成功）</li>
+              <li>payload_hash 校验内容一致性</li>
+              <li>整批事务写入（成功或回滚）</li>
+              <li>ingest_batch_log 记录全流程</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 后续路线 -->
+      <section>
+        <h2>后续路线</h2>
+        <div class="roadmap">
+          <div class="roadmap-item current">
+            <div class="step">1</div>
+            <div class="content">
+              <div class="title">领导确认方案</div>
+              <div class="desc">确认站点推送式架构、数据分层、第一版范围</div>
+            </div>
+          </div>
+          <div class="roadmap-item">
+            <div class="step">2</div>
+            <div class="content">
+              <div class="title">Sprint 2B.6：最小 ingest API 原型</div>
+              <div class="desc">/api/ingest/tasks、/api/ingest/devices 框架搭建 + mock 测试</div>
+            </div>
+          </div>
+          <div class="roadmap-item">
+            <div class="step">3</div>
+            <div class="content">
+              <div class="title">sites / volumes ingest</div>
+              <div class="desc">扩展数据源范围</div>
+            </div>
+          </div>
+          <div class="roadmap-item">
+            <div class="step">4</div>
+            <div class="content">
+              <div class="title">大表 ES 增量方案</div>
+              <div class="desc">tbl_file、tbl_folder 走 Elasticsearch 增量检索</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      站点推送式同步方案 | Sprint 2B.5 设计文档 | 上海药明康德统一管控平台
+    </footer>
+  </div>
+</body>
+</html>
