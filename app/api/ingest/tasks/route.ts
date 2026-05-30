@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateApiKey, validateSiteCodeMatch } from '@/lib/ingest/api-keys'
 import { ingestTasks } from '@/lib/ingest/tasks-ingest'
-import { authError, authMismatchError, validationError, databaseError } from '@/lib/ingest/errors'
+import { authError, authMismatchError, validationError, createErrorResponse, ERROR_CODES } from '@/lib/ingest/errors'
 import type { IngestRequest } from '@/lib/ingest/types'
 
 export const dynamic = 'force-dynamic'
@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
 
     // 未知错误
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    return databaseError(errorMessage)
+    console.error('[Ingest API Error]', error)
+    return createErrorResponse(ERROR_CODES.INTERNAL_ERROR, errorMessage)
   }
 }
