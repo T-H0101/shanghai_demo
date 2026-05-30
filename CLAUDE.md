@@ -29,11 +29,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |--------|------|------|
 | Sprint 1 | ✅ 完成 | API Skeleton + DTO + Adapter |
 | Sprint 2A | ✅ 完成 | API Mode Switch + Mock Fallback |
-| Sprint 2B | 🔲 进行中 | PostgreSQL 连接 |
-| Sprint 2B.0 | ✅ 完成 | PostgreSQL 连接封装 |
-| Sprint 2B.0.1 | ✅ 完成 | 中心库 Schema 对齐修正 |
+| Sprint 2B.1 | ✅ 完成 | Docker PostgreSQL + 中心库初始化 |
+| Sprint 2B.2 | ✅ 完成 | tasks 同步闭环 |
+| Sprint 2B.3 | ✅ 完成 | status/logs 查询接口 |
+| Sprint 2B.3.1 | ✅ 完成 | 同步模块架构清理 |
 
-### 1.4 Sprint 2A 完成内容
+### 1.4 项目规则
+
+#### 1.4.1 需求约束
+
+**所有 Sprint 必须先说明对应 `docs/source/requirements.md` 的哪一节。**
+
+#### 1.4.2 系统定位
+
+**本系统是集团层统一管控平台，不替代各站点原有系统。**
+
+核心能力：
+- 数据同步（汇聚多站点数据）
+- 统一视图（跨站点汇总展示）
+- 统一权限（账号权限分配）
+- 统一任务管理（跨站点任务调度）
+- 日志管理（审计日志）
+
+#### 1.4.3 Sprint 2B 与 requirements.md 对应关系
+
+| requirements.md 章节 | Sprint 2B 实现内容 |
+|---------------------|-------------------|
+| 2.3 数据同步 | mock_tbl_task → unified_tasks 同步闭环 |
+| 4.2 统一任务管理 | tasks 同步 + 状态查询 |
+| 5.1 日志管理 | sync_job_log 查询接口 |
+| 6.1 性能需求 | PostgreSQL 中心库响应要求 |
+| 6.2 安全需求 | 禁止明文密码、环境变量管理 |
+| 6.4 可维护性需求 | 模块化架构、配置分离 |
+
+#### 1.4.4 数据存储规范
+
+| 数据类型 | 存储位置 | 说明 |
+|---------|----------|------|
+| 小表/核心元数据 | PostgreSQL 中心库 | unified_tasks, unified_devices 等 |
+| 文件级/日志级大表 | ES/ClickHouse | tbl_file, tbl_folder 等 |
+| 文件内容 | 分布式存储 | 不进中心库 |
+
+#### 1.4.5 构建与安全要求
+
+- **每次开发必须保持 `pnpm build` 通过**
+- **每次开发必须保持 `pnpm exec tsc --noEmit` 无错误**
+- **禁止提交 `.env.local`、数据库密码、真实源库连接信息**
+- **Docker volume 数据不提交到 git**
+
+### 1.5 Sprint 2A 完成内容
 
 **新增文件**:
 - `lib/api/index.ts` - Provider Factory（模式切换）
@@ -55,9 +99,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ✅ 不实现登录/权限
 - ✅ API 失败自动 fallback 到 mock
 
-### 1.4 技术栈
-
-### 1.4 技术栈
+### 1.6 技术栈
 
 | 类别 | 技术 | 版本 |
 |------|------|------|
@@ -68,6 +110,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 表单 | React Hook Form + Zod | - |
 | 图表 | Recharts | - |
 | 构建 | Turbopack | - |
+| 数据库 | PostgreSQL | 17 (Docker) |
+| ORM | pg | - |
 
 ---
 
@@ -321,11 +365,16 @@ pnpm lint     # ESLint 检查
 
 | 文档 | 位置 | 用途 |
 |------|------|------|
-| 需求规格说明书 | `docs/source/requirements.md` | 功能需求依据 |
+| 需求规格说明书 | `docs/source/requirements.md` | 功能需求依据（必须遵守） |
+| 需求对齐说明 | `docs/database-analysis/requirements-alignment.md` | Sprint 与需求对应关系 |
+| Sprint 2B Backlog | `docs/database-analysis/sprint-2b-sync-backlog.md` | 同步模块后续重构项 |
 | 真实数据库接入方案 | `docs/database-analysis/后端接入方案-完整版.md` | API Contract、Adapter 设计 |
 | 真实数据库实施方案 | `docs/database-analysis/真实数据库接入实施方案.md` | 同步范围、Schema、同步策略 |
 | 后端接入清单 | `docs/database-analysis/后端接入清单.md` | Mock/后端替换映射 |
 | 同步候选表清单 | `docs/database-analysis/sync-candidates.md` | P0/P1/P2/P3 表分层 |
 | 同步策略提案 | `docs/database-analysis/sync-strategy-proposal.md` | 同步技术方案讨论 |
 | 源表关联分析 | `docs/database-analysis/relevant-tables.md` | 表间关系分析 |
+| Sprint 2B 总结 | `docs/database-analysis/sprint-2b1-summary.md` | Sprint 2B.1 完成报告 |
+| Sprint 2B.3 总结 | `docs/database-analysis/sprint-2b3-summary.md` | Sprint 2B.3 完成报告 |
+| Sprint 2B.3.1 总结 | `docs/database-analysis/sprint-2b3-1-sync-refactor-summary.md` | Sprint 2B.3.1 完成报告 |
 | 缺陷记录 | `docs/bugs记录.md` | 历史问题追踪 |
