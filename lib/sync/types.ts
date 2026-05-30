@@ -36,11 +36,11 @@ export interface TaskSourceRecord {
 }
 
 /**
- * 源数据记录（mock_tbl_device）
+ * 源数据记录（mock_tbl_disc_lib）
  */
 export interface DeviceSourceRecord {
   id: number
-  device_id: string
+  device_no: string
   device_name: string
   device_type: string
   device_status: string

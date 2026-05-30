@@ -40,9 +40,10 @@ export async function getMaxSourceId(): Promise<number> {
  */
 export async function readDiscLibSource(lastSourceId: number = 0): Promise<DeviceSourceRecord[]> {
   const sql = `
-    SELECT id, device_id, device_name, device_type, status,
+    SELECT id, device_no, device_name, device_type, device_status,
            ip_address, location, room, floor,
-           total_capacity, used_capacity, created_at, updated_at
+           total_capacity, used_capacity, last_heartbeat, operator,
+           created_at, updated_at
     FROM ${DEVICE_SYNC_CONFIG.mockSourceTable}
     WHERE id > $1
     ORDER BY id ASC

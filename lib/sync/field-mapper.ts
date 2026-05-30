@@ -53,7 +53,7 @@ export function mapDiscLibToTarget(source: DeviceSourceRecord): Record<string, u
     source_table: DEVICE_SYNC_CONFIG.sourceTable,
     source_id: String(source.id),
     synced_at: new Date(),
-    device_id: source.device_id,
+    device_id: source.device_no,
     device_name: source.device_name,
     device_type: source.device_type,
     status: source.device_status,
