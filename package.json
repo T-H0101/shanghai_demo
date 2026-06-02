@@ -16,7 +16,10 @@
     "db:init": "bash databases/sprint-2b0/init-docker.sh",
     "db:init:reset": "bash databases/sprint-2b0/init-docker.sh --reset",
     "db:init:sync": "docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b2/mock-tbl-task.sql",
-    "db:seed": "docker exec unified_disc_postgres psql -U unified -d unified_disc_platform -f /docker-entrypoint-initdb.d/seed.sql || docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b1/seed.sql"
+    "db:seed": "docker exec unified_disc_postgres psql -U unified -d unified_disc_platform -f /docker-entrypoint-initdb.d/seed.sql || docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b1/seed.sql",
+    "import:tasks": "tsx scripts/import-from-source.ts tasks",
+    "import:devices": "tsx scripts/import-from-source.ts devices",
+    "import:all": "tsx scripts/import-from-source.ts all"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -58,6 +61,7 @@
     "lucide-react": "^0.564.0",
     "next": "16.2.6",
     "next-themes": "^0.4.6",
+    "pg": "^8.13.0",
     "react": "^19",
     "react-day-picker": "9.13.2",
     "react-dom": "^19",
@@ -67,18 +71,18 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
-    "zod": "^3.24.1",
-    "pg": "^8.13.0"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^22",
+    "@types/pg": "^8.11.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "playwright": "^1.60.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.2.0",
+    "tsx": "^4.22.4",
     "tw-animate-css": "1.3.3",
     "typescript": "5.7.3"
   }

@@ -65,17 +65,17 @@ export interface UnifiedTaskRecord {
   source_id: string
   synced_at: Date
   task_no: string
-  task_name: string
+  task_name: string | null
   task_type: string
   status: string
-  phase: string
-  priority: string
-  data_classification: string
-  archive_name: string
-  source_path: string
-  package_path: string
-  operator: string
-  department: string
+  phase: string | null
+  priority: string | null
+  data_classification: string | null
+  archive_name: string | null
+  source_path: string | null
+  package_path: string | null
+  operator: string | null
+  department: string | null
   total_files: number
   total_size: number
   raw_data: TaskSourceRecord
@@ -90,16 +90,24 @@ export interface UnifiedDeviceRecord {
   source_id: string
   synced_at: Date
   device_id: string
-  device_name: string
+  device_name: string | null
   device_type: string
-  status: string
-  ip_address: string
-  location: string
-  room: string
-  floor: string
-  total_capacity: number
-  used_capacity: number
+  status: string | null
+  ip_address: string | null
+  location: string | null
+  room: string | null
+  floor: string | null
+  total_capacity: number | null
+  used_capacity: number | null
   raw_data: DeviceSourceRecord
+  // 新增字段（真实 import 专用，optional 保证不破坏现有调用）
+  model?: string | null
+  manufacturer?: string | null
+  serial_no?: string | null
+  slot_count?: number | null
+  cage_count?: number | null
+  use_status?: number | null
+  site_code?: string | null
 }
 
 /**

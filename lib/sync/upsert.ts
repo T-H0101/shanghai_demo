@@ -206,6 +206,8 @@ export async function upsertDevice(record: UnifiedDeviceRecord): Promise<number>
 
 /**
  * 批量 UPSERT 到 unified_devices（事务内）
+ * Sprint 2B.12: 新增 model, manufacturer, serial_no, slot_count, cage_count, use_status, site_code
+ * 使用 COALESCE 保证旧调用方传 null 时不会覆盖已有值
  */
 export async function upsertDevicesInTransaction(
   records: UnifiedDeviceRecord[],
@@ -225,9 +227,10 @@ export async function upsertDevicesInTransaction(
         device_id, device_name, device_type, status,
         ip_address, location, room, floor,
         total_capacity, used_capacity,
+        model, manufacturer, serial_no, slot_count, cage_count, use_status, site_code,
         raw_data
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
       )
       ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
         synced_at = EXCLUDED.synced_at,
@@ -241,6 +244,13 @@ export async function upsertDevicesInTransaction(
         floor = EXCLUDED.floor,
         total_capacity = EXCLUDED.total_capacity,
         used_capacity = EXCLUDED.used_capacity,
+        model = COALESCE(EXCLUDED.model, unified_devices.model),
+        manufacturer = COALESCE(EXCLUDED.manufacturer, unified_devices.manufacturer),
+        serial_no = COALESCE(EXCLUDED.serial_no, unified_devices.serial_no),
+        slot_count = COALESCE(EXCLUDED.slot_count, unified_devices.slot_count),
+        cage_count = COALESCE(EXCLUDED.cage_count, unified_devices.cage_count),
+        use_status = COALESCE(EXCLUDED.use_status, unified_devices.use_status),
+        site_code = COALESCE(EXCLUDED.site_code, unified_devices.site_code),
         raw_data = EXCLUDED.raw_data,
         updated_at = NOW()
       RETURNING id
@@ -261,6 +271,13 @@ export async function upsertDevicesInTransaction(
       record.floor,
       record.total_capacity,
       record.used_capacity,
+      record.model ?? null,
+      record.manufacturer ?? null,
+      record.serial_no ?? null,
+      record.slot_count ?? null,
+      record.cage_count ?? null,
+      record.use_status ?? null,
+      record.site_code ?? null,
       JSON.stringify(record.raw_data),
     ])
 
