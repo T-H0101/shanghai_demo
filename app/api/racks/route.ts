@@ -61,11 +61,32 @@ interface DeviceRow {
   manufacturer: string | null
   serial_no: string | null
   synced_at: Date | string
+  total_capacity: number | null
+  used_capacity: number | null
+  used_slots: number | null
+}
+
+function formatBytes(bytes: number | null | undefined): string | undefined {
+  if (bytes == null || bytes <= 0) return undefined
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"]
+  let i = 0
+  let size = bytes
+  while (size >= 1024 && i < units.length - 1) {
+    size /= 1024
+    i++
+  }
+  return `${size.toFixed(1)} ${units[i]}`
 }
 
 function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
   const deviceStatus = DEVICE_STATUS_MAP[row.status ?? ""] ?? "offline"
   const rackStatus = RACK_STATUS_MAP[row.status ?? ""] ?? "fault"
+
+  const totalCapacity = row.total_capacity
+  const usedCapacity = row.used_capacity
+  const usagePercent = totalCapacity && totalCapacity > 0 && usedCapacity != null
+    ? Math.round((usedCapacity / totalCapacity) * 100)
+    : undefined
 
   return {
     id: row.device_id,
@@ -76,8 +97,8 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
     datacenter: "",
     cages: [],
     totalSlots: row.slot_count ?? 0,
-    usedSlots: 0,
-    usagePercent: 0,
+    usedSlots: row.used_slots ?? undefined,
+    usagePercent: usagePercent ?? 0,
     status: rackStatus,
     lastSyncAt: typeof row.synced_at === "string"
       ? row.synced_at
@@ -88,8 +109,10 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
     deviceType: DEVICE_TYPE_LABELS[row.device_type] ?? row.device_type,
     deviceStatus,
     onlineStatus: deviceStatus,
-    totalCapacity: undefined,
-    remainingCapacity: undefined,
+    totalCapacity: formatBytes(totalCapacity),
+    remainingCapacity: formatBytes(
+      totalCapacity && usedCapacity != null ? totalCapacity - usedCapacity : undefined
+    ),
     currentTaskCount: 0,
     mode: undefined,
     cageCount: row.cage_count ?? undefined,
@@ -122,7 +145,8 @@ export async function GET(request: NextRequest) {
 
     const sql = `SELECT device_id, device_name, device_type, status, ip_address,
                         source_site_id, site_code, slot_count, cage_count,
-                        model, manufacturer, serial_no, synced_at
+                        model, manufacturer, serial_no, synced_at,
+                        total_capacity, used_capacity, used_slots
                  FROM unified_devices ${whereClause}
                  ORDER BY device_id`
 

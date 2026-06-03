@@ -228,9 +228,10 @@ export async function upsertDevicesInTransaction(
         ip_address, location, room, floor,
         total_capacity, used_capacity,
         model, manufacturer, serial_no, slot_count, cage_count, use_status, site_code,
+        used_slots,
         raw_data
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
       )
       ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
         synced_at = EXCLUDED.synced_at,
@@ -251,6 +252,7 @@ export async function upsertDevicesInTransaction(
         cage_count = COALESCE(EXCLUDED.cage_count, unified_devices.cage_count),
         use_status = COALESCE(EXCLUDED.use_status, unified_devices.use_status),
         site_code = COALESCE(EXCLUDED.site_code, unified_devices.site_code),
+        used_slots = COALESCE(EXCLUDED.used_slots, unified_devices.used_slots),
         raw_data = EXCLUDED.raw_data,
         updated_at = NOW()
       RETURNING id
@@ -278,6 +280,7 @@ export async function upsertDevicesInTransaction(
       record.cage_count ?? null,
       record.use_status ?? null,
       record.site_code ?? null,
+      record.used_slots ?? null,
       JSON.stringify(record.raw_data),
     ])
 

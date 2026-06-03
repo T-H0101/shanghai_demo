@@ -108,6 +108,7 @@ export interface UnifiedDeviceRecord {
   cage_count?: number | null
   use_status?: number | null
   site_code?: string | null
+  used_slots?: number | null
 }
 
 /**

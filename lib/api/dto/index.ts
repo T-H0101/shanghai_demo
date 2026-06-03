@@ -249,7 +249,7 @@ export interface RackDTO {
   datacenter: string
   cages: string[]
   totalSlots: number
-  usedSlots: number
+  usedSlots?: number
   usagePercent: number
   status: RackStatus
   lastSyncAt: string
