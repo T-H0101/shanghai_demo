@@ -19,6 +19,7 @@
     "db:seed": "docker exec unified_disc_postgres psql -U unified -d unified_disc_platform -f /docker-entrypoint-initdb.d/seed.sql || docker exec -i unified_disc_postgres psql -U unified -d unified_disc_platform < databases/sprint-2b1/seed.sql",
     "import:tasks": "tsx scripts/import-from-source.ts tasks",
     "import:devices": "tsx scripts/import-from-source.ts devices",
+    "import:discs": "tsx scripts/import-from-source.ts discs",
     "import:all": "tsx scripts/import-from-source.ts all"
   },
   "dependencies": {
