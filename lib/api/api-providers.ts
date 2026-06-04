@@ -75,6 +75,12 @@ export const apiSiteProvider: SiteProvider = {
 // API Task Provider
 // ============================================================
 
+let _tasksDataSource: "database" | "fallback" = "fallback"
+
+export function getTasksDataSource(): "database" | "fallback" {
+  return _tasksDataSource
+}
+
 export const apiTaskProvider: TaskProvider = {
   getAll: async (filters?: TaskFilters) => {
     const params = new URLSearchParams()
@@ -86,11 +92,17 @@ export const apiTaskProvider: TaskProvider = {
     const query = params.toString()
     const url = `${API_BASE}/api/tasks${query ? `?${query}` : ""}`
 
-    return fetchWithFallback(
-      url,
-      () => mockTaskProvider.getAll(filters),
-      "TaskProvider.getAll"
-    )
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const json = await response.json()
+      if (json.code !== 0) throw new Error(json.message)
+      _tasksDataSource = json.source === "database" ? "database" : "fallback"
+      return json.data
+    } catch {
+      _tasksDataSource = "fallback"
+      return mockTaskProvider.getAll(filters)
+    }
   },
 
   getById: async (id: string) => {
