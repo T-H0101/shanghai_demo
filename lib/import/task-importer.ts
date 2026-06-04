@@ -1,14 +1,17 @@
 /**
  * Task Importer
  * Sprint 2B.12 - 真实 source_restore Import 试点
+ * Sprint 2C.8 - 扩展：聚合任务-设备关联
  *
  * 从 source_restore 读取 tbl_task，映射后写入 unified_tasks。
+ * 然后聚合 tbl_lib_task 补充 device_id。
  */
 
 import { sourceQuery } from '@/lib/db/source-pool'
-import { transaction } from '@/lib/db'
+import { transaction, query } from '@/lib/db'
 import { upsertTasksInTransaction } from '@/lib/sync/upsert'
 import { mapRealTask } from './real-field-mapper'
+import { aggregateTaskDevices } from './task-device-aggregator'
 
 export async function importTasks(siteCode: string): Promise<void> {
   const startTime = Date.now()
@@ -31,6 +34,21 @@ export async function importTasks(siteCode: string): Promise<void> {
   const { rowsUpserted } = await transaction(async (client) => {
     return upsertTasksInTransaction(mappedRecords, client)
   })
+
+  // 4. 聚合任务-设备关联
+  console.log(`[Import] Aggregating task-device associations from tbl_lib_task...`)
+  const deviceMap = await aggregateTaskDevices()
+  console.log(`[Import] Found device associations for ${deviceMap.size} tasks`)
+
+  let updatedCount = 0
+  for (const [taskId, mapping] of deviceMap) {
+    const result = await query(
+      `UPDATE unified_tasks SET device_id = $1 WHERE source_id = $2 AND source_site_id = $3`,
+      [String(mapping.lib_id), String(taskId), siteCode]
+    )
+    updatedCount += result.rowCount ?? 0
+  }
+  console.log(`[Import] Updated device_id for ${updatedCount} tasks`)
 
   const duration = Date.now() - startTime
   console.log(`[Import] Done: ${rowsUpserted} rows upserted, ${sourceRows.length - rowsUpserted} updated`)
