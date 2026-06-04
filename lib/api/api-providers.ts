@@ -159,17 +159,30 @@ export const apiTaskProvider: TaskProvider = {
 // API Rack Provider
 // ============================================================
 
+// 数据源追踪：记录最近一次 racks 数据来源
+let _racksDataSource: "database" | "fallback" = "fallback"
+
+export function getRacksDataSource(): "database" | "fallback" {
+  return _racksDataSource
+}
+
 export const apiRackProvider: RackProvider = {
   getAll: async (siteCode?: string) => {
     const url = siteCode
       ? `${API_BASE}/api/racks?siteCode=${siteCode}`
       : `${API_BASE}/api/racks`
 
-    return fetchWithFallback(
-      url,
-      () => mockRackProvider.getAll(siteCode),
-      "RackProvider.getAll"
-    )
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const json = await response.json()
+      if (json.code !== 0) throw new Error(json.message)
+      _racksDataSource = json.source === "database" ? "database" : "fallback"
+      return json.data
+    } catch {
+      _racksDataSource = "fallback"
+      return mockRackProvider.getAll(siteCode)
+    }
   },
 
   getById: async (id: string) => {

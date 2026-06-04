@@ -250,7 +250,7 @@ export interface RackDTO {
   cages: string[]
   totalSlots: number
   usedSlots?: number
-  usagePercent: number
+  usagePercent?: number
   status: RackStatus
   lastSyncAt: string
   floor?: string

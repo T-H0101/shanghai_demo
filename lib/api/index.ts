@@ -183,3 +183,6 @@ export {
   apiUserProvider,
   apiRackProvider,
 }
+
+// 数据源追踪
+export { getRacksDataSource } from "./api-providers"

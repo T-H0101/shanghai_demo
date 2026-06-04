@@ -84,7 +84,8 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
 
   const totalCapacity = row.total_capacity
   const usedCapacity = row.used_capacity
-  const usagePercent = totalCapacity && totalCapacity > 0 && usedCapacity != null
+  const hasCapacityData = totalCapacity != null && totalCapacity > 0
+  const usagePercent = hasCapacityData && usedCapacity != null
     ? Math.round((usedCapacity / totalCapacity) * 100)
     : undefined
 
@@ -98,7 +99,7 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
     cages: [],
     totalSlots: row.slot_count ?? 0,
     usedSlots: row.used_slots ?? undefined,
-    usagePercent: usagePercent ?? 0,
+    usagePercent: usagePercent,
     status: rackStatus,
     lastSyncAt: typeof row.synced_at === "string"
       ? row.synced_at
@@ -153,10 +154,11 @@ export async function GET(request: NextRequest) {
     const { rows } = await query<DeviceRow>(sql, params)
     const data = rows.map(mapDeviceToRackDTO)
 
-    const response: ApiResponse<RackDTO[]> = {
+    const response = {
       code: 0,
       message: "ok",
       data,
+      source: "database" as const,
       traceId: `api-${Date.now()}`,
     }
 

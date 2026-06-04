@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { rackProvider, taskProvider } from "@/lib/api"
+import { rackProvider, taskProvider, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
 import { sites as mockSites } from "@/lib/mock/sites"
@@ -82,6 +82,7 @@ export default function Page() {
   })
   const [selected, setSelected] = useState<Rack | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [racksDataSource, setRacksDataSource] = useState<"database" | "fallback" | "mock">("mock")
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
   const [syncing, setSyncing] = useState(false)
@@ -334,8 +335,15 @@ export default function Page() {
       setRackList(racksData.length > 0 ? racksData : mockRacks)
       setStats(statsData as any)
       if (!selected) setSelected((racksData.length > 0 ? racksData : mockRacks)[0] ?? null)
+      // 数据源追踪
+      if (isApiMode) {
+        setRacksDataSource(getRacksDataSource())
+      } else {
+        setRacksDataSource("mock")
+      }
     } catch {
       setRackList(mockRacks)
+      setRacksDataSource(isApiMode ? "fallback" : "mock")
     }
   }, [selected])
 
@@ -513,6 +521,14 @@ export default function Page() {
         }
       />
 
+      {/* ── 数据源提示 ────────────────────────────────────────── */}
+      {isApiMode && racksDataSource === "fallback" && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>当前数据库不可用，正在显示模拟数据。真实设备信息暂不可用。</span>
+        </div>
+      )}
+
       {/* ── 统计卡片 ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
         <StatCard title="设备总数" value={stats.total} unit="台" icon={Server} />
@@ -614,11 +630,17 @@ export default function Page() {
                         <TableCell className="text-xs">{r.remainingCapacity ?? "—"}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Progress value={r.usagePercent} className="h-1.5 flex-1" />
-                            <span className="text-xs tabular-nums min-w-[32px] text-right">{r.usagePercent}%</span>
+                            {r.usagePercent != null ? (
+                              <>
+                                <Progress value={r.usagePercent} className="h-1.5 flex-1" />
+                                <span className="text-xs tabular-nums min-w-[32px] text-right">{r.usagePercent}%</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-slate-400">—</span>
+                            )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs">{r.totalSlots > 0 ? `${r.usedSlots}/${r.totalSlots}` : "—"}</TableCell>
+                        <TableCell className="text-xs">{r.totalSlots > 0 ? `${r.usedSlots ?? "—"}/${r.totalSlots}` : "—"}</TableCell>
                         <TableCell className="text-xs tabular-nums">{r.currentTaskCount ?? 0}</TableCell>
                         <TableCell className="text-[10px] text-slate-400 whitespace-nowrap">{r.lastSyncAt}</TableCell>
                         <TableCell>
@@ -670,7 +692,11 @@ export default function Page() {
                     <DetailRow label="所属站点" value={selected.siteName} />
                     <DetailRow label="总容量" value={selected.totalCapacity ?? "—"} />
                     <DetailRow label="剩余容量" value={selected.remainingCapacity ?? "—"} />
-                    <DetailRow label="使用率" value={<div className="flex items-center gap-2"><Progress value={selected.usagePercent} className="h-1.5 w-20" /><span>{selected.usagePercent}%</span></div>} />
+                    <DetailRow label="使用率" value={
+                      selected.usagePercent != null
+                        ? <div className="flex items-center gap-2"><Progress value={selected.usagePercent} className="h-1.5 w-20" /><span>{selected.usagePercent}%</span></div>
+                        : "—"
+                    } />
                     <DetailRow label="最近同步" value={selected.lastSyncAt} />
                     <DetailRow label="当前任务数" value={(selected.currentTaskCount ?? 0).toString()} />
                   </div>
