@@ -12,6 +12,7 @@ import { transaction, query } from '@/lib/db'
 import { upsertTasksInTransaction } from '@/lib/sync/upsert'
 import { mapRealTask } from './real-field-mapper'
 import { aggregateTaskDevices } from './task-device-aggregator'
+import { aggregateTaskUsers } from './task-user-aggregator'
 
 export async function importTasks(siteCode: string): Promise<void> {
   const startTime = Date.now()
@@ -49,6 +50,21 @@ export async function importTasks(siteCode: string): Promise<void> {
     updatedCount += result.rowCount ?? 0
   }
   console.log(`[Import] Updated device_id for ${updatedCount} tasks`)
+
+  // 5. 聚合任务-用户关联
+  console.log(`[Import] Aggregating task-user associations from tbl_user_task...`)
+  const userMap = await aggregateTaskUsers()
+  console.log(`[Import] Found user associations for ${userMap.size} tasks`)
+
+  let userUpdatedCount = 0
+  for (const [taskId, mapping] of userMap) {
+    const result = await query(
+      `UPDATE unified_tasks SET operator = $1 WHERE source_id = $2 AND source_site_id = $3 AND (operator IS NULL OR operator = '')`,
+      [mapping.user_name, String(taskId), siteCode]
+    )
+    userUpdatedCount += result.rowCount ?? 0
+  }
+  console.log(`[Import] Updated operator for ${userUpdatedCount} tasks`)
 
   const duration = Date.now() - startTime
   console.log(`[Import] Done: ${rowsUpserted} rows upserted, ${sourceRows.length - rowsUpserted} updated`)
