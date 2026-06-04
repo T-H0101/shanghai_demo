@@ -21,6 +21,7 @@
     "import:devices": "tsx scripts/import-from-source.ts devices",
     "import:discs": "tsx scripts/import-from-source.ts discs",
     "import:volumes": "tsx scripts/import-from-source.ts volumes",
+    "import:hard-disks": "tsx scripts/import-from-source.ts hard-disks",
     "import:all": "tsx scripts/import-from-source.ts all"
   },
   "dependencies": {

@@ -37,6 +37,7 @@ import { importTasks } from '../lib/import/task-importer'
 import { importDevices } from '../lib/import/device-importer'
 import { importDiscMedia } from '../lib/import/disc-media-importer'
 import { importVolumes } from '../lib/import/volume-importer'
+import { importHardDisks } from '../lib/import/hard-disk-importer'
 import { closeSourcePool } from '../lib/db/source-pool'
 import { closePool } from '../lib/db'
 
@@ -46,11 +47,12 @@ async function main() {
   const command = args[0]
   const siteCode = args[1] || 'SH01'
 
-  if (!command || !['tasks', 'devices', 'discs', 'volumes', 'all'].includes(command)) {
+  if (!command || !['tasks', 'devices', 'discs', 'volumes', 'hard-disks', 'all'].includes(command)) {
     console.error('Usage: pnpm import:tasks [siteCode]')
     console.error('       pnpm import:devices [siteCode]')
     console.error('       pnpm import:discs [siteCode]')
     console.error('       pnpm import:volumes [siteCode]')
+    console.error('       pnpm import:hard-disks [siteCode]')
     console.error('       pnpm import:all [siteCode]')
     console.error('  Default siteCode: SH01')
     process.exit(1)
@@ -71,6 +73,10 @@ async function main() {
     }
     if (command === 'volumes' || command === 'all') {
       await importVolumes(siteCode)
+      if (command === 'all') console.log('')
+    }
+    if (command === 'hard-disks' || command === 'all') {
+      await importHardDisks(siteCode)
     }
   } catch (error) {
     console.error('[Import] Fatal error:', error)
