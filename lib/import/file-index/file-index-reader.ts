@@ -40,7 +40,7 @@ export async function readFileIndexRecords(
 
   const sql = `
     SELECT f.id, f.folder_id, f.file_name, f.file_size,
-           f.content_type, f.status, f.hash, f.created_at
+           f.content_type, f.status, f.hash, f.create_date AS created_at
     FROM tbl_file f
     WHERE f.task_id = $1 AND f.id > $2
     ORDER BY f.id ASC

@@ -34,9 +34,17 @@ export async function readFolderIndexRecords(
   }
 
   // 使用 PostgreSQL array 语法
+  // 兼容真实 schema (parent/s_level/sum_files) 与 mock schema (parent_id/level/file_count)
   const sql = `
-    SELECT id, parent_id, folder_name, folder_path, disc_path,
-           level, file_count, total_size
+    SELECT
+      id,
+      parent      AS parent_id,
+      name        AS folder_name,
+      folder_path,
+      disc_path,
+      s_level     AS level,
+      files       AS file_count,
+      sum_files   AS total_size
     FROM tbl_folder
     WHERE id = ANY($1::int[])
     ORDER BY id ASC
