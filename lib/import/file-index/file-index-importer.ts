@@ -79,6 +79,12 @@ export async function importFileIndex(
         errorMessage: 'Batch is currently running',
       }
     }
+    if (existingPackage.status === 'failed') {
+      // failed 状态允许重试：继续往下走，覆盖已有 failed 记录
+      console.log(
+        `[FileIndexImporter] Batch ${batchId} previously failed, retrying.`
+      )
+    }
   }
 
   // 2. 创建 package log
@@ -100,6 +106,7 @@ export async function importFileIndex(
       rawMetadata: rawMetadata as unknown as Record<string, unknown>,
     })
     packageLogId = packageLog.id
+    // createPackageLog 的 ON CONFLICT 不会更新 status，显式重置为 running
     await markPackageRunning(packageLog.id)
   } catch (err) {
     console.error(`[FileIndexImporter] Failed to create package log: ${err}`)
