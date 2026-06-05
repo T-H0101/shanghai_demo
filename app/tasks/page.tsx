@@ -17,6 +17,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { TaskFileIndexPanel } from "@/components/tasks/task-file-index-panel"
 import {
   taskProvider,
 } from "@/lib/api"
@@ -561,6 +562,12 @@ function TasksPageContent() {
                 </section>
 
                 <Separator />
+
+                {/* 文件索引 (后置加载，Sprint 2C.20) */}
+                <section>
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Package className="h-4 w-4 text-slate-400" />文件索引</h4>
+                  <TaskFileIndexPanel taskId={selected.id} />
+                </section>
 
                 {/* 执行日志 */}
                 <section>
