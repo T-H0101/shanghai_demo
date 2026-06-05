@@ -4,9 +4,81 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { racks } from "@/lib/mock/racks"
-import { adaptVolumeList } from "@/lib/api/adapters"
+import { query } from "@/lib/db"
 import type { ApiResponse, VolumeDTO } from "@/lib/api/dto"
+
+const VOLUME_TYPE_MAP: Record<string, VolumeDTO["type"]> = {
+  optical: "optical",
+  magnetic: "magnetic",
+  hard_disk: "magnetic",
+  hdd: "magnetic",
+  composite: "composite",
+}
+
+interface VolumeRow {
+  id: string
+  source_site_id: string
+  source_id: string
+  synced_at: Date | string
+  volume_id: string | null
+  volume_name: string | null
+  volume_type: string | null
+  capacity: string | null
+  used_capacity: number | string | null
+  file_count: number | null
+  site_code: string | null
+  device_id: string | null
+  status: string | null
+  health_status: string | null
+}
+
+function formatBytes(value: number | string | null | undefined): string {
+  if (value == null || value === "") return ""
+  const bytes = typeof value === "number" ? value : Number(value)
+  if (!Number.isFinite(bytes) || bytes <= 0) return String(value)
+
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"]
+  let size = bytes
+  let index = 0
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024
+    index++
+  }
+  return `${size.toFixed(1)} ${units[index]}`
+}
+
+function toNumber(value: number | string | null | undefined): number | undefined {
+  if (value == null || value === "") return undefined
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function mapVolumeToDTO(row: VolumeRow): VolumeDTO {
+  const capacity = toNumber(row.capacity)
+  const usedCapacity = toNumber(row.used_capacity)
+  const remainingCapacity = capacity != null && usedCapacity != null
+    ? Math.max(capacity - usedCapacity, 0)
+    : undefined
+
+  const type = row.volume_type ? VOLUME_TYPE_MAP[row.volume_type] : undefined
+  const syncedAt = typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()
+  const statusParts = [
+    `站点 ${row.site_code ?? row.source_site_id}`,
+    row.status ? `状态 ${row.status}` : null,
+    row.health_status ? `健康 ${row.health_status}` : null,
+    `同步 ${syncedAt}`,
+  ].filter(Boolean)
+
+  return {
+    id: row.volume_id ?? row.source_id,
+    name: row.volume_name ?? `卷-${row.source_id}`,
+    type: type ?? "composite",
+    totalCapacity: formatBytes(row.capacity),
+    remainingCapacity: remainingCapacity == null ? "" : formatBytes(remainingCapacity),
+    info: statusParts.join(" · "),
+    discCount: row.file_count ?? undefined,
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,30 +86,41 @@ export async function GET(request: NextRequest) {
     const siteCode = searchParams.get("siteCode")
     const type = searchParams.get("type")
 
-    // 从 rack.volumes 收集所有卷
-    let allVolumes = racks.flatMap(r => r.volumes ?? [])
+    const conditions: string[] = []
+    const params: unknown[] = []
+    let paramIndex = 1
 
-    // 过滤
     if (siteCode) {
-      const siteRacks = racks.filter(r => r.siteCode === siteCode)
-      allVolumes = siteRacks.flatMap(r => r.volumes ?? [])
+      conditions.push(`source_site_id = $${paramIndex++}`)
+      params.push(siteCode)
     }
     if (type && type !== "all") {
-      allVolumes = allVolumes.filter(v => v.type === type)
+      if (type === "magnetic") {
+        conditions.push(`volume_type = ANY($${paramIndex++})`)
+        params.push(["magnetic", "hard_disk", "hdd"])
+      } else {
+        conditions.push(`volume_type = $${paramIndex++}`)
+        params.push(type)
+      }
     }
 
-    // 去重
-    const uniqueVolumes = allVolumes.filter(
-      (v, index, self) => self.findIndex(x => x.id === v.id) === index
-    )
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+    const sql = `
+      SELECT id, source_site_id, source_id, synced_at,
+             volume_id, volume_name, volume_type,
+             capacity, used_capacity, file_count,
+             site_code, device_id, status, health_status
+      FROM unified_volumes ${whereClause}
+      ORDER BY source_site_id, volume_id NULLS LAST, source_id
+    `
+    const { rows } = await query<VolumeRow>(sql, params)
+    const adaptedVolumes = rows.map(mapVolumeToDTO)
 
-    // 转换
-    const adaptedVolumes = adaptVolumeList(uniqueVolumes)
-
-    const response: ApiResponse<VolumeDTO[]> = {
+    const response: ApiResponse<VolumeDTO[]> & { source: "database" } = {
       code: 0,
       message: "ok",
       data: adaptedVolumes,
+      source: "database",
       traceId: `api-${Date.now()}`,
     }
 
