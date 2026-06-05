@@ -23,6 +23,7 @@
     "import:volumes": "tsx scripts/import-from-source.ts volumes",
     "import:hard-disks": "tsx scripts/import-from-source.ts hard-disks",
     "import:all": "tsx scripts/import-from-source.ts all",
+    "import:file-index": "tsx scripts/import-file-index.ts",
     "test:package-log": "tsx scripts/test-package-log.ts"
   },
   "dependencies": {
