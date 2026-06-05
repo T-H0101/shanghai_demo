@@ -10,6 +10,31 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import type { ApiResponse, PaginatedResponse, TaskDTO, TaskStatus, TaskType, TaskPhase, Priority } from "@/lib/api/dto"
 
+// unified_tasks.status → TaskDTO.phase（基于真实状态推断阶段）
+const STATUS_PHASE_MAP: Record<string, TaskPhase> = {
+  burn_success: "completed",
+  cancelled: "failed",
+  make_task_done_backup_running: "writing",
+  paused: "paused",
+  remote_backup_created: "pending",
+  data_preparing: "preparing",
+  ready: "pending",
+  burn_failed: "failed",
+  download_success: "completed",
+  restore_started: "writing",
+  read_from_disc_done: "completed",
+  read_from_disc_failed: "failed",
+  reading_from_disc: "writing",
+  read_failed: "failed",
+  restore_warning: "failed",
+  restful_ready: "pending",
+  no_file_changed: "completed",
+  jdf_generated: "pending",
+  make_task_scan_started: "scanning",
+  make_task_scan_unfinished: "scanning",
+  s3_data_preparing: "preparing",
+}
+
 // unified_tasks.status → TaskDTO.status
 const STATUS_MAP: Record<string, TaskStatus> = {
   burn_success: "completed",
@@ -80,10 +105,10 @@ function mapTaskToDTO(row: TaskRow): TaskDTO {
     taskNo: row.task_no,
     name: row.task_name || row.task_no,
     type: TYPE_MAP[row.task_type] ?? "other",
-    phase: (row.phase as TaskPhase) ?? "idle",
+    phase: STATUS_PHASE_MAP[row.status] ?? "idle",
     status: STATUS_MAP[row.status] ?? "pending_dispatch",
     priority: (row.priority as Priority) ?? "normal",
-    progress: 0,
+    progress: STATUS_MAP[row.status] === "completed" ? 100 : 0,
     archiveName: row.archive_name ?? "",
     dataClassification: "",
     siteName: row.source_site_id,

@@ -373,8 +373,14 @@ function TasksPageContent() {
                   <TableCell className="text-xs">{t.backupScope === "full" ? "全量" : t.backupScope === "incremental" ? "增量" : "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Progress value={t.progress} className="h-1.5 flex-1" />
-                      <span className={cn("text-xs font-medium min-w-[32px] text-right", t.phase === "failed" ? "text-red-500" : "")}>{t.progress}%</span>
+                      {t.progress > 0 ? (
+                        <>
+                          <Progress value={t.progress} className="h-1.5 flex-1" />
+                          <span className={cn("text-xs font-medium min-w-[32px] text-right", t.phase === "failed" ? "text-red-500" : "")}>{t.progress}%</span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </div>
                     {t.speed && <p className="text-[10px] text-slate-400 mt-0.5">{t.speed}</p>}
                   </TableCell>
@@ -531,7 +537,7 @@ function TasksPageContent() {
                     <MiniStat label="成功数" value={selected.successCount?.toString() ?? "—"} />
                     <MiniStat label="异常数" value={selected.errorCount?.toString() ?? "—"} />
                     <MiniStat label="当前速度" value={selected.speed ?? "—"} />
-                    <MiniStat label="任务进度" value={`${selected.progress}%`} />
+                    <MiniStat label="任务进度" value={selected.progress > 0 ? `${selected.progress}%` : "—"} />
                     <MiniStat label="SM3 状态" value={selected.sm3Status === "completed" ? "通过" : selected.sm3Status === "failed" ? "失败" : selected.sm3Status === "in_progress" ? "进行中" : "待校验"} />
                   </div>
                   {selected.errorMessage && (
