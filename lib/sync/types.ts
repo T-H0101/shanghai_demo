@@ -78,6 +78,15 @@ export interface UnifiedTaskRecord {
   department: string | null
   total_files: number
   total_size: number
+  // Sprint 2F.1: 任务运行时字段
+  task_mode: number | null
+  error_message: string | null
+  runtime_seconds: number | null
+  package_count: number | null
+  success_count: number | null
+  error_count: number | null
+  progress: number | null
+  current_phase: string | null
   raw_data: TaskSourceRecord
 }
 

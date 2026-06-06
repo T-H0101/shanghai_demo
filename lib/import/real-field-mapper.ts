@@ -8,6 +8,7 @@
  */
 
 import type { UnifiedTaskRecord, UnifiedDeviceRecord } from '@/lib/sync/types'
+import { computeRuntimeSeconds } from './task-runtime-aggregator'
 
 // ============================================================
 // Task 枚举映射
@@ -141,9 +142,18 @@ function buildDeviceRawData(source: Record<string, unknown>): Record<string, unk
 export function mapRealTask(
   source: Record<string, unknown>,
   siteCode: string,
-  sourceTable: string = 'tbl_task'
+  sourceTable: string = 'tbl_task',
+  aggregate?: {
+    packageCount: number | null
+    successCount: number | null
+    errorCount: number | null
+    progress: number | null
+    currentPhase: string | null
+  }
 ): UnifiedTaskRecord {
   const taskType = source.task_type as number
+  const status = mapTaskStatus(taskType, source.status as number)
+
   return {
     source_site_id: siteCode,
     source_table: sourceTable,
@@ -152,7 +162,7 @@ export function mapRealTask(
     task_no: `${siteCode}-${source.id}`,
     task_name: source.task_name ? String(source.task_name) : null,
     task_type: mapTaskType(taskType),
-    status: mapTaskStatus(taskType, source.status as number),
+    status,
     phase: null,
     priority: null,
     data_classification: null,
@@ -163,6 +173,20 @@ export function mapRealTask(
     department: null,
     total_files: (source.total_files as number) ?? 0,
     total_size: (source.total_size as number) ?? 0,
+    // Sprint 2F.1: 任务运行时字段
+    task_mode: (source.task_mode as number) ?? null,
+    error_message: source.ret_msg ? String(source.ret_msg) : null,
+    runtime_seconds: computeRuntimeSeconds(
+      source.create_dt as Date | string | null,
+      source.update_dt as Date | string | null
+    ),
+    package_count: aggregate?.packageCount ?? null,
+    success_count: aggregate?.successCount ?? null,
+    error_count: aggregate?.errorCount ?? null,
+    progress: status === 'completed'
+      ? 100
+      : (aggregate?.progress ?? null),
+    current_phase: aggregate?.currentPhase ?? null,
     raw_data: buildTaskRawData(source) as unknown as import('@/lib/sync/types').TaskSourceRecord,
   }
 }

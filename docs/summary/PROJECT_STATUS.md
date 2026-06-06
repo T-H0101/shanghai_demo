@@ -20,7 +20,7 @@
 ### API
 | 端点 | 数据源 | 状态 |
 |---|---|---|
-| `GET /api/tasks` | unified_tasks | ✅ 真实数据 |
+| `GET /api/tasks` | unified_tasks | ✅ 真实数据 (含 Sprint 2F.1 runtime/progress 等 8 字段) |
 | `GET /api/tasks/[id]` | unified_tasks | ✅ |
 | `GET /api/tasks/[id]/files` | unified_file_index | ✅ (Sprint 2C.19) |
 | `GET /api/racks` | unified_devices | ✅ |
@@ -28,6 +28,7 @@
 | `GET /api/racks/[id]/slots` | unified_slots | ✅ 真实中心库；无明细返回 empty |
 | `GET /api/volumes` | unified_logical_volumes | ✅ |
 | `GET /api/sync/logs` | sync_package_log | ✅ |
+| `GET /api/sync/packages` | sync_package_log | ✅ (Sprint 2D.4) |
 | `POST /api/sync/package` | dispatch registry | ✅ (Sprint 2D.2) |
 
 ### 前端页面

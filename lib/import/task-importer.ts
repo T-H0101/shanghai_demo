@@ -2,9 +2,12 @@
  * Task Importer
  * Sprint 2B.12 - 真实 source_restore Import 试点
  * Sprint 2C.8 - 扩展：聚合任务-设备关联
+ * Sprint 2F.1 - 扩展：聚合 tbl_disc 运行时统计
  *
  * 从 source_restore 读取 tbl_task，映射后写入 unified_tasks。
  * 然后聚合 tbl_lib_task 补充 device_id。
+ * 聚合 tbl_user_task 补充 operator。
+ * 聚合 tbl_disc 补充 progress / packageCount / successCount / errorCount / currentPhase。
  */
 
 import { sourceQuery } from '@/lib/db/source-pool'
@@ -13,6 +16,7 @@ import { upsertTasksInTransaction } from '@/lib/sync/upsert'
 import { mapRealTask } from './real-field-mapper'
 import { aggregateTaskDevices } from './task-device-aggregator'
 import { aggregateTaskUsers } from './task-user-aggregator'
+import { aggregateTaskDisc } from './task-runtime-aggregator'
 
 export async function importTasks(siteCode: string): Promise<void> {
   const startTime = Date.now()
@@ -26,17 +30,33 @@ export async function importTasks(siteCode: string): Promise<void> {
   const { rows: sourceRows } = await sourceQuery('SELECT * FROM tbl_task ORDER BY id')
   console.log(`[Import] Found ${sourceRows.length} records`)
 
-  // 2. 映射
-  console.log(`[Import] Mapping records...`)
-  const mappedRecords = sourceRows.map((row) => mapRealTask(row, siteCode))
+  // 2. 聚合 tbl_disc 运行时统计 (Sprint 2F.1)
+  console.log(`[Import] Aggregating task disc statistics from tbl_disc...`)
+  const discMap = new Map<string, Awaited<ReturnType<typeof aggregateTaskDisc>>>()
+  for (const row of sourceRows) {
+    const taskId = String(row.id)
+    if (!discMap.has(taskId)) {
+      const agg = await aggregateTaskDisc(taskId)
+      discMap.set(taskId, agg)
+    }
+  }
+  console.log(`[Import] Aggregated disc stats for ${discMap.size} tasks`)
 
-  // 3. UPSERT
+  // 3. 映射 (含 runtime + disc aggregate)
+  console.log(`[Import] Mapping records...`)
+  const mappedRecords = sourceRows.map((row) => {
+    const taskId = String(row.id)
+    const aggregate = discMap.get(taskId)
+    return mapRealTask(row, siteCode, 'tbl_task', aggregate)
+  })
+
+  // 4. UPSERT
   console.log(`[Import] UPSERT to unified_disc_platform.unified_tasks...`)
   const { rowsUpserted } = await transaction(async (client) => {
     return upsertTasksInTransaction(mappedRecords, client)
   })
 
-  // 4. 聚合任务-设备关联
+  // 5. 聚合任务-设备关联
   console.log(`[Import] Aggregating task-device associations from tbl_lib_task...`)
   const deviceMap = await aggregateTaskDevices()
   console.log(`[Import] Found device associations for ${deviceMap.size} tasks`)
@@ -51,7 +71,7 @@ export async function importTasks(siteCode: string): Promise<void> {
   }
   console.log(`[Import] Updated device_id for ${updatedCount} tasks`)
 
-  // 5. 聚合任务-用户关联
+  // 6. 聚合任务-用户关联
   console.log(`[Import] Aggregating task-user associations from tbl_user_task...`)
   const userMap = await aggregateTaskUsers()
   console.log(`[Import] Found user associations for ${userMap.size} tasks`)

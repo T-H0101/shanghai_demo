@@ -89,10 +89,15 @@ export async function upsertTasksInTransaction(
         source_site_id, source_table, source_id, synced_at,
         task_no, task_name, task_type, status, phase, priority,
         data_classification, archive_name, source_path, package_path,
-        operator, department, total_files, total_size, raw_data
+        operator, department, total_files, total_size,
+        task_mode, error_message, runtime_seconds,
+        package_count, success_count, error_count, progress, current_phase,
+        raw_data
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15, $16, $17, $18, $19
+        $11, $12, $13, $14, $15, $16, $17, $18,
+        $19, $20, $21, $22, $23, $24, $25, $26,
+        $27::jsonb
       )
       ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
         synced_at = EXCLUDED.synced_at,
@@ -110,6 +115,14 @@ export async function upsertTasksInTransaction(
         department = EXCLUDED.department,
         total_files = EXCLUDED.total_files,
         total_size = EXCLUDED.total_size,
+        task_mode = EXCLUDED.task_mode,
+        error_message = EXCLUDED.error_message,
+        runtime_seconds = EXCLUDED.runtime_seconds,
+        package_count = EXCLUDED.package_count,
+        success_count = EXCLUDED.success_count,
+        error_count = EXCLUDED.error_count,
+        progress = EXCLUDED.progress,
+        current_phase = EXCLUDED.current_phase,
         raw_data = EXCLUDED.raw_data,
         updated_at = NOW()
       RETURNING id
@@ -134,6 +147,14 @@ export async function upsertTasksInTransaction(
       record.department,
       record.total_files,
       record.total_size,
+      record.task_mode,
+      record.error_message,
+      record.runtime_seconds,
+      record.package_count,
+      record.success_count,
+      record.error_count,
+      record.progress,
+      record.current_phase,
       JSON.stringify(record.raw_data),
     ])
 

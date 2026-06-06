@@ -96,6 +96,15 @@ interface TaskRow {
   created_at: Date | string | null
   updated_at: Date | string | null
   synced_at: Date | string
+  // Sprint 2F.1
+  task_mode: number | null
+  error_message: string | null
+  runtime_seconds: number | null
+  package_count: number | null
+  success_count: number | null
+  error_count: number | null
+  progress: number | null
+  current_phase: string | null
 }
 
 function mapTaskToDTO(row: TaskRow): TaskDTO {
@@ -108,7 +117,10 @@ function mapTaskToDTO(row: TaskRow): TaskDTO {
     phase: STATUS_PHASE_MAP[row.status] ?? "idle",
     status: STATUS_MAP[row.status] ?? "pending_dispatch",
     priority: (row.priority as Priority) ?? "normal",
-    progress: STATUS_MAP[row.status] === "completed" ? 100 : 0,
+    // Sprint 2F.1: 真实 progress, completed = 100, 否则 null (前端显示 —)
+    progress: STATUS_MAP[row.status] === "completed"
+      ? 100
+      : (row.progress != null ? row.progress : null),
     archiveName: row.archive_name ?? "",
     dataClassification: "",
     siteName: row.source_site_id,
@@ -127,6 +139,15 @@ function mapTaskToDTO(row: TaskRow): TaskDTO {
       : (typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()),
     fileCount: row.total_files ?? undefined,
     totalSize: row.total_size ? `${row.total_size}` : undefined,
+    // Sprint 2F.1: 任务运行时字段
+    taskMode: row.task_mode ?? undefined,
+    errorMessage: row.error_message ?? undefined,
+    runtime: row.runtime_seconds ?? undefined,
+    packageCount: row.package_count ?? undefined,
+    successCount: row.success_count ?? undefined,
+    errorCount: row.error_count ?? undefined,
+    currentPhase: row.current_phase ?? undefined,
+    sm3Status: undefined, // 源表不在 source_restore
     recentLogs: [],
   }
 }
@@ -179,7 +200,9 @@ export async function GET(request: NextRequest) {
       SELECT id, source_id, source_site_id, task_no, task_name, task_type, status,
              phase, priority, operator, department, archive_name,
              source_path, package_path, device_id,
-             total_files, total_size, created_at, updated_at, synced_at
+             total_files, total_size, created_at, updated_at, synced_at,
+             task_mode, error_message, runtime_seconds,
+             package_count, success_count, error_count, progress, current_phase
       FROM unified_tasks ${whereClause}
       ORDER BY created_at DESC NULLS LAST, source_id
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}

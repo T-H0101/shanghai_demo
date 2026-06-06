@@ -94,6 +94,15 @@ function mapTaskForIngest(source: TaskSourceRecord, siteCode: string, sourceTabl
     department: source.department,
     total_files: 0,
     total_size: 0,
+    // Sprint 2F.1
+    task_mode: null,
+    error_message: null,
+    runtime_seconds: null,
+    package_count: null,
+    success_count: null,
+    error_count: null,
+    progress: null,
+    current_phase: null,
     raw_data: source,
   }
 }

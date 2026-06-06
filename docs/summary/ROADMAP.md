@@ -13,6 +13,8 @@
 - ✅ **2D.4**: Sync Center + package log API
 - ✅ **2E.1**: 任务域字段缺口审查
 - ✅ **2E.2**: 用户/站点/平台域接入 (tbl_user + tbl_site + tbl_platform)
+- ✅ **2E.3**: 站点域真实性审查 (tbl_site/tbl_platform 是监控域, 不继续)
+- ✅ **2F.1**: 任务域 P0 字段补全 (8 字段: task_mode/error_message/runtime_seconds/package_count/success_count/error_count/progress/current_phase)
 
 ## 2D.4 (下一步)
 

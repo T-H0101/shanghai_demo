@@ -130,7 +130,7 @@ export interface TaskDTO {
   phase: TaskPhase
   status: TaskStatus
   priority: Priority
-  progress: number
+  progress: number | null
 
   // 基本信息
   archiveName: string
@@ -181,6 +181,11 @@ export interface TaskDTO {
   errorMessage?: string
   retryCount?: number
   lastRetryAt?: string
+
+  // Sprint 2F.1: 任务运行时字段 (新增)
+  taskMode?: number
+  runtime?: number
+  currentPhase?: string
 
   // 运行时日志
   recentLogs: TaskLogEntryDTO[]
