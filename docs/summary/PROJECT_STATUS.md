@@ -42,7 +42,7 @@
 - **file-index** — 任务级文件/目录索引 (taskId + watermark + limit)
 - **package-log/table-log** — 全程追踪
 
-## 已接入表 (10 张)
+## 已接入表 (13 张)
 
 | 源表 | target | sync_mode | status |
 |---|---|---|---|
@@ -56,10 +56,13 @@
 | tbl_logical_volume | unified_logical_volumes | full | done |
 | tbl_volume_slot | (unified_volumes join) | aggregate | done |
 | tbl_user_task | (unified_tasks join) | aggregate | done |
+| tbl_user | unified_users | full | done (Sprint 2E.2) |
+| tbl_site | unified_sites | full | done (Sprint 2E.2) |
+| tbl_platform | unified_platforms | full | done (Sprint 2E.2) |
 | tbl_file | unified_file_index | incremental (taskId+watermark+limit) | partial |
 | tbl_folder | unified_folder_index | incremental | partial |
 
-**累计 10 张源表 done + 2 张大表 partial (file-index)**
+**累计 13 张源表 done + 2 张大表 partial (file-index)**
 
 ## 未完成
 

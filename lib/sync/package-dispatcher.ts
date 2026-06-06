@@ -12,6 +12,17 @@
 import { transaction, query } from '@/lib/db'
 import { mapRealTask, mapRealDevice } from '@/lib/import/real-field-mapper'
 import { upsertTasksInTransaction, upsertDevicesInTransaction } from './upsert'
+import {
+  mapUser,
+  mapSite,
+  mapPlatform,
+  sanitizeRawData,
+} from '@/lib/import/user-site-platform/mapper'
+import {
+  upsertUsersInTransaction,
+  upsertSitesInTransaction,
+  upsertPlatformsInTransaction,
+} from '@/lib/import/user-site-platform/upsert'
 import type { AllowedPackageTable } from './package-schema'
 
 export interface DispatchInput {
@@ -142,6 +153,61 @@ async function dispatchUserTask(input: DispatchInput): Promise<DispatchResult> {
 }
 
 // ============================================================
+// Sprint 2E.2 - 用户 / 站点 / 平台
+// ============================================================
+
+async function dispatchUser(input: DispatchInput): Promise<DispatchResult> {
+  const mapped = input.records.map((r) => mapUser(r, input.siteCode))
+  const result = await transaction(async (client) => {
+    return upsertUsersInTransaction(mapped, client)
+  })
+  return {
+    tableName: input.tableName,
+    received: input.records.length,
+    upserted: result.insertedCount + result.updatedCount,
+    inserted: result.insertedCount,
+    updated: result.updatedCount,
+    skipped: 0,
+    failed: 0,
+    status: 'success',
+  }
+}
+
+async function dispatchSite(input: DispatchInput): Promise<DispatchResult> {
+  const mapped = input.records.map((r) => mapSite(r, input.siteCode))
+  const result = await transaction(async (client) => {
+    return upsertSitesInTransaction(mapped, client)
+  })
+  return {
+    tableName: input.tableName,
+    received: input.records.length,
+    upserted: result.insertedCount + result.updatedCount,
+    inserted: result.insertedCount,
+    updated: result.updatedCount,
+    skipped: 0,
+    failed: 0,
+    status: 'success',
+  }
+}
+
+async function dispatchPlatform(input: DispatchInput): Promise<DispatchResult> {
+  const mapped = input.records.map((r) => mapPlatform(r, input.siteCode))
+  const result = await transaction(async (client) => {
+    return upsertPlatformsInTransaction(mapped, client)
+  })
+  return {
+    tableName: input.tableName,
+    received: input.records.length,
+    upserted: result.insertedCount + result.updatedCount,
+    inserted: result.insertedCount,
+    updated: result.updatedCount,
+    skipped: 0,
+    failed: 0,
+    status: 'success',
+  }
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -245,6 +311,9 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_logical_volume: dispatchLogicalVolume,
   tbl_volume_slot: dispatchVolumeSlot,
   tbl_user_task: dispatchUserTask,
+  tbl_user: dispatchUser,
+  tbl_site: dispatchSite,
+  tbl_platform: dispatchPlatform,
 }
 
 /**

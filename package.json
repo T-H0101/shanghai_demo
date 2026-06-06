@@ -24,6 +24,10 @@
     "import:hard-disks": "tsx scripts/import-from-source.ts hard-disks",
     "import:all": "tsx scripts/import-from-source.ts all",
     "import:file-index": "tsx scripts/import-file-index.ts",
+    "import:users": "tsx scripts/import-user-site-platforms.ts users",
+    "import:sites": "tsx scripts/import-user-site-platforms.ts sites",
+    "import:platforms": "tsx scripts/import-user-site-platforms.ts platforms",
+    "import:user-site-platforms": "tsx scripts/import-user-site-platforms.ts user-site-platforms",
     "test:package-log": "tsx scripts/test-package-log.ts",
     "smoke:sync": "tsx scripts/smoke-sync.ts"
   },

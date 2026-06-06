@@ -10,6 +10,9 @@
 - ✅ **2D.1**: 全表同步分类矩阵
 - ✅ **2D.2**: `/api/sync/package` + dispatch registry (2 表: tbl_task + tbl_disc_lib)
 - ✅ **2D.3**: 10 张小表 package 化 + Summary 收口
+- ✅ **2D.4**: Sync Center + package log API
+- ✅ **2E.1**: 任务域字段缺口审查
+- ✅ **2E.2**: 用户/站点/平台域接入 (tbl_user + tbl_site + tbl_platform)
 
 ## 2D.4 (下一步)
 

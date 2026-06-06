@@ -13,6 +13,7 @@ export type TableLogStatus = 'success' | 'failed' | 'skipped' | 'duplicated'
 /**
  * 白名单：当前 package 接收的源表
  * Sprint 2D.3: 扩展到 10 张已接入小表
+ * Sprint 2E.2: 扩展到 13 张 (含 tbl_user / tbl_site / tbl_platform)
  * 严禁加入 tbl_file / tbl_folder
  */
 export const ALLOWED_PACKAGE_TABLES = [
@@ -26,6 +27,9 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_logical_volume',
   'tbl_volume_slot',
   'tbl_user_task',
+  'tbl_user',
+  'tbl_site',
+  'tbl_platform',
 ] as const
 export type AllowedPackageTable = (typeof ALLOWED_PACKAGE_TABLES)[number]
 

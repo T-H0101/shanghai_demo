@@ -6,7 +6,7 @@
 
 | 状态 | 数量 | 占比 |
 |---|---|---|
-| **done** | 10 | 7% |
+| **done** | 13 | 9% |
 | **partial** | 2 (file-index) | 1% |
 | **not_started** | 124 | 89% |
 | **hold** | 3 | 2% |
@@ -16,7 +16,7 @@
 
 ## A. PG17_FULL_SMALL — 30 张
 详细列表见 `docs/database-analysis/sprint-2d1-table-sync-classification-matrix.md`
-- P0 (10 张已 done): tbl_task, tbl_disc_lib, tbl_magzines, tbl_slots, tbl_hd_info, tbl_lib_task, tbl_disc, tbl_logical_volume, tbl_volume_slot, tbl_user_task
+- P0 (13 张已 done): tbl_task, tbl_disc_lib, tbl_magzines, tbl_slots, tbl_hd_info, tbl_lib_task, tbl_disc, tbl_logical_volume, tbl_volume_slot, tbl_user_task + tbl_user + tbl_site + tbl_platform (Sprint 2E.2)
 - P0 not_started: tbl_user, tbl_site, tbl_platform
 - P1 not_started: tbl_role, tbl_fuc, tbl_user_role, tbl_depa, tbl_depa_user
 - P2 not_started: 字典/配置表
@@ -41,7 +41,7 @@
 - hold 状态: tbl_device_device, tbl_meta_data, tbl_file_recover_info
 - 需领导/站点确认字段含义
 
-## 当前已 done 的 10 张小表 (详细)
+## 当前已 done 的 13 张源表 (Sprint 2E.2 后)
 
 | 源表 | unified_* | Importer | Package 支持 |
 |---|---|---|---|
