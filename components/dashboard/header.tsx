@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, Bell, Menu, LogOut } from "lucide-react"
 import { clearMockSession, getSession } from "@/lib/auth/session"
@@ -18,6 +18,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useNotificationStore } from "@/store/notification"
 import { toast } from "@/hooks/use-toast"
+import { SiteSelector } from "@/components/site/site-selector"
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -85,6 +86,11 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       {/* Status Info */}
       <div className="flex items-center gap-3 lg:gap-6">
+        {/* Sprint 2F.4: 全局站点选择器 */}
+        <Suspense fallback={null}>
+          <SiteSelector />
+        </Suspense>
+
         {/* Core Service Status - Hidden on mobile */}
         <div className="hidden xl:flex items-center gap-2 text-sm">
           <span className="text-slate-500">核心服务:</span>

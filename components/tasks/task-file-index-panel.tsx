@@ -10,6 +10,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSite } from '@/lib/site/site-context'
 
 interface FileIndexItem {
   id: string
@@ -43,6 +44,9 @@ interface TaskFileIndexPanelProps {
 }
 
 export function TaskFileIndexPanel({ taskId }: TaskFileIndexPanelProps) {
+  // Sprint 2F.4: 全局 siteCode, 防跨站点 source_id 冲突
+  const { siteCode, isAllSites } = useSite()
+
   const [files, setFiles] = useState<FileIndexItem[]>([])
   const [loading, setLoading] = useState(false)
   const [indexStatus, setIndexStatus] = useState<
@@ -57,8 +61,9 @@ export function TaskFileIndexPanel({ taskId }: TaskFileIndexPanelProps) {
     if (!taskId) return
 
     setLoading(true)
+    const siteParam = !isAllSites && siteCode ? `&siteCode=${encodeURIComponent(siteCode)}` : ''
     fetch(
-      `/api/tasks/${encodeURIComponent(taskId)}/files?page=${page}&pageSize=${pageSize}&keyword=${encodeURIComponent(keyword)}`
+      `/api/tasks/${encodeURIComponent(taskId)}/files?page=${page}&pageSize=${pageSize}&keyword=${encodeURIComponent(keyword)}${siteParam}`
     )
       .then((res) => res.json())
       .then((data: FileIndexResponse) => {
@@ -72,7 +77,7 @@ export function TaskFileIndexPanel({ taskId }: TaskFileIndexPanelProps) {
       .finally(() => {
         setLoading(false)
       })
-  }, [taskId, page, pageSize, keyword])
+  }, [taskId, page, pageSize, keyword, isAllSites, siteCode])
 
   if (loading && files.length === 0) {
     return (

@@ -62,16 +62,20 @@ export async function GET(
     Math.max(1, parseInt(searchParams.get('pageSize') ?? '50', 10) || 50)
   )
   const keyword = searchParams.get('keyword') ?? ''
+  // Sprint 2F.4: 接受 siteCode 防跨站点 source_id 冲突
+  const siteCodeFilter = searchParams.get('siteCode') ?? ''
 
   try {
     // 先从 unified_tasks 获取 site_code
+    // Sprint 2F.4: 优先用 UUID 匹配, 否则用 (siteCode, source_id) 组合匹配
     const taskResult = await query<{ source_site_id: string; source_id: string }>(
       `SELECT source_site_id, source_id
        FROM unified_tasks
-       WHERE id::text = $1 OR source_id = $1
+       WHERE id::text = $1
+          OR (source_id = $1 AND ($2 = '' OR source_site_id = $2))
        ORDER BY (id::text = $1) DESC
        LIMIT 1`,
-      [taskId]
+      [taskId, siteCodeFilter]
     )
 
     if (taskResult.rows.length === 0) {

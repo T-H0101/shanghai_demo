@@ -21,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
+import { useSite } from "@/lib/site/site-context"
 import { sites as mockSites } from "@/lib/mock/sites"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
@@ -88,6 +89,9 @@ export default function Page() {
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
   const [syncing, setSyncing] = useState(false)
+
+  // Sprint 2F.4: 全局 siteCode
+  const { siteCode, isAllSites, isReady: siteReady } = useSite()
 
   // 弹窗状态
   const [showAddMedia, setShowAddMedia] = useState(false)
@@ -344,7 +348,10 @@ export default function Page() {
   // 加载数据
   const loadRacks = useCallback(async () => {
     try {
-      const [racksData, statsData] = await Promise.all([rackProvider.getAll(), rackProvider.getStats()])
+      const [racksData, statsData] = await Promise.all([
+        rackProvider.getAll(isAllSites ? undefined : siteCode ?? undefined),
+        rackProvider.getStats(isAllSites ? undefined : siteCode ?? undefined)
+      ])
       setRackList(racksData.length > 0 ? racksData : mockRacks)
       setStats(statsData as any)
       if (!selected) setSelected((racksData.length > 0 ? racksData : mockRacks)[0] ?? null)
@@ -358,9 +365,9 @@ export default function Page() {
       setRackList(mockRacks)
       setRacksDataSource(isApiMode ? "fallback" : "mock")
     }
-  }, [selected])
+  }, [selected, isAllSites, siteCode])
 
-  useEffect(() => { loadRacks() }, [loadRacks])
+  useEffect(() => { if (siteReady) loadRacks() }, [loadRacks, siteReady])
 
   useEffect(() => {
     const handler = (e: Event) => {

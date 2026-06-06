@@ -26,6 +26,7 @@ import { racks as mockRacks } from "@/lib/mock/racks"
 import type { TaskItem, TaskType, TaskPhase, TaskLogEntry } from "@/lib/types/task"
 import { TASK_TYPE_LABELS, TASK_PHASE_LABELS, TASK_PHASE_COLORS, TASK_PHASES_BY_TYPE } from "@/lib/types/task"
 import type { Rack } from "@/lib/types/rack"
+import { useSite } from "@/lib/site/site-context"
 import {
   Activity, Pause, Play, RotateCcw, RefreshCw, AlertTriangle, ClipboardList,
   Search, Download, X, Clock, CheckCircle2, AlertCircle, Timer, FileText,
@@ -160,6 +161,9 @@ function TasksPageContent() {
   const [createForm, setCreateForm] = useState<Partial<TaskItem & { packagingThreads: number }>>({})
   const [tab, setTab] = useState<string>("all")
 
+  // Sprint 2F.4: 全局 siteCode
+  const { siteCode, isAllSites, isReady: siteReady } = useSite()
+
   // 加载数据
   const loadTasks = useCallback(async () => {
     const [list, s] = await Promise.all([
@@ -176,12 +180,15 @@ function TasksPageContent() {
     if (keyword) filters.keyword = keyword
     if (typeFilter !== "all") filters.type = typeFilter
     if (deviceFilter) filters.keyword = deviceFilter
+    if (!isAllSites && siteCode) filters.siteCode = siteCode
     const list = await taskProvider.getAll(filters as any)
     setTasks(list)
-  }, [keyword, typeFilter, deviceFilter])
+  }, [keyword, typeFilter, deviceFilter, isAllSites, siteCode])
 
-  // 初始加载
-  useEffect(() => { loadTasks() }, [])
+  // 初始加载 + 站点切换重新加载
+  useEffect(() => {
+    if (siteReady) loadTasks()
+  }, [loadTasks, siteReady])
 
   const openDetail = (task: TaskItem) => { setSelected(task); setDrawerOpen(true) }
 

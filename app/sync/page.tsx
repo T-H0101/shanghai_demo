@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { RefreshCw, Search, Package, AlertCircle } from 'lucide-react'
+import { useSite } from '@/lib/site/site-context'
 
 interface PackageItem {
   id: string
@@ -108,13 +109,18 @@ export default function SyncCenterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Sprint 2F.4: 全局 siteCode
+  const { siteCode, isAllSites, isReady: siteReady } = useSite()
+
   const loadPackages = useCallback(async () => {
     setLoading(true)
     setError(null)
     const sp = new URLSearchParams()
     sp.set('page', String(page))
     sp.set('pageSize', String(pageSize))
-    if (siteCodeFilter.trim()) sp.set('siteCode', siteCodeFilter.trim())
+    // Sprint 2F.4: 站点代码优先级 = 全局选择 > 页面本地筛选
+    const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
+    if (effectiveSiteCode) sp.set('siteCode', effectiveSiteCode)
     if (statusFilter !== 'all') sp.set('status', statusFilter)
     if (batchIdFilter.trim()) sp.set('batchId', batchIdFilter.trim())
 
@@ -138,7 +144,7 @@ export default function SyncCenterPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, siteCodeFilter, statusFilter, batchIdFilter])
+  }, [page, pageSize, siteCodeFilter, statusFilter, batchIdFilter, isAllSites, siteCode])
 
   const loadTables = useCallback(async (packageId: string) => {
     setTablesLoading(true)
@@ -160,8 +166,8 @@ export default function SyncCenterPage() {
   }, [])
 
   useEffect(() => {
-    loadPackages()
-  }, [loadPackages])
+    if (siteReady) loadPackages()
+  }, [loadPackages, siteReady])
 
   useEffect(() => {
     if (selectedPkg) {

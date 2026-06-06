@@ -1,7 +1,7 @@
 # Project Status
 
-> **截至**: 2026-06-06
-> **Sprint**: 2F.3 完成 (任务详情页收口)
+> **截至**: 2026-06-07
+> **Sprint**: 2F.4 完成 (siteCode 全局筛选)
 
 ## 已完成功能
 
@@ -48,6 +48,7 @@
 - **package endpoint** — 接收站点推送 (Sprint 2D.2 起)
 - **file-index** — 任务级文件/目录索引 (taskId + watermark + limit)
 - **package-log/table-log** — 全程追踪
+- **Sprint 2F.4 全局 siteCode 筛选** — Header 站点选择器, Tasks/Racks/Sync Center 自动联动, localStorage 记忆 + URL 同步, 支持 All Sites 视角
 
 ## 已接入表 (13 张)
 
