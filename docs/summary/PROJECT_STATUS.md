@@ -1,7 +1,7 @@
 # Project Status
 
 > **截至**: 2026-06-07
-> **Sprint**: 2F.4 完成 (siteCode 全局筛选)
+> **Sprint**: 2G.2 完成 (Dashboard 真实总览统计)
 
 ## 已完成功能
 
@@ -29,7 +29,9 @@
 | `GET /api/volumes` | unified_logical_volumes | ✅ |
 | `GET /api/sync/logs` | sync_package_log | ✅ |
 | `GET /api/sync/packages` | sync_package_log | ✅ (Sprint 2D.4) |
-| `POST /api/sync/package` | dispatch registry | ✅ (Sprint 2D.2) |
+| `POST /api/sync/package` | dispatch registry | ✅ (Sprint 2D.2, HMAC Sprint 2G.1) |
+| `GET /api/dashboard/summary` | unified_* + sync_package_log | ✅ (Sprint 2G.2) |
+| `GET /api/dashboard/recent-syncs` | sync_package_log | ✅ (Sprint 2G.2) |
 
 ### 前端页面
 - **Tasks** (`/tasks`) — 真实任务列表 + 详情 drawer + 文件索引后置
@@ -49,6 +51,8 @@
 - **file-index** — 任务级文件/目录索引 (taskId + watermark + limit)
 - **package-log/table-log** — 全程追踪
 - **Sprint 2F.4 全局 siteCode 筛选** — Header 站点选择器, Tasks/Racks/Sync Center 自动联动, localStorage 记忆 + URL 同步, 支持 All Sites 视角
+- **Sprint 2G.1 /api/sync/package HMAC 鉴权** — 写入入口强制 HMAC-SHA256, 5 分钟时间窗, rawBody 优先签名, `crypto.timingSafeEqual` 防侧信道, strict/dev 双模式
+- **Sprint 2G.2 Dashboard 真实总览** — 6 项总览 tile (任务/设备/卷/用户/包/最后同步) + 最近 10 条同步记录, 跟随全局 siteCode, 7/7 SQL 对账匹配, mock 模式自动隐藏
 
 ## 已接入表 (13 张)
 

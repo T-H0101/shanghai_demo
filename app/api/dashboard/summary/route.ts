@@ -1,45 +1,188 @@
 /**
  * GET /api/dashboard/summary
- * 首页统计数据 API
+ * Sprint 2G.2 - 首页真实总览统计
+ *
+ * 统计来源:
+ *   - unified_tasks      (taskCount)
+ *   - unified_devices    (deviceCount)
+ *   - unified_volumes    (volumeCount)
+ *   - unified_users      (userCount)
+ *   - sync_package_log   (packageCount, failedPackageCount, lastSyncAt, successRate, siteCount)
+ *
+ * 参数:
+ *   - siteCode: 可选, 不传 = 全部站点
+ *   - 注: siteCount 仅在 "全部站点" 时返回, 单站点返回 null
  */
 
-import { NextResponse } from "next/server"
-import { tasks, taskStats, taskAlerts } from "@/lib/mock/tasks"
-import { racks, rackStats } from "@/lib/mock/racks"
-import { sites, siteStats } from "@/lib/mock/sites"
-import { adaptDashboardSummary } from "@/lib/api/adapters"
-import type { ApiResponse, DashboardSummaryDTO } from "@/lib/api/dto"
+import { NextRequest, NextResponse } from 'next/server'
+import { query } from '@/lib/db/postgres'
 
-export async function GET() {
+export const dynamic = 'force-dynamic'
+
+interface DashboardSummaryData {
+  taskCount: number
+  deviceCount: number
+  volumeCount: number
+  userCount: number
+  packageCount: number
+  failedPackageCount: number
+  lastSyncAt: string | null
+  successRate: number | null
+  siteCount: number | null
+}
+
+interface ApiResponse<T> {
+  code: number
+  message: string
+  source: 'database'
+  data: T
+  siteCode: string | null
+  generatedAt: string
+}
+
+function emptySummary(siteCode: string | null): DashboardSummaryData {
+  return {
+    taskCount: 0,
+    deviceCount: 0,
+    volumeCount: 0,
+    userCount: 0,
+    packageCount: 0,
+    failedPackageCount: 0,
+    lastSyncAt: null,
+    successRate: null,
+    siteCount: null,
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const siteCodeRaw = request.nextUrl.searchParams.get('siteCode')
+  const siteCode = siteCodeRaw && siteCodeRaw.trim().length > 0 && siteCodeRaw !== '__all__'
+    ? siteCodeRaw.trim()
+    : null
+
   try {
-    const summary = adaptDashboardSummary({
-      taskStats,
-      rackStats,
-      siteStats,
-      alertCount: {
-        critical: taskAlerts.filter(a => a.level === "critical").length,
-        warning: taskAlerts.filter(a => a.level === "warning").length,
-      },
-    })
-
-    const response: ApiResponse<DashboardSummaryDTO> = {
-      code: 0,
-      message: "ok",
-      data: summary,
-      traceId: `api-${Date.now()}`,
+    // 单站点模式
+    if (siteCode) {
+      const r = await query<{
+        task_count: number
+        device_count: number
+        volume_count: number
+        user_count: number
+        package_count: number
+        failed_count: number
+        last_sync: string | null
+        success_count: number
+      }>(
+        `SELECT
+           (SELECT COUNT(*)::int FROM unified_tasks WHERE source_site_id = $1) AS task_count,
+           (SELECT COUNT(*)::int FROM unified_devices WHERE source_site_id = $1) AS device_count,
+           (SELECT COUNT(*)::int FROM unified_volumes WHERE source_site_id = $1) AS volume_count,
+           (SELECT COUNT(*)::int FROM unified_users WHERE source_site_id = $1) AS user_count,
+           (SELECT COUNT(*)::int FROM sync_package_log WHERE site_code = $1) AS package_count,
+           (SELECT COUNT(*)::int FROM sync_package_log WHERE site_code = $1 AND status = 'failed') AS failed_count,
+           (SELECT MAX(finished_at) FROM sync_package_log WHERE site_code = $1) AS last_sync,
+           (SELECT COUNT(*)::int FROM sync_package_log WHERE site_code = $1 AND status = 'success') AS success_count`,
+        [siteCode]
+      )
+      const row = r.rows[0] ?? {
+        task_count: 0,
+        device_count: 0,
+        volume_count: 0,
+        user_count: 0,
+        package_count: 0,
+        failed_count: 0,
+        last_sync: null,
+        success_count: 0,
+      }
+      const total = row.package_count
+      const data: DashboardSummaryData = {
+        taskCount: row.task_count,
+        deviceCount: row.device_count,
+        volumeCount: row.volume_count,
+        userCount: row.user_count,
+        packageCount: row.package_count,
+        failedPackageCount: row.failed_count,
+        lastSyncAt: row.last_sync,
+        successRate: total > 0 ? Math.round((row.success_count / total) * 100) : null,
+        siteCount: null,
+      }
+      const response: ApiResponse<DashboardSummaryData> = {
+        code: 0,
+        message: 'ok',
+        source: 'database',
+        data,
+        siteCode,
+        generatedAt: new Date().toISOString(),
+      }
+      return NextResponse.json(response)
     }
 
+    // 全部站点模式
+    const r = await query<{
+      task_count: number
+      device_count: number
+      volume_count: number
+      user_count: number
+      package_count: number
+      failed_count: number
+      last_sync: string | null
+      success_count: number
+      site_count: number
+    }>(
+      `SELECT
+         (SELECT COUNT(*)::int FROM unified_tasks) AS task_count,
+         (SELECT COUNT(*)::int FROM unified_devices) AS device_count,
+         (SELECT COUNT(*)::int FROM unified_volumes) AS volume_count,
+         (SELECT COUNT(*)::int FROM unified_users) AS user_count,
+         (SELECT COUNT(*)::int FROM sync_package_log) AS package_count,
+         (SELECT COUNT(*)::int FROM sync_package_log WHERE status = 'failed') AS failed_count,
+         (SELECT MAX(finished_at) FROM sync_package_log) AS last_sync,
+         (SELECT COUNT(*)::int FROM sync_package_log WHERE status = 'success') AS success_count,
+         (SELECT COUNT(DISTINCT site_code)::int FROM sync_package_log) AS site_count`
+    )
+    const row = r.rows[0]
+    if (!row) {
+      const response: ApiResponse<DashboardSummaryData> = {
+        code: 0,
+        message: 'ok',
+        source: 'database',
+        data: emptySummary(null),
+        siteCode: null,
+        generatedAt: new Date().toISOString(),
+      }
+      return NextResponse.json(response)
+    }
+    const total = row.package_count
+    const data: DashboardSummaryData = {
+      taskCount: row.task_count,
+      deviceCount: row.device_count,
+      volumeCount: row.volume_count,
+      userCount: row.user_count,
+      packageCount: row.package_count,
+      failedPackageCount: row.failed_count,
+      lastSyncAt: row.last_sync,
+      successRate: total > 0 ? Math.round((row.success_count / total) * 100) : null,
+      siteCount: row.site_count,
+    }
+    const response: ApiResponse<DashboardSummaryData> = {
+      code: 0,
+      message: 'ok',
+      source: 'database',
+      data,
+      siteCode: null,
+      generatedAt: new Date().toISOString(),
+    }
     return NextResponse.json(response)
   } catch (error) {
-    console.error("[API Error] /api/dashboard/summary:", error)
-    return NextResponse.json(
-      {
-        code: 500,
-        message: "Internal server error",
-        data: null,
-        traceId: `api-${Date.now()}`,
-      },
-      { status: 500 }
-    )
+    console.error('[API] /api/dashboard/summary error:', error)
+    const response: ApiResponse<DashboardSummaryData> = {
+      code: 500,
+      message: 'failed to query summary',
+      source: 'database',
+      data: emptySummary(siteCode),
+      siteCode,
+      generatedAt: new Date().toISOString(),
+    }
+    return NextResponse.json(response, { status: 500 })
   }
 }

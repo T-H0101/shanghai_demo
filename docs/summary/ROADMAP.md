@@ -1,7 +1,7 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-06
+> 截至: 2026-06-07
 
 ## 已完成
 
@@ -18,17 +18,19 @@
 - ✅ **2F.2A**: tbl_task_items 接入策略审查 (结论: source_restore 中不存在, 不接入, 文档化待源表)
 - ✅ **2F.3**: 任务详情页收口 (数据源徽章 / 字段空态 / runtime 格式化 / 计数 0 保留 / API vs mock 差异)
 - ✅ **2F.4**: siteCode 全局筛选 (Header 站点选择器 + Tasks/Racks/Sync 联动 + localStorage + URL 同步 + file-index 防跨站)
+- ✅ **2G.1**: `/api/sync/package` HMAC 鉴权 (rawBody 优先签名 + 5min 时间窗 + timingSafeEqual + strict/dev 双模式)
+- ✅ **2G.2**: Dashboard 真实总览 (`/api/dashboard/summary` + `/api/dashboard/recent-syncs` + SummaryBar + RecentSyncs 组件, 7/7 SQL 对账匹配, 跟随全局 siteCode)
 
-## 2F.5 (下一步)
+## 2G.3 (下一步)
 
-**目标**: 多站点真实联调 + tbl_user 鉴权骨架
+**目标**: Dashboard 趋势图表接入真实数据 + 站点级统计卡片
 
 | 任务 | 说明 |
 |---|---|
-| 多站点数据一致性测试 | SH01 / TEST_CLEAN 切换后页面正确性 |
-| 站点级同步摘要 | 在 /sync 顶部加 "当前站点同步摘要" |
-| 站点切换埋点 | localStorage + URL 切换事件, 验证 hydration 安全 |
-| tbl_user 真实 PII 脱敏 | password/token/secret → [REDACTED] 已在 DTO 实现 |
+| SyncTrendChart 真实数据 | `sync_summary_daily` 物化视图 (本 Sprint 未做, 用硬编码 chartData) |
+| site-stats API | 站点聚合卡片 (本 Sprint 标记 deferred, 待 UI 需求) |
+| 站点级同步摘要 | 在 /sync 顶部加 "当前站点同步摘要" (从 2F.5 迁移) |
+| Dashboard 失败重试埋点 | API 失败 → 重试 + 埋点 (已实现重试按钮) |
 
 ## 2D.4 (下一步)
 
