@@ -1,19 +1,22 @@
 /**
  * POST /api/sync/package
  * Sprint 2D.2 - 站点数据包接收接口
+ * Sprint 2G.1 - 增加 HMAC 鉴权
  *
- * 严格白名单：仅 tbl_task / tbl_disc_lib
+ * 严格白名单：仅 ALLOWED_PACKAGE_TABLES 中的表
  * 严禁：tbl_file / tbl_folder
  *
  * 流程:
- * 1. 解析 JSON
- * 2. 校验 payload
- * 3. 幂等检查 (findPackageByBatch)
- * 4. 创建 package log
- * 5. 派发到各表 importer
- * 6. 更新 table log
- * 7. 更新 package log
- * 8. 返回 JSON
+ * 0. 读取 rawBody (用于签名校验)
+ * 1. 鉴权 (HMAC SHA-256, 头: x-site-code/timestamp/nonce/signature)
+ * 2. JSON 解析
+ * 3. 校验 payload
+ * 4. 幂等检查 (findPackageByBatch)
+ * 5. 创建 package log
+ * 6. 派发到各表 importer
+ * 7. 更新 table log
+ * 8. 更新 package log
+ * 9. 返回 JSON
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -32,6 +35,11 @@ import {
   markTableFailed,
 } from '@/lib/sync/package-log'
 import { dispatchTable, type DispatchResult } from '@/lib/sync/package-dispatcher'
+import {
+  extractAuthHeaders,
+  verifySyncPackageRequest,
+  AUTH_ERROR_CODES,
+} from '@/lib/sync/package-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,18 +69,69 @@ interface PackageResponse {
   tables: TableSummary[]
 }
 
-/**
- * TODO: 接入生产鉴权 (API key / mTLS)
- * 当前阶段只校验 siteCode 存在
- */
-function checkSiteCode(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0
+interface AuthErrorResponse {
+  code: 401
+  message: string
+  errorCode: string
+  warning?: string
+}
+
+/** Sprint 2G.1: 返回 401 统一响应 */
+function authErrorResponse(message: string, errorCode: string, warning?: string): NextResponse<AuthErrorResponse> {
+  return NextResponse.json<AuthErrorResponse>(
+    { code: 401, message, errorCode, warning },
+    { status: 401 }
+  )
 }
 
 export async function POST(request: NextRequest) {
+  // 0. 读取 rawBody (签名基于原始字节)
+  let rawBody: string
+  try {
+    rawBody = await request.text()
+  } catch {
+    return NextResponse.json(
+      { code: 400, message: 'failed to read request body' },
+      { status: 400 }
+    )
+  }
+
+  // 1. 鉴权 - 用 rawBody 计算签名
+  const headers = extractAuthHeaders(request.headers)
+
+  // 解析 body 以提取 siteCode (仅用于 siteCode-mismatch 检查)
+  // 即便 parse 失败, 我们也要先鉴权防止明文 body 被处理
+  let payloadSiteCode: string | null = null
+  try {
+    const parsed = JSON.parse(rawBody)
+    if (parsed && typeof parsed === 'object' && 'siteCode' in parsed) {
+      payloadSiteCode = typeof parsed.siteCode === 'string' ? parsed.siteCode : null
+    }
+  } catch {
+    // body 不是 JSON - 鉴权仍按 rawBody 走, 但 siteCode 留 null
+  }
+
+  const auth = verifySyncPackageRequest({
+    siteCode: headers.siteCode,
+    timestamp: headers.timestamp,
+    nonce: headers.nonce,
+    signature: headers.signature,
+    rawBody,
+    payloadSiteCode,
+  })
+
+  if (!auth.ok) {
+    console.warn(`[sync/package] auth failed: ${auth.code} ${auth.message}`)
+    return authErrorResponse(auth.message, auth.code)
+  }
+
+  // dev 模式 warning 也透传
+  const devWarning = auth.warning
+
+  // 2. JSON 解析 (已鉴权, 业务层解析)
   let payload: unknown
   try {
-    payload = await request.json()
+    payload = JSON.parse(rawBody)
   } catch {
     return NextResponse.json(
       { code: 400, message: 'invalid JSON' },
@@ -80,7 +139,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 1. 校验
+  // 3. 校验
   const validation = validatePackagePayload(payload)
   if (!validation.valid) {
     return NextResponse.json(
@@ -94,19 +153,17 @@ export async function POST(request: NextRequest) {
   }
 
   const p = payload as SyncPackagePayload
-  if (!checkSiteCode(p.siteCode)) {
+  if (!p.siteCode || p.siteCode.length === 0) {
     return NextResponse.json(
       { code: 400, message: 'siteCode required' },
       { status: 400 }
     )
   }
 
-  // 2. 幂等检查
+  // 4. 幂等检查
   const existing = await findPackageByBatch(p.siteCode, p.batchId)
   if (existing) {
     if (existing.status === 'success') {
-      // TODO: 严格 checksum 比对 (目前无 SHA 实现)
-      // 当前直接跳过
       const response: PackageResponse = {
         code: 0,
         message: 'batch already completed, skipped',
@@ -123,12 +180,14 @@ export async function POST(request: NextRequest) {
         },
         tables: [],
       }
-      return NextResponse.json(response)
+      const headers2: Record<string, string> = {}
+      if (devWarning) headers2['x-auth-warning'] = devWarning
+      return NextResponse.json(response, { headers: Object.keys(headers2).length > 0 ? headers2 : undefined })
     }
     // running/failed 状态允许重试: 复用现有 log
   }
 
-  // 3. 创建 package log
+  // 5. 创建 package log
   const packageLog = await createPackageLog({
     siteCode: p.siteCode,
     batchId: p.batchId,
@@ -143,12 +202,13 @@ export async function POST(request: NextRequest) {
       receivedAt: new Date().toISOString(),
       source: 'package',
       tables: p.tables.map((t) => t.tableName),
+      authMode: headers.signature ? 'signed' : 'dev-bypass',
     },
   })
 
   await markPackageRunning(packageLog.id)
 
-  // 4. 派发到各表
+  // 6. 派发到各表
   const tableResults: TableSummary[] = []
   let successCount = 0
   let failedCount = 0
@@ -204,7 +264,7 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // 5. 更新 package log
+  // 7. 更新 package log
   if (failedCount === 0) {
     await markPackageSuccess(packageLog.id, {
       tableCount: p.tables.length,
@@ -238,7 +298,10 @@ export async function POST(request: NextRequest) {
     tables: tableResults,
   }
 
+  const responseHeaders: Record<string, string> = {}
+  if (devWarning) responseHeaders['x-auth-warning'] = devWarning
   return NextResponse.json(response, {
     status: failedCount === 0 ? 200 : 207,
+    headers: Object.keys(responseHeaders).length > 0 ? responseHeaders : undefined,
   })
 }

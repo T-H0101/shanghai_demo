@@ -7,6 +7,7 @@
 
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
+import { createHmac, randomBytes } from 'crypto'
 
 function loadEnvLocal(): void {
   const envPath = resolve(process.cwd(), '.env.local')
@@ -25,6 +26,26 @@ function loadEnvLocal(): void {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
+}
+
+/** Sprint 2G.1: 为 smoke 请求加 HMAC 签名 (strict 模式需要) */
+function buildAuthHeaders(rawBody: string, siteCode: string): Record<string, string> {
+  const mode = (process.env.SYNC_PACKAGE_AUTH_MODE ?? 'strict').toLowerCase()
+  if (mode === 'dev') {
+    // dev 模式可无签名, 但仍带签名以测试 strict 路径
+  }
+  const secret = process.env.SYNC_PACKAGE_SECRET ?? 'TEST_SYNC_SECRET'
+  const ts = Date.now()
+  const nonce = randomBytes(8).toString('hex')
+  const signingString = `${ts}.${nonce}.${rawBody}`
+  const sig = createHmac('sha256', secret).update(signingString, 'utf8').digest('hex')
+  return {
+    'Content-Type': 'application/json',
+    'x-site-code': siteCode,
+    'x-timestamp': String(ts),
+    'x-nonce': nonce,
+    'x-signature': sig,
+  }
 }
 
 async function main(): Promise<void> {
@@ -93,10 +114,11 @@ async function main(): Promise<void> {
     assert(tables.rowCount === 4, '核心表检查失败')
 
     const post = async () => {
+      const rawBody = JSON.stringify(payload)
       const request = new NextRequest('http://localhost/api/sync/package', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: buildAuthHeaders(rawBody, siteCode),
+        body: rawBody,
       })
       const response = await POST(request)
       return {
