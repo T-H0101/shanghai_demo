@@ -1,0 +1,411 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { AppShell } from '@/components/layout/app-shell'
+import { PageHeader } from '@/components/platform/page-header'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { RefreshCw, Search, Package, AlertCircle } from 'lucide-react'
+
+interface PackageItem {
+  id: string
+  siteCode: string
+  batchId: string
+  mode: string
+  version: string | null
+  status: string
+  tableCount: number
+  totalRecordCount: number
+  successTableCount: number
+  failedTableCount: number
+  errorMessage: string | null
+  startedAt: string | null
+  finishedAt: string | null
+  createdAt: string
+}
+
+interface TableItem {
+  id: string
+  packageLogId: string | null
+  siteCode: string
+  batchId: string
+  tableName: string
+  syncMode: string
+  status: string
+  expectedRecordCount: number | null
+  processedRecordCount: number
+  insertedCount: number
+  updatedCount: number
+  skippedCount: number
+  failedCount: number
+  errorMessage: string | null
+  startedAt: string | null
+  finishedAt: string | null
+  createdAt: string
+}
+
+interface PackageListResponse {
+  code: number
+  message: string
+  source: 'database'
+  data: {
+    items: PackageItem[]
+    total: number
+    page: number
+    pageSize: number
+  }
+}
+
+interface TableListResponse {
+  code: number
+  message: string
+  source: 'database'
+  data: TableItem[]
+}
+
+function statusColor(status: string): string {
+  switch (status) {
+    case 'success':
+      return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    case 'failed':
+      return 'bg-red-100 text-red-700 border-red-200'
+    case 'running':
+      return 'bg-blue-100 text-blue-700 border-blue-200'
+    case 'duplicated':
+      return 'bg-amber-100 text-amber-700 border-amber-200'
+    case 'skipped':
+      return 'bg-slate-100 text-slate-700 border-slate-200'
+    default:
+      return 'bg-slate-100 text-slate-700 border-slate-200'
+  }
+}
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleString('zh-CN')
+  } catch {
+    return iso
+  }
+}
+
+export default function SyncCenterPage() {
+  const [packages, setPackages] = useState<PackageItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(20)
+  const [siteCodeFilter, setSiteCodeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [batchIdFilter, setBatchIdFilter] = useState('')
+  const [selectedPkg, setSelectedPkg] = useState<string | null>(null)
+  const [tables, setTables] = useState<TableItem[]>([])
+  const [tablesLoading, setTablesLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadPackages = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    const sp = new URLSearchParams()
+    sp.set('page', String(page))
+    sp.set('pageSize', String(pageSize))
+    if (siteCodeFilter.trim()) sp.set('siteCode', siteCodeFilter.trim())
+    if (statusFilter !== 'all') sp.set('status', statusFilter)
+    if (batchIdFilter.trim()) sp.set('batchId', batchIdFilter.trim())
+
+    try {
+      const res = await fetch(`/api/sync/packages?${sp.toString()}`)
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error(errBody.message ?? `HTTP ${res.status}`)
+      }
+      const json: PackageListResponse = await res.json()
+      if (json.source !== 'database') {
+        throw new Error('Unexpected source: ' + json.source)
+      }
+      setPackages(json.data.items)
+      setTotal(json.data.total)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      setError(msg)
+      setPackages([])
+      setTotal(0)
+    } finally {
+      setLoading(false)
+    }
+  }, [page, pageSize, siteCodeFilter, statusFilter, batchIdFilter])
+
+  const loadTables = useCallback(async (packageId: string) => {
+    setTablesLoading(true)
+    try {
+      const res = await fetch(`/api/sync/packages/${packageId}/tables`)
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error(errBody.message ?? `HTTP ${res.status}`)
+      }
+      const json: TableListResponse = await res.json()
+      setTables(json.data)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      console.error('Load tables failed:', msg)
+      setTables([])
+    } finally {
+      setTablesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadPackages()
+  }, [loadPackages])
+
+  useEffect(() => {
+    if (selectedPkg) {
+      loadTables(selectedPkg)
+    } else {
+      setTables([])
+    }
+  }, [selectedPkg, loadTables])
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  return (
+    <AppShell>
+      <div className="space-y-5">
+        <PageHeader
+          title="同步中心"
+          description="查看站点推送到总控的数据包批次和表级同步状态"
+        />
+
+        {/* 筛选器 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Search className="h-4 w-4" />筛选条件
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <Label htmlFor="siteCode" className="text-xs">站点代码</Label>
+                <Input
+                  id="siteCode"
+                  placeholder="如 SH01"
+                  value={siteCodeFilter}
+                  onChange={(e) => setSiteCodeFilter(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="status" className="text-xs">状态</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger id="status" className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="success">success</SelectItem>
+                    <SelectItem value="failed">failed</SelectItem>
+                    <SelectItem value="running">running</SelectItem>
+                    <SelectItem value="duplicated">duplicated</SelectItem>
+                    <SelectItem value="skipped">skipped</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="batchId" className="text-xs">批次 ID</Label>
+                <Input
+                  id="batchId"
+                  placeholder="模糊匹配"
+                  value={batchIdFilter}
+                  onChange={(e) => setBatchIdFilter(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button
+                  onClick={() => {
+                    setPage(1)
+                    loadPackages()
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  <Search className="h-4 w-4" />查询
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSiteCodeFilter('')
+                    setStatusFilter('all')
+                    setBatchIdFilter('')
+                    setPage(1)
+                  }}
+                >
+                  重置
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Package 表格 */}
+        <Card>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              同步批次 (共 {total} 条)
+            </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => loadPackages()}
+              disabled={loading}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {error ? (
+              <div className="text-center py-8 text-red-600 text-sm flex items-center justify-center gap-2">
+                <AlertCircle className="h-4 w-4" />同步日志加载失败: {error}
+              </div>
+            ) : loading && packages.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 text-sm">加载中...</div>
+            ) : packages.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 text-sm">暂无同步批次</div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">站点</TableHead>
+                      <TableHead className="text-xs">批次 ID</TableHead>
+                      <TableHead className="text-xs">状态</TableHead>
+                      <TableHead className="text-xs text-right">表数</TableHead>
+                      <TableHead className="text-xs text-right">记录数</TableHead>
+                      <TableHead className="text-xs text-right">成功/失败</TableHead>
+                      <TableHead className="text-xs">开始</TableHead>
+                      <TableHead className="text-xs">结束</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {packages.map((pkg) => (
+                      <TableRow
+                        key={pkg.id}
+                        onClick={() => setSelectedPkg(pkg.id)}
+                        className={`cursor-pointer hover:bg-slate-50 ${selectedPkg === pkg.id ? 'bg-blue-50' : ''}`}
+                      >
+                        <TableCell className="text-xs font-mono">{pkg.siteCode}</TableCell>
+                        <TableCell className="text-xs font-mono max-w-xs truncate" title={pkg.batchId}>
+                          {pkg.batchId}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`text-[10px] ${statusColor(pkg.status)}`}>
+                            {pkg.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-right">{pkg.tableCount}</TableCell>
+                        <TableCell className="text-xs text-right">{pkg.totalRecordCount}</TableCell>
+                        <TableCell className="text-xs text-right">
+                          <span className="text-emerald-600">{pkg.successTableCount}</span>
+                          <span className="text-slate-400 mx-1">/</span>
+                          <span className="text-red-600">{pkg.failedTableCount}</span>
+                        </TableCell>
+                        <TableCell className="text-xs">{formatDateTime(pkg.startedAt)}</TableCell>
+                        <TableCell className="text-xs">{formatDateTime(pkg.finishedAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      上一页
+                    </Button>
+                    <span className="text-xs">第 {page} / {totalPages} 页</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                    >
+                      下一页
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Table 明细 */}
+        {selectedPkg && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">批次明细</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tablesLoading ? (
+                <div className="text-center py-6 text-slate-500 text-sm">加载表明细中...</div>
+              ) : tables.length === 0 ? (
+                <div className="text-center py-6 text-slate-500 text-sm">该批次无表级日志</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">表名</TableHead>
+                      <TableHead className="text-xs">状态</TableHead>
+                      <TableHead className="text-xs text-right">预期/处理</TableHead>
+                      <TableHead className="text-xs text-right">插入/更新</TableHead>
+                      <TableHead className="text-xs text-right">跳过/失败</TableHead>
+                      <TableHead className="text-xs">错误</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tables.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="text-xs font-mono">{t.tableName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`text-[10px] ${statusColor(t.status)}`}>
+                            {t.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-right">
+                          {t.expectedRecordCount ?? '—'} / {t.processedRecordCount}
+                        </TableCell>
+                        <TableCell className="text-xs text-right">
+                          <span className="text-emerald-600">{t.insertedCount}</span>
+                          <span className="text-slate-400 mx-1">/</span>
+                          <span className="text-blue-600">{t.updatedCount}</span>
+                        </TableCell>
+                        <TableCell className="text-xs text-right">
+                          <span className="text-amber-600">{t.skippedCount}</span>
+                          <span className="text-slate-400 mx-1">/</span>
+                          <span className="text-red-600">{t.failedCount}</span>
+                        </TableCell>
+                        <TableCell className="text-xs text-red-600 max-w-xs truncate" title={t.errorMessage ?? ''}>
+                          {t.errorMessage ?? '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </AppShell>
+  )
+}

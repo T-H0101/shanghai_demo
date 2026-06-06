@@ -88,7 +88,11 @@ export interface TableSummary {
 export interface PackageLogFilters {
   siteCode?: string
   status?: PackageLogStatus
+  batchId?: string
+  dateFrom?: string
+  dateTo?: string
   limit?: number
+  offset?: number
 }
 
 const DEFAULT_LIMIT = 50
@@ -285,11 +289,29 @@ export async function listPackageLogs(filters: PackageLogFilters = {}): Promise<
     conditions.push(`status = $${paramIndex++}`)
     params.push(filters.status)
   }
+  if (filters.batchId) {
+    conditions.push(`batch_id ILIKE $${paramIndex++}`)
+    params.push(`%${filters.batchId}%`)
+  }
+  if (filters.dateFrom) {
+    conditions.push(`created_at >= $${paramIndex++}`)
+    params.push(filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    conditions.push(`created_at <= $${paramIndex++}`)
+    params.push(filters.dateTo)
+  }
 
   params.push(clampLimit(filters.limit))
+  if (filters.offset !== undefined && filters.offset > 0) {
+    params.push(filters.offset)
+  }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const offsetClause = filters.offset !== undefined && filters.offset > 0
+    ? `OFFSET $${paramIndex + 1}`
+    : ''
   const result = await query<SyncPackageLog>(
-    `SELECT * FROM sync_package_log ${where} ORDER BY created_at DESC LIMIT $${paramIndex}`,
+    `SELECT * FROM sync_package_log ${where} ORDER BY created_at DESC LIMIT $${paramIndex} ${offsetClause}`,
     params
   )
   return result.rows.map(packageRow)
@@ -301,4 +323,40 @@ export async function listTableLogs(packageLogId: string): Promise<SyncTableLog[
     [packageLogId]
   )
   return result.rows.map(tableRow)
+}
+
+export async function countPackageLogs(
+  filters: Omit<PackageLogFilters, 'limit' | 'offset'> = {}
+): Promise<number> {
+  const conditions: string[] = []
+  const params: unknown[] = []
+  let paramIndex = 1
+
+  if (filters.siteCode) {
+    conditions.push(`site_code = $${paramIndex++}`)
+    params.push(filters.siteCode)
+  }
+  if (filters.status) {
+    conditions.push(`status = $${paramIndex++}`)
+    params.push(filters.status)
+  }
+  if (filters.batchId) {
+    conditions.push(`batch_id ILIKE $${paramIndex++}`)
+    params.push(`%${filters.batchId}%`)
+  }
+  if (filters.dateFrom) {
+    conditions.push(`created_at >= $${paramIndex++}`)
+    params.push(filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    conditions.push(`created_at <= $${paramIndex++}`)
+    params.push(filters.dateTo)
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const result = await query<{ count: string }>(
+    `SELECT COUNT(*)::text as count FROM sync_package_log ${where}`,
+    params
+  )
+  return parseInt(result.rows[0]?.count ?? '0', 10)
 }
