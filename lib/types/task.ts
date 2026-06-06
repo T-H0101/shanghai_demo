@@ -144,6 +144,7 @@ export interface TaskItem {
   successCount?: number     // 成功数
   errorCount?: number        // 异常数
   speed?: string             // 当前速度
+  remainingTime?: string     // 剩余时间（仅真实来源存在时展示）
 
   // 多线程封包
   packagingThreads?: PackagingThread[]

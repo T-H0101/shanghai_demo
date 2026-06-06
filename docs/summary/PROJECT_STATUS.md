@@ -1,7 +1,7 @@
 # Project Status
 
 > **截至**: 2026-06-06
-> **Sprint**: 2C.18D + 2D.1 + 2D.2 + 2D.3 完成
+> **Sprint**: 2D.6 完成
 
 ## 已完成功能
 
@@ -11,6 +11,7 @@
 - `unified_volumes` — 逻辑卷主表
 - `unified_disc_media` — 物理盘片
 - `unified_hard_disks` — 硬盘主表
+- `unified_slots` — 盘位明细中心表（当前仅 1 条 package 测试记录）
 - `unified_file_index` — 任务级文件索引 (Sprint 2C.18)
 - `unified_folder_index` — 任务级目录索引
 - `sync_package_log` — 同步包日志
@@ -24,7 +25,7 @@
 | `GET /api/tasks/[id]/files` | unified_file_index | ✅ (Sprint 2C.19) |
 | `GET /api/racks` | unified_devices | ✅ |
 | `GET /api/racks/[id]` | unified_devices | ✅ |
-| `GET /api/racks/[id]/slots` | unified_slots | ✅ |
+| `GET /api/racks/[id]/slots` | unified_slots | ✅ 真实中心库；无明细返回 empty |
 | `GET /api/volumes` | unified_logical_volumes | ✅ |
 | `GET /api/sync/logs` | sync_package_log | ✅ |
 | `POST /api/sync/package` | dispatch registry | ✅ (Sprint 2D.2) |
@@ -32,8 +33,8 @@
 ### 前端页面
 - **Tasks** (`/tasks`) — 真实任务列表 + 详情 drawer + 文件索引后置
 - **Racks** (`/racks`) — 设备列表
-- **Volumes** (`/volumes`) — 逻辑卷列表
-- **Logs** (`/logs`) — 同步日志
+- **Sync Center** (`/sync`) — package/table 同步日志
+- `/volumes` 页面尚未实现，当前仅有真实 `/api/volumes`
 
 ### 同步能力
 - **小表 CLI import** — 9 张小表 + file-index
@@ -48,7 +49,7 @@
 | tbl_task | unified_tasks | full | done |
 | tbl_disc_lib | unified_devices | full | done |
 | tbl_magzines | (unified_devices join) | aggregate | done |
-| tbl_slots | (unified_devices join) | aggregate | done |
+| tbl_slots | unified_devices 汇总 + unified_slots 明细 | full/aggregate | partial：汇总完成，明细待站点真实 package |
 | tbl_hd_info | unified_hard_disks | full | done |
 | tbl_lib_task | (unified_tasks join) | aggregate | done |
 | tbl_disc | unified_disc_media | full | done |
@@ -63,10 +64,20 @@
 ## 未完成
 
 ### 短期
+- 让站点按真实 `tbl_slots` 字段推送盘位明细，并修正 package mapper
+- 补充任务实时进度、速度、剩余时间的站点数据源
 - 多站点筛选
 - 同步日志页面 UI 增强
 - package 鉴权 (生产 API key / mTLS)
 - package 严格 checksum (SHA-256)
+
+## Sprint 2D.6 结论
+
+- Racks 盘位格子不再根据 `totalSlots` 推断为空闲。
+- API mode 仅显示 `unified_slots` 已同步明细；没有明细时显示空态并保留汇总。
+- Tasks 的非完成任务没有可靠实时进度来源，继续显示 `—`，不做自动增长。
+- `speed`、`remainingTime`、未同步的 `sm3Status` 均显示 `—`。
+- 设备控制 API 未实现；API mode 继续明确提示，不伪造成功。
 
 ### 中期
 - 站点侧推送客户端 (CLI / Agent)

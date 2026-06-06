@@ -23,11 +23,27 @@ export interface RackSlot {
   index: number
   occupied: boolean
   status: SlotStatus
+  sourceSiteId?: string
+  sourceTable?: string
+  sourceId?: string
+  cageId?: string
+  cageName?: string
+  cageIndex?: number
+  slotId?: string
   discNo?: string
   label?: string
   mediaType?: "hdd" | "bd" | "offline"
   capacity?: string
+  usedCapacity?: string
+  remainingCapacity?: string
   volumeId?: string
+}
+
+export interface RackSlotGroup {
+  cageId: string
+  cageName: string
+  cageIndex: number
+  slots: RackSlot[]
 }
 
 export interface DeviceTray {

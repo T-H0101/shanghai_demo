@@ -11,6 +11,7 @@ import type {
 } from "./providers"
 import { fetchWithFallback } from "./fallback"
 import { mockSiteProvider, mockTaskProvider, mockUserProvider, mockRackProvider } from "./mock-providers"
+import type { RackSlotDetailDTO } from "./dto"
 
 const API_BASE = ""
 
@@ -176,6 +177,19 @@ let _racksDataSource: "database" | "fallback" = "fallback"
 
 export function getRacksDataSource(): "database" | "fallback" {
   return _racksDataSource
+}
+
+export async function fetchRackSlots(
+  rackId: string,
+  siteCode: string
+): Promise<RackSlotDetailDTO> {
+  const response = await fetch(
+    `${API_BASE}/api/racks/${encodeURIComponent(rackId)}/slots?siteCode=${encodeURIComponent(siteCode)}`
+  )
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const json = await response.json()
+  if (json.code !== 0) throw new Error(json.message)
+  return json.data
 }
 
 function parseCapacity(value?: string): number {

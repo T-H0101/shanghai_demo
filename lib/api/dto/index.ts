@@ -168,6 +168,7 @@ export interface TaskDTO {
   successCount?: number
   errorCount?: number
   speed?: string
+  remainingTime?: string
 
   // 多线程封包
   packagingThreads?: PackagingThreadDTO[]
@@ -209,11 +210,34 @@ export interface RackSlotDTO {
   index: number
   occupied: boolean
   status: SlotStatus
+  sourceSiteId?: string
+  sourceTable?: string
+  sourceId?: string
+  cageId?: string
+  cageName?: string
+  cageIndex?: number
+  slotId?: string
   discNo?: string
   label?: string
   mediaType?: MediaType
   capacity?: string
+  usedCapacity?: string
+  remainingCapacity?: string
   volumeId?: string
+}
+
+export interface RackSlotGroupDTO {
+  cageId: string
+  cageName: string
+  cageIndex: number
+  slots: RackSlotDTO[]
+}
+
+export interface RackSlotDetailDTO {
+  rackId: string
+  siteCode: string
+  cages: RackSlotGroupDTO[]
+  slots: RackSlotDTO[]
 }
 
 export interface DeviceTrayDTO {

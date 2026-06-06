@@ -538,8 +538,9 @@ function TasksPageContent() {
                     <MiniStat label="成功数" value={selected.successCount?.toString() ?? "—"} />
                     <MiniStat label="异常数" value={selected.errorCount?.toString() ?? "—"} />
                     <MiniStat label="当前速度" value={selected.speed ?? "—"} />
+                    <MiniStat label="剩余时间" value={selected.remainingTime ?? "—"} />
                     <MiniStat label="任务进度" value={selected.progress > 0 ? `${selected.progress}%` : "—"} />
-                    <MiniStat label="SM3 状态" value={selected.sm3Status === "completed" ? "通过" : selected.sm3Status === "failed" ? "失败" : selected.sm3Status === "in_progress" ? "进行中" : "待校验"} />
+                    <MiniStat label="SM3 状态" value={selected.sm3Status === "completed" ? "通过" : selected.sm3Status === "failed" ? "失败" : selected.sm3Status === "in_progress" ? "进行中" : selected.sm3Status === "pending" ? "待校验" : "—"} />
                   </div>
                   {selected.errorMessage && (
                     <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">

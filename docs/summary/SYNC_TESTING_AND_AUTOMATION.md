@@ -6,6 +6,7 @@
 - `NEXT_PUBLIC_API_MODE=mock`：页面只使用 mock provider，不请求真实数据 API。
 - `/sync` 始终读取 `/api/sync/packages` 与表级日志接口。
 - API 模式目前只支持设备数据展示；设备控制、挂载、介质写入和设备任务创建接口尚未接入，前端会明确提示。
+- Racks 盘位明细读取中心库 `/api/racks/{rackId}/slots?siteCode=...`；无中心明细时显示空态，不回退成 mock 空闲格子。
 
 ## 手工同步
 
@@ -64,6 +65,14 @@ pnpm smoke:sync
 
 脚本不读取或写入 `tbl_file`、`tbl_folder`，不触发 `import:all`。
 
+盘位接口人工检查：
+
+```bash
+curl "http://localhost:3000/api/racks/1/slots?siteCode=TEST_CLEAN"
+```
+
+返回 `source=empty` 表示设备汇总存在、盘位明细尚未推送，不是接口失败。
+
 ## 每小时同步设计
 
 1. 站点侧 cron 每小时执行小表导出、打包并调用 `POST /api/sync/package`。
@@ -77,3 +86,5 @@ pnpm smoke:sync
 - 真实设备控制 API 未接入；API 模式下操作按钮只提示，不会伪造成功结果。
 - `/volumes` 业务页面尚不存在，当前仅提供 `/api/volumes`。
 - package checksum 当前保留字段，尚未实现严格 SHA-256 比对。
+- `unified_slots` 当前只有 package 测试数据；真实 `tbl_slots` 明细尚未完成 package 字段映射。
+- 任务实时 `progress/speed/remainingTime` 没有可靠站点来源，API mode 不做推算或动画。

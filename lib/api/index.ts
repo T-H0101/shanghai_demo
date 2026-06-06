@@ -31,6 +31,7 @@ import {
   fetchDashboardSummary,
   fetchVolumes,
   fetchAlerts,
+  fetchRackSlots,
 } from "./api-providers"
 
 export type ApiMode = "mock" | "api"
@@ -182,6 +183,7 @@ export {
   apiTaskProvider,
   apiUserProvider,
   apiRackProvider,
+  fetchRackSlots,
 }
 
 // 数据源追踪

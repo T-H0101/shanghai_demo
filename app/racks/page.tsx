@@ -18,11 +18,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { rackProvider, taskProvider, getRacksDataSource, isApiMode } from "@/lib/api"
+import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
 import { sites as mockSites } from "@/lib/mock/sites"
-import type { Rack, RackSlot, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
+import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
 import type { TaskItem } from "@/lib/types/task"
 import type { AddMediaInput, MountInput, CreateTaskInput } from "@/lib/api/providers"
@@ -82,6 +82,8 @@ export default function Page() {
   })
   const [selected, setSelected] = useState<Rack | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [slotGroups, setSlotGroups] = useState<RackSlotGroup[]>([])
+  const [slotDetailStatus, setSlotDetailStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle")
   const [racksDataSource, setRacksDataSource] = useState<"database" | "fallback" | "mock">("mock")
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
@@ -410,7 +412,36 @@ export default function Page() {
     return map
   }, [rackList])
 
-  const openDetail = (rack: Rack) => { setSelected(rack); setDrawerOpen(true) }
+  const loadSlotDetails = async (rack: Rack) => {
+    if (!isApiMode) {
+      setSlotGroups([])
+      setSlotDetailStatus(rack.slots?.length > 0 ? "ready" : "empty")
+      return
+    }
+
+    setSlotGroups([])
+    setSlotDetailStatus("loading")
+    setSelected(current => current?.siteCode === rack.siteCode && current?.rackId === rack.rackId
+      ? { ...current, slots: [] }
+      : current)
+
+    try {
+      const detail = await fetchRackSlots(rack.rackId, rack.siteCode)
+      setSlotGroups(detail.cages as RackSlotGroup[])
+      setSelected(current => current?.siteCode === rack.siteCode && current?.rackId === rack.rackId
+        ? { ...current, slots: detail.slots as RackSlot[], cages: detail.cages.map(cage => cage.cageName) }
+        : current)
+      setSlotDetailStatus(detail.slots.length > 0 ? "ready" : "empty")
+    } catch {
+      setSlotDetailStatus("error")
+    }
+  }
+
+  const openDetail = (rack: Rack) => {
+    setSelected(rack)
+    setDrawerOpen(true)
+    void loadSlotDetails(rack)
+  }
 
   const handleSync = async () => {
     setSyncing(true)
@@ -536,7 +567,50 @@ export default function Page() {
     }
   }
 
-  const openDrawerDetail = (rack: Rack) => { setSelected(rack); setDrawerOpen(true) }
+  const openDrawerDetail = openDetail
+
+  const renderSlotCell = (slot: RackSlot | undefined, index: number, key: string) => {
+    const isOccupied = slot?.occupied
+    const isError = slot?.status === "error"
+    const status = isError ? "error" : isOccupied ? "used" : slot ? "free" : "empty"
+    const sc = slotStatusColor[status]
+
+    return (
+      <Tooltip key={key}>
+        <TooltipTrigger asChild>
+          {isOccupied || isError ? (
+            <button
+              className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer transition-colors", sc.bg, sc.text, isError && "ring-2 ring-red-400")}
+              onClick={() => {
+                toast({
+                  title: `盘位 ${index} 信息`,
+                  description: `编号: ${slot?.discNo ?? "—"} | 类型: ${slot?.mediaType === "hdd" ? "硬盘" : slot?.mediaType === "bd" ? "蓝光" : "离线"} | 容量: ${slot?.capacity ?? "—"}`
+                })
+              }}
+            >
+              <span>{index}</span>
+              <span className="text-[8px] opacity-75">{isError ? "异常" : "已用"}</span>
+            </button>
+          ) : (
+            <button
+              className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer border transition-colors", sc.bg, sc.text, sc.border)}
+              onClick={() => isApiMode ? showApiWriteUnavailable("添加介质") : openAddMedia(index)}
+            >
+              <span>{index}</span>
+              <Plus className="h-2.5 w-2.5" />
+            </button>
+          )}
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">
+            盘位 {index}: {slot?.occupied
+              ? `${slot.discNo ?? "已占用"} (${slot.mediaType === "hdd" ? "硬盘" : slot.mediaType === "bd" ? "蓝光" : "离线"})`
+              : "空闲"}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
 
   return (
     <AppShell>
@@ -811,7 +885,7 @@ export default function Page() {
                 )}
 
                 {/* 盘位信息 */}
-                {selected.totalSlots > 0 && (
+                {(selected.totalSlots > 0 || slotDetailStatus !== "idle") && (
                   <>
                     <Separator />
                     <section>
@@ -819,55 +893,52 @@ export default function Page() {
                         <Grid3X3 className="h-4 w-4 text-slate-400" />盘位信息
                         <span className="text-xs font-normal text-slate-400">（{selected.usedSlots}/{selected.totalSlots} 已占用）</span>
                       </h4>
-                      <TooltipProvider>
-                        <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(8, selected.totalSlots)}, minmax(0, 1fr))` }}>
-                          {Array.from({ length: selected.totalSlots }, (_, i) => {
-                            const slot = selected.slots?.find(s => s.index === i + 1)
-                            const isOccupied = slot?.occupied
-                            const isError = slot?.status === "error"
-                            const status = isOccupied ? "used" : slot ? "free" : "empty"
-                            const sc = slotStatusColor[status]
-                            return (
-                              <Tooltip key={i}>
-                                <TooltipTrigger asChild>
-                                  {isOccupied ? (
-                                    <button
-                                      className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer transition-colors", sc.bg, sc.text, isError && "ring-2 ring-red-400")}
-                                      onClick={() => {
-                                        toast({
-                                          title: `盘位 ${i + 1} 信息`,
-                                          description: `编号: ${slot.discNo ?? "—"} | 类型: ${slot.mediaType === "hdd" ? "硬盘" : slot.mediaType === "bd" ? "蓝光" : "离线"} | 容量: ${slot.capacity ?? "—"}`
-                                        })
-                                      }}
-                                    >
-                                      <span>{i + 1}</span>
-                                      <span className="text-[8px] opacity-75">{isError ? "异常" : "已用"}</span>
-                                    </button>
-                                  ) : (
-                                    <button
-                                      className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer border transition-colors", sc.bg, sc.text, sc.border)}
-                                      onClick={() => openAddMedia(i + 1)}
-                                    >
-                                      <span>{i + 1}</span>
-                                      <Plus className="h-2.5 w-2.5" />
-                                    </button>
-                                  )}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="text-xs">
-                                    盘位 {i + 1}: {slot?.occupied ? `${slot.discNo ?? "已占用"} (${slot.mediaType === "hdd" ? "硬盘" : slot.mediaType === "bd" ? "蓝光" : "离线"})` : "空闲 — 点击上方 + 添加"}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )
-                          })}
+                      {isApiMode && slotDetailStatus === "loading" && (
+                        <div className="py-6 text-center text-xs text-slate-400">正在加载盘位明细...</div>
+                      )}
+                      {isApiMode && slotDetailStatus === "empty" && (
+                        <div className="py-6 text-center text-xs text-slate-400">
+                          盘位明细未同步，当前仅展示汇总
                         </div>
+                      )}
+                      {isApiMode && slotDetailStatus === "error" && (
+                        <div className="py-6 text-center text-xs text-red-500">
+                          盘位明细加载失败，当前仅展示汇总
+                        </div>
+                      )}
+                      <TooltipProvider>
+                        {isApiMode && slotDetailStatus === "ready" && (
+                          <div className="space-y-4">
+                            {slotGroups.map(group => (
+                              <div key={`${selected.siteCode}-${selected.rackId}-${group.cageId}`}>
+                                <p className="mb-2 text-xs font-medium text-slate-600">{group.cageName}</p>
+                                <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(8, Math.max(1, group.slots.length))}, minmax(0, 1fr))` }}>
+                                  {group.slots.map(slot => renderSlotCell(
+                                    slot,
+                                    slot.index,
+                                    `${slot.sourceSiteId}-${slot.sourceTable}-${slot.sourceId}-${slot.id}`
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {!isApiMode && (
+                          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(8, selected.totalSlots)}, minmax(0, 1fr))` }}>
+                            {Array.from({ length: selected.totalSlots }, (_, i) => {
+                              const slot = selected.slots?.find(s => s.index === i + 1)
+                              return renderSlotCell(slot, i + 1, `${selected.siteCode}-${selected.rackId}-${i + 1}`)
+                            })}
+                          </div>
+                        )}
                       </TooltipProvider>
-                      <div className="flex gap-4 text-xs text-slate-500 mt-3">
-                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-600" />已使用</span>
-                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-100 border border-slate-200" />空闲</span>
-                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-red-500" />异常</span>
-                      </div>
+                      {(!isApiMode || slotDetailStatus === "ready") && (
+                        <div className="flex gap-4 text-xs text-slate-500 mt-3">
+                          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-600" />已使用</span>
+                          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-100 border border-slate-200" />空闲</span>
+                          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-red-500" />异常</span>
+                        </div>
+                      )}
                     </section>
                   </>
                 )}
