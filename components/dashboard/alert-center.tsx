@@ -45,7 +45,7 @@ export function AlertCenter() {
       // 失败任务
       tasks.filter(t => t.phase === "failed").forEach(t => {
         items.push({
-          id: `task-${t.id}`,
+          id: `task-${t.siteCode}-${t.taskNo}-${t.id}`,
           type: "task_failed",
           level: "error",
           message: `任务失败：${t.name}`,
@@ -58,7 +58,7 @@ export function AlertCenter() {
       // 异常/离线设备
       racks.filter(r => r.deviceStatus === "offline" || r.deviceStatus === "error").forEach(r => {
         items.push({
-          id: `device-${r.id}`,
+          id: `device-${r.siteCode}-${r.rackId}-${r.id}`,
           type: r.deviceStatus === "offline" ? "device_offline" : "device_error",
           level: r.deviceStatus === "offline" ? "warning" : "error",
           message: `设备${r.deviceStatus === "offline" ? "离线" : "异常"}：${r.rackId}`,
@@ -71,7 +71,7 @@ export function AlertCenter() {
       // 高使用率设备
       racks.filter(r => r.usagePercent >= 90).forEach(r => {
         items.push({
-          id: `usage-${r.id}`,
+          id: `usage-${r.siteCode}-${r.rackId}-${r.id}`,
           type: "device_error",
           level: "warning",
           message: `容量告警：${r.rackId}`,

@@ -18,6 +18,8 @@ export const dynamic = 'force-dynamic'
 
 interface FileIndexItem {
   id: string
+  source_site_id: string
+  source_table: string
   source_id: string
   file_name: string
   file_size: string | null
@@ -63,8 +65,12 @@ export async function GET(
 
   try {
     // 先从 unified_tasks 获取 site_code
-    const taskResult = await query<{ source_site_id: string }>(
-      `SELECT source_site_id FROM unified_tasks WHERE source_id = $1 LIMIT 1`,
+    const taskResult = await query<{ source_site_id: string; source_id: string }>(
+      `SELECT source_site_id, source_id
+       FROM unified_tasks
+       WHERE id::text = $1 OR source_id = $1
+       ORDER BY (id::text = $1) DESC
+       LIMIT 1`,
       [taskId]
     )
 
@@ -84,11 +90,12 @@ export async function GET(
     }
 
     const siteCode = taskResult.rows[0].source_site_id
+    const taskSourceId = taskResult.rows[0].source_id
 
     // 构建 WHERE 条件
-    const conditions = ['task_source_id = $1']
-    const params: (string | number)[] = [taskId]
-    let paramIndex = 2
+    const conditions = ['source_site_id = $1', 'task_source_id = $2']
+    const params: (string | number)[] = [siteCode, taskSourceId]
+    let paramIndex = 3
 
     if (keyword) {
       conditions.push(`file_name ILIKE $${paramIndex}`)
@@ -108,7 +115,8 @@ export async function GET(
     // 查询分页数据
     const dataResult = await query<FileIndexItem>(
       `SELECT
-        id::text, source_id, file_name, file_size::text, content_type,
+        id::text, source_site_id, source_table, source_id,
+        file_name, file_size::text, content_type,
         hash, folder_source_id, indexed_at::text, batch_id
        FROM unified_file_index
        WHERE ${whereClause}

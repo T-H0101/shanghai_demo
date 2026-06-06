@@ -13,6 +13,8 @@ import { useState, useEffect } from 'react'
 
 interface FileIndexItem {
   id: string
+  source_site_id: string
+  source_table: string
   source_id: string
   file_name: string
   file_size: string | null
@@ -120,7 +122,10 @@ export function TaskFileIndexPanel({ taskId }: TaskFileIndexPanelProps) {
         </thead>
         <tbody>
           {files.map((file) => (
-            <tr key={file.id} className="border-b hover:bg-gray-50">
+            <tr
+              key={`${file.source_site_id}-${file.source_table}-${file.source_id}-${file.id}`}
+              className="border-b hover:bg-gray-50"
+            >
               <td className="py-2 px-2 truncate max-w-xs" title={file.file_name ?? ''}>
                 {file.file_name ?? '-'}
               </td>

@@ -118,6 +118,13 @@ export default function Page() {
   // 恢复提交中
   const [restoreSubmitting, setRestoreSubmitting] = useState(false)
 
+  const showApiWriteUnavailable = (action: string) => {
+    toast({
+      title: "操作接口未接入",
+      description: `当前 API 模式仅支持数据展示，暂不能${action}`,
+    })
+  }
+
   // 初始化浏览文件
   useEffect(() => {
     if (storageTab === "browse" || storageTab === "restore") {
@@ -226,6 +233,10 @@ export default function Page() {
 
   // 提交恢复任务
   const handleRestoreSubmit = async () => {
+    if (isApiMode) {
+      showApiWriteUnavailable("创建恢复任务")
+      return
+    }
     if (!targetPath || restoreList.length === 0) {
       toast({ title: "请选择目标和文件", variant: "destructive" })
       return
@@ -404,6 +415,11 @@ export default function Page() {
   const handleSync = async () => {
     setSyncing(true)
     try {
+      if (isApiMode) {
+        await loadRacks()
+        toast({ title: "数据已刷新", description: "已重新读取中心库设备数据" })
+        return
+      }
       await rackProvider.syncRacks()
       await loadRacks()
       toast({ title: "同步完成", description: "所有设备同步时间已更新" })
@@ -417,6 +433,10 @@ export default function Page() {
 
   const handleScan = async (rack: Rack, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) {
+      showApiWriteUnavailable("创建设备扫描任务")
+      return
+    }
     try {
       await taskProvider.createTaskFromDevice(rack.id, "device_scan", { name: `${rack.rackId}-设备扫描` })
       await loadRacks() // 刷新设备列表，更新关联任务
@@ -426,6 +446,10 @@ export default function Page() {
 
   const handleRaidCheck = async (rack: Rack, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) {
+      showApiWriteUnavailable("创建 RAID 校验任务")
+      return
+    }
     try {
       await taskProvider.createTaskFromDevice(rack.id, "raid_check", { name: `${rack.rackId}-RAID校验` })
       await loadRacks() // 刷新设备列表，更新关联任务
@@ -435,6 +459,10 @@ export default function Page() {
 
   const handleCreateTaskFromDevice = async () => {
     if (!selected) return
+    if (isApiMode) {
+      showApiWriteUnavailable("生成设备任务")
+      return
+    }
     try {
       await taskProvider.createTaskFromDevice(selected.id, createTaskType as any, { name: createTaskName ?? '' })
       await loadRacks() // 刷新设备列表
@@ -444,6 +472,10 @@ export default function Page() {
   }
 
   const handleMount = async () => {
+    if (isApiMode) {
+      showApiWriteUnavailable("挂载网络存储")
+      return
+    }
     if (!mountForm.deviceName || !mountForm.deviceGroup || !mountForm.mountPath || !mountForm.managePath || !mountForm.dataSource) {
       toast({ title: "请填写必填项", description: "设备名称、设备组、挂载目录、管理目录、数据源为必填项", variant: "destructive" })
       return
@@ -467,6 +499,10 @@ export default function Page() {
 
   const handleAddMedia = async () => {
     if (!selected || addMediaSlot === null) return
+    if (isApiMode) {
+      showApiWriteUnavailable("添加介质")
+      return
+    }
     if (!addMediaForm.discNo) {
       toast({ title: "请填写介质编号", variant: "destructive" })
       return
@@ -482,6 +518,10 @@ export default function Page() {
   }
 
   const handleModeChange = async (rack: Rack, mode: string) => {
+    if (isApiMode) {
+      showApiWriteUnavailable("切换设备模式")
+      return
+    }
     // 立即更新 UI
     setRackList(prev => prev.map(r => r.id === rack.id ? { ...r, mode: mode as DeviceMode } : r))
     setSelected(prev => prev ? { ...prev, mode: mode as DeviceMode } : prev)
@@ -618,7 +658,7 @@ export default function Page() {
                     const ds = deviceStatusMap[r.deviceStatus ?? "online"] ?? deviceStatusMap.online
                     const DsIcon = ds.icon
                     return (
-                      <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50" onClick={() => openDrawerDetail(r)}>
+                      <TableRow key={`${r.siteCode}-${r.rackId}-${r.id}`} className="cursor-pointer hover:bg-slate-50" onClick={() => openDrawerDetail(r)}>
                         <TableCell>
                           <p className="font-medium text-sm font-mono">{r.rackId}</p>
                           <p className="text-[10px] text-slate-400">{r.room ?? r.datacenter}</p>

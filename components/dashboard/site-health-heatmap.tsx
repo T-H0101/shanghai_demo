@@ -63,7 +63,7 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
           {sorted.map((rack) => {
             const status = statusBadge[rack.deviceStatus ?? "online"] ?? statusBadge.online
             return (
-              <div key={rack.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-50">
+              <div key={`${rack.siteCode}-${rack.rackId}-${rack.id}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-50">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-slate-700 truncate">{rack.rackId}</span>

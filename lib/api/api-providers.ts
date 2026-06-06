@@ -98,7 +98,7 @@ export const apiTaskProvider: TaskProvider = {
       const json = await response.json()
       if (json.code !== 0) throw new Error(json.message)
       _tasksDataSource = json.source === "database" ? "database" : "fallback"
-      return json.data
+      return Array.isArray(json.data) ? json.data : (json.data?.items ?? [])
     } catch {
       _tasksDataSource = "fallback"
       return mockTaskProvider.getAll(filters)
@@ -178,6 +178,27 @@ export function getRacksDataSource(): "database" | "fallback" {
   return _racksDataSource
 }
 
+function parseCapacity(value?: string): number {
+  if (!value) return 0
+  const match = value.match(/^([\d.]+)\s*(B|KB|MB|GB|TB|PB)$/i)
+  if (!match) return 0
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"]
+  const unitIndex = units.indexOf(match[2].toUpperCase())
+  return Number(match[1]) * (1024 ** unitIndex)
+}
+
+function formatCapacity(bytes: number): string {
+  if (bytes <= 0) return "0 B"
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"]
+  let value = bytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`
+}
+
 export const apiRackProvider: RackProvider = {
   getAll: async (siteCode?: string) => {
     const url = siteCode
@@ -206,11 +227,35 @@ export const apiRackProvider: RackProvider = {
   },
 
   getStats: async (siteCode?: string) => {
-    return fetchWithFallback(
-      `${API_BASE}/api/dashboard/summary`,
-      () => mockRackProvider.getStats(siteCode),
-      "RackProvider.getStats"
-    ).then((data: any) => data?.devices ?? mockRackProvider.getStats(siteCode))
+    try {
+      const racks = await apiRackProvider.getAll(siteCode)
+      const usageValues = racks
+        .map((rack) => rack.usagePercent)
+        .filter((value): value is number => typeof value === "number")
+
+      return {
+        total: racks.length,
+        normal: racks.filter((rack) => rack.status === "normal").length,
+        warning: racks.filter((rack) => rack.status === "warning").length,
+        fault: racks.filter((rack) => rack.status === "fault").length,
+        maintenance: racks.filter((rack) => rack.status === "maintenance").length,
+        online: racks.filter((rack) => rack.deviceStatus === "online").length,
+        offline: racks.filter((rack) => rack.deviceStatus !== "online").length,
+        totalCapacity: formatCapacity(
+          racks.reduce((sum, rack) => sum + parseCapacity(rack.totalCapacity), 0)
+        ),
+        remainingCapacity: formatCapacity(
+          racks.reduce((sum, rack) => sum + parseCapacity(rack.remainingCapacity), 0)
+        ),
+        usedSlots: racks.reduce((sum, rack) => sum + (rack.usedSlots ?? 0), 0),
+        totalSlotsAll: racks.reduce((sum, rack) => sum + (rack.totalSlots ?? 0), 0),
+        avgUsage: usageValues.length > 0
+          ? Math.round(usageValues.reduce((sum, value) => sum + value, 0) / usageValues.length)
+          : 0,
+      }
+    } catch {
+      return mockRackProvider.getStats(siteCode)
+    }
   },
 
   registerTransfer: async (input: any) => {

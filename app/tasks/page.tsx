@@ -364,7 +364,7 @@ function TasksPageContent() {
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={11} className="text-center py-10 text-slate-400">未找到匹配的任务</TableCell></TableRow>
               ) : filtered.map(t => (
-                <TableRow key={t.id} className="cursor-pointer hover:bg-slate-50" onClick={() => openDetail(t)}>
+                <TableRow key={`${t.siteCode}-${t.taskNo}-${t.id}`} className="cursor-pointer hover:bg-slate-50" onClick={() => openDetail(t)}>
                   <TableCell className="font-mono text-xs text-slate-500">{t.taskNo}</TableCell>
                   <TableCell>
                     <p className="font-medium text-sm truncate max-w-[180px]" title={t.name}>{t.name}</p>
