@@ -146,6 +146,11 @@ export interface TaskItem {
   speed?: string             // 当前速度
   remainingTime?: string     // 剩余时间（仅真实来源存在时展示）
 
+  // Sprint 2F.1 / 2F.3: 任务运行时字段 (来自 unified_tasks)
+  taskMode?: number          // tbl_task.task_mode
+  runtime?: number           // update_dt - create_dt (秒)
+  currentPhase?: string      // tbl_disc.max(stage)
+
   // 多线程封包
   packagingThreads?: PackagingThread[]
 

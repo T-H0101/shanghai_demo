@@ -3,6 +3,7 @@
 > **日期**: 2026-06-06
 > **范围**: tbl_task_items 接入可行性审查 (review-only)
 > **前置**: Sprint 2F.1 任务域 P0 字段补全
+> **后续**: Sprint 2F.3 (任务详情页收口) 已基于"无源字段统一空态"原则收口 UI
 > **审查人**: tian + Claude (Opus 4.8)
 > **本 Sprint 写代码**: 0 行
 

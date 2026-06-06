@@ -15,6 +15,19 @@
 - ✅ **2E.2**: 用户/站点/平台域接入 (tbl_user + tbl_site + tbl_platform)
 - ✅ **2E.3**: 站点域真实性审查 (tbl_site/tbl_platform 是监控域, 不继续)
 - ✅ **2F.1**: 任务域 P0 字段补全 (8 字段: task_mode/error_message/runtime_seconds/package_count/success_count/error_count/progress/current_phase)
+- ✅ **2F.2A**: tbl_task_items 接入策略审查 (结论: source_restore 中不存在, 不接入, 文档化待源表)
+- ✅ **2F.3**: 任务详情页收口 (数据源徽章 / 字段空态 / runtime 格式化 / 计数 0 保留 / API vs mock 差异)
+
+## 2F.3B (下一步)
+
+**目标**: 站点推包脚本 + 文档化 tbl_task_items 站点侧聚合方法
+
+| 任务 | 说明 |
+|---|---|
+| bash 推包示例 | 站点侧聚合 tbl_task_items 后调用 /api/sync/package |
+| 推包文档 | docs/deployment/site-push-package.md |
+| tbl_task_items 站点侧聚合 | 站点端 SQL 模板 (volumeId/sourcePath/packagePath) |
+| 模拟多站点推包 | SH01 + SH02 + SH03 演练 |
 
 ## 2D.4 (下一步)
 

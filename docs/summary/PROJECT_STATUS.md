@@ -1,7 +1,7 @@
 # Project Status
 
 > **截至**: 2026-06-06
-> **Sprint**: 2D.6 完成
+> **Sprint**: 2F.3 完成 (任务详情页收口)
 
 ## 已完成功能
 
@@ -33,6 +33,12 @@
 
 ### 前端页面
 - **Tasks** (`/tasks`) — 真实任务列表 + 详情 drawer + 文件索引后置
+  - Sprint 2F.3 收口: 数据源徽章 (DB / MOCK) + 实时运行字段空态 (speed/remainingTime → "暂无实时数据")
+  - 进度展示: null/0 → "—", completed → "100%"
+  - 运行耗时格式化: 28s / 5m31s / 1h12m
+  - 计数字段保留 0 (真实 0 区别于 null)
+  - 错误信息过滤 "0" 占位符
+  - 多线程封包/重试次数/数据分类 在 API 模式统一空态 (mock 模式保留)
 - **Racks** (`/racks`) — 设备列表
 - **Sync Center** (`/sync`) — package/table 同步日志
 - `/volumes` 页面尚未实现，当前仅有真实 `/api/volumes`

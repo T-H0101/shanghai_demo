@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TaskFileIndexPanel } from "@/components/tasks/task-file-index-panel"
 import {
   taskProvider,
+  isApiMode,
 } from "@/lib/api"
 import { racks as mockRacks } from "@/lib/mock/racks"
 import type { TaskItem, TaskType, TaskPhase, TaskLogEntry } from "@/lib/types/task"
@@ -60,6 +61,74 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-center">
       <p className="text-[10px] text-slate-400 mb-1">{label}</p>
       <p className="text-sm font-semibold text-slate-900">{value}</p>
+    </div>
+  )
+}
+
+// Sprint 2F.3: 字段展示语义收口
+// 1) runtime: 有值格式化 (秒/分秒/时分秒), null/undefined → "—"
+function formatRuntime(seconds: number | null | undefined): string {
+  if (seconds == null) return "—"
+  if (seconds < 0) return "—"
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return s > 0 ? `${m}m${s}s` : `${m}m`
+  }
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  return m > 0 ? `${h}h${m}m` : `${h}h`
+}
+
+// 2) errorMessage: 空字符串/"0"/null/undefined → "—", 否则原样
+function formatErrorMessage(msg: string | null | undefined): string {
+  if (msg == null) return "—"
+  const trimmed = String(msg).trim()
+  if (trimmed === "" || trimmed === "0") return "—"
+  return trimmed
+}
+
+// 3) 计数字段 (packageCount/successCount/errorCount): null → "—", 0 → "0"
+function formatCount(n: number | null | undefined): string {
+  if (n == null) return "—"
+  return n.toString()
+}
+
+// 4) 无源字段: 统一提示文案
+const NO_REALTIME_DATA = "暂无实时数据"
+const LOG_NOT_CONNECTED = "运行日志未接入"
+
+// 5) 进度展示: null → "—", 否则数字
+function formatProgress(p: number | null | undefined, phase: string | null | undefined): string {
+  if (phase === "completed") return "100%"
+  if (p == null) return "—"
+  if (p <= 0) return "—"
+  return `${p}%`
+}
+
+// 6) 数据源徽章 (用于头部, 标识当前是 API 还是 mock)
+function DataSourceBadge() {
+  return (
+    <span
+      className={cn(
+        "text-[10px] px-1.5 py-0.5 rounded font-mono",
+        isApiMode ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"
+      )}
+      title={isApiMode ? "API 模式 - 真实数据库" : "Mock 模式 - 演示数据"}
+    >
+      {isApiMode ? "DB" : "MOCK"}
+    </span>
+  )
+}
+
+// 7) 轻量提示条 (仅 API 模式显示, 说明无源字段)
+function RuntimeDataNotice() {
+  if (!isApiMode) return null
+  return (
+    <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-slate-50 border border-slate-100 text-[11px] text-slate-500">
+      <Info className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
+      <span>实时速度、剩余时间、当前文件等字段需站点推送实时运行状态后显示。</span>
     </div>
   )
 }
@@ -253,7 +322,7 @@ function TasksPageContent() {
         title="任务管理"
         description="档案数据封包、备份、恢复、扫描任务统一调度与监控"
         badge="TASK CENTER"
-        actions={<Button size="sm" className="bg-blue-600" onClick={() => setShowCreate(true)}><ClipboardList className="h-4 w-4 mr-1" />新建任务</Button>}
+        actions={<div className="flex items-center gap-2"><DataSourceBadge /><Button size="sm" className="bg-blue-600" onClick={() => setShowCreate(true)}><ClipboardList className="h-4 w-4 mr-1" />新建任务</Button></div>}
       />
 
       {/* ── 统计卡片 ─────────────────────────────────────────── */}
@@ -325,6 +394,9 @@ function TasksPageContent() {
         </CardContent>
       </Card>
 
+      {/* Sprint 2F.3: 实时运行状态提示 */}
+      <RuntimeDataNotice />
+
       {/* ── 任务表格 ─────────────────────────────────────────── */}
       <Card className="gap-0">
         <CardHeader className="pb-0">
@@ -374,7 +446,7 @@ function TasksPageContent() {
                   <TableCell className="text-xs">{t.backupScope === "full" ? "全量" : t.backupScope === "incremental" ? "增量" : "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {t.progress > 0 ? (
+                      {t.progress != null && t.progress > 0 ? (
                         <>
                           <Progress value={t.progress} className="h-1.5 flex-1" />
                           <span className={cn("text-xs font-medium min-w-[32px] text-right", t.phase === "failed" ? "text-red-500" : "")}>{t.progress}%</span>
@@ -435,7 +507,11 @@ function TasksPageContent() {
                   <div className="text-sm">
                     <DetailRow label="任务编号" value={selected.taskNo} />
                     <DetailRow label="档案馆" value={selected.archiveName} />
-                    <DetailRow label="数据分类" value={selected.dataClassification} />
+                    <DetailRow label="数据分类" value={
+                      isApiMode
+                        ? (selected.dataClassification || "—")
+                        : selected.dataClassification
+                    } />
                     <DetailRow label="任务类型" value={<Badge variant="outline" className={cn("text-[10px]", typeColors[selected.type])}>{TASK_TYPE_LABELS[selected.type]}</Badge>} />
                     <DetailRow label="备份范围" value={selected.backupScope === "full" ? "全量" : selected.backupScope === "incremental" ? "增量" : "—"} />
                     <DetailRow label="封包流程" value={selected.packagingMode === "scan_while_package" ? "边扫描边封包" : "先扫描后封包"} />
@@ -461,8 +537,22 @@ function TasksPageContent() {
                 <section>
                   <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><HardDrive className="h-4 w-4 text-slate-400" />路径信息</h4>
                   <div className="text-sm">
-                    <DetailRow label="源数据路径" value={<span className="font-mono text-xs break-all">{selected.sourcePath}</span>} />
-                    <DetailRow label="封包路径" value={<span className="font-mono text-xs break-all">{selected.packagePath}</span>} />
+                    <DetailRow
+                      label="源数据路径"
+                      value={
+                        isApiMode && (!selected.sourcePath || selected.sourcePath === "")
+                          ? "—"
+                          : <span className="font-mono text-xs break-all">{selected.sourcePath || "—"}</span>
+                      }
+                    />
+                    <DetailRow
+                      label="封包路径"
+                      value={
+                        isApiMode && (!selected.packagePath || selected.packagePath === "")
+                          ? "—"
+                          : <span className="font-mono text-xs break-all">{selected.packagePath || "—"}</span>
+                      }
+                    />
                   </div>
                 </section>
 
@@ -502,8 +592,8 @@ function TasksPageContent() {
                   </div>
                 </section>
 
-                {/* 多线程封包 */}
-                {selected.packagingThreads && selected.packagingThreads.length > 0 && (
+                {/* 多线程封包 (Sprint 2F.3: 仅 mock 模式展示, API 模式无源数据) */}
+                {!isApiMode && selected.packagingThreads && selected.packagingThreads.length > 0 && (
                   <>
                     <Separator />
                     <section>
@@ -534,17 +624,29 @@ function TasksPageContent() {
                   <div className="grid grid-cols-4 gap-2">
                     <MiniStat label="扫描文件数" value={selected.fileCount?.toLocaleString() ?? "—"} />
                     <MiniStat label="总文件大小" value={selected.totalSize ?? "—"} />
-                    <MiniStat label="封包数量" value={selected.packageCount?.toString() ?? "—"} />
-                    <MiniStat label="成功数" value={selected.successCount?.toString() ?? "—"} />
-                    <MiniStat label="异常数" value={selected.errorCount?.toString() ?? "—"} />
-                    <MiniStat label="当前速度" value={selected.speed ?? "—"} />
-                    <MiniStat label="剩余时间" value={selected.remainingTime ?? "—"} />
-                    <MiniStat label="任务进度" value={selected.progress > 0 ? `${selected.progress}%` : "—"} />
-                    <MiniStat label="SM3 状态" value={selected.sm3Status === "completed" ? "通过" : selected.sm3Status === "failed" ? "失败" : selected.sm3Status === "in_progress" ? "进行中" : selected.sm3Status === "pending" ? "待校验" : "—"} />
+                    <MiniStat label="封包数量" value={formatCount(selected.packageCount)} />
+                    <MiniStat label="成功数" value={formatCount(selected.successCount)} />
+                    <MiniStat label="异常数" value={formatCount(selected.errorCount)} />
+                    <MiniStat label="运行耗时" value={formatRuntime(selected.runtime)} />
+                    <MiniStat label="当前速度" value={isApiMode ? NO_REALTIME_DATA : (selected.speed ?? "—")} />
+                    <MiniStat label="剩余时间" value={isApiMode ? NO_REALTIME_DATA : (selected.remainingTime ?? "—")} />
+                    <MiniStat label="任务进度" value={formatProgress(selected.progress, selected.phase)} />
+                    <MiniStat
+                      label="SM3 状态"
+                      value={
+                        selected.sm3Status === "completed" ? "通过"
+                        : selected.sm3Status === "failed" ? "失败"
+                        : selected.sm3Status === "in_progress" ? "进行中"
+                        : selected.sm3Status === "pending" ? "待校验"
+                        : "—"
+                      }
+                    />
+                    <MiniStat label="运行模式" value={selected.taskMode != null ? `模式 ${selected.taskMode}` : "—"} />
+                    <MiniStat label="当前阶段" value={selected.currentPhase ?? "—"} />
                   </div>
-                  {selected.errorMessage && (
+                  {formatErrorMessage(selected.errorMessage) !== "—" && (
                     <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
-                      <p className="text-xs text-red-700"><span className="font-medium">失败原因：</span>{selected.errorMessage}</p>
+                      <p className="text-xs text-red-700"><span className="font-medium">失败原因：</span>{formatErrorMessage(selected.errorMessage)}</p>
                     </div>
                   )}
                 </section>
@@ -558,7 +660,11 @@ function TasksPageContent() {
                     <DetailRow label="开始时间" value={selected.startedAt} />
                     <DetailRow label="更新时间" value={selected.updatedAt} />
                     <DetailRow label="完成时间" value={selected.completedAt ?? "—"} />
-                    <DetailRow label="重试次数" value={(selected.retryCount ?? 0).toString()} />
+                    <DetailRow label="重试次数" value={
+                      isApiMode
+                        ? "—"
+                        : (selected.retryCount ?? 0).toString()
+                    } />
                   </div>
                 </section>
 
@@ -579,7 +685,11 @@ function TasksPageContent() {
                         <span className="text-slate-400">[{l.timestamp}]</span> {l.message}
                       </div>
                     ))}
-                    {selected.recentLogs.length === 0 && <p className="text-xs text-slate-400 text-center py-4">暂无日志</p>}
+                    {selected.recentLogs.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-4">
+                        {isApiMode ? LOG_NOT_CONNECTED : "暂无日志"}
+                      </p>
+                    )}
                   </div>
                 </section>
 
