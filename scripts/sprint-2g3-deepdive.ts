@@ -88,7 +88,7 @@ async function main() {
     cmd.rows.forEach(r => console.log(`  ${r.command}: ${r.n} 条`))
 
     // 8. runtime 推算可能性: lib_task 聚合
-    const runtime = await client.query<{ task_id: string; cmd: string; start: Date; end: Date; dur_ms: string }>(
+    const runtime = await client.query<{ task_id: string; command: string; start: Date; end: Date; dur_ms: string }>(
       `SELECT task_id::text, command, MIN(start_dt) AS start, MAX(end_dt) AS end,
               (EXTRACT(EPOCH FROM (MAX(end_dt) - MIN(start_dt))) * 1000)::text AS dur_ms
        FROM tbl_lib_task

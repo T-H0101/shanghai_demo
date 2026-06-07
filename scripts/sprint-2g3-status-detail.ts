@@ -21,7 +21,7 @@ async function main() {
   const c = new Client({ connectionString: process.env.SOURCE_DATABASE_URL })
   await c.connect()
   try {
-    const r = await c.query<any>(`
+    const r = await c.query<{ id: string; status: number; burn_status: number; task_type: number; ret_value: number; ret_msg: string; create_dt: string; update_dt: string; dur: string }>(`
       SELECT id::text, status, burn_status, task_type, ret_value, ret_msg,
              create_dt::text, update_dt::text,
              (update_dt - create_dt)::text AS dur

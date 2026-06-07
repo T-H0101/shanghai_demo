@@ -29,7 +29,10 @@
     "import:platforms": "tsx scripts/import-user-site-platforms.ts platforms",
     "import:user-site-platforms": "tsx scripts/import-user-site-platforms.ts user-site-platforms",
     "test:package-log": "tsx scripts/test-package-log.ts",
-    "smoke:sync": "tsx scripts/smoke-sync.ts"
+    "smoke:sync": "tsx scripts/smoke-sync.ts",
+    "export:package": "tsx scripts/export-package.ts",
+    "push:package": "tsx scripts/push-package.ts",
+    "export-and-push": "tsx scripts/export-and-push.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
