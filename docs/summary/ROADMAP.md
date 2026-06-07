@@ -20,17 +20,21 @@
 - ✅ **2F.4**: siteCode 全局筛选 (Header 站点选择器 + Tasks/Racks/Sync 联动 + localStorage + URL 同步 + file-index 防跨站)
 - ✅ **2G.1**: `/api/sync/package` HMAC 鉴权 (rawBody 优先签名 + 5min 时间窗 + timingSafeEqual + strict/dev 双模式)
 - ✅ **2G.2**: Dashboard 真实总览 (`/api/dashboard/summary` + `/api/dashboard/recent-syncs` + SummaryBar + RecentSyncs 组件, 7/7 SQL 对账匹配, 跟随全局 siteCode)
+- ✅ **2G.3**: 任务域盘点 (13 张 tbl_* 中仅 3 张任务表, 7 张"假定存在"表全不存在, runtime 推算 P0 唯一可补)
+- ✅ **2H.1**: 站点 Package Exporter 模拟器 (`export:package` + `push:package` + `export-and-push` 端到端, 7 张表 HMAC 签名推送)
+- ✅ **2H.1R**: Dispatcher 覆盖率审计 (5 A / 5 C / 3 D, D 类为 sourceIdField 错配)
+- ✅ **2H.2**: Dispatcher 真实落库修复 (3 D → 0 D, 8 A 类, 真实可用率 38.5% → 61.5%, inlineUpsert 统计口径修正)
 
-## 2G.3 (下一步)
+## 2H.3 (下一步)
 
-**目标**: Dashboard 趋势图表接入真实数据 + 站点级统计卡片
+**目标**: Dispatcher 精度提升 + 聚合器实现
 
 | 任务 | 说明 |
 |---|---|
-| SyncTrendChart 真实数据 | `sync_summary_daily` 物化视图 (本 Sprint 未做, 用硬编码 chartData) |
-| site-stats API | 站点聚合卡片 (本 Sprint 标记 deferred, 待 UI 需求) |
-| 站点级同步摘要 | 在 /sync 顶部加 "当前站点同步摘要" (从 2F.5 迁移) |
-| Dashboard 失败重试埋点 | API 失败 → 重试 + 埋点 (已实现重试按钮) |
+| inlineUpsert inserted/updated 区分 | 加 `RETURNING (xmax = 0)` 让 PG 返回 inserted/updated 区分 |
+| 3 张占位表聚合器 | `tbl_lib_task` / `tbl_volume_slot` / `tbl_user_task` 写聚合器, 关联 unified_tasks 等 |
+| `tbl_site` / `tbl_platform` 源端数据 | 等源端提供真实数据后再来 |
+| `tbl_hd_info` 5 个缺失列 (disk_id/capacity/used_capacity/total_capacity/slot_index) | 需要从其它表 join 或扩展 source schema |
 
 ## 2D.4 (下一步)
 

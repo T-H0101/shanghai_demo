@@ -39,7 +39,14 @@ export interface DispatchResult {
   updated: number
   skipped: number
   failed: number
-  status: 'success' | 'failed' | 'skipped'
+  /**
+   * Sprint 2H.2: 真实状态
+   *  - success: 全部 upserted 成功
+   *  - failed: 全部记录都失败 (如 sourceId 全部缺失)
+   *  - partial: 部分成功, 部分失败
+   *  - skipped: 空包, dispatcher skip:true 或 records.length=0
+   */
+  status: 'success' | 'failed' | 'partial' | 'skipped'
   errorMessage?: string
 }
 
@@ -89,25 +96,46 @@ async function dispatchDevice(input: DispatchInput): Promise<DispatchResult> {
 // ============================================================
 
 async function dispatchMagzines(input: DispatchInput): Promise<DispatchResult> {
+  // Sprint 2H.2: 源表主键是 mag_id, 不是 id
+  // 字段映射基于 source_restore 实际 schema (Sprint 2H.1R 审计)
   return inlineUpsert(input, 'unified_magazines', {
-    sourceIdField: 'id',
-    columns: ['magazine_id', 'barcode', 'rfid', 'device_id', 'status', 'position', 'slot_count'],
+    sourceIdField: 'mag_id',
+    // 源 → 中心: mag_id→magazine_id, lib_id→device_id, mag_order→position, door_status→status
+    columns: [
+      { source: 'lib_id',      target: 'device_id' },
+      { source: 'rfid',        target: 'rfid' },
+      { source: 'mag_order',   target: 'position' },
+      { source: 'door_status', target: 'status' },
+    ],
   })
 }
 
 async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
+  // Sprint 2H.2: 源表主键是 slot_id, 不是 id
+  // 字段映射: mag_id→magazine_id, slot_order→slot_index, max_cap→capacity, disc_type→media_type
   return inlineUpsert(input, 'unified_slots', {
-    sourceIdField: 'id',
-    columns: ['slot_id', 'slot_index', 'device_id', 'magazine_id', 'status', 'occupied', 'media_id', 'media_type', 'capacity'],
+    sourceIdField: 'slot_id',
+    columns: [
+      { source: 'mag_id',     target: 'magazine_id' },
+      { source: 'slot_order', target: 'slot_index' },
+      { source: 'max_cap',    target: 'capacity' },
+      { source: 'disc_type',  target: 'media_type' },
+    ],
   })
 }
 
 async function dispatchHardDisks(input: DispatchInput): Promise<DispatchResult> {
-  // hard-disk 用 slot_id 作为 source_id (与 hard-disk-importer 一致)
+  // Sprint 2H.2: 源表主键是 slot_id, 中心表 disk_id 不存在
+  // 字段映射: serial_num→serial_no, name→model, hd_status→status, health→health_status
+  // 中心表 disk_id/capacity/used_capacity/total_capacity/slot_index 在源端不存在, 留空
   return inlineUpsert(input, 'unified_hard_disks', {
     sourceIdField: 'slot_id',
-    columns: ['disk_id', 'device_id', 'slot_index', 'capacity', 'model', 'serial_no', 'status', 'used_capacity', 'total_capacity', 'health_status'],
-    sourceIdTransform: (v) => String(v),
+    columns: [
+      { source: 'serial_num', target: 'serial_no' },
+      { source: 'name',       target: 'model' },
+      { source: 'hd_status',  target: 'status' },
+      { source: 'health',     target: 'health_status' },
+    ],
   })
 }
 
@@ -121,16 +149,42 @@ async function dispatchLibTask(input: DispatchInput): Promise<DispatchResult> {
 }
 
 async function dispatchDiscMedia(input: DispatchInput): Promise<DispatchResult> {
+  // Sprint 2H.2: source 字段映射
+  // task_id→source_task_id, disc_num→disc_num, disc_label→disc_label,
+  // slot_id→slot_id, used_size→used_size, extra_size→extra_size,
+  // iso_status→iso_status, iso_path→iso_path, burn_success→burn_success,
+  // burn_errors→burn_errors, error_files→error_files, stage→stage
   return inlineUpsert(input, 'unified_disc_media', {
     sourceIdField: 'id',
-    columns: ['source_task_id', 'disc_num', 'disc_label', 'slot_id', 'device_id', 'used_size', 'extra_size', 'iso_status', 'iso_path', 'burn_success', 'burn_errors', 'error_files', 'stage'],
+    columns: [
+      { source: 'task_id',      target: 'source_task_id' },
+      { source: 'slot_id',      target: 'slot_id' },
+      { source: 'disc_num',     target: 'disc_num' },
+      { source: 'disc_label',   target: 'disc_label' },
+      { source: 'used_size',    target: 'used_size' },
+      { source: 'extra_size',   target: 'extra_size' },
+      { source: 'iso_status',   target: 'iso_status' },
+      { source: 'iso_path',     target: 'iso_path' },
+      { source: 'burn_success', target: 'burn_success' },
+      { source: 'burn_errors',  target: 'burn_errors' },
+      { source: 'error_files',  target: 'error_files' },
+      { source: 'stage',        target: 'stage' },
+    ],
   })
 }
 
 async function dispatchLogicalVolume(input: DispatchInput): Promise<DispatchResult> {
+  // Sprint 2H.2: 源表主键是 volume_id, 不是 id
+  // 字段映射: name→volume_name, type→volume_type, total_cap→capacity, used_cap→used_capacity, del_flag→status
   return inlineUpsert(input, 'unified_volumes', {
-    sourceIdField: 'id',
-    columns: ['volume_name', 'volume_type', 'capacity', 'used_capacity', 'status'],
+    sourceIdField: 'volume_id',
+    columns: [
+      { source: 'name',      target: 'volume_name' },
+      { source: 'type',      target: 'volume_type' },
+      { source: 'total_cap', target: 'capacity' },
+      { source: 'used_cap',  target: 'used_capacity' },
+      { source: 'del_flag',  target: 'status' },
+    ],
   })
 }
 
@@ -211,11 +265,31 @@ async function dispatchPlatform(input: DispatchInput): Promise<DispatchResult> {
 // 通用 inline UPSERT helper
 // ============================================================
 
+/**
+ * 字段映射项: 源表列名 → 中心表列名
+ * Sprint 2H.2: 取代旧版 columns: string[], 支持源/目标字段不同名
+ */
+interface ColumnMapping {
+  source: string
+  target: string
+}
+
 interface InlineUpsertConfig {
   sourceIdField: string
-  columns: string[]
+  /**
+   * 列映射: { source: '源字段', target: '目标字段' }
+   * 也支持简写 string (源/目标同名字段)
+   */
+  columns: Array<string | ColumnMapping>
   sourceIdTransform?: (v: unknown) => string
   skip?: boolean
+}
+
+/**
+ * 标准化列映射为 { source, target } 形式
+ */
+function normalizeColumns(cols: InlineUpsertConfig['columns']): ColumnMapping[] {
+  return cols.map((c) => (typeof c === 'string' ? { source: c, target: c } : c))
 }
 
 async function inlineUpsert(
@@ -236,37 +310,53 @@ async function inlineUpsert(
     }
   }
 
+  const colMaps = normalizeColumns(config.columns)
+  const targetCols = colMaps.map((c) => c.target)
+
   let upserted = 0
+  let skipped = 0
+  let failed = 0
+  const errorMessages: string[] = []
+
   for (const record of input.records) {
+    // 1. 解析 sourceId
+    const rawId = record[config.sourceIdField]
     const sourceId = config.sourceIdTransform
-      ? config.sourceIdTransform(record[config.sourceIdField])
-      : String(record[config.sourceIdField] ?? '')
+      ? config.sourceIdTransform(rawId)
+      : String(rawId ?? '')
 
     if (!sourceId) {
-      console.warn(`[Dispatcher] ${input.tableName}: missing ${config.sourceIdField}`)
+      // Sprint 2H.2: 不再静默 continue, 计为 failed
+      failed++
+      const msg = `missing source id field '${config.sourceIdField}'`
+      errorMessages.push(msg)
+      console.warn(`[Dispatcher] ${input.tableName}: ${msg} (record keys: ${Object.keys(record).slice(0, 5).join(',')})`)
       continue
     }
 
-    const values = config.columns.map((col) => record[col] ?? null)
+    // 2. 拉取每列值 (从源字段)
+    const values = colMaps.map((m) => record[m.source] ?? null)
+
+    // 3. 拼 SQL
     const placeholders = [
       '$1', // source_site_id
       '$2', // source_table
       '$3', // source_id
       'NOW()', // synced_at
-      ...config.columns.map((_, i) => `$${i + 4}`),
-      '$' + (config.columns.length + 4) + '::jsonb', // raw_data
+      ...targetCols.map((_, i) => `$${i + 4}`),
+      '$' + (targetCols.length + 4) + '::jsonb', // raw_data
     ]
 
     const updateSet = [
       'synced_at = NOW()',
-      ...config.columns.map((col) => `${col} = EXCLUDED.${col}`),
+      ...targetCols.map((col) => `${col} = EXCLUDED.${col}`),
       'updated_at = NOW()',
     ]
 
     const sql = `
       INSERT INTO ${targetTable} (
         source_site_id, source_table, source_id, synced_at,
-        ${config.columns.join(', ')},
+        ${targetCols.join(', ')},
         raw_data
       ) VALUES (
         ${placeholders.join(', ')}
@@ -275,25 +365,52 @@ async function inlineUpsert(
         ${updateSet.join(', ')}
     `
 
-    const result = await query(sql, [
-      input.siteCode,
-      input.tableName,
-      sourceId,
-      ...values,
-      JSON.stringify(record),
-    ])
-    upserted += result.rowCount ?? 0
+    try {
+      const result = await query(sql, [
+        input.siteCode,
+        input.tableName,
+        sourceId,
+        ...values,
+        JSON.stringify(record),
+      ])
+      // ON CONFLICT DO UPDATE 总是返回 1 (无论 insert 还是 update)
+      // PostgreSQL 不暴露 inserted/updated 区分 (除非用 RETURNING xmax = 0)
+      upserted += result.rowCount ?? 0
+    } catch (err) {
+      failed++
+      const msg = err instanceof Error ? err.message : 'unknown'
+      errorMessages.push(`sourceId=${sourceId}: ${msg.slice(0, 100)}`)
+      console.error(`[Dispatcher] ${input.tableName} upsert error: sourceId=${sourceId} ${msg}`)
+    }
   }
 
+  // 4. 决定 table status
+  //    - received == 0 → success (空包)
+  //    - upserted > 0 且 failed == 0 → success
+  //    - upserted > 0 且 failed > 0 → partial (有 upserted 行, 也有 failed)
+  //    - upserted == 0 且 failed == 0 → success (可能空)
+  //    - upserted == 0 且 failed == received → failed (全部失败)
+  let status: 'success' | 'failed' | 'partial' | 'skipped' = 'success'
+  if (input.records.length === 0) {
+    status = 'skipped'
+  } else if (upserted === 0 && failed > 0) {
+    status = 'failed'
+  } else if (upserted > 0 && failed > 0) {
+    status = 'partial'
+  }
+
+  // 5. inserted / updated 不可区分 (PG ON CONFLICT 不返回)
+  //    真实处理数 = upserted, 文档化
   return {
     tableName: input.tableName,
     received: input.records.length,
     upserted,
-    inserted: upserted,
-    updated: 0,
-    skipped: 0,
-    failed: 0,
-    status: 'success',
+    inserted: 0, // 不可区分, 留 0; 真实处理数见 upserted
+    updated: 0,  // 不可区分
+    skipped,
+    failed,
+    status,
+    errorMessage: errorMessages.length > 0 ? errorMessages.slice(0, 3).join('; ') : undefined,
   }
 }
 

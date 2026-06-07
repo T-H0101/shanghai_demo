@@ -233,20 +233,22 @@ export async function POST(request: NextRequest) {
 
     totalRecords += result.upserted
 
-    if (result.status === 'success') {
+    if (result.status === 'success' || result.status === 'partial') {
       successCount++
       await markTableSuccess(tableLog.id, {
-        processedRecordCount: result.received,
+        // Sprint 2H.2: 真实处理数 (upserted), 不是 recordCount 假数
+        processedRecordCount: result.upserted,
         insertedCount: result.inserted,
         updatedCount: result.updated,
         skippedCount: result.skipped,
         failedCount: result.failed,
       })
     } else {
+      // status: 'failed' | 'skipped'
       failedCount++
       await markTableFailed(tableLog.id, {
-        errorMessage: result.errorMessage ?? 'unknown',
-        processedRecordCount: result.received,
+        errorMessage: result.errorMessage ?? result.status,
+        processedRecordCount: result.upserted,
         insertedCount: result.inserted,
         updatedCount: result.updated,
         skippedCount: result.skipped,

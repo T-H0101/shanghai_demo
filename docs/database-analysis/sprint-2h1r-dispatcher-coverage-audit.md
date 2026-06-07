@@ -1,8 +1,7 @@
 # Sprint 2H.1R — Dispatcher 覆盖率 Reality Check
 
-> 状态: ✅ 完成 (审计 + 文档, 无业务代码变更)
-> 范围: SQL 验证 + Dispatcher 源码审查 + 文档, 不改 dispatcher
-> Sprint 目标: 让 "package success" 与 "真实落库" 之间的差异变得透明
+> 状态: ⚠️ **历史快照** (Sprint 2H.2 已修复大部分问题, 真实覆盖率从 38.5% 提升到 61.5%)
+> 详见: [sprint-2h2-dispatcher-coverage-fix.md](./sprint-2h2-dispatcher-coverage-fix.md)
 
 ---
 
@@ -203,7 +202,10 @@ Sprint 范围明确: "**禁止** 新表接入" / "**只允许** SQL 验证 / Dis
 
 ## 10. 后续 Sprint 建议
 
-1. **2H.2 (P0)**: 修复 `dispatchMagzines` / `dispatchSlots` / `dispatchLogicalVolume` 的 sourceIdField + 列名映射
-2. **2H.3 (P0)**: 修复 `inlineUpsert` 区分 inserted / updated / skipped, 让 `failed_count` 真实反映错误
-3. **2H.4 (P1)**: 实现 3 张占位表 (lib_task / volume_slot / user_task) 的聚合器逻辑
-4. **2H.5 (P1)**: 验证 tbl_site / tbl_platform 的源端数据来源 (源表当前 0 行)
+1. **2H.2 (P0)**: ✅ **已完成** (Sprint 2H.2) - 修复 `dispatchMagzines` / `dispatchSlots` / `dispatchLogicalVolume` 的 sourceIdField + 列名映射
+2. **2H.3 (P0)**: ✅ **已完成** (Sprint 2H.2) - 修复 `inlineUpsert` 区分 inserted/updated/skipped, 让 `failed_count` 真实反映错误 (`inserted`/`updated` 仍因 PG ON CONFLICT 限制不可区分, 但 `upserted` 真实反映处理数)
+3. **2H.4 (P1)**: ⏳ 待办 - 实现 3 张占位表 (lib_task / volume_slot / user_task) 的聚合器逻辑
+4. **2H.5 (P1)**: ⏳ 待办 - 验证 tbl_site / tbl_platform 的源端数据来源 (源表当前 0 行)
+
+**Sprint 2H.2 修复后**: A=8 (61.5%), C=5 (38.5%), D=0, B=0. **真实可用率从 38.5% → 61.5%**。
+详见 [sprint-2h2-dispatcher-coverage-fix.md](./sprint-2h2-dispatcher-coverage-fix.md)。
