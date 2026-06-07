@@ -361,7 +361,12 @@ SH01 | SH01-2026-06-07T10-24-28-302Z | success | 7/7 tables | 114 records
 
 ## 9. 已知限制 / 后续 Sprint
 
-1. **3 张表未入库**: `tbl_magzines` / `tbl_slots` / `tbl_logical_volume` 走 dispatcher 成功接收但 `inserted_count=0`。**这不是本 Sprint 范围**, 而是 dispatcher 内部 source_id 字段映射问题。建议 2H.2 排查。
+> ⚠️ **Sprint 2H.1R 审计结论** (2026-06-07): `successTableCount=7` 反映的是 "dispatcher 没抛错", **不等于 7 张表全部真实落库**。
+> 真实可用 dispatcher 只有 5 张 (A 类): tbl_task / tbl_disc_lib / tbl_hd_info / tbl_disc / tbl_user。
+> 3 张表 (tbl_magzines / tbl_slots / tbl_logical_volume) **字段名错配, dispatcher 静默跳过, 0 行落库**, 但表级 status 仍标 success。
+> 详见 [sprint-2h1r-dispatcher-coverage-audit.md](./sprint-2h1r-dispatcher-coverage-audit.md)。
+
+1. **3 张表未入库** (`tbl_magzines` / `tbl_slots` / `tbl_logical_volume`): Sprint 2H.1R 已确认为 dispatcher 错配, 真实可用率 38.5% (5/13)。**Sprint 2H.2 待修**。
 2. **全量模式**: 当前 `--mode incremental` 仅作为标签, 实际仍 `SELECT *`。增量需要源端有 `updated_at` watermark 机制, **本 Sprint 不做**。
 3. **没有 retry / DLQ**: 失败时手动重跑 `pnpm push:package`。生产需要重试 + DLQ。
 4. **没有 checksum**: `pkg.checksum = null`。生产可加 SHA-256 (Sprint 2G.1 已预留字段)。
