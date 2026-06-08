@@ -1,7 +1,7 @@
 # Project Status
 
-> **截至**: 2026-06-07
-> **Sprint**: 2H.2 完成 (Dispatcher 真实落库覆盖率 38.5% → 61.5%)
+> **截至**: 2026-06-08
+> **Sprint**: 2H.3 完成 (3 张占位表聚合器, 真实可用率 61.5% → 84.6%)
 
 ## 已完成功能
 
@@ -57,6 +57,7 @@
 - **Sprint 2H.1 站点 Package Exporter 模拟器** — `pnpm export:package` / `push:package` / `export-and-push`, 7 张表端到端签名推送
 - **Sprint 2H.1R Dispatcher 覆盖率审计** — 13 张白名单 5/5/3 (A/C/D), 3 张 D 类 (magzines/slots/logical_volume) 字段名错配
 - **Sprint 2H.2 Dispatcher 真实落库修复** — 3 张 D 类全部修成 A 类, sourceIdField/列映射修正, inlineUpsert 统计口径修正 (failed/partial/skipped 真实反映), 真实可用率 38.5% → 61.5%
+- **Sprint 2H.3 3 张占位表聚合器** — `tbl_lib_task` → `unified_tasks.runtime_seconds` (33/44 任务 75% 真实覆盖), `tbl_volume_slot` → `unified_volumes.raw_data._aggregate` (15/25 volume 真实 slot_count/online/offline), `tbl_user_task` → `unified_tasks.raw_data._aggregate.user_task_count` (27/44 真实关联数), dispatcher 从 `skip: true` 升级为调用聚合器, 真实可用率 61.5% → 84.6%
 
 ## 已接入表 (13 张)
 
@@ -67,11 +68,11 @@
 | tbl_magzines | (unified_devices join) | aggregate | done |
 | tbl_slots | unified_devices 汇总 + unified_slots 明细 | full/aggregate | partial：汇总完成，明细待站点真实 package |
 | tbl_hd_info | unified_hard_disks | full | done |
-| tbl_lib_task | (unified_tasks join) | aggregate | done |
+| tbl_lib_task | (unified_tasks join) | aggregate | done (Sprint 2H.3) |
 | tbl_disc | unified_disc_media | full | done |
 | tbl_logical_volume | unified_logical_volumes | full | done |
-| tbl_volume_slot | (unified_volumes join) | aggregate | done |
-| tbl_user_task | (unified_tasks join) | aggregate | done |
+| tbl_volume_slot | (unified_volumes join) | aggregate | done (Sprint 2H.3) |
+| tbl_user_task | (unified_tasks join) | aggregate | done (Sprint 2H.3) |
 | tbl_user | unified_users | full | done (Sprint 2E.2) |
 | tbl_site | unified_sites | full | done (Sprint 2E.2) |
 | tbl_platform | unified_platforms | full | done (Sprint 2E.2) |

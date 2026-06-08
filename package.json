@@ -28,6 +28,8 @@
     "import:sites": "tsx scripts/import-user-site-platforms.ts sites",
     "import:platforms": "tsx scripts/import-user-site-platforms.ts platforms",
     "import:user-site-platforms": "tsx scripts/import-user-site-platforms.ts user-site-platforms",
+    "import:aggregates": "tsx scripts/import-aggregates.ts",
+    "import:aggregates:all": "tsx scripts/import-aggregates.ts all",
     "test:package-log": "tsx scripts/test-package-log.ts",
     "smoke:sync": "tsx scripts/smoke-sync.ts",
     "export:package": "tsx scripts/export-package.ts",

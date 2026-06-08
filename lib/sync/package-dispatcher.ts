@@ -12,6 +12,9 @@
 import { transaction, query } from '@/lib/db'
 import { mapRealTask, mapRealDevice } from '@/lib/import/real-field-mapper'
 import { upsertTasksInTransaction, upsertDevicesInTransaction } from './upsert'
+import { aggregateLibTaskRuntimes } from '@/lib/import/lib-task-aggregator'
+import { aggregateVolumeSlots } from '@/lib/import/volume-slot-aggregator'
+import { aggregateUserTasks } from '@/lib/import/user-task-aggregator'
 import {
   mapUser,
   mapSite,
@@ -140,12 +143,40 @@ async function dispatchHardDisks(input: DispatchInput): Promise<DispatchResult> 
 }
 
 async function dispatchLibTask(input: DispatchInput): Promise<DispatchResult> {
-  // tbl_lib_task 是任务-设备关系表，存为聚合记录
-  return inlineUpsert(input, 'unified_tasks', {
-    sourceIdField: 'task_id',
-    columns: [], // 不直接写具体字段，由 device_id 关联在 task 上
-    skip: true, // 占位: lib_task 由聚合器后置处理
-  })
+  // Sprint 2H.3 (autonomous): tbl_lib_task 是任务-设备关系表, dispatcher 收到 records 后
+  // 触发 lib-task 聚合器, 把 runtime_seconds 写回 unified_tasks。
+  // 注: 聚合器读的是 source_restore.tbl_lib_task, 这里用 records 数量作为"received",
+  //     upserted 反映真实命中的 unified_tasks 行数 (runtime 推算后被更新)。
+  try {
+    const agg = await aggregateLibTaskRuntimes(input.siteCode)
+    return {
+      tableName: input.tableName,
+      received: input.records.length,
+      upserted: agg.unifiedRowsUpdated,
+      inserted: 0,
+      updated: agg.unifiedRowsUpdated,
+      skipped: 0,
+      failed: 0,
+      status: agg.unifiedRowsUpdated > 0 ? 'success' : 'skipped',
+      errorMessage:
+        agg.readCount > 0 && agg.unifiedRowsUpdated === 0
+          ? `tbl_lib_task ${agg.readCount} 行, 推算 ${agg.tasksWithRuntime} 个 task runtime, 但 ${agg.unifiedRowsScanned - agg.unifiedRowsUpdated} 个 task 已有 runtime / 未匹配到 siteCode=${input.siteCode} 的 source_id`
+          : undefined,
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'unknown'
+    return {
+      tableName: input.tableName,
+      received: input.records.length,
+      upserted: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      failed: input.records.length,
+      status: 'failed',
+      errorMessage: `aggregateLibTaskRuntimes failed: ${msg.slice(0, 200)}`,
+    }
+  }
 }
 
 async function dispatchDiscMedia(input: DispatchInput): Promise<DispatchResult> {
@@ -189,21 +220,65 @@ async function dispatchLogicalVolume(input: DispatchInput): Promise<DispatchResu
 }
 
 async function dispatchVolumeSlot(input: DispatchInput): Promise<DispatchResult> {
-  // volume_slot 是逻辑卷-槽位关系，存为聚合
-  return inlineUpsert(input, 'unified_volumes', {
-    sourceIdField: 'volume_id',
-    columns: [],
-    skip: true, // 占位: 由聚合器处理
-  })
+  // Sprint 2H.3 (autonomous): 触发 volume-slot 聚合器, 把 slot_count/total_slot_cap
+  // 写到 unified_volumes.raw_data._aggregate。
+  try {
+    const agg = await aggregateVolumeSlots(input.siteCode)
+    return {
+      tableName: input.tableName,
+      received: input.records.length,
+      upserted: agg.unifiedRowsUpdated,
+      inserted: 0,
+      updated: agg.unifiedRowsUpdated,
+      skipped: 0,
+      failed: 0,
+      status: agg.unifiedRowsUpdated > 0 ? 'success' : 'skipped',
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'unknown'
+    return {
+      tableName: input.tableName,
+      received: input.records.length,
+      upserted: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      failed: input.records.length,
+      status: 'failed',
+      errorMessage: `aggregateVolumeSlots failed: ${msg.slice(0, 200)}`,
+    }
+  }
 }
 
 async function dispatchUserTask(input: DispatchInput): Promise<DispatchResult> {
-  // user_task 是任务-用户关系，存为聚合
-  return inlineUpsert(input, 'unified_tasks', {
-    sourceIdField: 'task_id',
-    columns: [],
-    skip: true, // 占位: 由聚合器处理
-  })
+  // Sprint 2H.3 (autonomous): 触发 user-task 聚合器, 写 raw_data._aggregate.user_task_count
+  // 不写 user_id 字段 (源端 user_id NULL 风险)。
+  try {
+    const agg = await aggregateUserTasks(input.siteCode)
+    return {
+      tableName: input.tableName,
+      received: input.records.length,
+      upserted: agg.unifiedRowsUpdated,
+      inserted: 0,
+      updated: agg.unifiedRowsUpdated,
+      skipped: 0,
+      failed: 0,
+      status: agg.unifiedRowsUpdated > 0 ? 'success' : 'skipped',
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'unknown'
+    return {
+      tableName: input.tableName,
+      received: input.records.length,
+      upserted: 0,
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      failed: input.records.length,
+      status: 'failed',
+      errorMessage: `aggregateUserTasks failed: ${msg.slice(0, 200)}`,
+    }
+  }
 }
 
 // ============================================================
