@@ -541,7 +541,15 @@ sed -i '' 's/SYNC_PACKAGE_AUTH_MODE=dev/SYNC_PACKAGE_AUTH_MODE=strict/' .env.loc
 
 ## 12. 当前系统状态评估 (回答 5 个问题)
 
-### 12.1 一个新人从 clone 到跑起来需要多久
+### 12.0 领导口径 (Sprint 4.2)
+
+| 项 | 口径 | 落地位置 |
+|---|---|---|
+| 接口文档 | 无现成, 站点按 SQL 拉数生成 package | `scripts/export-package.ts` 模拟 |
+| 同步周期 | 每小时 | 当前手动, 4.4 加 cron |
+| 管控能力 | 严格按 requirements.md | Sprint 4.1 设计, 4.5+ 实现 |
+| 源端 | PG17 物理备份, star_storage_db | `pg_restore_test` 容器, 170 张 |
+| 部署 | Mac + Docker 模拟 | `docker-compose.yml` |
 
 | 步骤 | 耗时 (有网 + 安静机器) |
 |---|---|
