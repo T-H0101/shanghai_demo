@@ -3,6 +3,62 @@
 > **截至**: 2026-06-08
 > **Sprint**: 2H.6 完成 (inlineUpsert inserted/updated 区分, 全部 13 张表真实区分)
 
+## Sprint 3.0R 需求对照审计 (2026-06-08)
+
+需求 vs 实现 真实对照。完整审计见 `docs/database-analysis/sprint-3.0r-requirements-reality-check.md`。
+
+### 4 个率
+
+| 率 | 数值 | 含义 |
+|---|---|---|
+| **需求完成度** | **28.1%** (9/32) | 完整实现 ✅ |
+| 业务完成度 | 85% (Sprint 3.0) | 4/4 同步类型 |
+| **可演示率** | **64%** (4.5/7) | 真实数据 + 端到端 demo |
+| **可落地率** | **64%** (7/11) | 生产可用功能 |
+
+### 8 大能力现状 (一句话)
+
+| 能力 | 现状 | 根因 |
+|---|---|---|
+| JWT | ❌ Mock UI 演示, 0 真实 | CLAUDE.md 禁止 |
+| RBAC | ❌ 无实现 | CLAUDE.md + 源端 3 行无 role |
+| 登录 | ❌ Mock UI, 418 行演示 | CLAUDE.md 禁止 |
+| 同步 | ✅ **核心能力, 13/13 源表处理完成** | — |
+| 文件检索 | ⚠️ 任务级, 不是跨站 ES | CLAUDE.md 禁止 ES |
+| 恢复 | ✅ 监控完整, ❌ 不发起 | 设计选择 (单向 pull) |
+| 设备控制 | ✅ 监控完整, ❌ 不控制 | 设计选择 (单向) |
+| 审计 | ⚠️ 同步层有, ❌ 业务操作 | CLAUDE.md 禁止登录/权限 |
+
+### 32 项需求分布
+
+| 状态 | 数量 | 占比 |
+|---|---|---|
+| ✅ completed | 9 | 28.1% |
+| ⚠️ partial | 10 | 31.3% |
+| ❌ not_started | 11 | 34.4% |
+| 🚫 out_of_scope (CLAUDE.md 主动不做) | 2 | 6.3% |
+
+### 14 项不可实现原因分布
+
+| 类型 | 数量 | 说明 |
+|---|---|---|
+| CLAUDE.md 禁止项 | 8 | 登录/SSO/JWT/RBAC/审计/部门/ES/ClickHouse |
+| 源端无数据 | 5 | tbl_site/tbl_platform/tbl_depa/tbl_file/tbl_folder 0 行 |
+| 源端 schema 缺字段 | 4 | errorMessage/progress/checksum/移位 |
+| 设计选择 (单向) | 2 | 任务控制/设备控制 |
+
+### 下一阶段唯一推荐
+
+**Sprint 3.7 — Racks slot drawer 真实数据 (ROI 5)**:
+- 396 行 unified_slots 真实数据已有
+- Racks 页面缺 slot 明细
+- 1 个 drawer + 1 个 API 增强
+- 完成后业务完成度 85% → 88%
+
+**不再推荐**: 接新表 (133 张理论表 0 行) / 登录权限 (CLAUDE.md) / ES (CLAUDE.md) / 任务控制 (单向设计) / 设备控制 (单向设计)
+
+---
+
 ## 已完成功能
 
 ### 中心库 (PostgreSQL 17)
