@@ -335,6 +335,19 @@ export interface VolumeDTO {
   discCount?: number
   usedCount?: number
   newCount?: number
+  /**
+   * Sprint 2H.3 (autonomous): 来自 tbl_volume_slot 的聚合数据
+   * 写到 unified_volumes.raw_data._aggregate, 透传到前端
+   * - slot_count: 该 volume 下的盘位总数 (来自 tbl_volume_slot)
+   * - online_slot_count / offline_slot_count: 盘位在线/离线分布
+   */
+  aggregate?: {
+    slot_count?: number
+    online_slot_count?: number
+    offline_slot_count?: number
+    source_table?: string
+    aggregated_at?: string
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

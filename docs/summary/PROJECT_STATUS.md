@@ -1,7 +1,7 @@
 # Project Status
 
 > **截至**: 2026-06-08
-> **Sprint**: 2H.3 完成 (3 张占位表聚合器, 真实可用率 61.5% → 84.6%)
+> **Sprint**: 2H.4 完成 (/volumes 页面, 真实数据展示落地)
 
 ## 已完成功能
 
@@ -43,7 +43,7 @@
   - 多线程封包/重试次数/数据分类 在 API 模式统一空态 (mock 模式保留)
 - **Racks** (`/racks`) — 设备列表
 - **Sync Center** (`/sync`) — package/table 同步日志
-- `/volumes` 页面尚未实现，当前仅有真实 `/api/volumes`
+- **Volumes** (`/volumes`) — Sprint 2H.4 上线, 5 个真实 volume, 3 个含 _aggregate 聚合 (slot_count/online/offline), 顶部 4 tile 统计 + 列表 + Drawer 详情
 
 ### 同步能力
 - **小表 CLI import** — 9 张小表 + file-index
@@ -58,6 +58,7 @@
 - **Sprint 2H.1R Dispatcher 覆盖率审计** — 13 张白名单 5/5/3 (A/C/D), 3 张 D 类 (magzines/slots/logical_volume) 字段名错配
 - **Sprint 2H.2 Dispatcher 真实落库修复** — 3 张 D 类全部修成 A 类, sourceIdField/列映射修正, inlineUpsert 统计口径修正 (failed/partial/skipped 真实反映), 真实可用率 38.5% → 61.5%
 - **Sprint 2H.3 3 张占位表聚合器** — `tbl_lib_task` → `unified_tasks.runtime_seconds` (33/44 任务 75% 真实覆盖), `tbl_volume_slot` → `unified_volumes.raw_data._aggregate` (15/25 volume 真实 slot_count/online/offline), `tbl_user_task` → `unified_tasks.raw_data._aggregate.user_task_count` (27/44 真实关联数), dispatcher 从 `skip: true` 升级为调用聚合器, 真实可用率 61.5% → 84.6%
+- **Sprint 2H.4 /volumes 页面** — `app/volumes/page.tsx` 完整页面 (顶部 4 tile: 卷总数/容量/盘位/聚合覆盖 + 列表 + Drawer 详情), `VolumeDTO.aggregate` 透传 `_aggregate`, 侧边栏 "存储卷" 入口, 把 2H.3 写入的真实数据落地到 UI
 
 ## 已接入表 (13 张)
 

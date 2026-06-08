@@ -30,6 +30,8 @@ interface VolumeRow {
   device_id: string | null
   status: string | null
   health_status: string | null
+  // Sprint 2H.3: 透传 raw_data._aggregate
+  raw_data: { _aggregate?: { slot_count?: number; online_slot_count?: number; offline_slot_count?: number; source_table?: string; aggregated_at?: string } } | null
 }
 
 function formatBytes(value: number | string | null | undefined): string {
@@ -77,6 +79,7 @@ function mapVolumeToDTO(row: VolumeRow): VolumeDTO {
     remainingCapacity: remainingCapacity == null ? "" : formatBytes(remainingCapacity),
     info: statusParts.join(" · "),
     discCount: row.file_count ?? undefined,
+    aggregate: row.raw_data?._aggregate,
   }
 }
 
@@ -109,7 +112,8 @@ export async function GET(request: NextRequest) {
       SELECT id, source_site_id, source_id, synced_at,
              volume_id, volume_name, volume_type,
              capacity, used_capacity, file_count,
-             site_code, device_id, status, health_status
+             site_code, device_id, status, health_status,
+             raw_data
       FROM unified_volumes ${whereClause}
       ORDER BY source_site_id, volume_id NULLS LAST, source_id
     `

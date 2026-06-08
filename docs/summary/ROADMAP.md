@@ -25,16 +25,16 @@
 - ✅ **2H.1R**: Dispatcher 覆盖率审计 (5 A / 5 C / 3 D, D 类为 sourceIdField 错配)
 - ✅ **2H.2**: Dispatcher 真实落库修复 (3 D → 0 D, 8 A 类, 真实可用率 38.5% → 61.5%, inlineUpsert 统计口径修正)
 - ✅ **2H.3**: 3 张占位表聚合器 (tbl_lib_task / tbl_volume_slot / tbl_user_task 从 C → A, 真实可用率 61.5% → 84.6%, runtime_seconds 真实数据从 0 → 33 个 task)
+- ✅ **2H.4**: /volumes 页面 + VolumeDTO.aggregate 透传 + 侧边栏入口 (2H.3 数据落地最后一公里, 5 个真实 volume / 3 个含 _aggregate, API 透传, 页面展示)
 
-## 2H.4 (下一步)
+## 2H.5 (下一步)
 
-**目标**: Volumes 页面 + Racks 页面 slot 明细 + 缺失列补齐
+**目标**: Racks 页面 slot 真实明细 + 任务详情页 runtime 展示
 
 | 任务 | 说明 |
 |---|---|
-| /volumes 页面 | API 已有 (real data), 缺页面 (/app/volumes/page.tsx) |
-| Volumes 列表 + 容量条 + _aggregate 字段透传 | 利用 2H.3 写进的 raw_data._aggregate.slot_count / online_slot_count |
-| Racks 页面 slots 真实明细 (来自 unified_slots) | 396 行真实数据, 缺一个 slot 列表 drawer |
+| Racks 页面 slot 真实明细 (来自 unified_slots) | 396 行真实数据, 缺一个 slot 列表 drawer |
+| 任务详情页接 runtime 真实数据 | Tasks 列表 33/44 任务有真实 runtime, 需要 UI 展示 |
 | `tbl_hd_info` 5 个缺失列 (disk_id/capacity/used_capacity/total_capacity/slot_index) | 需要从其它表 join 或扩展 source schema |
 | inlineUpsert inserted/updated 区分 | 加 `RETURNING (xmax = 0)` 让 PG 返回 inserted/updated 区分 |
 
