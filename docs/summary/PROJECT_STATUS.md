@@ -1,7 +1,7 @@
 # Project Status
 
 > **截至**: 2026-06-08
-> **Sprint**: 2H.4 完成 (/volumes 页面, 真实数据展示落地)
+> **Sprint**: 2H.6 完成 (inlineUpsert inserted/updated 区分, 全部 13 张表真实区分)
 
 ## 已完成功能
 
@@ -59,6 +59,8 @@
 - **Sprint 2H.2 Dispatcher 真实落库修复** — 3 张 D 类全部修成 A 类, sourceIdField/列映射修正, inlineUpsert 统计口径修正 (failed/partial/skipped 真实反映), 真实可用率 38.5% → 61.5%
 - **Sprint 2H.3 3 张占位表聚合器** — `tbl_lib_task` → `unified_tasks.runtime_seconds` (33/44 任务 75% 真实覆盖), `tbl_volume_slot` → `unified_volumes.raw_data._aggregate` (15/25 volume 真实 slot_count/online/offline), `tbl_user_task` → `unified_tasks.raw_data._aggregate.user_task_count` (27/44 真实关联数), dispatcher 从 `skip: true` 升级为调用聚合器, 真实可用率 61.5% → 84.6%
 - **Sprint 2H.4 /volumes 页面** — `app/volumes/page.tsx` 完整页面 (顶部 4 tile: 卷总数/容量/盘位/聚合覆盖 + 列表 + Drawer 详情), `VolumeDTO.aggregate` 透传 `_aggregate`, 侧边栏 "存储卷" 入口, 把 2H.3 写入的真实数据落地到 UI
+- **Sprint 2H.5 Tasks 列表 runtime 列** — Tasks 表格新增"运行耗时" 列, `formatRuntime(t.runtime)` 真实展示 2H.3 写入的 33/44 任务 runtime (75% 真实覆盖)
+- **Sprint 2H.6 inlineUpsert inserted/updated 区分** — `RETURNING (xmax = 0) AS is_insert`, 全部 13 张白名单表真实区分 inserted vs updated, route.ts 透传 `TableSummary.inserted/updated`, 端到端 5+5 验证通过 (新 source_id → inserted, 重复 source_id → updated)
 
 ## 已接入表 (13 张)
 

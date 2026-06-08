@@ -26,8 +26,10 @@
 - ✅ **2H.2**: Dispatcher 真实落库修复 (3 D → 0 D, 8 A 类, 真实可用率 38.5% → 61.5%, inlineUpsert 统计口径修正)
 - ✅ **2H.3**: 3 张占位表聚合器 (tbl_lib_task / tbl_volume_slot / tbl_user_task 从 C → A, 真实可用率 61.5% → 84.6%, runtime_seconds 真实数据从 0 → 33 个 task)
 - ✅ **2H.4**: /volumes 页面 + VolumeDTO.aggregate 透传 + 侧边栏入口 (2H.3 数据落地最后一公里, 5 个真实 volume / 3 个含 _aggregate, API 透传, 页面展示)
+- ✅ **2H.5**: Tasks 列表 runtime 列 (来自 2H.3 真实数据, 33/44 任务有真实 runtime 75% 覆盖, formatRuntime 展示)
+- ✅ **2H.6**: inlineUpsert inserted/updated 区分 (RETURNING xmax = 0 技巧, 13 张表全部支持真实区分, 端到端 5+5 验证通过)
 
-## 2H.5 (下一步)
+## 2H.7 (下一步)
 
 **目标**: Racks 页面 slot 真实明细 + 任务详情页 runtime 展示
 
