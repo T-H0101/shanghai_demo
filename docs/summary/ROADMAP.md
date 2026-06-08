@@ -3,7 +3,51 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-08
 
-## 3.0 全库业务价值审计 (刚完成)
+## 4.5 control_command 控制队列 MVP (刚完成)
+
+Sprint 4.5: 总控具备可落地的命令下发骨架, 不假实现。
+
+- 1 张表 (`control_command`, 16 字段 + 4 索引 + 1 触发器)
+- 1 service (`lib/control/control-command.ts`, 5 函数)
+- 5 个 API (3 总控 + 2 站点轮询)
+- Tasks 页面 3 按钮接通 (暂停/恢复/重置, **不改 unified_tasks**)
+- `/control` 控制命令列表页 + sidebar 入口
+- 端到端 8 步全过 + tsc + build + smoke 干净
+- 详情见 `docs/database-analysis/sprint-4.5-control-command-mvp.md`
+
+## 4.6 (下一步)
+
+**目标**: TaskControlProvider 抽象 + 9 thin API + 站点侧完整 HMAC
+
+- 2d TaskControlProvider 抽象 (Sprint 4.1 已设计)
+- 0.5d 站点侧完整 HMAC 升级 (nonce + 时间窗)
+- 0.5d `/control` 批量操作 (按 status 批量取消)
+- 3d WebSocket 推送 (可选, ROI 3)
+- 依赖: Sprint 4.5 已完成
+
+## 4.7
+
+**目标**: SSO 跳转入口占位 (Sprint 4.2-C 方案 1 落地)
+
+- 1d `lib/site/site-urls.ts` + `components/site-jump-button.tsx`
+- 集成: Tasks/Racks/Volumes 详情页加"在站点管理" 跳转
+- 依赖: 站点 URL 配置 (`SITE_URL_*` 环境变量)
+- 风险: URL 未配置时按钮 disabled
+
+## 4.8
+
+**目标**: 巡检/恢复/优先控制方案 (Sprint 4.2-C 方案 2 完整版)
+
+- 2d 巡检命令接入 (control_command.action='inspect_start')
+- 2d 恢复命令接入 (action='recovery_start')
+- 1d 真实站点拉取脚本示例
+- 4d 总估时, 站点侧同步开发
+
+## 5.x (需上级解锁 CLAUDE.md)
+
+5.1 ADFS 集成登录 (5d) → 5.2 JWT 令牌 (4d) → 5.3 账号生命周期 (3d) → 5.4 RBAC (5d) → 5.5 审计 (3d) → 5.6 登录审计 (4d) → 5.7 部门管理 (5d) → 5.8 SSO 跳转真接入 (3d)
+
+**总计 32 人天**, 解锁 REQ-003/006/007/009/017/019/023/040 共 8 项需求。
 
 Sprint 3.0 审计结论: **业务完成度 85%**, 13/146 源端理论表 = 8.9% 真实存在率, 不再大规模接表。
 

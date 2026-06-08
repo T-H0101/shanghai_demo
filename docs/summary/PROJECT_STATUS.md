@@ -1,7 +1,7 @@
 # Project Status
 
 > **截至**: 2026-06-08
-> **Sprint**: 2H.6 完成 (inlineUpsert inserted/updated 区分, 全部 13 张表真实区分)
+> **Sprint**: 4.5 完成 (control_command 控制队列 MVP)
 
 ## Sprint 3.0R 需求对照审计 (2026-06-08)
 
@@ -117,6 +117,13 @@
 - **Sprint 2H.4 /volumes 页面** — `app/volumes/page.tsx` 完整页面 (顶部 4 tile: 卷总数/容量/盘位/聚合覆盖 + 列表 + Drawer 详情), `VolumeDTO.aggregate` 透传 `_aggregate`, 侧边栏 "存储卷" 入口, 把 2H.3 写入的真实数据落地到 UI
 - **Sprint 2H.5 Tasks 列表 runtime 列** — Tasks 表格新增"运行耗时" 列, `formatRuntime(t.runtime)` 真实展示 2H.3 写入的 33/44 任务 runtime (75% 真实覆盖)
 - **Sprint 2H.6 inlineUpsert inserted/updated 区分** — `RETURNING (xmax = 0) AS is_insert`, 全部 13 张白名单表真实区分 inserted vs updated, route.ts 透传 `TableSummary.inserted/updated`, 端到端 5+5 验证通过 (新 source_id → inserted, 重复 source_id → updated)
+- **Sprint 3.0 全库业务价值审计** — 13/13 源表真实接入, 11 类需求源端缺失或禁止, 业务完成度 85%
+- **Sprint 3.0R 需求对照** — 32 项需求矩阵 (✅ 9 / ⚠️ 10 / ❌ 11 / 🚫 2), 需求完成度 28.1%
+- **Sprint 3.1 部署指南** — 完整 6 步启动 + HMAC + siteCode + 一键检查
+- **Sprint 4.0 需求实现矩阵** — 40 个原子需求, 4 层映射, 6 状态分类
+- **Sprint 4.1 任务控制能力审计** — 7 个原子动作 0 真实, 16 接口 + 13 字段 MVP
+- **Sprint 4.2 PG 备份审查 + 同步策略收敛 + 控制方案 2 选 + 路线图** — 170 源表 / 13 白名单 (7.6%), 收口每小时同步, 设计 SSO 跳转 + 控制队列 2 方案
+- **Sprint 4.5 control_command 控制队列 MVP** — 1 张表 (16 字段) + 1 service (5 函数) + 5 API (3 总控 + 2 站点) + Tasks 按钮接通 (暂停/恢复/重置, 不改 unified_tasks) + /control 列表页 + sidebar 入口, 端到端 8 步全过, tsc/build/smoke 全部干净
 
 ## 已接入表 (13 张)
 

@@ -15,6 +15,7 @@ import {
   Settings,
   Disc,
   X,
+  Terminal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -25,6 +26,7 @@ const menuItems = [
   { icon: ClipboardList, label: "任务管理", href: "/tasks" },
   { icon: HardDrive, label: "盘架管理", href: "/racks" },
   { icon: Database, label: "存储卷", href: "/volumes" },
+  { icon: Terminal, label: "控制命令", href: "/control" },
   { icon: Users, label: "用户与权限", href: "/users" },
   { icon: FileText, label: "审计日志", href: "/logs" },
   { icon: Settings, label: "系统设置", href: "/settings" },

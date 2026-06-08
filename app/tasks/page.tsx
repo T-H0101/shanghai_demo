@@ -150,7 +150,6 @@ function TasksPageContent() {
   const deviceFilter = searchParams.get("device")
 
   const [tasks, setTasks] = useState<TaskItem[]>([])
-  const [stats, setStats] = useState({ total: 0, pending: 0, running: 0, completed: 0, failed: 0, paused: 0 })
   const [keyword, setKeyword] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [phaseFilter, setPhaseFilter] = useState<string>("all")
@@ -166,14 +165,12 @@ function TasksPageContent() {
 
   // 加载数据
   const loadTasks = useCallback(async () => {
-    const [list, s] = await Promise.all([
-      taskProvider.getAll(),
-      taskProvider.getStats(),
-    ])
+    const list = await taskProvider.getAll(
+      !isAllSites && siteCode ? { siteCode } : undefined
+    )
     setTasks(list)
-    setStats(s)
     if (!selected) setSelected(list[0] ?? null)
-  }, [selected])
+  }, [selected, isAllSites, siteCode])
 
   const loadFiltered = useCallback(async () => {
     const filters: Record<string, string> = {}
@@ -214,9 +211,17 @@ function TasksPageContent() {
     })
   }, [tasks, tab, phaseFilter, scopeFilter])
 
+  const showApiWriteUnavailable = (action: string) => {
+    toast({
+      title: "任务操作接口未接入",
+      description: `当前 API 模式仅支持真实数据展示，暂不能${action}`,
+    })
+  }
+
   // 推进进度
   const handleAdvance = async (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) return showApiWriteUnavailable("推进任务")
     try {
       const updated = await taskProvider.advancePhase(task.id)
       setTasks(prev => prev.map(t => t.id === task.id ? updated : t))
@@ -231,6 +236,34 @@ function TasksPageContent() {
 
   const handlePause = async (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) {
+      // Sprint 4.5: 写入 control_command, 不假实现, 不改 task 状态
+      try {
+        const res = await fetch("/api/control/commands", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceSiteId: task.siteCode ?? "SH01",
+            commandType: "task_pause",
+            targetType: "task",
+            targetId: task.id,
+            payload: { taskName: task.name },
+          }),
+        })
+        const data = await res.json()
+        if (data.ok) {
+          toast({
+            title: "控制命令已提交",
+            description: `等待站点同步执行: ${data.command.commandNo}`,
+          })
+        } else {
+          throw new Error(data.error || "提交失败")
+        }
+      } catch (err) {
+        toast({ title: "提交失败", description: err instanceof Error ? err.message : String(err), variant: "destructive" })
+      }
+      return
+    }
     await taskProvider.pauseTask(task.id)
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "paused", status: "paused" as const } : t))
     if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "paused", status: "paused" as const } : null)
@@ -239,6 +272,33 @@ function TasksPageContent() {
 
   const handleResume = async (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) {
+      try {
+        const res = await fetch("/api/control/commands", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceSiteId: task.siteCode ?? "SH01",
+            commandType: "task_resume",
+            targetType: "task",
+            targetId: task.id,
+            payload: { taskName: task.name },
+          }),
+        })
+        const data = await res.json()
+        if (data.ok) {
+          toast({
+            title: "控制命令已提交",
+            description: `等待站点同步执行: ${data.command.commandNo}`,
+          })
+        } else {
+          throw new Error(data.error || "提交失败")
+        }
+      } catch (err) {
+        toast({ title: "提交失败", description: err instanceof Error ? err.message : String(err), variant: "destructive" })
+      }
+      return
+    }
     const updated = await taskProvider.resumeTask(task.id)
     const previousPhase = task.phase
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: (previousPhase === "paused" ? "pending" : t.phase), status: "running" as const } : t))
@@ -248,6 +308,33 @@ function TasksPageContent() {
 
   const handleRetry = async (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) {
+      try {
+        const res = await fetch("/api/control/commands", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceSiteId: task.siteCode ?? "SH01",
+            commandType: "task_reset",
+            targetType: "task",
+            targetId: task.id,
+            payload: { taskName: task.name, action: "retry" },
+          }),
+        })
+        const data = await res.json()
+        if (data.ok) {
+          toast({
+            title: "控制命令已提交",
+            description: `等待站点同步执行: ${data.command.commandNo}`,
+          })
+        } else {
+          throw new Error(data.error || "提交失败")
+        }
+      } catch (err) {
+        toast({ title: "提交失败", description: err instanceof Error ? err.message : String(err), variant: "destructive" })
+      }
+      return
+    }
     await taskProvider.retryTask(task.id)
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "pending", status: "running" as const, progress: 0 } : t))
     if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "pending", status: "running" as const, progress: 0 } : null)
@@ -256,6 +343,7 @@ function TasksPageContent() {
 
   const handleComplete = async (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) return showApiWriteUnavailable("标记任务完成")
     await taskProvider.completeTask(task.id)
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "completed", status: "completed" as const, progress: 100 } : t))
     if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "completed", status: "completed" as const, progress: 100 } : null)
@@ -264,6 +352,7 @@ function TasksPageContent() {
 
   const handleFail = async (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) return showApiWriteUnavailable("标记任务失败")
     await taskProvider.failTask(task.id, "手动标记失败")
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "failed", status: "failed" as const, errorMessage: "手动标记失败" } : t))
     if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "failed", status: "failed" as const, errorMessage: "手动标记失败" } : null)
@@ -272,11 +361,13 @@ function TasksPageContent() {
 
   const handleExport = (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (isApiMode) return showApiWriteUnavailable("导出任务")
     toast({ title: "导出任务", description: `「${task.name}」数据导出中...` })
   }
 
   // 新建任务
   const handleCreate = async () => {
+    if (isApiMode) return showApiWriteUnavailable("新建任务")
     if (!createForm.name || !createForm.archiveName) {
       toast({ title: "请填写必填项", description: "任务名称和档案馆名称为必填项", variant: "destructive" })
       return
@@ -329,7 +420,7 @@ function TasksPageContent() {
         title="任务管理"
         description="档案数据封包、备份、恢复、扫描任务统一调度与监控"
         badge="TASK CENTER"
-        actions={<div className="flex items-center gap-2"><DataSourceBadge /><Button size="sm" className="bg-blue-600" onClick={() => setShowCreate(true)}><ClipboardList className="h-4 w-4 mr-1" />新建任务</Button></div>}
+        actions={<div className="flex items-center gap-2"><DataSourceBadge /><Button size="sm" className="bg-blue-600" onClick={() => isApiMode ? showApiWriteUnavailable("新建任务") : setShowCreate(true)}><ClipboardList className="h-4 w-4 mr-1" />新建任务</Button></div>}
       />
 
       {/* ── 统计卡片 ─────────────────────────────────────────── */}
