@@ -389,6 +389,8 @@ async function inlineUpsert(
   const targetCols = colMaps.map((c) => c.target)
 
   let upserted = 0
+  let inserted = 0
+  let updated = 0
   let skipped = 0
   let failed = 0
   const errorMessages: string[] = []
@@ -438,19 +440,24 @@ async function inlineUpsert(
       )
       ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
         ${updateSet.join(', ')}
+      RETURNING (xmax = 0) AS is_insert
     `
 
     try {
-      const result = await query(sql, [
+      const result = await query<{ is_insert: boolean }>(sql, [
         input.siteCode,
         input.tableName,
         sourceId,
         ...values,
         JSON.stringify(record),
       ])
-      // ON CONFLICT DO UPDATE 总是返回 1 (无论 insert 还是 update)
-      // PostgreSQL 不暴露 inserted/updated 区分 (除非用 RETURNING xmax = 0)
+      // Sprint 2H.6: 用 RETURNING (xmax = 0) 区分 inserted vs updated
+      // xmax = 0 表示行是新插入的 (没有老版本); xmax != 0 表示 update
       upserted += result.rowCount ?? 0
+      if (result.rows.length > 0) {
+        if (result.rows[0].is_insert) inserted++
+        else updated++
+      }
     } catch (err) {
       failed++
       const msg = err instanceof Error ? err.message : 'unknown'
@@ -480,8 +487,8 @@ async function inlineUpsert(
     tableName: input.tableName,
     received: input.records.length,
     upserted,
-    inserted: 0, // 不可区分, 留 0; 真实处理数见 upserted
-    updated: 0,  // 不可区分
+    inserted,        // Sprint 2H.6: 真实 inserted 行数 (来自 RETURNING xmax = 0)
+    updated,         // Sprint 2H.6: 真实 updated 行数
     skipped,
     failed,
     status,

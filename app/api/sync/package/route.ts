@@ -48,6 +48,8 @@ interface TableSummary {
   status: string
   received: number
   upserted: number
+  inserted: number      // Sprint 2H.6: 真实 inserted 行数 (来自 RETURNING xmax = 0)
+  updated: number       // Sprint 2H.6: 真实 updated 行数
   failed: number
   errorMessage?: string
 }
@@ -261,6 +263,8 @@ export async function POST(request: NextRequest) {
       status: result.status,
       received: result.received,
       upserted: result.upserted,
+      inserted: result.inserted,
+      updated: result.updated,
       failed: result.failed,
       errorMessage: result.errorMessage,
     })
