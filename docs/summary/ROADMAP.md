@@ -3,6 +3,53 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-08
 
+## 3.0 全库业务价值审计 (刚完成)
+
+Sprint 3.0 审计结论: **业务完成度 85%**, 13/146 源端理论表 = 8.9% 真实存在率, 不再大规模接表。
+
+- 13/13 源端实际表全部接入 (11 A + 2 C, 0 D)
+- 4/4 同步数据类型覆盖 (设备/文件/权限/任务)
+- 11 类需求源端 schema 缺失或 CLAUDE.md 禁止项, **不可实现**
+- 详情见 `docs/database-analysis/sprint-3.0-business-value-audit.md`
+
+## 3.1 (下一步)
+
+**目标**: Racks slot 真实明细 drawer (ROI 5)
+
+396 行 unified_slots 真实数据已有, Racks 页面缺 slot 明细。改 1 个 drawer, 调 /api/racks/[id]/slots。
+
+## 3.2
+
+**目标**: Tasks 详情页 _aggregate 来源 badge (ROI 4)
+
+33/44 任务 runtime 真实 + 27/44 user_task_count 真实, 加 badge 标"来自 lib_task 聚合"。
+
+## 3.3
+
+**目标**: Dashboard unified_volumes 总数 tile (ROI 4)
+
+5 个真实 volume, 但 Dashboard 没显示。
+
+## 3.4
+
+**目标**: 同步日志页 dispatcher A/B/C/D 分类 (ROI 3)
+
+sync_table_log 已有 status, 加分类徽章让用户知道哪些表真实可用。
+
+## 3.5
+
+**目标**: unified_tasks.user_task_count 透传 + UI (ROI 3)
+
+TaskDTO.aggregate 字段, drawer 展示 user_task_count。
+
+## 3.6
+
+**目标**: 系统操作 / 运维文档 (ROI 3)
+
+写 4 篇: 启动 / 接入新站点 / 接新表 / 故障排查。
+
+
+
 ## 已完成
 
 - ✅ **2C.18A-2C.20**: file-index reader/mapper/upsert/importer
