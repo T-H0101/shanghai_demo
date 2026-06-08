@@ -16,24 +16,38 @@ import {
 } from "lucide-react"
 import { taskProvider, rackProvider } from "@/lib/api"
 import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
+import { useSite } from "@/lib/site/site-context"
 
 export function StatsCards() {
   const pathname = usePathname()
+  const { siteCode, isAllSites, isReady } = useSite()
   const [taskStats, setTaskStats] = useState({ total: 0, running: 0, completed: 0, failed: 0, pending: 0 })
   const [rackStats, setRackStats] = useState({ total: 0, online: 0, offline: 0, avgUsage: 0, totalCapacity: "0 TB", remainingCapacity: "0 TB", usedSlots: 0, totalSlotsAll: 0 })
 
   const loadStats = async () => {
     try {
-      const [tStats, rStats] = await Promise.all([taskProvider.getStats(), rackProvider.getStats()])
-      setTaskStats(tStats)
+      const filterSite = isAllSites ? undefined : siteCode ?? undefined
+      const [tasks, rStats] = await Promise.all([
+        taskProvider.getAll(filterSite ? { siteCode: filterSite } : undefined),
+        rackProvider.getStats(filterSite),
+      ])
+      setTaskStats({
+        total: tasks.length,
+        running: tasks.filter((task) =>
+          ["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(task.phase)
+        ).length,
+        completed: tasks.filter((task) => task.phase === "completed").length,
+        failed: tasks.filter((task) => task.phase === "failed").length,
+        pending: tasks.filter((task) => task.phase === "pending").length,
+      })
       setRackStats(rStats)
     } catch { /* ignore */ }
   }
 
   // 首次加载 + 路由变化时重新读取
   useEffect(() => {
-    loadStats()
-  }, [pathname])
+    if (isReady) loadStats()
+  }, [pathname, isReady, siteCode, isAllSites])
 
   // 监听 localStorage 变化
   useEffect(() => {

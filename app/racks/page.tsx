@@ -133,6 +133,10 @@ export default function Page() {
 
   // 初始化浏览文件
   useEffect(() => {
+    if (isApiMode) {
+      setBrowsedFiles([])
+      return
+    }
     if (storageTab === "browse" || storageTab === "restore") {
       const root = mockBackupFiles[0]
       setBrowsedFiles(root?.children ?? [])
@@ -1188,10 +1192,20 @@ export default function Page() {
           <Tabs value={storageTab} onValueChange={v => setStorageTab(v as any)} className="w-auto">
             <TabsList className="h-8 bg-slate-100">
               <TabsTrigger value="overview" className="h-7 text-xs data-[state=active]:bg-white">设备总览</TabsTrigger>
-              <TabsTrigger value="browse" className="h-7 text-xs data-[state=active]:bg-white">
+              <TabsTrigger
+                value="browse"
+                disabled={isApiMode}
+                title={isApiMode ? "文件浏览接口未接入" : undefined}
+                className="h-7 text-xs data-[state=active]:bg-white"
+              >
                 <FolderTree className="h-3.5 w-3.5 mr-1" />存储浏览
               </TabsTrigger>
-              <TabsTrigger value="restore" className="h-7 text-xs data-[state=active]:bg-white">
+              <TabsTrigger
+                value="restore"
+                disabled={isApiMode}
+                title={isApiMode ? "数据恢复接口未接入" : undefined}
+                className="h-7 text-xs data-[state=active]:bg-white"
+              >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />数据恢复
               </TabsTrigger>
             </TabsList>
@@ -1385,7 +1399,7 @@ export default function Page() {
           {storageTab === "overview" && (
             <div className="text-sm text-slate-500 text-center py-8">
               <HardDrive className="h-12 w-12 mx-auto mb-2 opacity-20" />
-              <p>当前 {filtered.length} 台设备在线</p>
+              <p>当前 {filtered.filter(r => r.deviceStatus === "online").length} 台设备在线</p>
               <p className="text-xs mt-1">点击上方 Tab 切换到"存储浏览"或"数据恢复"</p>
             </div>
           )}

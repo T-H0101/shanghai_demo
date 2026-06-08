@@ -11,6 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+import { isApiMode } from "@/lib/api"
 
 const chartData = [
   { time: "08:00", backup: 12, restore: 8, verify: 5 },
@@ -27,6 +28,19 @@ interface SyncTrendChartProps {
 }
 
 export function SyncTrendChart({ className }: SyncTrendChartProps) {
+  if (isApiMode) {
+    return (
+      <Card className={`gap-0 ${className || ''}`}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-slate-900">任务执行趋势</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[220px] flex items-center justify-center text-sm text-slate-400">
+          暂无真实趋势数据
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className={`gap-0 ${className || ''}`}>
       <CardHeader className="pb-2">

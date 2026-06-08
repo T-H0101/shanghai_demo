@@ -11,6 +11,11 @@
  *   4. _aggregate 真实数据覆盖率
  *   5. 最近 N 条 package log
  *   6. 总结
+ *
+ * @archive 一次性诊断脚本 (Sprint 2H.7 触发 stop condition D)
+ *   已被 smoke:sync + export-and-push 替代
+ *   详见 docs/database-analysis/sprint-2h7-coverage-audit.md
+ *   与 docs/summary/SCRIPTS_INDEX.md §2.C
  */
 
 import { readFileSync, existsSync } from 'fs'

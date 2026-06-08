@@ -3,8 +3,13 @@
  * GET  /api/control/commands - 列表查询
  *
  * 写入入口 (用户/系统)
- * - 当前不要求 Auth (Sprint 4.5 MVP)
- * - Auth 解锁后, requestedBy 从 session 读
+ *
+ * ⚠️ Sprint 4.5 MVP 范围: 不要求 Auth, requestedBy 固定为 null
+ *   解锁后 (Sprint 5.1 ADFS 接入):
+ *     - const session = await getSession()
+ *     - if (!session) return 401
+ *     - requestedBy = session.user
+ *   详见 docs/summary/CODEBASE_QUALITY_AUDIT.md §3.2
  */
 
 import { NextRequest, NextResponse } from "next/server"

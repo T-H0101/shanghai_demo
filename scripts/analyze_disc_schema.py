@@ -6,6 +6,11 @@ SQL Schema Analyzer for Disc Files Database
 用法:
     python3 scripts/analyze_disc_schema.py /path/to/disc_files.sql
     python3 scripts/analyze_disc_schema.py --input /path/to/disc_files.sql --out docs/database-analysis
+
+@legacy / @obsolete — Python 脚本混进 pnpm + tsx 项目
+  - 已被 scripts/import-from-source.ts 完全替代
+  - Sprint 4.6A 处置: 保留不删 (低风险), Sprint 4.7+ 决定移走
+  - 详见 docs/summary/SCRIPTS_INDEX.md §2.D
 """
 
 import re

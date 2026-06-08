@@ -1,6 +1,10 @@
 /**
  * GET /api/alerts
  * 告警列表 API
+ *
+ * @legacy Sprint 2A 临时实现: 直接 import lib/mock 数据拼接
+ *   Sprint 4.7+ 计划: 改为统一 /api/dashboard/alerts 真实聚合
+ *   详见 docs/summary/CODEBASE_QUALITY_AUDIT.md §4.4
  */
 
 import { NextRequest, NextResponse } from "next/server"

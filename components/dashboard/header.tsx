@@ -19,6 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useNotificationStore } from "@/store/notification"
 import { toast } from "@/hooks/use-toast"
 import { SiteSelector } from "@/components/site/site-selector"
+import { isApiMode } from "@/lib/api"
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -29,9 +30,33 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore()
   const [panelOpen, setPanelOpen] = useState(false)
   const [session, setSession] = useState<MockSession | null>(null)
+  const [systemStatus, setSystemStatus] = useState<"loading" | "healthy" | "degraded">("loading")
+  const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
 
   useEffect(() => {
     setSession(getSession())
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      fetch("/api/system/health", { cache: "no-store" }),
+      fetch("/api/system/db-health", { cache: "no-store" }),
+    ])
+      .then(async ([serviceResponse, dbResponse]) => {
+        const service = await serviceResponse.json()
+        if (cancelled) return
+        setSystemStatus(serviceResponse.ok && service.status === "ok" && dbResponse.ok ? "healthy" : "degraded")
+        setHealthCheckedAt(service.timestamp ?? new Date().toISOString())
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSystemStatus("degraded")
+        setHealthCheckedAt(new Date().toISOString())
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleLogout = () => {
@@ -94,25 +119,38 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Core Service Status - Hidden on mobile */}
         <div className="hidden xl:flex items-center gap-2 text-sm">
           <span className="text-slate-500">核心服务:</span>
-          <span className="text-emerald-600 font-medium">正常运行</span>
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className={systemStatus === "healthy" ? "text-emerald-600 font-medium" : "text-amber-600 font-medium"}>
+            {systemStatus === "loading" ? "检查中" : systemStatus === "healthy" ? "正常运行" : "状态异常"}
+          </span>
+          <span className={`h-2 w-2 rounded-full ${systemStatus === "healthy" ? "bg-emerald-500" : "bg-amber-500"}`}></span>
         </div>
 
         {/* Last Update - Hidden on mobile */}
         <div className="hidden lg:block text-sm text-slate-500">
-          <span>数据更新于: 2023-11-22</span>
-          <span className="ml-2">14:30:05</span>
+          <span>状态检查于:</span>
+          <span className="ml-2">
+            {healthCheckedAt ? new Date(healthCheckedAt).toLocaleString("zh-CN", { hour12: false }) : "—"}
+          </span>
         </div>
 
         {/* System Health */}
         <div className="flex items-center gap-1 lg:gap-2">
           <span className="hidden md:inline text-xs text-slate-500">SYSTEM 健康度</span>
-          <span className="text-xl lg:text-2xl font-bold text-emerald-600">98</span>
-          <span className="text-slate-400 text-sm">/100</span>
+          <span className={`text-sm font-semibold ${systemStatus === "healthy" ? "text-emerald-600" : "text-amber-600"}`}>
+            {systemStatus === "loading" ? "检查中" : systemStatus === "healthy" ? "正常" : "异常"}
+          </span>
         </div>
 
         {/* Notifications */}
-        <DropdownMenu open={panelOpen} onOpenChange={setPanelOpen}>
+        {isApiMode ? (
+          <button
+            className="relative p-2 rounded-lg text-slate-400 cursor-not-allowed"
+            title="通知接口未接入"
+            disabled
+          >
+            <Bell className="h-5 w-5" />
+          </button>
+        ) : <DropdownMenu open={panelOpen} onOpenChange={setPanelOpen}>
           <DropdownMenuTrigger asChild>
             <button className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors">
               <Bell className="h-5 w-5 text-slate-600" />
@@ -169,7 +207,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               </div>
             </ScrollArea>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>}
 
         {/* User — Mock Enterprise Authentication Demo */}
         <div className="flex items-center gap-2 lg:gap-3 border-l border-slate-200 pl-3 lg:pl-4">

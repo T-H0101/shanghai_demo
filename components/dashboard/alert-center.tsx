@@ -19,6 +19,7 @@ import {
   Clock,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useSite } from "@/lib/site/site-context"
 
 interface AlertItem {
   id: string
@@ -33,13 +34,18 @@ interface AlertItem {
 export function AlertCenter() {
   const router = useRouter()
   const pathname = usePathname()
+  const { siteCode, isAllSites, isReady } = useSite()
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadAlerts = async () => {
     try {
       setLoading(true)
-      const [tasks, racks] = await Promise.all([taskProvider.getAll(), rackProvider.getAll()])
+      const filterSite = isAllSites ? undefined : siteCode ?? undefined
+      const [tasks, racks] = await Promise.all([
+        taskProvider.getAll(filterSite ? { siteCode: filterSite } : undefined),
+        rackProvider.getAll(filterSite),
+      ])
       const items: AlertItem[] = []
 
       // 失败任务
@@ -88,8 +94,8 @@ export function AlertCenter() {
 
   // 首次加载 + 路由变化时重新读取
   useEffect(() => {
-    loadAlerts()
-  }, [pathname])
+    if (isReady) loadAlerts()
+  }, [pathname, isReady, siteCode, isAllSites])
 
   // 监听 localStorage 变化
   useEffect(() => {

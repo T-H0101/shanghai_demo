@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { useSite } from "@/lib/site/site-context"
 
 const statusBadge: Record<string, string> = {
   running: "bg-blue-100 text-blue-700",
@@ -29,15 +30,21 @@ const statusBadge: Record<string, string> = {
 
 export function TaskTable() {
   const router = useRouter()
+  const { siteCode, isAllSites, isReady } = useSite()
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    taskProvider.getAll().then((data) => {
-      setTasks(data.slice(0, 8))
+    if (!isReady) return
+    taskProvider.getAll(!isAllSites && siteCode ? { siteCode } : undefined).then((data) => {
+      setTasks(
+        data
+          .filter((task) => task.status === "running" || task.phase === "pending")
+          .slice(0, 5)
+      )
       setLoading(false)
     })
-  }, [])
+  }, [isReady, isAllSites, siteCode])
 
   return (
     <Card className="gap-0">
@@ -66,7 +73,7 @@ export function TaskTable() {
           <div className="text-center py-8 text-slate-400 text-sm">暂无进行中任务</div>
         ) : (
           <div className="space-y-2">
-            {tasks.filter(t => t.status === "running" || t.phase === "pending").slice(0, 5).map((task) => (
+            {tasks.map((task) => (
               <div
                 key={task.id}
                 className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
@@ -82,8 +89,10 @@ export function TaskTable() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
-                    <Progress value={task.progress} className="h-1.5 w-16 mb-0.5" />
-                    <span className="text-[10px] text-slate-400">{task.progress}%</span>
+                    <Progress value={task.phase === "completed" ? 100 : (task.progress ?? 0)} className="h-1.5 w-16 mb-0.5" />
+                    <span className="text-[10px] text-slate-400">
+                      {task.phase === "completed" ? "100%" : task.progress && task.progress > 0 ? `${task.progress}%` : "—"}
+                    </span>
                   </div>
                   <Badge className={cn("text-[10px]", statusBadge[task.status] ?? "bg-slate-100")}>
                     {task.phase === "pending" ? "待处理" : TASK_PHASE_LABELS[task.phase] ?? task.status}

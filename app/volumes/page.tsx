@@ -89,7 +89,7 @@ export default function VolumesPage() {
 }
 
 function VolumesContent() {
-  const { siteCode } = useSite()
+  const { siteCode, isReady: siteReady } = useSite()
   const searchParams = useSearchParams()
   const [volumes, setVolumes] = useState<VolumeDTO[]>([])
   const [loading, setLoading] = useState(false)
@@ -124,8 +124,8 @@ function VolumesContent() {
   }, [siteCode])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (siteReady) load()
+  }, [load, siteReady])
 
   const stats = useMemo(() => {
     const total = volumes.length
@@ -211,28 +211,32 @@ function VolumesContent() {
             title="卷总数"
             value={String(stats.total)}
             icon={Database}
-            badge="blue"
+            iconBg="bg-blue-50"
+            iconColor="text-blue-600"
             footer={`${stats.totalSlots} 盘位 (来自 tbl_volume_slot 聚合)`}
           />
           <StatCard
             title="总容量 / 已用"
             value={`${stats.usedPct}%`}
             icon={HardDrive}
-            badge="indigo"
+            iconBg="bg-indigo-50"
+            iconColor="text-indigo-600"
             footer={`${stats.usedCap} / ${stats.totalCap}`}
           />
           <StatCard
             title="盘位 (聚合)"
             value={String(stats.totalSlots)}
             icon={Layers}
-            badge="emerald"
+            iconBg="bg-emerald-50"
+            iconColor="text-emerald-600"
             footer={`${stats.onlineSlots} 在线 / ${stats.totalSlots - stats.onlineSlots} 离线`}
           />
           <StatCard
             title="聚合覆盖"
             value={`${stats.withAggregate}/${stats.total}`}
             icon={Sparkles}
-            badge="amber"
+            iconBg="bg-amber-50"
+            iconColor="text-amber-600"
             footer="来自 unified_volumes.raw_data._aggregate"
           />
         </div>

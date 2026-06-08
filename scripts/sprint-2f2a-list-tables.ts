@@ -1,5 +1,9 @@
 /**
  * Sprint 2F.2A - 列出 source_restore 中所有 tbl_task* 表 + 测试表
+ *
+ * @archive 一次性诊断脚本, 已被 Sprint 2G.3 / 2H.1R 取代
+ *   详见 docs/database-analysis/sprint-2f2a-task-items-profile.md
+ *   与 docs/summary/SCRIPTS_INDEX.md §2.C
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'

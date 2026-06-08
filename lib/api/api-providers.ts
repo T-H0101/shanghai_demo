@@ -89,6 +89,7 @@ export const apiTaskProvider: TaskProvider = {
     if (filters?.status) params.set("status", filters.status)
     if (filters?.siteCode) params.set("siteCode", filters.siteCode)
     if (filters?.keyword) params.set("keyword", filters.keyword)
+    params.set("pageSize", "100")
 
     const query = params.toString()
     const url = `${API_BASE}/api/tasks${query ? `?${query}` : ""}`
@@ -302,15 +303,16 @@ export async function fetchVolumes(siteCode?: string) {
     ? `${API_BASE}/api/volumes?siteCode=${siteCode}`
     : `${API_BASE}/api/volumes`
 
-  // Mock volumes 从 racks 获取
-  return fetchWithFallback(
-    url,
-    async () => {
-      const racks = await mockRackProvider.getAll(siteCode)
-      return racks.flatMap((r: any) => r.volumes ?? [])
-    },
-    "Volumes"
-  )
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const json = await response.json()
+    if (json.code !== 0) throw new Error(json.message)
+    return json
+  } catch {
+    const racks = await mockRackProvider.getAll(siteCode)
+    return racks.flatMap((r: any) => r.volumes ?? [])
+  }
 }
 
 // ============================================================
