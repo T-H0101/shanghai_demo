@@ -432,6 +432,7 @@ function TasksPageContent() {
                 <TableHead className="text-xs text-slate-500 whitespace-nowrap">类型</TableHead>
                 <TableHead className="text-xs text-slate-500 whitespace-nowrap">范围</TableHead>
                 <TableHead className="text-xs text-slate-500 whitespace-nowrap min-w-[140px]">进度</TableHead>
+                <TableHead className="text-xs text-slate-500 whitespace-nowrap">运行耗时</TableHead>
                 <TableHead className="text-xs text-slate-500 whitespace-nowrap">文件数</TableHead>
                 <TableHead className="text-xs text-slate-500 whitespace-nowrap">总大小</TableHead>
                 <TableHead className="text-xs text-slate-500 whitespace-nowrap">关联设备</TableHead>
@@ -441,7 +442,7 @@ function TasksPageContent() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={11} className="text-center py-10 text-slate-400">未找到匹配的任务</TableCell></TableRow>
+                <TableRow><TableCell colSpan={12} className="text-center py-10 text-slate-400">未找到匹配的任务</TableCell></TableRow>
               ) : filtered.map(t => (
                 <TableRow key={`${t.siteCode}-${t.taskNo}-${t.id}`} className="cursor-pointer hover:bg-slate-50" onClick={() => openDetail(t)}>
                   <TableCell className="font-mono text-xs text-slate-500">{t.taskNo}</TableCell>
@@ -463,6 +464,13 @@ function TasksPageContent() {
                       )}
                     </div>
                     {t.speed && <p className="text-[10px] text-slate-400 mt-0.5">{t.speed}</p>}
+                  </TableCell>
+                  <TableCell className="text-xs tabular-nums">
+                    {t.runtime != null ? (
+                      <span className="text-slate-700 font-medium">{formatRuntime(t.runtime)}</span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs tabular-nums">{t.fileCount?.toLocaleString() ?? "—"}</TableCell>
                   <TableCell className="text-xs">{t.totalSize ?? "—"}</TableCell>
