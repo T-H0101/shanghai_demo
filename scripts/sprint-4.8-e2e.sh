@@ -21,24 +21,22 @@ SITE_CODE="${SITE_WORKER_SITE_CODE:-SH01}"
 BASE="${BASE_URL:-http://localhost:3000}"
 WORKER_LOG="/tmp/worker-e2e.log"
 
-# 从 .env.local 解析 PGPASSWORD (避免硬编码)
+# 从 .env.local 读 DB_PASSWORD 字段 (独立字段, 不解析 DATABASE_URL)
 ENV_LOCAL="$(cd "$(dirname "$0")/.." && pwd)/.env.local"
 if [ ! -f "$ENV_LOCAL" ]; then
   echo "FAIL: .env.local not found at $ENV_LOCAL"
   exit 1
 fi
-# 提取 DATABASE_URL= 后到行尾的值, 取 ://user: 后到 @ 前的密码
-DB_URL=$(grep -E "^DATABASE_URL=" "$ENV_LOCAL" | head -1 | cut -d= -f2- | sed 's/^["'"'"']//;s/["'"'"']$//')
-PGPASSWORD="$(printf '%s' "$DB_URL" | sed -n 's|^postgresql://[^:]*:\([^@]*\)@.*|\1|p')"
+PGPASSWORD="$(grep -E '^DB_PASSWORD=' "$ENV_LOCAL" | head -1 | cut -d= -f2- | sed 's/^["'"'"']//;s/["'"'"']$//' | sed 's/\\\$/$/g')"
 if [ -z "$PGPASSWORD" ]; then
-  echo "FAIL: 无法从 .env.local 解析 PGPASSWORD"
+  echo "FAIL: .env.local 缺少 DB_PASSWORD 字段"
   exit 1
 fi
 
 echo "=== Sprint 4.8.1.6 Site Worker e2e ==="
 echo "site: $SITE_CODE"
 echo "base: $BASE"
-echo "PGPASSWORD: <从 .env.local 解析, 长度 ${#PGPASSWORD}>"
+echo "PGPASSWORD: <从 .env.local DB_PASSWORD 读, 长度 ${#PGPASSWORD}>"
 
 # 1. 启 worker (后台)
 echo "[1] 启动 worker (DRY_RUN=true)..."
