@@ -159,12 +159,37 @@
 
 ## Sprint 4.8.2 站点控制真相审计 (2026-06-09)
 
+### 初版 (基于 source_restore 13 张表)
 - **结论**: 站点库**完全没有被外部控制的机制** (0 control/command/queue 表, 0 函数, 0 触发器, 0 视图)
 - **关键发现**: `tbl_task.status` 无 "paused" 语义, 无 priority 字段. 即使修改 `tbl_task.status` 也**无证据**说明站点应用会执行
 - **Site Worker 现状**: 框架 + audit + simulator, **不是执行器**. 5 个 commandType 全部降级为 "审计总控意图"
 - **前端按钮**: 维持当前状态 (暂停/恢复/重置 已删, 不恢复). 推进/标记完成/失败 保留 (本地 UI, 不误导)
-- **下一步**: 等领导确认 (站点表加新字段? 站点应用读新行? 站点 API 文档?)
 - 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md`
+
+### 重审版 (基于 star_storage_db 170 张表) — Sprint 4.8.2-R
+- **数据库**: 完整 PG 物理备份恢复 (`/Users/tian/Desktop/20260601`), 170 张表 (vs source_restore 13 张)
+- **新发现**:
+  - ✅ **3 张表有 cron** (`tbl_schedule_job`, `tbl_data_receive_list.schedule_cron`, `tbl_check_patrol_strategy.cron`)
+  - ✅ **7 张表有 progress** (`tbl_hot_backup_record`, `tbl_hot_restore_record`, `tbl_interface_task.job_progress` 等)
+  - ✅ **79 张表有 status 字段** (state machine 基础完整)
+  - ✅ 调度/进度/状态机基础设施**完整存在**
+- **仍然没有**: `paused` / `priority` / `pause` / `resume` / `reset` 字段 (**全库 0 命中**)
+- **新候选 control 表**:
+  - `tbl_hot_restore_record` (recovery_start 目标, 含 progress/status/error_message)
+  - `tbl_hot_backup_record` (热备目标)
+  - `tbl_check_patrol_task` (inspect_start 目标, 含 status/success_count/fail_count)
+  - `tbl_data_receive_list` (数据接收/巡检入口, 含 schedule_cron)
+- **结论修正**: 从 "D 完全没有" → "A + B + C 部分支持" (有基础设施, 但缺关键 paused 字段, 无应用代码 evidence)
+- **Site Worker 角色升级**: simulator → **调度编排 + 审计监控**
+- **5 dispatch 重映射** (Sprint 4.9+ 实施, 需领导确认):
+  - inspect_start → `tbl_check_patrol_task` 或 `tbl_data_receive_list`
+  - recovery_start → `tbl_hot_restore_record`
+  - task_pause/resume/reset → 维持 audit (无 paused 字段)
+- **前端按钮恢复** (Sprint 4.8.2-R 落地):
+  - Tasks 表格操作列 + 详情抽屉新增 **暂停 / 恢复 / 重置** 3 按钮
+  - 调用走 `POST /api/control/commands` (audit/simulator, 不直接改 `unified_tasks`)
+  - Toast 文案明确: "已提交到控制队列, 等待站点拉取执行" (不误导用户)
+- 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md` (重写版)
 
 ## Sprint 2D.6 结论
 

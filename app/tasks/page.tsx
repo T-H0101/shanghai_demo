@@ -258,6 +258,48 @@ function TasksPageContent() {
     toast({ title: "导出任务", description: `「${task.name}」数据导出中...` })
   }
 
+  // Sprint 4.8.2-R: 暂停/恢复/重置 按钮 (audit/simulator, 走 control_command 队列)
+  // 真实执行需要站点集成, 当前只创建控制命令记录
+  const handleControlCommand = async (
+    task: TaskItem,
+    commandType: "task_pause" | "task_resume" | "task_reset",
+    label: string,
+    e?: React.MouseEvent
+  ) => {
+    e?.stopPropagation()
+    if (!isApiMode) {
+      toast({ title: "Mock 模式不支持", description: "请切换到 API 模式提交控制命令", variant: "destructive" })
+      return
+    }
+    try {
+      const res = await fetch("/api/control/commands", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sourceSiteId: task.siteCode,
+          commandType,
+          targetType: "task",
+          targetId: task.id,
+          payload: { taskNo: task.taskNo, name: task.name, phase: task.phase },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "提交失败")
+      }
+      toast({
+        title: `${label}命令已提交`,
+        description: `「${task.name}」${label}命令已记录到控制队列, 等待站点拉取执行`,
+      })
+    } catch (err) {
+      toast({
+        title: "提交失败",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      })
+    }
+  }
+
   // 新建任务
   const handleCreate = async () => {
     if (isApiMode) return showApiWriteUnavailable("新建任务")
@@ -471,6 +513,9 @@ function TasksPageContent() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
                       {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
+                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="暂停" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)}><Pause className="h-3.5 w-3.5" /></Button>}
+                      {t.phase === "paused" && <Button variant="ghost" size="icon" className="h-7 w-7" title="恢复" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)}><Play className="h-3.5 w-3.5" /></Button>}
+                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置" onClick={e => handleControlCommand(t, "task_reset", "重置", e)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="导出" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
@@ -702,6 +747,9 @@ function TasksPageContent() {
                     )}
                     {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(selected.phase) && (
                       <>
+                        <Button size="sm" variant="outline" className="text-amber-600 hover:text-amber-700" onClick={() => handleControlCommand(selected, "task_pause", "暂停")}>
+                          <Pause className="h-3.5 w-3.5 mr-1" />暂停
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => handleComplete(selected)}>
                           <CheckCheck className="h-3.5 w-3.5 mr-1" />标记完成
                         </Button>
@@ -709,6 +757,16 @@ function TasksPageContent() {
                           <XCircle className="h-3.5 w-3.5 mr-1" />标记失败
                         </Button>
                       </>
+                    )}
+                    {selected.phase === "paused" && (
+                      <Button size="sm" variant="outline" className="text-emerald-600 hover:text-emerald-700" onClick={() => handleControlCommand(selected, "task_resume", "恢复")}>
+                        <Play className="h-3.5 w-3.5 mr-1" />恢复
+                      </Button>
+                    )}
+                    {selected.phase !== "completed" && selected.phase !== "failed" && selected.phase !== "paused" && (
+                      <Button size="sm" variant="outline" className="text-slate-600 hover:text-slate-700" onClick={() => handleControlCommand(selected, "task_reset", "重置")}>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" />重置
+                      </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => handleExport(selected)}>
                       <Download className="h-3.5 w-3.5 mr-1" />导出

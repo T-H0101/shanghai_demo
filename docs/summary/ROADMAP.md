@@ -43,13 +43,30 @@ Sprint 4.5: 总控具备可落地的命令下发骨架, 不假实现。
 - 1d 真实站点拉取脚本示例
 - 4d 总估时, 站点侧同步开发
 
-### 4.8.2 站点控制真相审计 (2026-06-09 完成)
+### 4.8.2 站点控制真相审计 (2026-06-09 完成 + 重审)
 
+**初版 (基于 source_restore 13 张表)**:
 - **结论**: 站点库**没有原生控制机制** (0 control/command 表, 0 函数/触发器/视图)
 - **状态**: Site Worker = framework + audit + simulator, **不是执行器**
 - **5 个 commandType 全部降级为"审计总控意图"**, 真控制需站点侧 schema 变更
 - **等待领导**: 站点表能否加新字段? 站点应用是否读新行? 是否提供真 API 文档?
 - 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md`
+
+**重审版 (基于 star_storage_db 170 张表) — Sprint 4.8.2-R**:
+- **数据库**: 完整 PG 物理备份恢复 (`/Users/tian/Desktop/20260601`), 170 张表 (vs source_restore 13 张)
+- **新发现**: 3 张表 cron + 7 张表 progress + 79 张表 status — **调度/进度/状态机基础设施完整**
+- **仍然没有**: `paused` / `priority` / `pause` / `resume` / `reset` 字段 (全库 0 命中)
+- **结论修正**: D 完全没有 → **A + B + C 部分支持** (有基础设施, 但缺 paused 字段, 无应用代码 evidence)
+- **Site Worker 角色升级**: simulator → **调度编排 + 审计监控**
+- **5 dispatch 重映射候选** (Sprint 4.9+ 实施, 需领导确认):
+  - inspect_start → `tbl_check_patrol_task` / `tbl_data_receive_list`
+  - recovery_start → `tbl_hot_restore_record`
+  - task_pause/resume/reset → 维持 audit (无 paused 字段)
+- **前端按钮恢复** (Sprint 4.8.2-R 落地, 2026-06-09):
+  - Tasks 表格 + 详情抽屉新增 **暂停 / 恢复 / 重置** 3 按钮
+  - 走 `POST /api/control/commands` (audit/simulator, 不改 `unified_tasks`)
+  - Toast 文案明确"已提交到控制队列, 等待站点拉取执行"
+- 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md` (重写版)
 
 ### 4.8.3 (下一步) 等待领导决策后再开
 
