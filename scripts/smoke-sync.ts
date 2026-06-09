@@ -19,7 +19,9 @@ function loadEnvLocal(): void {
     const separator = trimmed.indexOf('=')
     if (separator < 1) continue
     const key = trimmed.slice(0, separator).trim()
-    const value = trimmed.slice(separator + 1).trim()
+    // 处理 Next.js dotenv-expand 的转义: \$ → $ (用于含 $ 的密码)
+    const rawValue = trimmed.slice(separator + 1).trim()
+    const value = rawValue.replace(/\\\$/g, '$')
     if (!process.env[key]) process.env[key] = value
   }
 }

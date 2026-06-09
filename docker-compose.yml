@@ -13,6 +13,10 @@
 #   docker compose logs postgres
 #   docker compose down -v  # 停止并删除数据卷
 #
+# 密码：
+#   - 默认 dev (Sprint 2B.1)
+#   - 生产/真实环境必须 POSTGRES_PASSWORD env 注入 (强密码)
+#   - 轮换流程见 docs/secrets/SECRETS.md (gitignored)
 # ============================================================
 name: unified-disc-platform
 
