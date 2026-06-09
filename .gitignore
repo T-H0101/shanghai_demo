@@ -39,8 +39,22 @@ yarn-error.log*
 Thumbs.db
 
 # Database
-databases/
+# - 忽略 source data dump: databases/disc_files.sql (MySQL 历史 schema, 不是迁移)
+# - 忽略 *.sql 是为了排除根目录 + volume dumps (根目录 SQL 不是 schema)
+# - databases/sprint-*/ 下的 *.sql/*.sh/*.md 全部进 git (schema + 设计 + 工具)
+# - 例外: databases/sprint-*/seed.sql + mock-tbl-*.sql (test fixture, 不进 git)
+#
+# 历史 (Sprint 4.8.1.8 修复):
+#   之前整个 databases/ 被忽略, 13 张 sprint schema patch 全部不可复现
+#   修法: 改为按文件名排除, 配合 *.sql 兜底 + !databases/sprint-*/*.sql 例外
+databases/disc_files.sql
+databases/sprint-2b1/seed.sql
+databases/sprint-2b2/mock-tbl-task.sql
+databases/sprint-2b4/mock-tbl-disc-lib.sql
 *.sql
+!databases/sprint-*/*.sql
+!databases/sprint-*/*.sh
+!databases/sprint-*/*.md
 
 # Vercel
 .vercel
