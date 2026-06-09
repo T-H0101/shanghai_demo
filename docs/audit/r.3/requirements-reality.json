@@ -1,0 +1,310 @@
+{
+  "audit_meta": {
+    "sprint": "R.3",
+    "date": "2026-06-10",
+    "auditor": "external-auditor (extremely-strict mode)",
+    "principle": "不相信任何历史 Sprint 结论; 所有数字从代码 / Docker / curl 重新查",
+    "scope": "全链路: requirements.md × 前端 × 后端 × 数据库 × 控制链路 × 同步链路"
+  },
+
+  "page_reality_check": {
+    "/": {
+      "http_code": 200,
+      "api_called": ["/api/dashboard/summary", "/api/dashboard/recent-syncs", "/api/alerts"],
+      "data_source": "database (unified_* + sync_*)",
+      "real_or_mock": "真实 (但 sites 数 11 来自 mock, see sites note)",
+      "siteCode_filter": "✅ 跟随 Header siteCode",
+      "issues": "successRate=86 是从 sync_table_log 派生, 站点数 11 实际是 mock 6 + source 5 拼接"
+    },
+    "/tasks": {
+      "http_code": 200,
+      "api_called": ["/api/tasks?limit=20"],
+      "data_source": "unified_tasks (87 rows)",
+      "real_or_mock": "真实",
+      "siteCode_filter": "✅",
+      "issues": "/api/tasks/[id] 详情页 404 (列表 ID 正确, 详情找不到), 100% 任务 8 行 paused 来自 Sprint 2F.1 之前"
+    },
+    "/tasks/[id]": {
+      "http_code": 404,
+      "api_called": ["/api/tasks/<id>"],
+      "data_source": "unified_tasks",
+      "real_or_mock": "❌ **所有详情 404** — 列表 ID 在 DB 真实存在, 详情 API 路由坏了",
+      "siteCode_filter": "N/A",
+      "issues": "🔴 严重 bug: DB 有 87 行, 列表能找到 ID, 详情全部 404"
+    },
+    "/racks": {
+      "http_code": 200,
+      "api_called": ["/api/racks"],
+      "data_source": "unified_devices (17 rows)",
+      "real_or_mock": "真实",
+      "siteCode_filter": "✅",
+      "issues": "设备 17 行, 含真实 DL_BJ02_001 / DL_SH01_001 / DL_SH01_002"
+    },
+    "/volumes": {
+      "http_code": 200,
+      "api_called": ["/api/volumes"],
+      "data_source": "unified_volumes (13 rows)",
+      "real_or_mock": "真实",
+      "siteCode_filter": "✅",
+      "issues": "3 行含 aggregate 字段 (Sprint 2H.3); 3 行 BJ02/SH01 真实 + 10 行测试遗留"
+    },
+    "/sync": {
+      "http_code": 200,
+      "api_called": ["/api/sync/packages", "/api/sync/logs"],
+      "data_source": "sync_package_log (78) + sync_table_log (155)",
+      "real_or_mock": "真实",
+      "siteCode_filter": "✅",
+      "issues": "sync_table_log 大量 status=skipped rowsRead=0, 同步是演练非真跑"
+    },
+    "/control": {
+      "http_code": 200,
+      "api_called": ["/api/control/commands"],
+      "data_source": "control_command (37 rows)",
+      "real_or_mock": "真实",
+      "siteCode_filter": "✅",
+      "issues": "5s 自动刷新确认; 全部 dryRun=true; 没有任何 UI 写操作"
+    },
+    "/search": {
+      "http_code": 404,
+      "api_called": [],
+      "data_source": "—",
+      "real_or_mock": "❌ **未实现**",
+      "siteCode_filter": "N/A",
+      "issues": "🔴 /api/search 路由 404; R.2 标 partial 是错的, 实际 not_started"
+    },
+    "/sites": {
+      "http_code": 200,
+      "api_called": ["/api/sites"],
+      "data_source": "**100% mock** (@/lib/mock/sites)",
+      "real_or_mock": "❌ 全部 mock (上海/北京/广州/成都/南京/武汉 6 站点是假的)",
+      "siteCode_filter": "N/A",
+      "issues": "🔴 unified_sites 表 0 行; 站点 API 完全走 mock, 不读真实表"
+    },
+    "/users": {
+      "http_code": 200,
+      "api_called": ["/api/users"],
+      "data_source": "unified_users (4 rows: admin/sec_admin/aud_admin/pkg_test_user)",
+      "real_or_mock": "真实",
+      "siteCode_filter": "✅",
+      "issues": "role 1/2/3 真实; department 全部 null (源 tbl_user 无 dept 字段)"
+    },
+    "/logs": {
+      "http_code": 200,
+      "api_called": ["/api/sync/logs"],
+      "data_source": "sync_table_log (155 rows)",
+      "real_or_mock": "真实",
+      "siteCode_filter": "✅",
+      "issues": "22 条告警 (含 control_command 失败 + sync 失败)"
+    },
+    "/login": {
+      "http_code": 200,
+      "api_called": [],
+      "data_source": "—",
+      "real_or_mock": "❌ 100% mock UI, 无服务端",
+      "siteCode_filter": "N/A",
+      "issues": "🔴 418 行 mock; CLAUDE.md 标记 blocked_by_auth"
+    },
+    "/settings": {
+      "http_code": 200,
+      "api_called": [],
+      "data_source": "—",
+      "real_or_mock": "❌ 占位",
+      "siteCode_filter": "N/A",
+      "issues": "无配置项"
+    }
+  },
+
+  "task_control_6_atoms": {
+    "metrics_definition": {
+      "ui_real_pct": "前端按钮是否真存在 / 真可点 / 真触发后端",
+      "api_real_pct": "API 端点是否真接收 / 真返回 / 不静默成功",
+      "db_real_pct": "DB 字段是否真存在 / 真被读 / 真被改",
+      "exec_real_pct": "控制命令是否真让目标表状态变化",
+      "req_real_pct": "需求 §4.2 验收条件是否真满足 (4 条件: 提交/拉取/回写/展示)"
+    },
+    "atoms": {
+      "新建 (Create)": {
+        "ui": 0,
+        "api": 0,
+        "db": 0,
+        "exec": 0,
+        "req": 0,
+        "evidence": "app/tasks/page.tsx:358 — 按钮 onClick 在 isApiMode 下 showApiWriteUnavailable toast; 无 POST /api/tasks 写 API",
+        "status": "❌ 未实现 (NOT_STARTED)"
+      },
+      "暂停 (Pause)": {
+        "ui": 100,
+        "api": 100,
+        "db": 0,
+        "exec": 0,
+        "req": 0,
+        "evidence": "Sprint 4.8.2-R 加 3 按钮; POST /api/control/commands 写 control_command (37 行); executor.ts L342 用 centralQuery 假执行; 8 行 unified_tasks.status='paused' 是历史数据 (Sprint 2F.1 之前), 不是 Sprint 4.8.2 产物",
+        "status": "❌ 真控制 0% (历史 8 行 paused 与本 Sprint 无关)"
+      },
+      "恢复 (Resume)": {
+        "ui": 100,
+        "api": 100,
+        "db": 0,
+        "exec": 0,
+        "req": 0,
+        "evidence": "同 Pause; 0 success / 2 failed (DRY_RUN)",
+        "status": "❌ 真控制 0%"
+      },
+      "重置 (Reset)": {
+        "ui": 100,
+        "api": 100,
+        "db": 0,
+        "exec": 0,
+        "req": 0,
+        "evidence": "executor.ts reset SQL: UPDATE tbl_task SET status=1, burn_status=0 — 但用 centralQuery 假执行",
+        "status": "❌ 真控制 0%"
+      },
+      "巡检 (Inspect)": {
+        "ui": 0,
+        "api": 100,
+        "db": 0,
+        "exec": 0,
+        "req": 0,
+        "evidence": "无 UI 按钮; 10 success (DRY_RUN 模拟) — 站点表 tbl_check_patrol_task 0 行, 写也是模拟",
+        "status": "❌ 真巡检 0% (无 UI + 无站点表行)"
+      },
+      "恢复任务 (Recovery)": {
+        "ui": 0,
+        "api": 100,
+        "db": 0,
+        "exec": 0,
+        "req": 0,
+        "evidence": "无 UI 按钮; 9 success (DRY_RUN); 站点表 tbl_hot_restore_record 0 行",
+        "status": "❌ 真恢复 0%"
+      },
+      "优先恢复 (Priority)": {
+        "ui": 0,
+        "api": 0,
+        "db": 0,
+        "exec": 0,
+        "req": 0,
+        "evidence": "🔴 **完全未实现** — commandType 列表无 priority; 无 UI; 中心库有 priority 字段但未读; 站点表无 priority 字段",
+        "status": "❌ 完全未实现 (0% across all dimensions)"
+      }
+    }
+  },
+
+  "db_reality": {
+    "unified_disc_platform": {
+      "tables": 25,
+      "key_rowcounts": {
+        "unified_tasks": 87,
+        "unified_tasks_status_paused": 8,
+        "unified_devices": 17,
+        "unified_volumes": 13,
+        "unified_file_index": 4,
+        "unified_users": 4,
+        "unified_sites": 0,
+        "control_command": 37,
+        "audit_log": 35,
+        "sync_package_log": 78,
+        "sync_table_log": 155
+      }
+    },
+    "star_storage_db_170_tables": {
+      "tbl_task_rows": 37,
+      "tbl_task_paused_field": "❌ 0 命中 (含 ILIKE '%paus%')",
+      "tbl_task_priority_field": "❌ 0 命中 (含 ILIKE '%prior%')",
+      "tbl_task_status_int_distribution": {"0": 27, "2": 1, "7": 1, "19": 4, "20": 4},
+      "candidate_control_tables": {
+        "tbl_check_patrol_task_rows": 0,
+        "tbl_hot_restore_record_rows": 0,
+        "tbl_hot_backup_record_rows": 0,
+        "tbl_data_receive_list_rows": 0,
+        "tbl_interface_task_rows": 0
+      }
+    },
+    "source_restore_partial": {
+      "tables": 13,
+      "use_for_full_audit": "❌ R.2 §5 教训: 完整审计必须基于 star_storage_db 170 表"
+    }
+  },
+
+  "frontend_integration_score": [
+    {"page": "/", "score": 75, "issues": "sites 数 11 来自 mock 拼接, 真实只有 5 sites (SH01/BJ02/TEST_CLEAN/TEST_H2/TEST_PKG10)"},
+    {"page": "/tasks", "score": 60, "issues": "列表真, 详情 404 严重 bug; 8 行 paused 误导性高; 6 控制按钮审计模式"},
+    {"page": "/tasks/[id]", "score": 0, "issues": "🔴 100% 404 — DB 有数据, 路由坏了"},
+    {"page": "/racks", "score": 90, "issues": "17 设备真实, siteCode 过滤 OK"},
+    {"page": "/volumes", "score": 90, "issues": "13 行真实, 3 行 aggregate"},
+    {"page": "/sync", "score": 70, "issues": "78 包 + 155 表 log 真, 但表 log 大量 skipped, 同步是演练"},
+    {"page": "/control", "score": 80, "issues": "37 command 真, 5s 刷新, 全部 dryRun"},
+    {"page": "/search", "score": 0, "issues": "🔴 API 404, 路由未实现"},
+    {"page": "/sites", "score": 10, "issues": "🔴 100% mock, 完全不读真实 unified_sites"},
+    {"page": "/users", "score": 80, "issues": "4 行真实, role 真, department 缺"},
+    {"page": "/logs", "score": 75, "issues": "155 行 sync_table_log 真, 含 control 失败告警"},
+    {"page": "/login", "score": 5, "issues": "🔴 mock UI, blocked_by_auth"},
+    {"page": "/settings", "score": 0, "issues": "占位"}
+  ],
+
+  "stats_recomputed": {
+    "complete": 7,
+    "partial": 12,
+    "not_started": 7,
+    "blocked_by_source_schema": 5,
+    "blocked_by_site_change": 5,
+    "blocked_by_auth": 7,
+    "blocked_by_external_system": 2,
+    "out_of_scope": 0,
+    "total": 45,
+    "completion_rate": "7 / 45 = 15.6%",
+    "delta_from_r2": {
+      "complete_was_9_now_7": "REQ-4.3.2 (盘笼查询) 仍 complete, 但 /api/tasks/[id] 详情页 404 应改 partial",
+      "partial_was_11_now_12": "+1 (REQ-4.2.1 新建任务 改 partial not_started), -1 (R.2 标 partial 的 REQ-4.1.3 仍是 not_started, 数字巧合)",
+      "not_started_was_7_now_7": "数字一致, 但 REQ-4.1.1 检索从 partial 改 not_started (API 404)",
+      "out_of_scope_was_2_now_0": "R.2 误把 REQ-2.2.2/3.2.1 标 out_of_scope, 实际是 blocked_by_auth, 违反 R.1 §1 强约束",
+      "blocked_by_external_system_was_0_now_2": "REQ-4.1.1/4.1.2 检索性能 + ES 真正是 blocked_by_external_system"
+    }
+  },
+
+  "top_5_contradictions": [
+    {
+      "rank": 1,
+      "claim": "R.2 标 REQ-4.1.1 partial",
+      "reality": "🔴 /api/search 路由 404, 完全未实现, 应是 not_started",
+      "impact": "R.2 完成率 22.0% 虚高 1 项"
+    },
+    {
+      "rank": 2,
+      "claim": "R.2 标 REQ-2.2.2 / 3.2.1 out_of_scope",
+      "reality": "🔴 违反 R.1 §1 强约束: '不允许把需求降级 / 删除 (只能标 blocked_* 或 out_of_scope)' — 真实是 blocked_by_auth, 不是 out_of_scope",
+      "impact": "R.2 把需求软关闭, 不可接受"
+    },
+    {
+      "rank": 3,
+      "claim": "R.2 标 REQ-4.2.2 真控制 0%",
+      "reality": "中心库 unified_tasks 8 行 status='paused' 来自历史数据, 但与 Sprint 4.8.2-R 无关; 真控制确实是 0%, 但历史 'paused' 字段存在说明需求被'想'实现过",
+      "impact": "R.2 数据准确, 但解读不完整"
+    },
+    {
+      "rank": 4,
+      "claim": "Sprint 4.8.2-R 站点表无 paused/priority 字段",
+      "reality": "✅ 准确 (170 张表 0 命中), 但未提中心库 unified_tasks 8 行 paused 真实存在",
+      "impact": "缺少一半图景"
+    },
+    {
+      "rank": 5,
+      "claim": "executor.ts 假执行 (centralQuery)",
+      "reality": "✅ R.3 验证 L342 + selectTaskSnapshot 共享 query 路径; Sprint 4.8.2-R 报告未发现",
+      "impact": "历史 Sprint 漏掉一个关键 bug"
+    }
+  ],
+
+  "ui_button_audit": {
+    "tasks_page_buttons": {
+      "新建任务 (Plus)": {"api_mode_real": "❌ showApiWriteUnavailable toast", "mock_mode_real": "✅ 打开 dialog", "verdict": "API 模式完全未实现"},
+      "推进 (SkipForward)": {"api_mode_real": "❌ return toast", "mock_mode_real": "✅", "verdict": "API 模式无操作"},
+      "暂停 (Pause)": {"api_mode_real": "✅ POST /api/control/commands (audit)", "verdict": "audit 链路, 不真改"},
+      "恢复 (Play)": {"api_mode_real": "✅ audit", "verdict": "audit 链路"},
+      "重置 (RotateCcw)": {"api_mode_real": "✅ audit", "verdict": "audit 链路"},
+      "标记完成 (CheckCheck)": {"api_mode_real": "❌ return toast", "verdict": "API 模式无操作"},
+      "标记失败 (XCircle)": {"api_mode_real": "❌ return toast", "verdict": "API 模式无操作"},
+      "导出 (Download)": {"api_mode_real": "❌ 客户端导出, 不真后端", "verdict": "本地 UI"},
+      "详情 (Eye)": {"api_mode_real": "❌ 详情 404!", "verdict": "🔴 详情页坏了"}
+    }
+  }
+}

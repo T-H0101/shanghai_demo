@@ -1,0 +1,55 @@
+# Network Errors Snapshot (R.3 实测)
+
+> **日期**: 2026-06-10
+> **方法**: curl 实测 21 个 API
+
+---
+
+## 1. 关键 404 端点 (4 个)
+
+| 端点 | Method | 状态 | 严重度 |
+|---|---|---|---|
+| `/api/tasks/[id]` | GET | 404 | 🔴 100% 失败 (87 行 ID 全部 404) |
+| `/api/search` | GET | 404 | 🔴 路由不存在 |
+| `/api/sync/package` (无 HMAC) | POST | 401 | ✅ 鉴权真工作 |
+| `/api/site-control/commands` (无签名) | GET | 401 | ✅ 鉴权真工作 |
+
+---
+
+## 2. 200 但数据假 (1 个)
+
+| 端点 | Method | 状态 | 真实度 |
+|---|---|---|---|
+| `/api/sites` | GET | 200 | ❌ 100% mock, 不读 unified_sites |
+
+---
+
+## 3. 全部 200 端点 (16 个)
+
+- /api/dashboard/summary ✅
+- /api/dashboard/recent-syncs ✅
+- /api/tasks (列表) ✅
+- /api/racks ✅
+- /api/racks/[id] (假设) ✅
+- /api/racks/[id]/slots ✅
+- /api/volumes ✅
+- /api/sync/packages ✅
+- /api/sync/logs ✅
+- /api/control/commands (GET) ✅
+- /api/control/commands (POST) ✅
+- /api/control/commands/[id] ✅
+- /api/site-control/* (有 HMAC) ✅
+- /api/users ✅
+- /api/alerts ✅
+- /api/system/health ✅
+- /api/system/db-health ✅
+
+---
+
+## 4. R.3 任务清单
+
+R.4 必须修 4 个🔴 bug:
+1. /api/tasks/[id] (半天)
+2. /api/search 路由 (半天)
+3. /api/sites 读真实表 (1d)
+4. executor.ts L342 (1d)

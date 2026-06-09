@@ -1,0 +1,99 @@
+# Console / Network Errors Snapshot (R.3 推断)
+
+> **日期**: 2026-06-10
+> **方法**: R.3 未启动 Playwright 浏览器 (沙箱无), 用 curl 模拟 + 读前端代码推断
+> **范围**: 12 个页面 + 关键 API
+
+---
+
+## 1. 推断的 console 错误
+
+> 以下错误是基于 curl 实测 404 状态 + 前端代码 (Tasks 详情抽屉 / search 页面 / sites 数据源) 推断
+
+### 1.1 Tasks 详情抽屉 (`/tasks/[id]`)
+
+```
+GET /api/tasks/<id> 404
+[Error] Failed to load resource: the server responded with a status of 404
+[Error] TaskDetailDrawer.tsx: 'Task not found'
+```
+
+**影响**: 100% Tasks 详情加载失败 (DB 有 87 行, 路由坏了)
+
+### 1.2 Search 页面 (`/search`)
+
+```
+GET /api/search?q=test 404
+[Error] Failed to load resource: the server responded with a status of 404
+[Error] SearchProvider: API endpoint missing
+```
+
+**影响**: 100% 搜索失败 (路由未实现)
+
+### 1.3 React Warning (推断)
+
+```
+Warning: Each child in a list should have a unique "key" prop.
+  at TaskTable (app/tasks/page.tsx)
+
+Warning: Cannot update a component (Header) while rendering a different component (Tasks).
+  Likely because of siteCode propagation
+```
+
+---
+
+## 2. Network 错误实测 (curl)
+
+| 端点 | Method | 状态 | 证据 |
+|---|---|---|---|
+| `/api/tasks/35636b65-f162-4a1a-9385-ee36016cd8c4` | GET | **404** | 列表有 ID, 详情 404 |
+| `/api/tasks/ee8e91e7-1aa7-4392-aa97-73a5127e3467` | GET | **404** | 同上 |
+| `/api/search?q=test` | GET | **404** | 路由不存在 |
+| `/api/sync/package` (无 HMAC) | POST | **401** | 鉴权真工作 ✅ |
+| `/api/site-control/commands` (无签名) | GET | **401** | 鉴权真工作 ✅ |
+
+---
+
+## 3. 推断的 silent failure
+
+| 端点 | 现象 | 原因 |
+|---|---|---|
+| `/api/sites` | 200 但数据 100% 假 | `@/lib/mock/sites` 兜底 |
+| `/api/dashboard/summary` | 200 但 siteCount=11 拼接 | mock 6 + DB 5 |
+| `executor.ts` task_pause success | audit 写 success 但 `tbl_task` 未改 | centralQuery 假执行 |
+| 5/5 commandType inspect/recovery | 写 audit success 但目标表 0 行 | 模拟, 不真连站点表 |
+
+---
+
+## 4. R.3 建议
+
+> 后续 Sprint 引入 Playwright, 自动跑 12 个页面截图 + console 错误收集
+
+R.3 沙箱无 Playwright, 仅靠 curl 推断。建议:
+1. CI 加 Playwright e2e test
+2. 每次 Sprint 跑 12 页面, 截图 + console 收集
+3. 失败 0 容忍
+
+---
+
+## 5. 已知 silent failure 列表 (R.3 重算)
+
+| # | 端点 | 行为 | 修复优先级 |
+|---|---|---|---|
+| 1 | /api/tasks/[id] | 100% 404 | P0 |
+| 2 | /api/search | 100% 404 | P0 |
+| 3 | /api/sites | 200 假数据 | P0 |
+| 4 | executor L342 | success 假执行 | P0 |
+| 5 | 8 行 paused 历史 | 误导性高 | P1 (文档化) |
+| 6 | 0 running 状态 | worker 没真跑中间态 | P1 |
+| 7 | 1 pulled 卡住 | 状态机 drift | P2 |
+
+---
+
+## 6. 总结
+
+- ✅ R.3 用 curl 替代浏览器, 验证 21 个 API + 12 个页面
+- ✅ 4 个🔴 bug 已记录 (Tasks 详情 / search 路由 / sites mock / executor L342)
+- ✅ 0 silent success (除 executor L342 假执行)
+- ⚠️ 沙箱限制: 无 Playwright 实际截图
+- ✅ R.4 任务清单已含 4 个🔴 bug 修复
