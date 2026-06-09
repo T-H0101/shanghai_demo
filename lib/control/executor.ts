@@ -320,13 +320,25 @@ async function selectTaskSnapshot(targetId: string): Promise<Record<string, unkn
 
 /**
  * 在站点侧 DB 执行 SQL (生产用, dev 不调用)
- * 当前用同一 centralQuery (因为没独立站点 pool); 后续生产时替换为 siteQuery
+ *
+ * Sprint 4.8.1.8:
+ *   - DRY_RUN=false 时, 必须 SITE_DATABASE_URL 已配置, 否则抛错 (不能伪装成功)
+ *   - DRY_RUN=true 时, 不调用此函数 (5 个 dispatch 全部 if (!DRY_RUN) 包裹)
+ *
+ * 内部应用假设: worker 部署到站点侧, SITE_DATABASE_URL 由运维配
+ * (无"防误连中心库"严格校验, 避免 URL 字符串误判)
  */
 async function execOnSiteDb(sql: string, params: unknown[]): Promise<number> {
-  if (!SITE_DB_URL) {
-    // 兜底: dev 阶段不真改, 模拟 1 行
-    return 1
+  if (DRY_RUN) {
+    // 双保险: DRY_RUN=true 时不应走到这里 (dispatch 已 if-guard)
+    throw new Error('execOnSiteDb called with DRY_RUN=true (logic error)')
   }
+  if (!SITE_DB_URL) {
+    throw new Error(
+      'SITE_DATABASE_URL is required when SITE_WORKER_DRY_RUN=false. Refusing to silently no-op.'
+    )
+  }
+  // 当前用 centralQuery 占位 (无独立 site pool); 后续生产时替换为 siteQuery
   const r = await centralQuery(sql, params as never[])
   return r.rowCount ?? 0
 }

@@ -74,6 +74,35 @@ let totalExecuted = 0
 let totalFailed = 0
 
 // ============================================================
+// Sprint 4.8.1.8 - 启动守卫 (最小化, 内部应用假设)
+// ============================================================
+/**
+ * 内部应用假设: worker 永远部署在站点侧, SITE_DATABASE_URL 由运维配.
+ * 不做"防误连中心库"严格比对 (会因密码不同误判), 仅启动时打日志.
+ *
+ * 启动条件:
+ *   - DRY_RUN=true: dev/test 模式, 无 SITE_DATABASE_URL 也能跑
+ *   - DRY_RUN=false: 生产模式, 必须有 SITE_DATABASE_URL (否则抛错)
+ */
+function validateProductionMode(): void {
+  if (DRY_RUN) return
+  const siteUrl = process.env.SITE_DATABASE_URL ?? ''
+  console.warn('')
+  console.warn('╔══════════════════════════════════════════════════════════╗')
+  console.warn('║  ⚠️  WARNING: SITE_WORKER_DRY_RUN=false (生产模式)       ║')
+  console.warn('║  worker 将真改站点库. 确认 SITE_DATABASE_URL 正确       ║')
+  console.warn('╚══════════════════════════════════════════════════════════╝')
+  console.warn(`[worker-site] SITE_DATABASE_URL: ${siteUrl || '(未设置!)'}`)
+  console.warn(`[worker-site] siteCode: ${SITE_CODE}`)
+  console.warn('')
+  if (!siteUrl) {
+    throw new Error(
+      'SAFETY: SITE_WORKER_DRY_RUN=false but SITE_DATABASE_URL is not set. Refusing to start.'
+    )
+  }
+}
+
+// ============================================================
 // 优雅退出
 // ============================================================
 function setupShutdown(): void {
@@ -297,6 +326,8 @@ function sleep(ms: number): Promise<void> {
 // ============================================================
 async function main(): Promise<void> {
   setupShutdown()
+  // Sprint 4.8.1.8: 生产模式启动守卫
+  validateProductionMode()
   console.log(
     `[worker-site] starting: siteCode=${SITE_CODE} dryRun=${DRY_RUN} haMode=${HA_MODE} pollIntervalMs=${POLL_INTERVAL_MS} healthPort=${HEALTH_PORT}`
   )

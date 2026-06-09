@@ -276,3 +276,36 @@ CREATE INDEX idx_audit_action ON audit_log(action);
 2. 强密码 (DB) — 你手动给还是用 dev 默认
 
 无其它阻塞. 一批准, 2-2.5d 闭环.
+
+---
+
+## 12. Sprint 4.8.1 Post-Review 增补 (2026-06-09)
+
+### 4.8.1 完成的是控制执行器框架
+- 5 个 commandType 分发 (task_pause / task_resume / task_reset / inspect_start / recovery_start)
+- 状态机: pending → pulled → success/failed (worker 拉走 → executor.executeCommand → mark 终态)
+- audit_log 12 字段: command_no, action, target_table, target_id, before_json, after_json, actor, actor_ip, site_code, dry_run, result, error_message, created_at
+- 失败场景也写 audit (e.g. task not found)
+
+### 当前 e2e 是 DRY_RUN
+- `SITE_WORKER_DRY_RUN=true` 是 dev 默认
+- dev 阶段: worker 真跑 executor, 但 `execOnSiteDb` **不调用** (if-guard 包裹), 只 mock 成功
+- 验证方式: source_restore.tbl_task id=1 跑前跑后 status/burn_status 不变
+
+### 真实控制能力仍待站点部署和字段确认
+- `SITE_WORKER_DRY_RUN=false` 启动时必须设 `SITE_DATABASE_URL` (否则抛错, fail-closed)
+- 启动时打印明显 warning banner
+- 真生产: worker 部署到**站点侧** (内部项目, 无 API, 直连)
+- 站点侧 schema 由站点运维维护, 总控**不修改**站点表 schema
+- 具体业务字段 (tbl_task status 字段语义, paused 字段是否存在) 由站点确定, 总控不假设
+
+### 不假设的:
+- ❌ 不假设站点有 paused / priority 字段 (源表结构由站点定)
+- ❌ 不假设 worker 部署在总控 (内部项目 worker 在站点侧)
+- ❌ 不假设 URL 严格比对 (会因密码不同误判) — 仅启动 warning
+
+### 可复现性
+- audit_log 表 DDL 在 `databases/sprint-4.8/audit-log.sql` (Sprint 4.8.1.8 已纳入 git)
+- 之前 13 张 sprint schema patch 误被 gitignore, Sprint 4.8.1.8 修正 .gitignore 全部纳入
+- `disc_files.sql` (MySQL 历史 dump) 仍 gitignore (不是迁移)
+- 9 个 sprint seed/mock 仍 gitignore (测试 fixture)
