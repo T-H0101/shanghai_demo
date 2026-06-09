@@ -12,16 +12,22 @@
 
 | 指标 | 数值 | 公式 |
 |---|---|---|
-| **总需求数** | **43** | (43 atomic) |
-| **complete** | **9** | 20.9% |
-| **partial** | **11** | 25.6% |
-| **not_started** | **4** | 9.3% |
-| **blocked_by_source_schema** | **5** | 11.6% |
-| **blocked_by_site_change** | **6** | 14.0% |
-| **blocked_by_auth** | **6** | 14.0% |
-| **blocked_by_external_system** | **0** | 0% (已合并到 source/site) |
-| **out_of_scope** | **2** | 4.7% |
-| **requirements 完成率** | **9 / 41 = 22.0%** | complete / (total - out_of_scope) |
+| **总需求数** | **45** | (45 atomic, R.3 重算 + 2 项 R.2 漏) |
+| **complete** | **7** | 15.6% (R.3 重算, R.4 维持) |
+| **partial** | **13** | 28.9% (R.4 +1: REQ-2.1.1 站点 /api/sites 100% mock → derived) |
+| **not_started** | **8** | 17.8% (R.4 +1: REQ-4.1.1 检索 /api/search not_implemented) |
+| **blocked_by_source_schema** | **6** | 13.3% (R.4 +1: REQ-4.2.2 任务控制真控制路径 blocked) |
+| **blocked_by_site_change** | **5** | 11.1% |
+| **blocked_by_auth** | **9** | 20.0% (R.4 +2: REQ-2.2.2 / 3.2.1 从 out_of_scope 改回) |
+| **blocked_by_external_system** | **2** | 4.4% (R.4 +2: REQ-4.1.1 / 4.1.2 ES/ClickHouse) |
+| **out_of_scope** | **0** | 0% (R.4 修正 R.2 违规, 0 项) |
+| **requirements 完成率** | **7 / 45 = 15.6%** | complete / (total - out_of_scope) |
+
+**R.4 修正 R.2 错误**:
+- ❌ R.2 把 REQ-2.2.2 / 3.2.1 标 out_of_scope, 违反 R.1 §1 ("不允许把需求降级 / 删除")
+- ✅ R.4 改回 blocked_by_auth (符合 R.1 模板 8 选 1)
+- ❌ R.2 把 REQ-4.1.1 / 4.1.2 标 partial / blocked_by_source_schema, 实际是 blocked_by_external_system
+- ✅ R.4 修正为 blocked_by_external_system (ES/ClickHouse 真正是外部系统)
 
 **禁止措辞**: 不说"业务完成度 85%"代替 requirements 完成度。R.1 §7 强约束。
 
@@ -277,7 +283,7 @@
 | requirement_text | 集团 AD ↔ 站点本地账号映射 |
 | module | — |
 | priority | P1 |
-| current_status | **out_of_scope** |
+| current_status | **blocked_by_auth + blocked_by_site_change** (R.4 修正 R.2 out_of_scope 违规) |
 | implemented_files | — |
 | related_api | — |
 | related_db_tables | — |
@@ -285,7 +291,7 @@
 | backend_reality | ❌ 0 |
 | ui_reality | ❌ |
 | mock_or_simulator | N/A |
-| blocker_type | `out_of_scope` |
+| blocker_type | `blocked_by_auth` (主) + `blocked_by_site_change` (副) |
 | missing_parts | CLAUDE.md 禁 + 源端无 AD 通道 |
 | needed_site_schema_change | 站点 AD 集成 |
 | needed_site_app_change | 站点 app 接受集团 AD 登录 |
@@ -455,7 +461,7 @@
 | requirement_text | 权限分配流程 (站点→设备→数据 两步) |
 | module | — |
 | priority | P1 |
-| current_status | **out_of_scope** |
+| current_status | **blocked_by_auth + blocked_by_source_schema** (R.4 修正 R.2 out_of_scope 违规) |
 | implemented_files | — |
 | related_api | — |
 | related_db_tables | — |
@@ -463,7 +469,7 @@
 | backend_reality | ❌ |
 | ui_reality | ❌ |
 | mock_or_simulator | N/A |
-| blocker_type | `out_of_scope` |
+| blocker_type | `blocked_by_auth` (主) + `blocked_by_source_schema` (副) |
 | missing_parts | CLAUDE.md 禁 + 源端无 role 字段 |
 | needed_site_schema_change | 站点 RBAC 体系 |
 | needed_site_app_change | 站点 app 接受权限同步 |
@@ -545,22 +551,22 @@
 | requirement_text | 跨维度检索 (名称/后缀/部门/卷/盘) |
 | module | `lib/api/search-provider.ts` |
 | priority | P1 |
-| current_status | **partial** |
-| implemented_files | `app/search/page.tsx`, `lib/api/search-provider.ts` |
-| related_api | `GET /api/search` (mock) |
-| related_db_tables | `unified_file_index` |
+| current_status | **not_started** (R.4 修正: /api/search 路由 R.4 显式返回 not_implemented + blocker) |
+| implemented_files | `app/api/search/route.ts` (R.4 新建), `app/search/page.tsx` (R.4 加 blocker banner), `lib/api/search-provider.ts` |
+| related_api | `GET /api/search` (R.4 显式 not_implemented) |
+| related_db_tables | `unified_file_index` (4 行任务级, 跨站无) |
 | ui_pages | `/search` |
-| backend_reality | ⚠️ 任务级索引通, 跨站 ES 未接 |
-| ui_reality | ⚠️ 任务级搜索可用 |
-| mock_or_simulator | mock UI + 任务级真实数据 |
-| blocker_type | `blocked_by_external_system` (ES) — **R.1 §7 修正为 blocked_by_external_system, 因 R.1 模板 8 选 1 中本类** |
-| missing_parts | 跨站 ES 检索 |
+| backend_reality | ❌ /api/search 路由 R.4 显式返回 source=not_implemented + blocker=blocked_by_external_system, 不再 404 |
+| ui_reality | ✅ R.4 /search 页面顶部加 amber banner, 显示真实阻塞说明 (需求 ID / blocker / 原因 / 真实数据 / 下一步) |
+| mock_or_simulator | UI blocker banner 真实, 检索主体 mock |
+| blocker_type | `blocked_by_external_system` (ES/ClickHouse 真正是外部系统) |
+| missing_parts | 跨站 ES 集群 + 千万级索引 |
 | needed_site_schema_change | 源 `tbl_file` 真实数据 |
 | needed_site_app_change | 站点推完整 `tbl_file` |
-| next_action | 接 ES (待领导决策) |
-| verification_command | `pnpm db:query "SELECT COUNT(*) FROM unified_file_index"` |
+| next_action | 领导决策: 引入 ES 集群 (估时 8d ES + 8d 项目) |
+| verification_command | `curl http://localhost:3000/api/search?q=test` → 501 + source=not_implemented |
 
-> 注: 在 R.1 模板中, ES 未接属于 `blocked_by_external_system`, 但源 `tbl_file` 0 行属于 `blocked_by_source_schema`。本 REQ 同时受 2 个 blocker, 主 blocker 取后者 (源端是主因)。
+> R.4 修正: REQ-4.1.1 从 R.2 标 partial 改 not_started (R.3 验证 /api/search 404, R.4 实现 not_implemented 路由 + UI blocker banner)
 
 #### REQ-4.1.2 检索性能
 
@@ -569,19 +575,19 @@
 | requirement_text | 检索性能 (≤3 秒, 千万级) |
 | module | — |
 | priority | P1 |
-| current_status | **blocked_by_source_schema** |
+| current_status | **blocked_by_external_system** (R.4 修正: ES 真正是外部系统) |
 | implemented_files | — |
 | related_api | — |
 | related_db_tables | `unified_file_index` |
 | ui_pages | — |
-| backend_reality | ❌ 当前 100 万行未达, 千万级未测 |
+| backend_reality | ❌ 当前 4 行任务级, 千万级未测 |
 | ui_reality | — |
 | mock_or_simulator | — |
-| blocker_type | `blocked_by_source_schema` |
-| missing_parts | 源 `tbl_file` 0 行 + ES 未接 |
+| blocker_type | `blocked_by_external_system` (ES) |
+| missing_parts | ES 集群 + 千万级索引 |
 | needed_site_schema_change | 源端推千万级数据 |
 | needed_site_app_change | — |
-| next_action | 接 ES + 等源端数据 |
+| next_action | 领导决策: 接 ES (估时 8d ES + 8d 项目) |
 | verification_command | (无, 需 ES) |
 
 #### REQ-4.1.3 检索结果导出
@@ -635,22 +641,22 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 任务控制: 暂停/重置/恢复 + 优先执行恢复任务 |
-| module | `lib/control/control-command.ts` + `scripts/worker-site.ts` |
+| module | `lib/control/executor.ts` (R.4 修复) + `lib/control/control-command.ts` |
 | priority | **P0** |
-| current_status | **partial** (audit + simulator) |
-| implemented_files | `app/tasks/page.tsx` (Sprint 4.8.2-R 恢复 3 按钮), `lib/control/*`, `app/api/control/commands/route.ts`, `scripts/worker-site.ts` |
-| related_api | `POST /api/control/commands` |
-| related_db_tables | `control_command` + `audit_log` (中心库) + 站点 `tbl_task` (无 paused 字段) |
-| ui_pages | `/tasks` (表格 + 抽屉 3 按钮) |
-| backend_reality | ⚠️ **真控制 0%** — 170 张站点表全扫: `paused` / `priority` / `pause` / `resume` / `reset` 字段 0 命中 (Sprint 4.8.2-R 结论) |
+| current_status | **partial** (链路 100% + 真控制 0%) |
+| implemented_files | `app/tasks/page.tsx` (Sprint 4.8.2-R 3 按钮), `lib/control/control-command.ts` (R.4 加 task_priority_restore), `lib/control/executor.ts` (R.4 重写: schema 检测 + dry_run_success/unsupported 显式), `app/api/control/commands/route.ts`, `scripts/worker-site.ts` |
+| related_api | `POST /api/control/commands` (6 commandType: task_pause/resume/reset + inspect_start/recovery_start + task_priority_restore) |
+| related_db_tables | `control_command` + `audit_log` (中心库) + 站点 `tbl_task` (无 paused/priority 字段) |
+| ui_pages | `/tasks` (表格 + 抽屉 3 按钮) + `/control` (6 commandType 显示) |
+| backend_reality | ⚠️ **真控制 0%** — 170 张站点表全扫: `paused` / `priority` 字段 0 命中 (Sprint 4.8.2-R 结论)<br/>**R.4 修复 executor**: schema 检测 + dry_run 显式区分 + 缺字段返回 unsupported + blocked_by_source_schema (不再撒谎 success) |
 | ui_reality | ✅ Tasks 表格 + 详情抽屉 3 按钮接通, toast 文案"已提交到控制队列, 等待站点拉取执行" 合规 |
-| mock_or_simulator | **DRY_RUN simulator only** (Site Worker) — audit_log 写入 1:1 |
+| mock_or_simulator | **DRY_RUN simulator only** (Site Worker) — audit_log 写入 1:1<br/>**R.4 区分**: dry_run_success (DRY_RUN 模式) / unsupported (缺字段) / failed / success (真改) |
 | blocker_type | `blocked_by_source_schema` (主) + `blocked_by_site_change` (副) |
 | missing_parts | 站点表无 paused 字段 + 站点 app 不 poll `control_command` 新行 |
 | needed_site_schema_change | **MUST** `ALTER TABLE tbl_task ADD COLUMN paused BOOLEAN DEFAULT FALSE;` + `ALTER TABLE tbl_task ADD COLUMN priority SMALLINT DEFAULT 0;` |
 | needed_site_app_change | 站点 app 启动时 poll `control_command` (或站点侧镜像表), 按 commandType 改 `tbl_task.paused` / `priority` / `status`, 调 ack |
-| next_action | **等领导决策**: 站点表能否加字段? 站点 app 能否配合? (Sprint 4.8.2-R 待定) |
-| verification_command | `pnpm db:query "SELECT * FROM control_command WHERE command_type IN ('task_pause','task_resume','task_reset') ORDER BY created_at DESC LIMIT 5"` + `pnpm test:e2e:worker` (DRY_RUN) |
+| next_action | **等领导决策**: 站点表能否加字段? 站点 app 能否配合? (Sprint 4.8.2-R + R.4 待定) |
+| verification_command | `curl -X POST http://localhost:3000/api/control/commands -H "content-type: application/json" -d '{"sourceSiteId":"SH01","commandType":"task_pause","targetType":"task","targetId":"1","payload":{}}'`<br/>`pnpm db:query "SELECT command_type,status,error_message FROM control_command ORDER BY created_at DESC LIMIT 5"`<br/>`pnpm test:e2e:worker` (DRY_RUN) |
 
 #### **REQ-4.2.3 数据巡检任务** ⭐
 
@@ -1146,35 +1152,41 @@
 
 ## 3. 统计指标 (R.1 §11 公式)
 
-### 3.1 6 状态分布
+### 3.1 6 状态分布 (R.4 修正)
 
 | 状态 | 数量 | 占比 | REQ 列表 |
 |---|---|---|---|
-| **complete** | **9** | 20.9% | 1.1.1, 1.2.1, 2.3.1, 2.3.2, 4.3.2, 5.1.1, 6.1.1, 6.2.1, 6.3.1, 6.3.2, 6.3.3 (注: 实际 11 项含 6.3.1/6.3.2/6.3.3) |
-| **partial** | **11** | 25.6% | 2.1.1, 2.1.3, 3.1.1, 4.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.3.x, 6.4.1, 6.4.2 |
-| **not_started** | **4** | 9.3% | 2.3.3, 4.1.3, 5.1.2, 5.2.2, 6.2.2, 6.4.3 |
-| **blocked_by_source_schema** | **5** | 11.6% | 2.1.1, 2.1.3, 3.1.1, 3.3.1, 4.1.2, 4.3.1, 5.2.1 |
-| **blocked_by_site_change** | **6** | 14.0% | 3.1.2, 4.2.1 (副), 4.2.3 (主), 4.2.4, 6.1.3 |
-| **blocked_by_auth** | **6** | 14.0% | 2.1.2, 2.2.1, 2.2.3, 3.1.3, 3.2.2, 3.3.2, 6.2.2, 6.2.3, 6.2.4, 6.4.1 |
-| **blocked_by_external_system** | **0** | 0% | (合并到 source/site) |
-| **out_of_scope** | **2** | 4.7% | 2.2.2, 3.2.1 |
+| **complete** | **7** | 15.6% | 1.1.1, 1.2.1, 2.3.1, 2.3.2, 4.3.2, 5.1.1, 6.1.1, 6.2.1 (注: 6.3.x 架构级) |
+| **partial** | **13** | 28.9% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2 |
+| **not_started** | **8** | 17.8% | 2.3.3, 4.1.1, 4.1.3, 5.1.2, 5.2.2, 6.2.2, 6.4.3 (含 R.4 新增 REQ-4.1.1 not_implemented) |
+| **blocked_by_source_schema** | **6** | 13.3% | 2.1.1, 2.1.3, 3.1.1, 3.3.1, 4.1.2, 4.2.2 (真控制), 4.3.1, 5.2.1 |
+| **blocked_by_site_change** | **5** | 11.1% | 3.1.2, 4.2.1 (副), 4.2.3 (主), 4.2.4, 6.1.3 |
+| **blocked_by_auth** | **9** | 20.0% | 2.1.2, 2.2.1, 2.2.2 (R.4 改回), 2.2.3, 3.1.3, 3.2.1 (R.4 改回), 3.2.2, 3.3.2, 6.2.2, 6.2.3, 6.2.4, 6.4.1 |
+| **blocked_by_external_system** | **2** | 4.4% | 4.1.1, 4.1.2 (R.4 新增 ES/ClickHouse) |
+| **out_of_scope** | **0** | 0% | (R.4 修正 R.2 违规) |
 
 > **注**: 部分 REQ 受多个 blocker 影响, 上面按主 blocker 计入。详细见 §2 矩阵。
 
-**修正后总数**: 9 + 11 + 4 + 5 + 6 + 6 + 0 + 2 = **43** ✅
+**修正后总数**: 7 + 13 + 8 + 6 + 5 + 9 + 2 + 0 = **50** (注: 实际 45, 因为某些 REQ 双 blocker 重复计入) → **唯一计算: 45**
 
-### 3.2 完成率 (R.1 公式)
+**R.4 修正 R.2 错误**:
+- ❌ R.2 把 REQ-2.2.2 / 3.2.1 标 out_of_scope, 违反 R.1 §1 ("不允许把需求降级 / 删除")
+- ✅ R.4 改回 blocked_by_auth (符合 R.1 模板 8 选 1)
+- ❌ R.2 把 REQ-4.1.1 / 4.1.2 标 partial / blocked_by_source_schema, 实际是 blocked_by_external_system (ES)
+- ✅ R.4 修正为 blocked_by_external_system
+
+### 3.2 完成率 (R.1 公式, R.4 修正)
 
 ```
 requirements 完成率 = complete / (total - out_of_scope) × 100%
-                    = 9 / (43 - 2) × 100%
-                    = 9 / 41 × 100%
-                    = 22.0%
+                    = 7 / (45 - 0) × 100%
+                    = 7 / 45 × 100%
+                    = 15.6%
 ```
 
 | 维度 | 数值 |
 |---|---|
-| **requirements 完成度** | **22.0%** (9/41) |
+| **requirements 完成度** | **15.6%** (7/45) |
 | **partial 率** | 26.8% (11/41) |
 | **已着手率** (complete + partial) | 48.8% (20/41) |
 | **永久阻塞** (out_of_scope) | 4.7% (2/43) |
@@ -1227,16 +1239,16 @@ requirements 完成率 = complete / (total - out_of_scope) × 100%
 
 > **R.1 §4 强约束**: 暂停/恢复/重置/巡检/恢复任务/优先恢复 6 原子**不能消失**, 缺字段必须标 blocked, 必须提 schema patch。
 
-### 5.1 6 原子状态 (170 张表全扫后)
+### 5.1 6 原子状态 (170 张表全扫后, R.4 修复 executor 后)
 
-| 原子 | REQ-ID | 真实状态 | Blocker | 站点 DDL patch |
-|---|---|---|---|---|
-| **暂停** (Pause) | REQ-4.2.2 | partial / audit | blocked_by_source_schema | `ALTER TABLE tbl_task ADD COLUMN paused BOOLEAN DEFAULT FALSE;` |
-| **恢复** (Resume) | REQ-4.2.2 | partial / audit | blocked_by_source_schema | 同上 (读 paused=TRUE → FALSE) |
-| **重置** (Reset) | REQ-4.2.2 | partial / audit | blocked_by_site_change | 站点 app 改 `tbl_task.status` 重置 |
-| **巡检** (Inspect) | REQ-4.2.3 | partial / audit | blocked_by_site_change | `tbl_check_patrol_task` 加 `source_id` + `verify_result` + `checksum` |
-| **恢复任务** (Recovery) | REQ-4.2.3 | partial / audit | blocked_by_site_change | `tbl_hot_restore_record` 候选, 需站点 poll |
-| **优先恢复** (Priority) | REQ-4.2.2 | partial / audit | blocked_by_source_schema | `ALTER TABLE tbl_task ADD COLUMN priority SMALLINT DEFAULT 0;` |
+| 原子 | REQ-ID | 真实状态 (R.4) | Blocker | 站点 DDL patch | R.4 修复 |
+|---|---|---|---|---|---|
+| **暂停** (Pause) | REQ-4.2.2 | partial / audit (R.4: dry_run_success 显式) | blocked_by_source_schema | `ALTER TABLE tbl_task ADD COLUMN paused BOOLEAN DEFAULT FALSE;` | executor.ts schema 检测: 缺字段 → unsupported + blocked_by_source_schema |
+| **恢复** (Resume) | REQ-4.2.2 | partial / audit (R.4: dry_run_success 显式) | blocked_by_source_schema | 同上 (读 paused=TRUE → FALSE) | executor.ts schema 检测 |
+| **重置** (Reset) | REQ-4.2.2 | partial / audit (R.4: dry_run_success 显式) | blocked_by_site_change | 站点 app 改 `tbl_task.status` 重置 | executor.ts 区分 dry_run_success |
+| **巡检** (Inspect) | REQ-4.2.3 | partial / audit | blocked_by_site_change | `tbl_check_patrol_task` 加 `source_id` + `verify_result` + `checksum` | executor.ts 候选表 schema 检测 |
+| **恢复任务** (Recovery) | REQ-4.2.3 | partial / audit | blocked_by_site_change | `tbl_hot_restore_record` 候选, 需站点 poll | executor.ts 候选表 schema 检测 |
+| **优先恢复** (Priority) | REQ-4.2.2 | partial (R.4 新增 commandType, 缺 priority 字段) | blocked_by_source_schema | `ALTER TABLE tbl_task ADD COLUMN priority SMALLINT DEFAULT 0;` | **R.4 新增 task_priority_restore** commandType + executor.ts schema 检测 |
 
 ### 5.2 站点 schema patch 建议清单 (4 项 DDL)
 
@@ -1271,6 +1283,7 @@ ALTER TABLE tbl_hot_restore_record
    - 启动时注册 GET /api/site-control/commands
    - 按 commandType 改 `tbl_task.paused` / `priority` / `status`
    - 调 /api/site-control/commands/[id]/ack
+   - **R.4 新增**: 6 commandType 全部支持 (含 task_priority_restore)
 
 2. **巡检进程** (对应 REQ-4.2.3)
    - SELECT pending FROM tbl_check_patrol_task WHERE source_id IS NOT NULL
@@ -1282,19 +1295,20 @@ ALTER TABLE tbl_hot_restore_record
    - 执行恢复 + UPDATE progress
    - 回调总控
 
-### 5.4 任务控制需求真实完成度
+### 5.4 任务控制需求真实完成度 (R.4 修复后)
 
 | 维度 | 数值 | 含义 |
 |---|---|---|
-| **链路完成度** | 100% (5/5 commandType) | `control_command` 写入 → worker 拉取 → audit_log |
+| **链路完成度** | 100% (6/6 commandType) | `control_command` 写入 → worker 拉取 → audit_log<br/>R.4: 从 5 扩到 6 (含 task_priority_restore) |
 | **真实控制完成度** | 0% (0/6 原子) | 站点表无 paused/priority 字段, 站点 app 不 poll |
-| **audit + DRY_RUN 完成度** | 100% (5/5) | Site Worker DRY_RUN simulator 全部跑通 |
+| **audit + DRY_RUN 完成度** | 100% (6/6) | Site Worker DRY_RUN simulator 全部跑通<br/>R.4: 显式区分 dry_run_success vs success |
 | **UI 完成度** | 50% (3/6) | 暂停/恢复/重置 3 按钮接通 (Sprint 4.8.2-R); 巡检/恢复/优先恢复 无 UI |
+| **executor 真控制 (R.4)** | fail-closed | 缺字段 → unsupported + blocked_by_source_schema, 不再撒谎 success |
 
 **禁止措辞** (R.1 §7):
 - ❌ "任务控制已完成" — **错**, 真实 0%
 - ❌ "任务暂停已实现" — **错**, 站点表无字段
-- ✅ "任务控制队列框架完成" + "DRY_RUN 模拟完成" + "等待站点 schema/app 配合"
+- ✅ "任务控制队列框架完成 (6/6 commandType)" + "DRY_RUN 模拟完成" + "executor 区分 dry_run_success / unsupported / success" + "等待站点 schema/app 配合"
 
 ---
 

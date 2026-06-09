@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,10 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { searchFiles, searchSites, searchDepartments, searchFileTypes } from "@/lib/mock/search"
 import type { SearchFile } from "@/lib/types/search"
-import { Search, Download, Shield, ChevronLeft, ChevronRight, Filter, RotateCcw } from "lucide-react"
+import { Search, Download, Shield, ChevronLeft, ChevronRight, Filter, RotateCcw, AlertTriangle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+
+interface SearchBlkInfo {
+  blocker: string
+  reason: string
+  requirement: { id: string; text: string; status: string }
+  currentReality: { taskLevelFileIndex: number; sourceTable: string; note: string }
+  nextStep: string
+}
 
 export default function Page() {
   const [keyword, setKeyword] = useState("")
@@ -24,6 +32,7 @@ export default function Page() {
   const [discFilter, setDiscFilter] = useState("")
   const [volumeFilter, setVolumeFilter] = useState("")
   const [showExport, setShowExport] = useState(false)
+  const [blk, setBlk] = useState<SearchBlkInfo | null>(null)
   const [exportOptions, setExportOptions] = useState({
     format: "Excel",
     range: "all",
@@ -32,6 +41,29 @@ export default function Page() {
     delivery: "push",
   })
   const pageSize = 10
+
+  // Sprint R.4 Bug 2: 检测 /api/search blocker, 显示真实阻塞说明
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/search?q=detect")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        if (data?.source === "not_implemented" && data?.meta) {
+          setBlk({
+            blocker: data.meta.blocker ?? data.blocker ?? "blocked_by_external_system",
+            reason: data.meta.reason ?? "全文检索未实现",
+            requirement: data.meta.requirement ?? { id: "REQ-4.1.1", text: "跨维度检索", status: "blocked_by_external_system" },
+            currentReality: data.meta.currentReality ?? { taskLevelFileIndex: 0, sourceTable: "unified_file_index", note: "" },
+            nextStep: data.meta.nextStep ?? "等待 ES 接入",
+          })
+        }
+      })
+      .catch(() => {
+        // 静默, 不影响主流程
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const filtered = searchFiles.filter((f) => {
     const matchKw = !keyword ||
@@ -99,6 +131,28 @@ export default function Page() {
     <AppShell>
       <PageHeader title="统一检索" description="跨站点全局文件检索" badge="GLOBAL SEARCH"
         actions={<Button variant="outline" size="sm" className="h-8" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出</Button>} />
+      {blk && (
+        <Card className="gap-0 border-amber-300 bg-amber-50" data-testid="search-blocker-banner">
+          <CardContent className="p-4 flex gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="text-sm flex-1">
+              <p className="font-medium text-amber-900">
+                全文检索未实现 (REQ: {blk.requirement.id} {blk.requirement.text})
+              </p>
+              <p className="text-amber-800 mt-1">
+                Blocker: <Badge variant="outline" className="border-amber-400 text-amber-800">{blk.blocker}</Badge>
+                {" · "}
+                {blk.reason}
+              </p>
+              <p className="text-amber-700 mt-1 text-xs">
+                真实数据: unified_file_index {blk.currentReality.taskLevelFileIndex} 行 (任务级, {blk.currentReality.note})
+                {" · "}
+                下一步: {blk.nextStep}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card className="gap-0 border-blue-100 bg-blue-50/30">
         <CardContent className="p-4 flex gap-3">
           <Shield className="h-5 w-5 text-blue-600 shrink-0" />

@@ -29,9 +29,9 @@ export async function POST(
   }
 
   const { status, result, errorMessage } = body ?? {}
-  if (!["success", "failed", "cancelled"].includes(status)) {
+  if (!["success", "failed", "cancelled", "unsupported", "dry_run_success"].includes(status)) {
     return NextResponse.json(
-      { error: "status must be success / failed / cancelled" },
+      { error: "status must be success / failed / cancelled / unsupported / dry_run_success" },
       { status: 400 }
     )
   }

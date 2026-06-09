@@ -6,7 +6,7 @@
  * 展示:
  *  - control_command 表全部记录
  *  - 状态徽章: pending / pulled / running / success / failed / cancelled
- *  - 命令类型: task_pause / task_resume / task_reset / inspect_start / recovery_start
+ *  - 命令类型: task_pause / task_resume / task_reset / inspect_start / recovery_start / task_priority_restore
  *
  * 用途: 让用户看到自己提交的控制命令 + 站点回写结果
  */
@@ -48,6 +48,10 @@ const statusBadge: Record<string, { label: string; color: string }> = {
   success: { label: "成功", color: "bg-emerald-100 text-emerald-700" },
   failed: { label: "失败", color: "bg-red-100 text-red-700" },
   cancelled: { label: "已取消", color: "bg-slate-200 text-slate-500" },
+  // Sprint R.4 Bug 4: 缺字段/缺源端支持
+  unsupported: { label: "不支持 (源端缺字段)", color: "bg-orange-100 text-orange-700" },
+  // Sprint R.4 Bug 4: DRY_RUN 显式区分
+  dry_run_success: { label: "DRY_RUN 模拟成功", color: "bg-amber-50 text-amber-600" },
 }
 
 const commandTypeLabel: Record<string, string> = {
@@ -56,6 +60,8 @@ const commandTypeLabel: Record<string, string> = {
   task_reset: "重置任务",
   inspect_start: "启动巡检",
   recovery_start: "启动恢复",
+  // Sprint R.4 Bug 5: 优先恢复 (缺 priority 字段时 executor 返回 unsupported)
+  task_priority_restore: "优先恢复",
 }
 
 export default function ControlPage() {

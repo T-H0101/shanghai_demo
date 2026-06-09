@@ -27,6 +27,9 @@ export const COMMAND_TYPES = [
   "task_reset",
   "inspect_start",
   "recovery_start",
+  // Sprint R.4 Bug 5: 新增 task_priority_restore (优先恢复)
+  // 真执行需 tbl_task.priority 字段, R.4 已加 schema 检测, 缺字段返回 unsupported + blocked_by_source_schema
+  "task_priority_restore",
 ] as const
 export type CommandType = (typeof COMMAND_TYPES)[number]
 
@@ -40,6 +43,10 @@ export const COMMAND_STATUSES = [
   "success",
   "failed",
   "cancelled",
+  // Sprint R.4 Bug 4 新增: 缺字段 / 缺源端支持
+  "unsupported",
+  // Sprint R.4 Bug 4 新增: DRY_RUN 模式显式区分
+  "dry_run_success",
 ] as const
 export type CommandStatus = (typeof COMMAND_STATUSES)[number]
 

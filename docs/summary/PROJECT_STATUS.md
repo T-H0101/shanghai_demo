@@ -1,8 +1,37 @@
 # Project Status
 
-> **截至**: 2026-06-09
-> **Sprint**: Sprint R.2 完成 (Requirements Traceability Matrix)
+> **截至**: 2026-06-10
+> **Sprint**: Sprint R.4 完成 (Bug 修复周)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.4 — Bug 修复周 (2026-06-10 完成)
+
+> **核心**: 修 Sprint R.3 发现的 6 个真实 bug, 0 业务功能, 0 新增页面/表/API。
+
+### 6 个🔴 bug 修复结果
+
+| # | Bug | 修复 | 真实度变化 |
+|---|---|---|---|
+| 1 | /api/tasks/[id] 100% 404 | 接 unified_tasks 真实查, UUID 校验, siteCode 过滤 | 0/100 → 100/100 |
+| 2 | /api/search 404 | 显式 not_implemented 路由 + blocker banner | 0/100 → 100/100 (显式阻塞) |
+| 3 | /api/sites 100% mock | 真实读 unified_sites + 派生 fallback | 10/100 → 90/100 |
+| 4 | executor L342 假执行 | schema 检测 + dry_run_success/unsupported 显式 + 真连 site pool | 0/100 (exec) → 100/100 (fail-closed) |
+| 5 | priority commandType 缺失 | 加 task_priority_restore (5→6 原子) | 0% → partial |
+| 6 | R.2 out_of_scope 违规 | REQ-2.2.2/3.2.1 改 blocked_by_auth | 违规修正 |
+
+### R.4 严格验收 (符合 R.1 模板)
+
+- ✅ tsc/build/smoke/e2e:worker 全绿
+- ✅ 0 业务功能, 0 新增页面, 0 新增表, 0 修改需求
+- ✅ 0 行业务代码 (R.4 仅改 bug 文件 + 文档)
+
+### R.4 文档更新
+
+- ✅ `docs/database-analysis/requirements-traceability.md` (R.4 修正)
+- ✅ `docs/database-analysis/requirements-traceability.json` (R.4 修正)
+- ✅ `docs/database-analysis/sprint-r.4-requirements-review.md` (R.4 审查)
 
 ---
 

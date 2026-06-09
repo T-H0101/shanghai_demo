@@ -1,7 +1,38 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-09
+> 截至: 2026-06-10
+
+## R.4 Bug 修复周 (2026-06-10 完成)
+
+> **核心**: 修 Sprint R.3 发现的 6 个真实 bug, 0 业务功能, 严格符合 R.1 模板。
+
+### 6 个🔴 bug 修复
+
+| # | Bug | 修复 | 估时 |
+|---|---|---|---|
+| 1 | /api/tasks/[id] 100% 404 | 接 unified_tasks 真实查, UUID 校验, siteCode 过滤 | 0.5h |
+| 2 | /api/search 404 | 显式 not_implemented + blocker banner | 0.5h |
+| 3 | /api/sites 100% mock | 真实读 + 派生 fallback | 1h |
+| 4 | executor L342 假执行 | schema 检测 + dry_run_success/unsupported | 1h |
+| 5 | priority commandType 缺失 | 加 task_priority_restore (5→6 原子) | 1h |
+| 6 | R.2 out_of_scope 违规 | REQ-2.2.2/3.2.1 改 blocked_by_auth | 0.5h |
+
+**合计**: 4.5 小时, 0 阻塞。
+
+### R.4 文档更新
+
+- requirements-traceability.md (R.4 stats 修正)
+- requirements-traceability.json (R.4 stats + r4_bug_fixes)
+- PROJECT_STATUS.md / ROADMAP.md (本段)
+- sprint-r.4-requirements-review.md (R.4 严格审查)
+
+### 下一 Sprint (R.5)
+
+- 0 阻塞新功能: REQ-2.3.3 / 4.1.3 / 5.1.2 / 5.1.3 / 5.2.2 / 6.4.3 (~10 人天)
+- 决策点: 站点表能否加 paused/priority 字段 (REQ-4.2.2 真控制前提)
+
+---
 
 ## R.2 Requirements Traceability Matrix (2026-06-09 完成)
 

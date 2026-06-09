@@ -48,8 +48,11 @@ loadEnvLocal()
 // ============================================================
 import { query as centralQuery, closePool } from '@/lib/db/postgres'
 import { sourceQuery, closeSourcePool } from '@/lib/db/source-pool'
-import { executeCommand, DRY_RUN, ExecResult } from '@/lib/control/executor'
+import { executeCommand, ExecResult } from '@/lib/control/executor'
 import type { ControlCommandRow } from '@/lib/control/control-command'
+
+// Sprint R.4: worker 自读 env (executor.ts 重写后 DRY_RUN 不再 export)
+const DRY_RUN = (process.env.SITE_WORKER_DRY_RUN ?? 'true') !== 'false'
 
 // ============================================================
 // 配置
