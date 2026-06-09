@@ -3,6 +3,44 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-09
 
+## R.2 Requirements Traceability Matrix (2026-06-09 完成)
+
+> **核心**: 建立 43 原子需求 × 18 字段追踪矩阵, 作为后续所有开发的唯一验收依据。
+
+### 关键产出
+
+- ✅ `docs/database-analysis/requirements-traceability.md` (人类可读)
+- ✅ `docs/database-analysis/requirements-traceability.json` (机器可读, 自动化校验)
+- ✅ 任务控制 6 原子专项 (暂停/恢复/重置/巡检/恢复/优先)
+- ✅ 4 项站点 schema DDL patch
+- ✅ Top 10 按 requirements.md 优先级 (非 UI 排序)
+- ✅ `docs/database-analysis/sprint-r.2-requirements-review.md`
+
+### 完成度统计
+
+| 指标 | 数值 |
+|---|---|
+| 总需求数 | 43 |
+| requirements 完成率 | **22.0%** (9/41) |
+| 已着手 (complete+partial) | 48.8% (20/41) |
+| 依赖外部 (站点/源端/Auth) | 39.6% |
+| 永久阻塞 (out_of_scope) | 4.7% |
+
+### Top 3 阻塞 (待领导)
+
+1. **REQ-2.2.1 (ADFS)** — 解锁带动 6 项 (~25 人天)
+2. **站点 schema patch** — 任务控制 6 原子真正落地
+3. **站点 app poll** — 任务控制 6 原子真执行
+
+### 后续所有 Sprint 必须
+
+- 引用 `requirements-traceability.md` 相关 REQ-ID
+- 产出 `sprint-<X.Y>-requirements-review.md` (R.1 模板)
+- 更新 `requirements-traceability.{md,json}` 反映新状态
+- 禁止跳过 traceability 直接宣称"需求完成 X%"
+
+---
+
 ## R.1 requirements.md 上升为最高验收标准 (2026-06-09 完成)
 
 > **核心**: 从"按数据库倒推需求"切换到"严格按需求验收"。

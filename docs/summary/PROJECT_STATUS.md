@@ -1,8 +1,66 @@
 # Project Status
 
 > **截至**: 2026-06-09
-> **Sprint**: Sprint R.1 完成 (requirements.md 上升为最高验收标准)
+> **Sprint**: Sprint R.2 完成 (Requirements Traceability Matrix)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.2 — Requirements Traceability Matrix (2026-06-09 完成)
+
+> **核心**: 基于 R.1 9 大强约束, 建立正式 43 原子需求 × 18 字段追踪矩阵, 作为后续所有开发的唯一验收依据。
+
+### 关键产出
+
+- ✅ `docs/database-analysis/requirements-traceability.md` (人类可读, 含 43 原子 × 18 字段)
+- ✅ `docs/database-analysis/requirements-traceability.json` (机器可读, 自动化校验)
+- ✅ 任务控制 6 原子专项 (暂停/恢复/重置/巡检/恢复/优先) — **不能消失**
+- ✅ 4 项站点 schema DDL patch 建议 (paused/priority/verify_result/checksum)
+- ✅ Top 10 下一步开发项, 按 requirements.md 优先级 (非 UI 排序)
+- ✅ `docs/database-analysis/sprint-r.2-requirements-review.md` (R.1 模板严格审查)
+
+### 43 原子需求完成度 (R.1 公式)
+
+| 指标 | 数值 | 公式 |
+|---|---|---|
+| **总需求数** | **43** | (43 atomic) |
+| **complete** | **9** | 20.9% |
+| **partial** | **11** | 25.6% |
+| **not_started** | **7** | 16.3% |
+| **blocked_by_source_schema** | **6** | 14.0% |
+| **blocked_by_site_change** | **5** | 11.6% |
+| **blocked_by_auth** | **7** | 16.3% |
+| **out_of_scope** | **2** | 4.7% |
+| **requirements 完成率** | **9 / 41 = 22.0%** | complete / (total - out_of_scope) |
+
+### 任务控制 6 原子状态 (170 张表全扫后)
+
+| 原子 | REQ-ID | 真控制 | 链路 | UI | audit | Blocker |
+|---|---|---|---|---|---|---|
+| 暂停 | REQ-4.2.2 | 0% | 100% | ✅ | 100% | blocked_by_source_schema |
+| 恢复 | REQ-4.2.2 | 0% | 100% | ✅ | 100% | blocked_by_source_schema |
+| 重置 | REQ-4.2.2 | 0% | 100% | ✅ | 100% | blocked_by_site_change |
+| 巡检 | REQ-4.2.3 | 0% | 100% | ❌ | 100% | blocked_by_site_change |
+| 恢复任务 | REQ-4.2.3 | 0% | 100% | ❌ | 100% | blocked_by_site_change |
+| 优先恢复 | REQ-4.2.2 | 0% | 100% | ❌ | 100% | blocked_by_source_schema |
+
+### 站点 schema patch 建议 (4 项 DDL)
+
+1. `ALTER TABLE tbl_task ADD COLUMN paused BOOLEAN DEFAULT FALSE;` (+ pause_reason, paused_at)
+2. `ALTER TABLE tbl_task ADD COLUMN priority SMALLINT DEFAULT 0;` (+ priority_source)
+3. `ALTER TABLE tbl_check_patrol_task ADD COLUMN source_id/verify_result/checksum;` (3 列)
+4. `ALTER TABLE tbl_hot_restore_record ADD COLUMN source_id/restore_priority;` (2 列)
+
+### Top 3 阻塞 (待领导)
+
+- **#1 ADFS (REQ-2.2.1)** — 解锁可带动 6 项 (~25 人天)
+- **#2 站点 schema patch** — 任务控制 6 原子 + 巡检/恢复 真正落地
+- **#3 站点 app poll** — 任务控制 6 原子真执行
+
+### 禁止措辞 (R.1 §7 落地)
+
+- ❌ "控制能力已完成" / "任务暂停已实现" / "需求完成度 85%"
+- ✅ "控制队列框架完成" / "DRY_RUN 模拟完成" / "requirements 完成度 22.0%"
 
 ---
 
