@@ -68,6 +68,14 @@ Sprint 4.5: 总控具备可落地的命令下发骨架, 不假实现。
   - Toast 文案明确"已提交到控制队列, 等待站点拉取执行"
 - 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md` (重写版)
 
+**Overnight Verification (2026-06-09)**:
+- **DB**: `star_storage_db` 170 张表确认, 全库扫描 0 paused/priority 命中
+- **Site Worker DRY_RUN**: 5/5 命令 (task_pause/resume/reset/inspect_start/recovery_start) 拉取执行, audit_log 5 行 (1:1)
+- **UI 按钮**: 暂停/恢复/重置 3 按钮接通 control_command POST (3/3 ok), toast 合规, API mode only
+- **smoke + siteCode**: smoke:sync passed, Tasks/Racks/Volumes/Sync 4 端点 siteCode 过滤一致
+- **统计**: control_command 37 total (29 success / 7 failed / 1 inflight), audit_log 35 total (11 in last hour)
+- **报告**: `docs/audit/sprint-4.8.2-r/REPORT.md` (含 CSV/JSON/Markdown)
+
 ### 4.8.3 (下一步) 等待领导决策后再开
 
 - A. 站点表加 control_command 镜像字段 → Site Worker 升级为真控制

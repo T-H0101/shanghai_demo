@@ -191,6 +191,15 @@
   - Toast 文案明确: "已提交到控制队列, 等待站点拉取执行" (不误导用户)
 - 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md` (重写版)
 
+### Overnight Verification (Sprint 4.8.2-R, 2026-06-09)
+- **DB 验证**: `star_storage_db` 170 张表确认, 全库扫描 0 paused/priority 命中
+- **Site Worker DRY_RUN**: 5/5 命令 (task_pause/resume/reset/inspect_start/recovery_start) 通过 worker 拉取, 写入 audit_log 5 行 (1:1 对应)
+- **UI 按钮**: 暂停/恢复/重置 走 control_command POST → 3/3 ok, toast 文案合规, API mode only
+- **smoke + siteCode**: smoke:sync passed, 4 端点 (Tasks/Racks/Volumes/Sync) siteCode 过滤一致
+- **未解决限制**: paused/priority 字段全库 0 命中, 站点应用 poll 行为无 evidence
+- **报告文件**: `docs/audit/sprint-4.8.2-r/REPORT.md` (含 CSV/JSON/Markdown)
+- **统计**: control_command 37 total (29 success / 7 failed / 1 inflight), audit_log 35 total (11 in last hour)
+
 ## Sprint 2D.6 结论
 
 - Racks 盘位格子不再根据 `totalSlots` 推断为空闲。

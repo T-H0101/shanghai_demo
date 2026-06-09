@@ -1,0 +1,2 @@
+database_name,total_tables,pause_priority_hits,status_hits,progress_hits,enable_hits,cron_hits,inspect_hits,verify_hits,recover_hits,job_hits,total_tables_check
+star_storage_db,170,0,91,7,7,5,5,14,2,8,170

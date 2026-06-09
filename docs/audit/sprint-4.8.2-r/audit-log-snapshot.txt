@@ -1,0 +1,9 @@
+                  id                  |          command_no           |     action     | target_table |         target_id         | dry_run | result  |               error_message               |          created_at           
+--------------------------------------+-------------------------------+----------------+--------------+---------------------------+---------+---------+-------------------------------------------+-------------------------------
+ c0ee88fb-2d68-4fa7-be99-e6c81bd99071 | CTRL-SH01-20260609133609-94A6 | recovery_start | tbl_task     | audit-1781012169263359000 | t       | success |                                           | 2026-06-09 13:36:09.691047+00
+ 974743dc-8338-4125-a5d6-c00eaf237abf | CTRL-SH01-20260609133609-162B | task_reset     | tbl_task     | audit-1781012169221058000 | t       | failed  | task not found: audit-1781012169221058000 | 2026-06-09 13:36:09.685627+00
+ 00dd613f-fb55-4d71-a8e0-8aeb6973aa69 | CTRL-SH01-20260609133609-FBB6 | task_resume    | tbl_task     | audit-1781012169198085000 | t       | failed  | task not found: audit-1781012169198085000 | 2026-06-09 13:36:09.68527+00
+ 17e6ca22-49d4-4d4c-986b-4f3b4b6181f8 | CTRL-SH01-20260609133609-34F0 | task_pause     | tbl_task     | audit-1781012169172253000 | t       | failed  | task not found: audit-1781012169172253000 | 2026-06-09 13:36:09.685216+00
+ 9068f778-a828-48f6-ae6c-2c6063542e55 | CTRL-SH01-20260609133609-E262 | inspect_start  | tbl_task     | audit-1781012169242406000 | t       | success |                                           | 2026-06-09 13:36:09.681754+00
+(5 rows)
+
