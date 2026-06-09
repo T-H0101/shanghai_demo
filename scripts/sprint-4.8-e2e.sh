@@ -10,6 +10,10 @@
 #   5. 查 audit_log 是否有新行
 #   6. 验证 source_restore.tbl_task 数据未变 (DRY_RUN)
 #   7. kill worker
+#
+# 安全:
+#   - DB 密码从 .env.local 解析 (DATABASE_URL), 不硬编码
+#   - .env.local 已被 .gitignore 保护
 # ============================================================
 set -euo pipefail
 
@@ -17,9 +21,24 @@ SITE_CODE="${SITE_WORKER_SITE_CODE:-SH01}"
 BASE="${BASE_URL:-http://localhost:3000}"
 WORKER_LOG="/tmp/worker-e2e.log"
 
+# 从 .env.local 解析 PGPASSWORD (避免硬编码)
+ENV_LOCAL="$(cd "$(dirname "$0")/.." && pwd)/.env.local"
+if [ ! -f "$ENV_LOCAL" ]; then
+  echo "FAIL: .env.local not found at $ENV_LOCAL"
+  exit 1
+fi
+# 提取 DATABASE_URL= 后到行尾的值, 取 ://user: 后到 @ 前的密码
+DB_URL=$(grep -E "^DATABASE_URL=" "$ENV_LOCAL" | head -1 | cut -d= -f2- | sed 's/^["'"'"']//;s/["'"'"']$//')
+PGPASSWORD="$(printf '%s' "$DB_URL" | sed -n 's|^postgresql://[^:]*:\([^@]*\)@.*|\1|p')"
+if [ -z "$PGPASSWORD" ]; then
+  echo "FAIL: 无法从 .env.local 解析 PGPASSWORD"
+  exit 1
+fi
+
 echo "=== Sprint 4.8.1.6 Site Worker e2e ==="
 echo "site: $SITE_CODE"
 echo "base: $BASE"
+echo "PGPASSWORD: <从 .env.local 解析, 长度 ${#PGPASSWORD}>"
 
 # 1. 启 worker (后台)
 echo "[1] 启动 worker (DRY_RUN=true)..."
@@ -54,15 +73,15 @@ echo "[4] 查 control_command 状态..."
 curl -s "$BASE/api/control/commands?siteCode=$SITE_CODE&limit=5" | head -c 500
 echo ""
 
-# 5. 查 audit_log
+# 5. 查 audit_log (密码从 .env.local 解析)
 echo "[5] 查 audit_log (应 >=3 行)..."
-docker exec -i unified_disc_postgres env PGPASSWORD='<REDACTED-from-history>' psql \
+docker exec -i unified_disc_postgres env "PGPASSWORD=$PGPASSWORD" psql \
   -U unified -d unified_disc_platform \
   -c "SELECT COUNT(*) AS audit_rows, MAX(created_at) AS last_audit FROM audit_log WHERE site_code='$SITE_CODE';" 2>&1 | tail -3
 
 # 6. 验证 source_restore 未变
 echo "[6] 验证 source_restore.tbl_task 数据未变 (DRY_RUN)..."
-docker exec -i unified_disc_postgres env PGPASSWORD='<REDACTED-from-history>' psql \
+docker exec -i unified_disc_postgres env "PGPASSWORD=$PGPASSWORD" psql \
   -U unified -d source_restore \
   -c "SELECT id, task_name, status, burn_status FROM tbl_task WHERE id=1;" 2>&1 | tail -5
 
@@ -71,6 +90,9 @@ echo "[7] 关闭 worker (PID $WORKER_PID)..."
 kill -TERM $WORKER_PID 2>/dev/null || true
 sleep 2
 kill -9 $WORKER_PID 2>/dev/null || true
+
+# 清理: PGPASSWORD 不留痕
+unset PGPASSWORD
 
 echo ""
 echo "=== worker log tail ==="
