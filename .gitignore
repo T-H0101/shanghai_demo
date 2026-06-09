@@ -59,6 +59,7 @@ __v0_jsx-dev-runtime.ts
 # docs
 docs/screenshots/
 docs/archive/
+docs/secrets/
 docs/database-analysis/schema-inventory.json
 docs/database-analysis/schema-inventory.md
 
