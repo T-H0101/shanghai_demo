@@ -1,7 +1,69 @@
 # Project Status
 
-> **截至**: 2026-06-08
-> **Sprint**: 4.5 完成 (control_command 控制队列 MVP)
+> **截至**: 2026-06-09
+> **Sprint**: Sprint R.1 完成 (requirements.md 上升为最高验收标准)
+> **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.1 — requirements.md 上升为最高验收标准 (2026-06-09 完成)
+
+> **背景**: 项目已从"按数据库倒推需求"阶段进入"严格按需求验收"阶段。Sprint 4.8.2-R 暴露的问题: 任务控制需求被部分跳过 / 降级 / 误称完成, 必须用 9 大强约束强制规范。
+
+### 9 大强约束 (CLAUDE.md 已落地)
+
+1. **requirements.md 最高优先级** — 每次开发前后必须确认 / 审查
+2. **需求状态枚举** — 8 选 1 (complete / partial / not_started / blocked_by_source_schema / blocked_by_site_change / blocked_by_auth / blocked_by_external_system / out_of_scope)
+3. **严格验收** — 每次 Sprint 完成必须产出 10 字段审查文件
+4. **任务控制硬约束** — 暂停/恢复/重置/巡检/恢复 6 原子动作必须以需求为准, 缺字段必须提 schema patch, 不允许伪造
+5. **同步策略** — 完整 170 表库为审计基线, 大表走 ES/ClickHouse
+6. **控制策略** — 总控必须保留控制能力路线, 不允许关闭需求
+7. **禁止误导** — 措辞规范 (10 个禁止措辞 + 10 个必须措辞)
+8. **提交前检查** — tsc + build + smoke + (worker e2e) 必须全绿
+9. **文档同步** — PROJECT_STATUS + ROADMAP + requirements review 三件套
+
+### 新增文件
+
+- ✅ `docs/database-analysis/requirements-strict-review-template.md` — 13 段严格审查模板, 强制产出
+
+### 关键修正 (CLAUDE.md 重写)
+
+- ✅ 最高优先级文档表新增 `requirements-strict-review-template.md` (🚨 最高)
+- ✅ 9 大强约束章节加入 "一票否决, 不可绕过"
+- ✅ 附录 A: 站点 schema/API 变更建议模板 (Sprint 4.8.2-R 启动)
+- ✅ 附录 B: requirements 完成率公式 (禁止用"业务完成度"代替)
+
+### 任务控制需求当前状态 (基于 Sprint 4.8.2-R 170 张表全扫)
+
+| 需求 | 当前状态 | Blocker | 真实完成路径 |
+|---|---|---|---|
+| REQ-4.2.1 新建任务 | `complete` | — | 已有 |
+| REQ-4.2.1 暂停 | `partial` | blocked_by_source_schema | 站点表加 `paused` 字段 + 站点 app 读 |
+| REQ-4.2.1 恢复 | `partial` | blocked_by_source_schema | 同上 |
+| REQ-4.2.1 重置 | `partial` | blocked_by_site_change | 站点 app 改 `tbl_task.status` |
+| REQ-4.2.2 优先执行恢复 | `partial` | blocked_by_source_schema | 站点表加 `priority` 字段 + 调度改造 |
+| REQ-4.2.3 数据巡检 | `partial` | blocked_by_site_change | 站点 app poll `tbl_check_patrol_task` |
+| REQ-4.2.3 恢复任务 | `partial` | blocked_by_site_change | 站点 app poll `tbl_hot_restore_record` |
+| REQ-4.2.4 任务监控 | `partial` | — | 已有 UI + 监控数据 |
+
+**禁止**:
+- ❌ 把"audit 提交到 control_command" 称为"任务控制已完成"
+- ❌ 把"DRY_RUN 模拟" 称为"真控制"
+- ❌ 把"按钮接通" 称为"管控完成"
+
+**只能说**:
+- ✅ "控制队列框架完成"
+- ✅ "DRY_RUN 模拟完成"
+- ✅ "audit 链路完成"
+- ✅ "等待站点 schema / app 配合后升级为真控制"
+
+### 后续 Sprint 强制要求
+
+**任何后续 Sprint 完成时, 必须产出 `docs/database-analysis/sprint-<X.Y>-requirements-review.md`, 否则不允许 commit。**
+
+模板 13 段, 关键段: §1 Req IDs / §3 状态枚举 / §5 后端真实能力 / §7 Mock/Simulator/DRY_RUN/真控制 4 区分 / §10 schema/API 变更清单 / §12 verdict (pass/partial/fail)。
+
+---
 
 ## Sprint 3.0R 需求对照审计 (2026-06-08)
 
