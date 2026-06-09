@@ -8,27 +8,15 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { getSyncPackageAuthConfig } from "@/lib/sync/package-auth"
 import { query } from "@/lib/db/postgres"
-
-function checkAuth(req: NextRequest): { ok: boolean; message: string } {
-  const config = getSyncPackageAuthConfig()
-  if (config.mode === "dev") return { ok: true, message: "dev mode" }
-  const sig = req.headers.get("x-site-control-signature")
-  if (!sig || sig !== config.secret) {
-    return { ok: false, message: "missing or invalid x-site-control-signature" }
-  }
-  return { ok: true, message: "ok" }
-}
+import { verifySiteControlRequest } from "@/lib/auth/site-control-auth"
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = checkAuth(req)
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: 401 })
-  }
+  const auth = verifySiteControlRequest(req)
+  if (!auth.ok) return auth.response
   const { id } = await params
 
   try {
