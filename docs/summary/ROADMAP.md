@@ -43,6 +43,20 @@ Sprint 4.5: 总控具备可落地的命令下发骨架, 不假实现。
 - 1d 真实站点拉取脚本示例
 - 4d 总估时, 站点侧同步开发
 
+### 4.8.2 站点控制真相审计 (2026-06-09 完成)
+
+- **结论**: 站点库**没有原生控制机制** (0 control/command 表, 0 函数/触发器/视图)
+- **状态**: Site Worker = framework + audit + simulator, **不是执行器**
+- **5 个 commandType 全部降级为"审计总控意图"**, 真控制需站点侧 schema 变更
+- **等待领导**: 站点表能否加新字段? 站点应用是否读新行? 是否提供真 API 文档?
+- 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md`
+
+### 4.8.3 (下一步) 等待领导决策后再开
+
+- A. 站点表加 control_command 镜像字段 → Site Worker 升级为真控制
+- B. 提供站点 API 文档 → 直接走 API
+- C. 维持 simulator (当前) → 仅总控侧审计 + 事后追溯
+
 ## 5.x (需上级解锁 CLAUDE.md)
 
 5.1 ADFS 集成登录 (5d) → 5.2 JWT 令牌 (4d) → 5.3 账号生命周期 (3d) → 5.4 RBAC (5d) → 5.5 审计 (3d) → 5.6 登录审计 (4d) → 5.7 部门管理 (5d) → 5.8 SSO 跳转真接入 (3d)

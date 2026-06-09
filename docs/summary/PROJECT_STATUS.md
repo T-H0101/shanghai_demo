@@ -157,6 +157,15 @@
 - package 鉴权 (生产 API key / mTLS)
 - package 严格 checksum (SHA-256)
 
+## Sprint 4.8.2 站点控制真相审计 (2026-06-09)
+
+- **结论**: 站点库**完全没有被外部控制的机制** (0 control/command/queue 表, 0 函数, 0 触发器, 0 视图)
+- **关键发现**: `tbl_task.status` 无 "paused" 语义, 无 priority 字段. 即使修改 `tbl_task.status` 也**无证据**说明站点应用会执行
+- **Site Worker 现状**: 框架 + audit + simulator, **不是执行器**. 5 个 commandType 全部降级为 "审计总控意图"
+- **前端按钮**: 维持当前状态 (暂停/恢复/重置 已删, 不恢复). 推进/标记完成/失败 保留 (本地 UI, 不误导)
+- **下一步**: 等领导确认 (站点表加新字段? 站点应用读新行? 站点 API 文档?)
+- 详见 `docs/database-analysis/sprint-4.8.2-site-control-reality-audit.md`
+
 ## Sprint 2D.6 结论
 
 - Racks 盘位格子不再根据 `totalSlots` 推断为空闲。
