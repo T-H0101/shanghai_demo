@@ -234,113 +234,6 @@ function TasksPageContent() {
     }
   }
 
-  const handlePause = async (task: TaskItem, e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    if (isApiMode) {
-      // Sprint 4.5: 写入 control_command, 不假实现, 不改 task 状态
-      try {
-        const res = await fetch("/api/control/commands", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sourceSiteId: task.siteCode ?? "SH01",
-            commandType: "task_pause",
-            targetType: "task",
-            targetId: task.id,
-            payload: { taskName: task.name },
-          }),
-        })
-        const data = await res.json()
-        if (data.ok) {
-          toast({
-            title: "控制命令已提交",
-            description: `等待站点同步执行: ${data.command.commandNo}`,
-          })
-        } else {
-          throw new Error(data.error || "提交失败")
-        }
-      } catch (err) {
-        toast({ title: "提交失败", description: err instanceof Error ? err.message : String(err), variant: "destructive" })
-      }
-      return
-    }
-    await taskProvider.pauseTask(task.id)
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "paused", status: "paused" as const } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "paused", status: "paused" as const } : null)
-    toast({ title: "任务已暂停", description: `「${task.name}」已暂停执行` })
-  }
-
-  const handleResume = async (task: TaskItem, e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    if (isApiMode) {
-      try {
-        const res = await fetch("/api/control/commands", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sourceSiteId: task.siteCode ?? "SH01",
-            commandType: "task_resume",
-            targetType: "task",
-            targetId: task.id,
-            payload: { taskName: task.name },
-          }),
-        })
-        const data = await res.json()
-        if (data.ok) {
-          toast({
-            title: "控制命令已提交",
-            description: `等待站点同步执行: ${data.command.commandNo}`,
-          })
-        } else {
-          throw new Error(data.error || "提交失败")
-        }
-      } catch (err) {
-        toast({ title: "提交失败", description: err instanceof Error ? err.message : String(err), variant: "destructive" })
-      }
-      return
-    }
-    const updated = await taskProvider.resumeTask(task.id)
-    const previousPhase = task.phase
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: (previousPhase === "paused" ? "pending" : t.phase), status: "running" as const } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: (previousPhase === "paused" ? "pending" : prev.phase), status: "running" as const } : null)
-    toast({ title: "任务已恢复", description: `「${task.name}」已恢复执行` })
-  }
-
-  const handleRetry = async (task: TaskItem, e?: React.MouseEvent) => {
-    e?.stopPropagation()
-    if (isApiMode) {
-      try {
-        const res = await fetch("/api/control/commands", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sourceSiteId: task.siteCode ?? "SH01",
-            commandType: "task_reset",
-            targetType: "task",
-            targetId: task.id,
-            payload: { taskName: task.name, action: "retry" },
-          }),
-        })
-        const data = await res.json()
-        if (data.ok) {
-          toast({
-            title: "控制命令已提交",
-            description: `等待站点同步执行: ${data.command.commandNo}`,
-          })
-        } else {
-          throw new Error(data.error || "提交失败")
-        }
-      } catch (err) {
-        toast({ title: "提交失败", description: err instanceof Error ? err.message : String(err), variant: "destructive" })
-      }
-      return
-    }
-    await taskProvider.retryTask(task.id)
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "pending", status: "running" as const, progress: 0 } : t))
-    if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "pending", status: "running" as const, progress: 0 } : null)
-    toast({ title: "任务已重试", description: `「${task.name}」已重新执行` })
-  }
-
   const handleComplete = async (task: TaskItem, e?: React.MouseEvent) => {
     e?.stopPropagation()
     if (isApiMode) return showApiWriteUnavailable("标记任务完成")
@@ -578,8 +471,6 @@ function TasksPageContent() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
                       {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
-                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="暂停" onClick={e => handlePause(t, e)}><Pause className="h-3.5 w-3.5" /></Button>}
-                      {t.phase === "paused" && <Button variant="ghost" size="icon" className="h-7 w-7" title="恢复" onClick={e => handleResume(t, e)}><Play className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="导出" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
@@ -811,9 +702,6 @@ function TasksPageContent() {
                     )}
                     {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(selected.phase) && (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => handlePause(selected)}>
-                          <Pause className="h-3.5 w-3.5 mr-1" />暂停
-                        </Button>
                         <Button size="sm" variant="outline" onClick={() => handleComplete(selected)}>
                           <CheckCheck className="h-3.5 w-3.5 mr-1" />标记完成
                         </Button>
@@ -821,16 +709,6 @@ function TasksPageContent() {
                           <XCircle className="h-3.5 w-3.5 mr-1" />标记失败
                         </Button>
                       </>
-                    )}
-                    {selected.phase === "paused" && (
-                      <Button size="sm" variant="outline" onClick={() => handleResume(selected)}>
-                        <Play className="h-3.5 w-3.5 mr-1" />恢复
-                      </Button>
-                    )}
-                    {selected.phase === "failed" && (
-                      <Button size="sm" variant="outline" onClick={() => handleRetry(selected)}>
-                        <RotateCcw className="h-3.5 w-3.5 mr-1" />重试
-                      </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => handleExport(selected)}>
                       <Download className="h-3.5 w-3.5 mr-1" />导出

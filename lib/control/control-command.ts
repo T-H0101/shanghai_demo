@@ -25,7 +25,6 @@ export const COMMAND_TYPES = [
   "task_pause",
   "task_resume",
   "task_reset",
-  "task_priority_restore",
   "inspect_start",
   "recovery_start",
 ] as const

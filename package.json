@@ -34,7 +34,9 @@
     "smoke:sync": "tsx scripts/smoke-sync.ts",
     "export:package": "tsx scripts/export-package.ts",
     "push:package": "tsx scripts/push-package.ts",
-    "export-and-push": "tsx scripts/export-and-push.ts"
+    "export-and-push": "tsx scripts/export-and-push.ts",
+    "worker:site": "tsx scripts/worker-site.ts",
+    "test:e2e:worker": "bash scripts/sprint-4.8-e2e.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

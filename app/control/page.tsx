@@ -6,7 +6,7 @@
  * 展示:
  *  - control_command 表全部记录
  *  - 状态徽章: pending / pulled / running / success / failed / cancelled
- *  - 命令类型: task_pause / task_resume / task_reset / task_priority_restore / inspect_start / recovery_start
+ *  - 命令类型: task_pause / task_resume / task_reset / inspect_start / recovery_start
  *
  * 用途: 让用户看到自己提交的控制命令 + 站点回写结果
  */
@@ -54,7 +54,6 @@ const commandTypeLabel: Record<string, string> = {
   task_pause: "暂停任务",
   task_resume: "恢复任务",
   task_reset: "重置任务",
-  task_priority_restore: "优先恢复",
   inspect_start: "启动巡检",
   recovery_start: "启动恢复",
 }
@@ -98,6 +97,15 @@ function ControlContent() {
 
   useEffect(() => {
     if (siteReady) load()
+  }, [load, siteReady])
+
+  // Sprint 4.8.1.5: 5s 自动刷新 (Sprint 4.7 站点侧已就绪, 状态机会变)
+  useEffect(() => {
+    if (!siteReady) return
+    const interval = setInterval(() => {
+      void load()
+    }, 5000)
+    return () => clearInterval(interval)
   }, [load, siteReady])
 
   const filtered = commands.filter((c) => {
