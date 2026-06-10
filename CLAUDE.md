@@ -412,3 +412,31 @@ requirements 完成率 = Σcomplete / (Σtotal - Σout_of_scope) × 100%
 - ✅ "展示链路完成度 X%"
 - ✅ "控制队列框架完成度 X%"
 - ✅ "DRY_RUN 模拟完成度 X%"
+
+---
+
+## 附录 C: Schema Source Priority (Sprint R.7B)
+
+> **当判断字段/表/需求实现时, 必须按以下优先级, 不允许只看单一来源下结论。**
+
+| 优先级 | 来源 | 说明 | 禁止 |
+|---|---|---|---|
+| **1. requirements.md** | 需求最高标准 | 每条需求的验收条件 | 禁止跳过/降级 |
+| **2. disc_files.sql** | 字段/表结构**静态基线** | `databases/disc_files.sql` (147 张表, 含 tbl_file/tbl_folder/控制表) | 禁止忽略 |
+| **3. 完整站点库 star_storage_db** | 运行时**真实数据** | 170 张表, Docker 5434 | 禁止只查 13 表 |
+| **4. source_restore** | 同步白名单/测试源 | 13 张表, Docker 5432 | **不代表完整 schema**, 禁止只看 source_restore 下结论 |
+| **5. unified_disc_platform** | 总控**汇总结果** | 中心库, 可能含历史测试污染 | 禁止用污染数据作为需求完成证据 |
+
+### 明确禁止 (Sprint R.7B)
+
+- ❌ **只看 source_restore 13 表下结论** — 必须同时参考 disc_files.sql + star_storage_db 170 表
+- ❌ **用中心库污染数据作为需求完成证据** — R.7B 已清理 SH01 污染 (13 行), 但其他站点可能仍有
+- ❌ **用 accepted-difference 掩盖历史测试污染** — 发现污染必须清理, 不能标 accepted_difference
+- ❌ **只看单一来源** — 必须至少查 2 个来源交叉验证
+
+### R.7B 清理记录
+
+- 统一 tasks SH01 污染 7 行已删 (INGEST-001/002, FIX-TEST-001, V-TEST-001, ACCEPT-001, TASK-2026-05001/05002)
+- 统一 devices SH01 污染 4 行已删 (DEV-INGEST-001/002, DL_SH01_001/002)
+- 统一 volumes SH01 污染 2 行已删 (VOL_001/002)
+- 清理后一致性: **7/7 matched, exit code 0**

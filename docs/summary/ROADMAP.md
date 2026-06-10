@@ -3,6 +3,20 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-10
 
+## R.7B 清理中心库污染 + Schema 基线 (2026-06-10 完成)
+
+> **核心**: 清理 13 行测试污染，7/7 matched；disc_files.sql 纳入基线。
+
+### 清理
+- unified_tasks 7 行 / unified_devices 4 行 / unified_volumes 2 行
+- 清理后一致性 7/7 matched
+
+### Schema 基线
+- disc_files.sql 147 张表解析
+- CLAUDE.md 附录 C: 5 级优先级 + 4 项禁止
+
+---
+
 ## R.3 Executor 假执行修复 (2026-06-10 完成)
 
 > **核心**: 修正 R.3 审计误判，executor 从假执行改为真连接站点库。

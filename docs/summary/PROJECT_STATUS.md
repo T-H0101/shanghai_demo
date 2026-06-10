@@ -1,8 +1,23 @@
 # Project Status
 
 > **截至**: 2026-06-10
-> **Sprint**: Sprint R.3 修复完成 (executor 假执行 → 真执行)
+> **Sprint**: Sprint R.7B 完成 (清理污染 + schema 基线)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.7B — 清理中心库污染 + Schema 基线 (2026-06-10 完成)
+
+### 清理
+- unified_tasks SH01 污染 7 行已删 (INGEST/FIX-TEST/V-TEST/ACCEPT/TASK_2026)
+- unified_devices SH01 污染 4 行已删 (DEV-INGEST/DL_SH01)
+- unified_volumes SH01 污染 2 行已删 (VOL_001/002)
+- 清理后一致性: **7/7 matched, exit code 0** ✅
+
+### Schema 基线
+- disc_files.sql 纳入 (147 张表, 含 tbl_file/tbl_folder/控制表)
+- CLAUDE.md 附录 C: Schema Source Priority 5 级
+- 禁止只看 source_restore 13 表下结论
 
 ---
 
