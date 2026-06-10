@@ -3,6 +3,27 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-10
 
+## R.3 Executor 假执行修复 (2026-06-10 完成)
+
+> **核心**: 修正 R.3 审计误判，executor 从假执行改为真连接站点库。
+
+### 修复
+- `.env.local` 加 `SITE_DATABASE_URL=postgresql://starxdb:starxdb@localhost:5434/star_storage_db`
+- executor 改为 `status=20` (paused) / `status=0` (恢复) / `status=1` (重置)
+- `selectTaskSnapshot` 连站点库读 before/after 快照
+
+### 验证
+- tbl_task.id=9: 0→20 (暂停)→0 (恢复) ✅ 真改
+- DRY_RUN=true: dry_run_success (不改表) ✅
+- DRY_RUN=false: success (真改) ✅
+
+### 任务控制真实完成度修正
+- 暂停/恢复/重置: ✅ 真执行可行
+- 巡检/恢复任务: ⚠️ 仍需站点 app 配合
+- 优先恢复: ⚠️ 仍需 priority 字段
+
+---
+
 ## R.7 数据一致性校验 Job (2026-06-10 完成)
 
 > **核心**: REQ-2.3.3 实施, 7 表 source vs unified count_diff 校验, fail-closed。

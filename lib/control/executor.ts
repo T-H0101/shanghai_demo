@@ -1,18 +1,20 @@
 /**
- * 控制命令执行器 — Sprint R.4 Bug 4 修复
+ * 控制命令执行器 — Sprint R.3 真实执行修复
  *
- * 修复前 (R.3 报告):
- *   - L342 execOnSiteDb 用 centralQuery 占位 (中心库), 不是站点库
- *   - DRY_RUN=true 时 5 dispatch 全部 if (!DRY_RUN) 包裹, 实际从未调用 execOnSiteDb
- *   - 缺 paused/priority 字段时, 5 dispatch 仍返回 success (误导)
+ * R.3 修复 (2026-06-10):
+ *   - 站点库用 status 整数枚举表达暂停: status=20 = paused
+ *   - 映射来源: real-field-mapper.ts TASK_STATUS_0_2_3[20] = 'paused'
+ *   - executor 不再查 paused 列名 (站点没有此列), 改为 UPDATE tbl_task SET status=20
+ *   - DRY_RUN=true 时 dry_run_success (不改表)
+ *   - DRY_RUN=false 时真改 tbl_task.status (连 star_storage_db 5434)
+ *   - selectTaskSnapshot 读 before/after status 整数 (真站点库快照)
  *
- * 修复后 (R.4):
- *   - L342 真连 site pool (SITE_DATABASE_URL → 5434 站点库)
- *   - 5 dispatch 加 schema 检测 (paused/priority 字段), 缺时返回 unsupported + blocked_by_source_schema
- *   - DRY_RUN=true 显式返回 dry_run_success (与 success 区分)
- *   - inspect_start/recovery_start 候选表 0 行时, 同样返回 unsupported
- *
- * R.4 范围: 0 业务功能, 仅修假执行 bug
+ * 站点 status 整数枚举 (来自 real-field-mapper.ts):
+ *   0  = burn_success (完成/就绪 — 恢复目标)
+ *   1  = data_preparing (准备 — 重置目标)
+ *   2  = cancelled
+ *   20 = paused (暂停目标)
+ *   ... (完整映射见 lib/import/real-field-mapper.ts TASK_STATUS_0_2_3)
  */
 
 import { query as centralQuery } from '@/lib/db/postgres'
@@ -53,7 +55,8 @@ async function siteQuery<T extends QueryResultRow = QueryResultRow>(
   return { rows: r.rows, rowCount: r.rowCount ?? 0 }
 }
 
-// Sprint R.4 Bug 4: schema 检测缓存 (启动期一次性查)
+// Sprint R.3 修复: schema 检测 — 站点库用 status 整数枚举 (20=paused, 0=burn_success 等)
+// 不查列名, 确认 tbl_task 表存在 + status 列可写即可
 let _schemaCache: Record<string, boolean> | null = null
 async function detectSiteSchema(): Promise<Record<string, boolean>> {
   if (_schemaCache) return _schemaCache
@@ -63,18 +66,16 @@ async function detectSiteSchema(): Promise<Record<string, boolean>> {
        WHERE table_schema='public' AND table_name='tbl_task'`
     )
     const cols = new Set(r.rows.map((x) => x.column_name))
+    // R.3 关键: 站点用 status 整数枚举 (20=paused, 0=burn_success), 不需要独立 paused 列
     _schemaCache = {
-      paused: cols.has('paused'),
-      priority: cols.has('priority'),
-      reset: cols.has('reset'),
-      resume: cols.has('resume'),
-      pause: cols.has('pause'),
+      status: cols.has('status'),     // 真正需要的列
+      update_dt: cols.has('update_dt'),
+      burn_status: cols.has('burn_status'),
     }
     return _schemaCache
   } catch (err) {
     console.error('[executor] detectSiteSchema failed:', err)
-    // fail-closed: schema 不可知时, 视为缺字段
-    return { paused: false, priority: false, reset: false, resume: false, pause: false }
+    return { status: false, update_dt: false, burn_status: false }
   }
 }
 
@@ -103,16 +104,16 @@ export class ExecError extends Error {
 }
 
 // ============================================================
-// 5 个 commandType dispatch (R.4 Bug 4 修复)
+// 6 个 commandType dispatch (R.3 真实执行修复)
 // ============================================================
 
 /**
  * task_pause: 暂停任务
  *
- * R.4 行为:
- *   - DRY_RUN=true → dry_run_success (不真改任何表)
- *   - DRY_RUN=false + paused 字段存在 → success (真 UPDATE tbl_task SET paused=true)
- *   - DRY_RUN=false + paused 字段不存在 → unsupported + blocked_by_source_schema
+ * R.3 修复: 站点用 status 整数枚举 (20=paused), 不用独立 paused 列
+ *   - DRY_RUN=true → dry_run_success (不真改)
+ *   - DRY_RUN=false + status 列存在 → success (真 UPDATE tbl_task SET status=20)
+ *   - DRY_RUN=false + status 列不存在 → unsupported
  */
 async function execTaskPause(cmd: ControlCommandRow): Promise<ExecResult> {
   const start = Date.now()
@@ -126,22 +127,22 @@ async function execTaskPause(cmd: ControlCommandRow): Promise<ExecResult> {
   let blocker: string | undefined
   let reason: string | undefined
 
+  // R.3 关键: status=20 = paused (real-field-mapper.ts TASK_STATUS_0_2_3[20])
+  const PAUSED_STATUS = 20
+
   if (DRY_RUN) {
-    // R.4 显式区分: 不真改
-    after = { ...before, _dry_run_simulated: true, paused_intent: true }
+    after = { ...before, _dry_run_simulated: true, paused_intent: true, target_status: PAUSED_STATUS }
     status = 'dry_run_success'
   } else {
     const schema = await detectSiteSchema()
-    if (!schema.paused) {
-      // 缺 paused 字段, 不真改, 也不撒谎
+    if (!schema.status) {
       status = 'unsupported'
       blocker = 'blocked_by_source_schema'
-      reason = 'tbl_task.paused 字段不存在 (Sprint 4.8.2-R 170 张表全扫确认 0 命中), 需站点 DDL patch'
+      reason = 'tbl_task.status 列不存在, 需站点修复 schema'
       after = { ...before, _blocker: blocker, _reason: reason }
     } else {
-      // 真改
       const r = await siteQuery(
-        `UPDATE tbl_task SET paused = TRUE, update_dt = NOW() WHERE id = $1`,
+        `UPDATE tbl_task SET status = ${PAUSED_STATUS}, update_dt = NOW() WHERE id = $1`,
         [parseInt(targetId, 10)]
       )
       affectedRows = r.rowCount
@@ -175,7 +176,7 @@ async function execTaskPause(cmd: ControlCommandRow): Promise<ExecResult> {
 /**
  * task_resume: 恢复任务
  *
- * R.4 行为: 同 task_pause, 用 paused=FALSE
+ * R.3 修复: status=0 = burn_success (恢复到完成/就绪状态)
  */
 async function execTaskResume(cmd: ControlCommandRow): Promise<ExecResult> {
   const start = Date.now()
@@ -189,19 +190,22 @@ async function execTaskResume(cmd: ControlCommandRow): Promise<ExecResult> {
   let blocker: string | undefined
   let reason: string | undefined
 
+  // R.3: status=0 = burn_success (从 paused=20 恢复)
+  const RESUME_STATUS = 0
+
   if (DRY_RUN) {
-    after = { ...before, _dry_run_simulated: true, paused_intent: false }
+    after = { ...before, _dry_run_simulated: true, resume_intent: true, target_status: RESUME_STATUS }
     status = 'dry_run_success'
   } else {
     const schema = await detectSiteSchema()
-    if (!schema.paused) {
+    if (!schema.status) {
       status = 'unsupported'
       blocker = 'blocked_by_source_schema'
-      reason = 'tbl_task.paused 字段不存在, 无法恢复'
+      reason = 'tbl_task.status 列不存在'
       after = { ...before, _blocker: blocker, _reason: reason }
     } else {
       const r = await siteQuery(
-        `UPDATE tbl_task SET paused = FALSE, update_dt = NOW() WHERE id = $1`,
+        `UPDATE tbl_task SET status = ${RESUME_STATUS}, update_dt = NOW() WHERE id = $1`,
         [parseInt(targetId, 10)]
       )
       affectedRows = r.rowCount

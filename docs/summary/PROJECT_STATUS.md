@@ -1,8 +1,37 @@
 # Project Status
 
 > **截至**: 2026-06-10
-> **Sprint**: Sprint R.7 完成 (数据一致性校验 Job)
+> **Sprint**: Sprint R.3 修复完成 (executor 假执行 → 真执行)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.3 — Executor 假执行修复 (2026-06-10 完成)
+
+> **核心**: 修正 R.3 审计的误判 + 修复 executor.ts 让任务控制真执行。
+
+### R.3 审计误判
+
+- ❌ R.3 说"站点库无 paused 字段 → 真控制 0%"
+- ✅ 真相: 站点用 `status=20` 整数枚举表达暂停 (来自 `real-field-mapper.ts` TASK_STATUS_0_2_3[20]='paused')
+- ✅ executor 修复: 不再查 `paused` 列名, 改为 `UPDATE tbl_task SET status=20`
+
+### 验证
+
+- `tbl_task.id=9`: status 0→20 (暂停)→0 (恢复) ✅ 真改
+- DRY_RUN=true: dry_run_success, 不改表 ✅
+- DRY_RUN=false: success, 真改 tbl_task.status ✅
+
+### 任务控制真实完成度修正
+
+| 原子 | R.3 之前 | R.3 之后 |
+|---|---|---|
+| 暂停 (status=20) | 0% (假执行) | ✅ 真执行可行 |
+| 恢复 (status=0) | 0% (假执行) | ✅ 真执行可行 |
+| 重置 (status=1) | 0% (假执行) | ✅ 真执行可行 |
+| 巡检 | 0% (无站点 app) | ⚠️ 仍需站点 app 配合 |
+| 恢复任务 | 0% (无站点 app) | ⚠️ 仍需站点 app 配合 |
+| 优先恢复 | 0% (无 priority 字段) | ⚠️ 仍需站点加 priority 字段 |
 
 ---
 
