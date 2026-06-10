@@ -43,7 +43,7 @@ const SITE_DB_HOST = process.env.SITE_DB_HOST ?? "localhost"
 const SITE_DB_PORT = parseInt(process.env.SITE_DB_PORT ?? "5434", 10)
 const SITE_DB_NAME = process.env.SITE_DB_NAME ?? "star_storage_db"
 const SITE_DB_USER = process.env.SITE_DB_USER ?? "starxdb"
-const SITE_DB_PASSWORD = process.env.SITE_DB_PASSWORD ?? "starxdb"
+const SITE_DB_PASSWORD = process.env.SITE_DB_PASSWORD ?? ""
 
 // Parse args
 const args = process.argv.slice(2)
@@ -122,7 +122,7 @@ async function pickSourceDb(): Promise<{ client: Client; label: string } | null>
     }
   } catch (err) {
     console.error(`❌ star_storage_db 不可达: ${err instanceof Error ? err.message : err}`)
-    console.error(`   Hint: SITE_DB_HOST=localhost SITE_DB_PORT=5434 SITE_DB_USER=starxdb SITE_DB_PASSWORD=starxdb`)
+    console.error(`   Hint: SITE_DB_HOST=localhost SITE_DB_PORT=5434 SITE_DB_USER=starxdb SITE_DB_PASSWORD=<your-password>`)
     return null
   }
 }
