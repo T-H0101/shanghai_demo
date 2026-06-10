@@ -648,7 +648,7 @@
 | related_api | `POST /api/control/commands` (6 commandType: task_pause/resume/reset + inspect_start/recovery_start + task_priority_restore) |
 | related_db_tables | `control_command` + `audit_log` (中心库) + 站点 `tbl_task` (无 paused/priority 字段) |
 | ui_pages | `/tasks` (表格 + 抽屉 3 按钮) + `/control` (6 commandType 显示) |
-| backend_reality | ⚠️ **真控制 0%** — 170 张站点表全扫: `paused` / `priority` 字段 0 命中 (Sprint 4.8.2-R 结论)<br/>**R.4 修复 executor**: schema 检测 + dry_run 显式区分 + 缺字段返回 unsupported + blocked_by_source_schema (不再撒谎 success) |
+| backend_reality | ⚠️ **真控制 0%** — 170 张站点表全扫: `paused` / `priority` 字段 0 命中 (Sprint 4.8.2-R 结论)<br/>**R.4 修复 executor**: schema 检测 + dry_run 显式区分 + 缺字段返回 unsupported + blocked_by_source_schema (不再撒谎 success)<br/>**R.3 修复**: executor 连站点库 star_storage_db (5434), status=20=paused 真改 tbl_task.status<br/>**R.7A 降级**: "真控制可行" → **"DB 字段写入可行，真实执行未证实"** — 无站点程序消费 status=20 的 evidence, 改的是测试库不是生产 |
 | ui_reality | ✅ Tasks 表格 + 详情抽屉 3 按钮接通, toast 文案"已提交到控制队列, 等待站点拉取执行" 合规 |
 | mock_or_simulator | **DRY_RUN simulator only** (Site Worker) — audit_log 写入 1:1<br/>**R.4 区分**: dry_run_success (DRY_RUN 模式) / unsupported (缺字段) / failed / success (真改) |
 | blocker_type | `blocked_by_source_schema` (主) + `blocked_by_site_change` (副) |
@@ -1304,6 +1304,7 @@ ALTER TABLE tbl_hot_restore_record
 | **audit + DRY_RUN 完成度** | 100% (6/6) | Site Worker DRY_RUN simulator 全部跑通<br/>R.4: 显式区分 dry_run_success vs success |
 | **UI 完成度** | 50% (3/6) | 暂停/恢复/重置 3 按钮接通 (Sprint 4.8.2-R); 巡检/恢复/优先恢复 无 UI |
 | **executor 真控制 (R.4)** | fail-closed | 缺字段 → unsupported + blocked_by_source_schema, 不再撒谎 success |
+| **executor 真执行 (R.3)** | DB 字段写入可行 | status=20/0/1 真改 tbl_task, 但无站点程序消费 evidence (R.7A 降级) |
 
 **禁止措辞** (R.1 §7):
 - ❌ "任务控制已完成" — **错**, 真实 0%
@@ -1348,7 +1349,7 @@ ALTER TABLE tbl_hot_restore_record
 | Top 10 项目可自主推进 | 4 项 / ~4.5 人天 |
 | Top 10 解锁后推进 | 4 项 / ~13 人天 |
 | Top 10 站点配合后推进 | 2 项 / ~13 人天 |
-| 任务控制 6 原子真控制 | **0%** (站点表缺字段) |
+| 任务控制 6 原子真控制 | **0%** (站点表缺字段) | R.7A: DB 字段写入可行，真实执行未证实 |
 
 **最大瓶颈**:
 - **REQ-2.2.1 (ADFS)** 解锁 → 6 项带动 (~25 人天)
