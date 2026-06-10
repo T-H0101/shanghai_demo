@@ -3,6 +3,33 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-10
 
+## R.5 前端事件测试强约束 (2026-06-10 完成)
+
+> **核心**: CLAUDE.md §10 强约束, 0 业务功能, 仅规则 + 占位。
+
+### 落地
+
+- CLAUDE.md §10 (一票否决, 10 项禁止, 9 项验收模板 A-I)
+- `docs/database-analysis/frontend-event-test-standard.md` (6 类事件 + 9 项验收)
+- `scripts/e2e/README.md` + 6 个占位脚本
+- `package.json` 加 7 个 `e2e:*` scripts
+
+### 下一 Sprint (R.5+) 强制
+
+任何前端/事件 Sprint 必须:
+
+1. 复制 R.5 §7 验收模板到 `sprint-<X.Y>-requirements-review.md`
+2. 完成 9 项 (A-I) 才能 commit
+3. 不允许 10 项禁止任何一项
+
+### 缺口清单 (R.5+ 候选)
+
+- 6 个占位脚本实际实施 (~7 人天)
+- Playwright 浏览器截图 (R.6, 3 天)
+- CI 集成 e2e 自动化 (R.6+)
+
+---
+
 ## R.4 Bug 修复周 (2026-06-10 完成)
 
 > **核心**: 修 Sprint R.3 发现的 6 个真实 bug, 0 业务功能, 严格符合 R.1 模板。

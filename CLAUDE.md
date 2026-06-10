@@ -124,6 +124,89 @@ pnpm test:e2e:worker      # 端到端 worker 验证
 - ✅ `docs/database-analysis/sprint-<X.Y>-requirements-review.md` — 严格审查 (本模板)
 - ⚠️ 如涉及 schema 变更, 同时更新 `docs/database-analysis/schema-inventory.md`
 
+#### 十、前端事件级测试 (R.5 新增强约束, 一票否决)
+
+> **核心**: 不允许只改 API 不验证前端, 不允许按钮存在但点击事件不真实触发。
+> 测试规范: `docs/database-analysis/frontend-event-test-standard.md` (R.5 落地)
+
+**触发条件** — 每次 Sprint 如果涉及以下**任一**内容, 必须同时产出事件级测试:
+
+- 前端页面 / 按钮 / 表单 / 搜索框 / 筛选器 / 下拉框 / siteCode 切换
+- 同步事件 / 创建事件 / 控制命令 / 导出事件
+- toast / 弹窗 / drawer
+- API 接入 / mock → real data 切换
+
+**强制产出** (R.5 起, 任一缺失禁止 commit):
+
+1. 对应前端交互测试脚本 (位置: `scripts/e2e/test-<page>.ts` 或新 Sprint 内联)
+2. 对应 API 验证脚本 (curl 或 tsx 脚本)
+3. 对应数据库结果验证 (docker exec psql + 真实数据查询)
+4. 对应浏览器验证记录 (HTTP 200/4xx/5xx + 关键 HTML/CSS 状态, 后续 Playwright 截图)
+
+**每个交互必须验证 10 项**:
+
+- 用户在哪里点击 (元素 + selector)
+- 点击前页面状态 (mock? real? 空?)
+- 点击后请求了哪个 API (endpoint + method + payload)
+- API 返回什么 (HTTP code + 关键字段)
+- 数据库是否变化 (docker exec psql 验证)
+- 页面是否刷新 (mock 数据 vs 真实数据)
+- toast 是否准确 (是否含"已提交"/"已暂停"等误导措辞)
+- 是否存在 mock/fallback (R.1 §7 禁止)
+- 是否误导用户 (按钮文案 vs 真实后端能力)
+- 是否符合 `requirements.md` (R.1 §1 强约束)
+
+**前端变更强制披露** (每次修改前端必须输出 8 项):
+
+- 新增了哪些页面/组件
+- 修改了哪些按钮/交互
+- 删除了哪些按钮/交互
+- 哪些是 UI-only (无后端)
+- 哪些是真实后端能力 (有 SQL/API 证据)
+- 哪些只是 simulator / DRY_RUN (R.1 §7 措辞规范)
+- 是否新增了 `requirements.md` 未要求的内容
+- 如果新增了: **必须说明理由并标注"不属于需求主线"**
+
+**禁止 10 项** (R.5 新增, 任一违反禁止 commit):
+
+- 偷偷新增页面
+- 偷偷新增按钮
+- 写了按钮但不测点击
+- 写了 API 但不接前端
+- 接了前端但不测浏览器
+- 用 mock 冒充真实数据
+- 用 toast 冒充成功 (e.g. "暂停成功" 实际是 audit-only)
+- 用 DRY_RUN 冒充真实执行
+- 用 200 响应冒充需求完成
+- 只跑 tsc/build 不跑业务事件测试
+
+**R.5 Sprint review 必含 9 项** (sprint-<X.Y>-requirements-review.md):
+
+- A. Requirement 对照
+- B. 前端变更清单 (8 项强制披露)
+- C. API 变更清单
+- D. 数据库变更清单
+- E. 事件测试清单 (10 项验证)
+- F. 浏览器验证结果
+- G. mock/simulator/DRY_RUN 标记
+- H. 未完成项
+- I. **是否允许 commit** (满足全部 9 项 + 10 项禁止无违反 → pass; 否则 fail)
+
+**禁止措辞规范** (R.1 §7 + R.5 强化, 涉及前端 toast/drawer 严格):
+
+| 禁止 | 必须改用 |
+|---|---|
+| 按钮文案"已暂停" / toast"暂停成功" | 按钮文案"暂停命令已提交" / toast"已提交到控制队列, 等待站点拉取执行" |
+| "导出完成" | "导出请求已提交" (实际是 localStorage 客户端导出) |
+| "新建成功" | "任务已记录到控制队列" (仅 audit, 无真实 tbl_task INSERT) |
+| "同步完成" | "sync_package 已记录 (中心库), 等待站点响应" (如站点未连, 实际未真正同步) |
+
+**测试缺口管理** (R.5 现状):
+
+- `scripts/e2e/` 计划目录已建 (R.5), 6 个脚本占位 (test-dashboard/tasks/sync/control/sites/search)
+- 当前 R.5 仅产出占位 + 规范文档, **R.5 不实现具体脚本** (避免范围蔓延)
+- 后续 Sprint 涉及前端/事件时, 必须按 `frontend-event-test-standard.md` 模板产出对应脚本
+
 ---
 
 ## 项目定位

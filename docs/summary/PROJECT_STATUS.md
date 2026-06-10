@@ -1,8 +1,59 @@
 # Project Status
 
 > **截至**: 2026-06-10
-> **Sprint**: Sprint R.4 完成 (Bug 修复周)
+> **Sprint**: Sprint R.5 完成 (前端事件测试强约束)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.5 — 前端事件测试强约束 (2026-06-10 完成)
+
+> **核心**: 在 CLAUDE.md 新增第 10 强约束 (一票否决), 落地测试标准 + 占位脚本, **0 业务功能**。
+
+### CLAUDE.md §10 强约束 (一票否决)
+
+每次 Sprint 涉及前端/按钮/表单/API/mock→real 必须**同时产出 4 类验证**: 交互测试 + API 验证 + DB 验证 + 浏览器验证。
+
+### 强制产出 (R.5 起)
+
+- ✅ `docs/database-analysis/frontend-event-test-standard.md` (9 节, 6 类事件 + 9 项验收模板)
+- ✅ `scripts/e2e/README.md` (6 个占位脚本计划, ~10 人天缺口清单)
+- ✅ 6 个占位脚本: `test-{dashboard,tasks,sync,control,sites,search}.ts`
+- ✅ `package.json` 加 7 个 scripts: `e2e:{dashboard,tasks,sync,control,sites,search,all}`
+- ✅ `CLAUDE.md` 加 10 项禁止 (偷偷新增/不测点击/不测浏览器/toast 冒充/200 冒充...)
+
+### 9 项 Sprint 验收模板 (A-I)
+
+A. Requirement 对照 / B. 前端变更 8 项披露 / C. API 变更 / D. DB 变更 / E. 事件测试 10 项 / F. 浏览器验证 / G. mock/simulator/DRY_RUN 标记 / H. 未完成项 / I. **是否允许 commit**
+
+### 10 项禁止 (R.5 新增)
+
+1. 偷偷新增页面
+2. 偷偷新增按钮
+3. 写了按钮但不测点击
+4. 写了 API 但不接前端
+5. 接了前端但不测浏览器
+6. 用 mock 冒充真实数据
+7. 用 toast 冒充成功
+8. 用 DRY_RUN 冒充真实执行
+9. 用 200 响应冒充需求完成
+10. 只跑 tsc/build 不跑业务事件测试
+
+### R.5 范围严格
+
+- ✅ 0 业务代码
+- ✅ 0 新增页面 / 0 新增 API / 0 新增表
+- ✅ 0 修改业务逻辑
+- ✅ 仅: 1 CLAUDE.md 强约束 + 1 测试标准 + 1 scripts/e2e README + 6 占位脚本 + 7 package.json scripts
+
+### R.5 缺口 (R.5+ 候选)
+
+| 缺口 | 估时 | 建议 Sprint |
+|---|---|---|
+| test-tasks.ts 实际实施 | 2d | R.5+ (前端按钮 Sprint) |
+| test-control.ts 实际实施 | 1.5d | R.5+ (控制命令 Sprint) |
+| test-dashboard.ts / test-sync.ts / test-sites.ts / test-search.ts | 4d | R.5+ |
+| Playwright 浏览器截图 | 3d | R.6 |
 
 ---
 

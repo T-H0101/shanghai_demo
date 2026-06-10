@@ -36,7 +36,14 @@
     "push:package": "tsx scripts/push-package.ts",
     "export-and-push": "tsx scripts/export-and-push.ts",
     "worker:site": "tsx scripts/worker-site.ts",
-    "test:e2e:worker": "bash scripts/sprint-4.8-e2e.sh"
+    "test:e2e:worker": "bash scripts/sprint-4.8-e2e.sh",
+    "e2e:dashboard": "tsx scripts/e2e/test-dashboard.ts",
+    "e2e:tasks": "tsx scripts/e2e/test-tasks.ts",
+    "e2e:sync": "tsx scripts/e2e/test-sync.ts",
+    "e2e:control": "tsx scripts/e2e/test-control.ts",
+    "e2e:sites": "tsx scripts/e2e/test-sites.ts",
+    "e2e:search": "tsx scripts/e2e/test-search.ts",
+    "e2e:all": "pnpm e2e:dashboard && pnpm e2e:tasks && pnpm e2e:sync && pnpm e2e:control && pnpm e2e:sites && pnpm e2e:search"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
