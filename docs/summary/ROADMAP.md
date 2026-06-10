@@ -3,6 +3,31 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-10
 
+## R.6 前端事件 e2e 实施 (2026-06-10 完成)
+
+> **核心**: 6 个占位脚本 → 真实可运行 e2e, 70/70 通过。
+
+### 6 脚本 (70/70)
+
+- test-dashboard 9/9 / test-tasks 11/11 / test-sync 9/9
+- test-control 19/19 / test-sites 9/9 / test-search 13/13
+
+### 5 项验证
+
+- tsc 0 错 / build 23/23 / smoke passed / e2e:worker passed / e2e:all 70/70
+
+### 修复 3 类
+
+- TS2451 (export {}) / HTTP 201 接受 / 同步包 failed 直查
+
+### 下一 Sprint (R.7+)
+
+- Playwright 浏览器截图
+- 6 脚本扩展 (新页面/新按钮)
+- CI 集成 e2e:all
+
+---
+
 ## R.5 前端事件测试强约束 (2026-06-10 完成)
 
 > **核心**: CLAUDE.md §10 强约束, 0 业务功能, 仅规则 + 占位。

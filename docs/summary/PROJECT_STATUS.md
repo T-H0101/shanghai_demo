@@ -1,8 +1,54 @@
 # Project Status
 
 > **截至**: 2026-06-10
-> **Sprint**: Sprint R.5 完成 (前端事件测试强约束)
+> **Sprint**: Sprint R.6 完成 (前端事件 e2e 实施)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.6 — 前端事件 e2e 实施 (2026-06-10 完成)
+
+> **核心**: 把 Sprint R.5 占位脚本改成真实可运行 e2e, 验证 6 个核心页面/事件。
+
+### 6 个 e2e 脚本 (70/70 通过)
+
+| 脚本 | 测试用例 | 通过率 | 关键验证 |
+|---|---|---|---|
+| test-dashboard.ts | 9 | 9/9 ✅ | 6 tile 真实 + siteCode 切换 + dataSource 显式 |
+| test-tasks.ts | 11 | 11/11 ✅ | 列表/详情/暂停按钮 + toast + 控制链路 |
+| test-sync.ts | 9 | 9/9 ✅ | HMAC 401 + packages + table log + DRY_RUN 标记 |
+| test-control.ts | 19 | 19/19 ✅ | 6 commandType POST + 状态机 + 前端 toast |
+| test-sites.ts | 9 | 9/9 ✅ | /api/sites derived (R.4 修复) + 8 端点联动 |
+| test-search.ts | 13 | 13/13 ✅ | 501 not_implemented + UI banner + 3 siteCode |
+| **合计** | **70** | **70/70** | 0 失败 |
+
+### 5 项验证全绿
+
+- ✅ `pnpm exec tsc --noEmit` — 0 错
+- ✅ `pnpm build` — 23/23 静态页
+- ✅ `pnpm smoke:sync` — passed
+- ✅ `pnpm test:e2e:worker` — 3 命令 dry_run_success + audit_log
+- ✅ `pnpm e2e:all` — 70/70
+
+### 修复 3 类问题 (R.6 实施中发现)
+
+1. **TS2451 重复声明** — 6 文件加 `export {}` 让 tsc 当 module
+2. **HTTP 201 接受** — POST control_command 返 201 (不是 200), 断言放宽
+3. **同步包 failed 验证** — API limit=20 hardcoded, 改 docker exec psql 直查
+
+### R.6 范围严格
+
+- ✅ 0 业务代码
+- ✅ 0 新增页面/API/表
+- ✅ 0 修改业务逻辑
+- ✅ 仅: 6 个 e2e 脚本 + 1 实施文档 + 1 review + 2 文档段
+
+### 仍未覆盖 (R.7+ 候选)
+
+- 真实浏览器 (Playwright) — R.6 沙箱无
+- console.error / React warning — 需真实 DOM
+- network 错误 (4xx/5xx UI 表现)
+- 真实用户点击 + 浏览器渲染
 
 ---
 
