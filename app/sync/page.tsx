@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { RefreshCw, Search, Package, AlertCircle } from 'lucide-react'
+import { RefreshCw, Search, Package, AlertCircle, ShieldCheck } from 'lucide-react'
 import { useSite } from '@/lib/site/site-context'
 
 interface PackageItem {
@@ -108,6 +108,16 @@ export default function SyncCenterPage() {
   const [tablesLoading, setTablesLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Sprint R.7: 一致性校验结果
+  const [consistency, setConsistency] = useState<{
+    status: string
+    siteCode: string
+    checkedAt?: string
+    tableCount?: number
+    matchedTableCount?: number
+    mismatchedTableCount?: number
+    dataSource?: string
+  } | null>(null)
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -177,6 +187,31 @@ export default function SyncCenterPage() {
     }
   }, [selectedPkg, loadTables])
 
+  // Sprint R.7: 加载数据一致性校验结果
+  useEffect(() => {
+    let cancelled = false
+    const sc = siteCodeFilter || ''
+    fetch(`/api/sync/consistency?siteCode=${encodeURIComponent(sc)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        setConsistency({
+          status: data.status ?? "not_run",
+          siteCode: data.siteCode ?? sc,
+          checkedAt: data.checkedAt,
+          tableCount: data.tableCount,
+          matchedTableCount: data.matchedTableCount,
+          mismatchedTableCount: data.mismatchedTableCount,
+          dataSource: data.dataSource,
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        setConsistency({ status: "not_run", siteCode: sc, dataSource: "error" })
+      })
+    return () => { cancelled = true }
+  }, [siteCodeFilter])
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
@@ -186,6 +221,65 @@ export default function SyncCenterPage() {
           title="同步中心"
           description="查看站点推送到总控的数据包批次和表级同步状态"
         />
+
+        {/* Sprint R.7: 数据一致性校验卡片 */}
+        {consistency && (
+          <Card className="gap-0" data-testid="consistency-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                数据一致性校验
+                {consistency.status === "matched" && (
+                  <Badge className="bg-emerald-100 text-emerald-700">匹配</Badge>
+                )}
+                {consistency.status === "mismatched" && (
+                  <Badge className="bg-amber-100 text-amber-700">异常</Badge>
+                )}
+                {consistency.status === "failed" && (
+                  <Badge className="bg-red-100 text-red-700">失败</Badge>
+                )}
+                {consistency.status === "not_run" && (
+                  <Badge className="bg-slate-100 text-slate-600">未运行</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {consistency.status === "not_run" ? (
+                <div className="text-sm text-slate-600">
+                  尚未运行一致性校验。
+                  运行 <code className="text-xs">pnpm check:sync-consistency -- --siteCode={consistency.siteCode}</code> 启动。
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <div className="text-slate-500">最近校验</div>
+                    <div className="font-mono text-xs">
+                      {consistency.checkedAt
+                        ? new Date(consistency.checkedAt).toLocaleString()
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">总表数</div>
+                    <div className="font-mono text-lg">{consistency.tableCount ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">匹配</div>
+                    <div className="font-mono text-lg text-emerald-600">
+                      {consistency.matchedTableCount ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">异常</div>
+                    <div className="font-mono text-lg text-amber-600">
+                      {consistency.mismatchedTableCount ?? "—"}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* 筛选器 */}
         <Card>

@@ -1,0 +1,89 @@
+{
+  "site_code": "SH01",
+  "checked_at": "2026-06-10T07:29:56.875Z",
+  "duration_ms": 38,
+  "status": "mismatched",
+  "table_count": 7,
+  "matched_table_count": 4,
+  "mismatched_table_count": 3,
+  "tables": [
+    {
+      "source_table": "tbl_task",
+      "unified_table": "unified_tasks",
+      "source_count": 37,
+      "unified_count_total": 87,
+      "unified_count_for_site": 44,
+      "missing_in_unified_sample": [],
+      "extra_in_unified_sample": [],
+      "count_diff": 7,
+      "matched": false
+    },
+    {
+      "source_table": "tbl_disc_lib",
+      "unified_table": "unified_devices",
+      "source_count": 4,
+      "unified_count_total": 17,
+      "unified_count_for_site": 8,
+      "missing_in_unified_sample": [],
+      "extra_in_unified_sample": [],
+      "count_diff": 4,
+      "matched": false
+    },
+    {
+      "source_table": "tbl_magzines",
+      "unified_table": "unified_magazines",
+      "source_count": 6,
+      "unified_count_total": 13,
+      "unified_count_for_site": 6,
+      "missing_in_unified_sample": [],
+      "extra_in_unified_sample": [],
+      "count_diff": 0,
+      "matched": true
+    },
+    {
+      "source_table": "tbl_slots",
+      "unified_table": "unified_slots",
+      "source_count": 396,
+      "unified_count_total": 447,
+      "unified_count_for_site": 396,
+      "missing_in_unified_sample": [],
+      "extra_in_unified_sample": [],
+      "count_diff": 0,
+      "matched": true
+    },
+    {
+      "source_table": "tbl_hd_info",
+      "unified_table": "unified_hard_disks",
+      "source_count": 8,
+      "unified_count_total": 17,
+      "unified_count_for_site": 8,
+      "missing_in_unified_sample": [],
+      "extra_in_unified_sample": [],
+      "count_diff": 0,
+      "matched": true
+    },
+    {
+      "source_table": "tbl_disc",
+      "unified_table": "unified_disc_media",
+      "source_count": 65,
+      "unified_count_total": 136,
+      "unified_count_for_site": 65,
+      "missing_in_unified_sample": [],
+      "extra_in_unified_sample": [],
+      "count_diff": 0,
+      "matched": true
+    },
+    {
+      "source_table": "tbl_logical_volume",
+      "unified_table": "unified_volumes",
+      "source_count": 3,
+      "unified_count_total": 13,
+      "unified_count_for_site": 5,
+      "missing_in_unified_sample": [],
+      "extra_in_unified_sample": [],
+      "count_diff": 2,
+      "matched": false
+    }
+  ],
+  "errors": []
+}

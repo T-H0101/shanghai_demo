@@ -3,6 +3,30 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-10
 
+## R.7 数据一致性校验 Job (2026-06-10 完成)
+
+> **核心**: REQ-2.3.3 实施, 7 表 source vs unified count_diff 校验, fail-closed。
+
+### 新增
+- `scripts/check-sync-consistency.ts` (7 表校验 + log 写入)
+- `GET /api/sync/consistency?siteCode=...`
+- DB: `sync_consistency_log` (11 字段)
+- `/sync` 一致性卡片
+- `package.json` check:sync-consistency
+
+### 真实结果 (SH01)
+- 4 匹配 / 3 异常 (mismatched 真实暴露)
+- tbl_task +7 / tbl_disc_lib +4 / tbl_logical_volume +2
+
+### 7 项验证
+tsc 0 / build 24/24 / smoke / e2e:worker / e2e:sync 17/17 / e2e:all 78/78 / check ✅
+
+### 下一 Sprint (R.8+)
+- cron 自动每日校验
+- missing/extra 跨 DB 真实差异
+
+---
+
 ## R.6 前端事件 e2e 实施 (2026-06-10 完成)
 
 > **核心**: 6 个占位脚本 → 真实可运行 e2e, 70/70 通过。

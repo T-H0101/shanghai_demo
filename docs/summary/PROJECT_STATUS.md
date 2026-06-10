@@ -1,8 +1,61 @@
 # Project Status
 
 > **截至**: 2026-06-10
-> **Sprint**: Sprint R.6 完成 (前端事件 e2e 实施)
+> **Sprint**: Sprint R.7 完成 (数据一致性校验 Job)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.7 — 数据一致性校验 Job (2026-06-10 完成)
+
+> **核心**: REQ-2.3.3 实施, 7 表 source vs unified count_diff 校验, 真实 fail-closed。
+
+### 新增产出
+
+- ✅ `scripts/check-sync-consistency.ts` (~280 行) — 7 表 count_diff + JSON 输出 + log 写入
+- ✅ `GET /api/sync/consistency?siteCode=SH01` — 读 log, 不每次跑全量
+- ✅ DB 表 `sync_consistency_log` (11 字段, 3 状态 CHECK)
+- ✅ `/sync` 页面新增一致性卡片 (consistency-card + 4 字段 + 4 状态 Badge)
+- ✅ `package.json` 加 `check:sync-consistency` script
+- ✅ e2e:test-sync 9→17 (R.7 新增 8 项)
+
+### 真实校验结果 (SH01, R.7 跑出)
+
+| 表 | src | unified | diff | 状态 |
+|---|---|---|---|---|
+| tbl_task | 37 | 44 | +7 | ❌ mismatched |
+| tbl_disc_lib | 4 | 8 | +4 | ❌ mismatched |
+| tbl_logical_volume | 3 | 5 | +2 | ❌ mismatched |
+| tbl_magzines / tbl_slots / tbl_hd_info / tbl_disc | — | — | 0 | ✅ matched |
+| **合计** | **519** | **532** | **+13** | **4 匹配 / 3 异常 / mismatched** |
+
+### 7 项验证全绿
+
+- ✅ `pnpm exec tsc --noEmit` — 0 错
+- ✅ `pnpm build` — 24/24 静态页 (+/api/sync/consistency)
+- ✅ `pnpm smoke:sync` — passed
+- ✅ `pnpm test:e2e:worker` — 3 命令 dry_run_success
+- ✅ `pnpm e2e:sync` — 17/17 (R.6 9 + R.7 8)
+- ✅ `pnpm e2e:all` — 78/78 (R.6 70 + R.7 8)
+- ✅ `pnpm check:sync-consistency -- --siteCode=SH01` — mismatched 真实写入 log
+
+### R.7 范围严格
+
+- ✅ 0 业务页面新增 (只是 /sync 加 1 Card)
+- ✅ 0 修改同步协议 (R.2G.1 HMAC 维持)
+- ✅ 0 接 tbl_file/tbl_folder 全量
+- ✅ 0 伪造一致性结果 (mismatched 真实暴露)
+
+### Requirements 影响
+
+- REQ-2.3.3: not_started → **partial** (R.7 实施, 无 cron 自动化)
+- 完成率: 15.6% 维持 (partial +1, not_started -1, 总数不变)
+
+### 缺口 (R.8+ 候选)
+
+- cron 自动每日校验 (REQ-2.3.3 完整)
+- missing/extra 跨 DB 真实差异
+- 失败告警 push (REQ-4.2.4)
 
 ---
 

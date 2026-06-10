@@ -32,6 +32,7 @@
     "import:aggregates:all": "tsx scripts/import-aggregates.ts all",
     "test:package-log": "tsx scripts/test-package-log.ts",
     "smoke:sync": "tsx scripts/smoke-sync.ts",
+    "check:sync-consistency": "tsx scripts/check-sync-consistency.ts",
     "export:package": "tsx scripts/export-package.ts",
     "push:package": "tsx scripts/push-package.ts",
     "export-and-push": "tsx scripts/export-and-push.ts",

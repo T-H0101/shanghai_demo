@@ -116,6 +116,61 @@ async function main() {
     "未发现 mock"
   )
 
+  // ===== Sprint R.7: 一致性校验 5 项验证 =====
+  // 8. 调一致性 API: 用不存在的 siteCode 测 not_run
+  const notRunRes = await fetch(`${BASE}/api/sync/consistency?siteCode=DOES_NOT_EXIST_R7`)
+  const notRun = await notRunRes.json()
+  check(
+    "R.7 /api/sync/consistency 返回 not_run 路径",
+    notRunRes.status === 200 && notRun.status === "not_run",
+    `HTTP ${notRunRes.status} status=${notRun.status}`
+  )
+  check(
+    "R.7 not_run 含 recommendation 字段 (R.1 §1 强约束)",
+    typeof notRun.recommendation === "string" && notRun.recommendation.includes("check:sync-consistency"),
+    `recommendation=${notRun.recommendation?.slice(0, 50)}...`
+  )
+
+  // 9. /sync 页面 200 + 前端代码含一致性卡逻辑 (R.7 用 grep 验证 client component 代码)
+  const syncPageRes = await fetch(`${BASE}/sync`)
+  check(
+    "R.7 /sync 页面 200 (HTTP 验证, client render 需浏览器)",
+    syncPageRes.status === 200,
+    `HTTP ${syncPageRes.status}`
+  )
+  // 读源文件验证前端代码含一致性卡 (client component, curl HTML 不含)
+  const { readFile } = await import("node:fs/promises")
+  const syncPageSrc = await readFile("app/sync/page.tsx", "utf8")
+  check(
+    "R.7 前端 /sync 代码含 consistency-card 元素",
+    syncPageSrc.includes("consistency-card") && syncPageSrc.includes("数据一致性校验"),
+    "前端代码含 consistency-card + 标题"
+  )
+  check(
+    "R.7 前端 /sync 代码 fetch /api/sync/consistency",
+    syncPageSrc.includes("/api/sync/consistency"),
+    "前端代码含 API 调用"
+  )
+
+  // 10. 一致性 API 用真实 SH01 查 (之前 check-sync-consistency 跑过, 应有 log)
+  const consistencySh01Res = await fetch(`${BASE}/api/sync/consistency?siteCode=SH01`)
+  const consistencySh01 = await consistencySh01Res.json()
+  check(
+    "R.7 /api/sync/consistency SH01 返回真实数据 (非 not_run)",
+    consistencySh01Res.status === 200 && consistencySh01.status !== "not_run" && typeof consistencySh01.tableCount === "number",
+    `status=${consistencySh01.status} tableCount=${consistencySh01.tableCount}`
+  )
+  check(
+    "R.7 SH01 结果含 matched/mismatched 计数",
+    typeof consistencySh01.matchedTableCount === "number" && typeof consistencySh01.mismatchedTableCount === "number",
+    `matched=${consistencySh01.matchedTableCount} mismatched=${consistencySh01.mismatchedTableCount}`
+  )
+  check(
+    "R.7 dataSource 显式 (database/empty, 不允许 mock)",
+    consistencySh01.dataSource?.includes("sync_consistency_log") || consistencySh01.dataSource?.includes("empty"),
+    `dataSource=${consistencySh01.dataSource}`
+  )
+
   console.log(`\n=== Sync: ${pass} pass, ${fail} fail ===`)
   process.exit(fail > 0 ? 1 : 0)
 }
