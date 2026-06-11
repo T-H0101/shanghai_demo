@@ -1,8 +1,27 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.8 完成 (每小时自动同步 + 一致性校验调度器)
+> **Sprint**: Sprint R.8A-1 完成 (R.8 Post-Review + 多站点架构确认)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.8A-1 — R.8 Post-Review + 多站点架构 (2026-06-11 完成)
+
+### e2e 修复
+- R.8 遗留 control 18/19 → **19/19** (limit=20→200 + DB 连接修正)
+- **e2e:all 78/78 全过** ✅
+
+### 多站点架构结论
+- SH01 是单站点测试库 (170 表)
+- 每站点应独立原数据库
+- 总控通过 source_site_id 区分
+- site_registry 设计完成 (暂不落库)
+
+### /sites 真实状态
+- API: derived (正确)
+- **页面: 仍用 mockSites** 🔴 (未修)
+- 下一 Sprint: /sites 页面改为读 /api/sites
 
 ---
 

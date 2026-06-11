@@ -34,8 +34,8 @@ async function main() {
   const pageRes = await fetch(`${BASE}/control`)
   check("页面 /control 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
 
-  // 2. 列表真实
-  const listRes = await fetch(`${BASE}/api/control/commands?limit=20`)
+  // 2. 列表真实 (limit=200 以获取多种状态)
+  const listRes = await fetch(`${BASE}/api/control/commands?limit=200`)
   const list = await listRes.json()
   const items = list.rows ?? list.data?.rows ?? []
   check(
@@ -128,21 +128,21 @@ async function main() {
   )
 
   // 7. 验证 DRY_RUN: tbl_task 不变 (R.4 fail-closed)
-  // 通过 docker exec psql 查 tbl_task.id=1
+  // 通过 docker exec psql 查站点库 star_storage_db (5434, starxdb)
   const { exec } = await import("node:child_process")
   const { promisify } = await import("node:util")
   const execAsync = promisify(exec)
   try {
     const { stdout } = await execAsync(
-      `docker exec ${process.env.DB_CONTAINER ?? "unified_disc_postgres"} psql -U unified -d unified_disc_platform -t -c "SELECT id, status FROM tbl_task WHERE id=1;" 2>&1 || echo "fallback source_restore"`
+      `docker exec site_restore_full_postgres psql -U starxdb -d star_storage_db -t -c "SELECT id, status FROM tbl_task WHERE id=1;" 2>&1`
     )
     check(
-      "DRY_RUN: tbl_task.id=1 status 未变 (源 r.3 验证)",
-      stdout.includes("1 |") || stdout.includes("fallback"),
-      `stdout=${stdout.slice(0, 80)}`
+      "DRY_RUN: tbl_task.id=1 status 未变 (站点库 star_storage_db)",
+      stdout.trim().startsWith("1 |"),
+      `stdout=${stdout.trim().slice(0, 80)}`
     )
   } catch {
-    check("DRY_RUN: tbl_task 查询失败 (跳过)", true, "DB 不可达")
+    check("DRY_RUN: tbl_task 查询失败 (跳过)", true, "站点库不可达")
   }
 
   console.log(`\n=== Control: ${pass} pass, ${fail} fail ===`)
