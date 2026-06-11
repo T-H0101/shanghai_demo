@@ -63,12 +63,12 @@
 **Files:**
 - Modify: `app/settings/page.tsx`
 - Modify: `scripts/e2e/test-settings.ts`
-- Create: `docs/requirements-review/2026-06-11-r11d-settings-sites.md`
+- Create: `docs/database-analysis/sprint-r.11d-requirements-review.md`
 - Modify: traceability/status/roadmap docs
 
-- [ ] 先增加 `/api/sites`、每站点状态和来源区分失败测试。
-- [ ] 运行 `pnpm e2e:settings`，确认 RED。
-- [ ] Settings 并行读取站点注册、同步配置和每站点最新状态。
-- [ ] 展示来源、调度周期和最近状态，写操作继续 fail-closed。
-- [ ] 更新 requirements review 与追踪文档。
-- [ ] 运行全量检查，提交并推送。
+- [x] 先增加 `/api/sites`、每站点状态和来源区分失败测试。
+- [x] 运行 `pnpm e2e:settings`，确认 RED。
+- [x] Settings 并行读取站点注册、同步配置和每站点最新状态。
+- [x] 展示来源、调度周期和最近状态，写操作继续 fail-closed。
+- [x] 更新 requirements review 与追踪文档。
+- [x] 运行全量检查，提交并推送。

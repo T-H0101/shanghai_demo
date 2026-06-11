@@ -3,6 +3,18 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.11D Settings 多站点真实集成
+
+- [x] Settings 读取 `/api/sites`
+- [x] Settings 读取 `/api/sync/sites/status`
+- [x] 分开展示 derived/registered provenance 与中心调度配置
+- [x] 展示同步周期、最近调度和一致性状态
+- [x] 刷新事件浏览器验收
+- [ ] 源端 `tbl_site` 真实注册资料
+- [ ] 配置写入权限、审计与真实告警阈值
+
+---
+
 ## R.11C 每站点最新状态
 
 - [x] `sync_sites` 关联最近 scheduler/package/consistency

@@ -1,6 +1,6 @@
 # Requirements Traceability Matrix (需求追踪矩阵)
 
-> **状态**: ✅ Sprint R.11C 完成 (2026-06-11)
+> **状态**: ✅ Sprint R.11D 完成 (2026-06-11)
 > **唯一标准**: `docs/source/requirements.md`
 > **依据**: `CLAUDE.md` 9 大强约束 + `docs/database-analysis/requirements-strict-review-template.md` 13 段
 > **机器可读版本**: `requirements-traceability.json` (同目录)
@@ -193,22 +193,22 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 站点配置 (名称/IP/状态/联系人) |
-| module | `lib/api/site-provider.ts` |
+| module | `app/api/sites/route.ts`, `app/settings/page.tsx` |
 | priority | P0 |
 | current_status | **partial** |
-| implemented_files | `lib/api/site-provider.ts`, `app/sites/page.tsx`, `app/api/sites/route.ts` |
-| related_api | `GET /api/sites` |
-| related_db_tables | `unified_sites` |
-| ui_pages | `/sites` |
-| backend_reality | ⚠️ 0 行 (源 `tbl_site` 0 行), 框架有, 数据空 |
-| ui_reality | ⚠️ 空表显示"暂无数据" |
-| mock_or_simulator | — (真实查询, 数据空) |
+| implemented_files | `app/api/sites/route.ts`, `app/sites/page.tsx`, `app/settings/page.tsx` |
+| related_api | `GET /api/sites`, `GET /api/sync/sites/status` |
+| related_db_tables | `unified_sites`, `unified_tasks`, `unified_devices`, `unified_volumes`, `sync_package_log`, `sync_sites` |
+| ui_pages | `/sites`, `/settings` |
+| backend_reality | ⚠️ `unified_sites` 0 行；真实中心业务表派生 7 个站点编码；`sync_sites` 2 条中心调度配置单独展示 |
+| ui_reality | ⚠️ 显式展示 database/derived/empty provenance，不把 derived 或中心配置称为源端真实注册 |
+| mock_or_simulator | 无 mock；derived 与 central_configuration 显式标注 |
 | blocker_type | `blocked_by_source_schema` |
-| missing_parts | 源端 `tbl_site` 0 行 |
+| missing_parts | 源端 `tbl_site` 0 行、真实 IP/联系人/注册资料、站点配置写入权限与审计 |
 | needed_site_schema_change | `tbl_site` 需有真实数据行 (当前 site_restore 中 0 行) |
 | needed_site_app_change | 站点推 `tbl_site` package 到中心库 |
 | next_action | 等源端补 `tbl_site` 数据 |
-| verification_command | `pnpm db:query "SELECT COUNT(*) FROM unified_sites"` |
+| verification_command | `pnpm e2e:sites && pnpm e2e:settings` |
 
 #### REQ-2.1.2 站点切换 (SSO 免登)
 
@@ -281,7 +281,7 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 集团 AD ↔ 站点本地账号映射 |
-| module | `app/api/sync/export/route.ts`, `app/sync/page.tsx` |
+| module | — |
 | priority | P1 |
 | current_status | **blocked_by_auth + blocked_by_site_change** (R.4 修正 R.2 out_of_scope 违规) |
 | implemented_files | — |
@@ -1131,15 +1131,15 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 配置 (同步周期/告警阈值可页面配置) |
-| module | `app/api/sync/config/route.ts`, `app/settings/page.tsx` |
+| module | `app/api/sync/config/route.ts`, `app/api/sync/sites/status/route.ts`, `app/settings/page.tsx` |
 | priority | P2 |
 | current_status | **partial** |
-| implemented_files | `app/api/sync/config/route.ts`, `app/sync/page.tsx`, `app/settings/page.tsx` |
-| related_api | `GET /api/sync/config`, `GET /api/system/health`, `GET /api/system/db-health` |
-| related_db_tables | `sync_sites` |
+| implemented_files | `app/api/sync/config/route.ts`, `app/api/sync/sites/status/route.ts`, `app/sync/page.tsx`, `app/settings/page.tsx` |
+| related_api | `GET /api/sync/config`, `GET /api/sync/sites/status`, `GET /api/sites`, `GET /api/system/health`, `GET /api/system/db-health` |
+| related_db_tables | `sync_sites`, `sync_scheduler_log`, `sync_consistency_log`, `sync_package_log` |
 | ui_pages | `/sync`, `/settings` |
-| backend_reality | ✅ 真实读取中心配置；只返回 env key 引用，不返回 secret 值 |
-| ui_reality | ⚠️ 可查看同步策略、安全 env key 引用和健康状态；当前只读 |
+| backend_reality | ✅ 真实读取中心周期配置，并聚合每站点最近 scheduler/package/consistency；只返回 env key 引用 |
+| ui_reality | ⚠️ 可查看同步策略、站点 provenance、安全 env key 引用、最近状态和健康；当前只读 |
 | mock_or_simulator | 无 mock；中心配置不作为源端真实性证据 |
 | blocker_type | `not_started` |
 | missing_parts | 告警阈值配置、配置写入 API、权限与审计 |

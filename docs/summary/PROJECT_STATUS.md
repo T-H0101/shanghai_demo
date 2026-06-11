@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.11C 完成 (每站点最新状态)
+> **Sprint**: Sprint R.11D 完成 (Settings 多站点真实集成)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.11D — Settings 多站点真实集成
+
+- `/settings` 从 3 个真实接口扩展为 5 个，新增站点注册/派生与每站点最新状态。
+- 页面分开展示 `/api/sites` provenance 和 `sync_sites` 中心调度配置。
+- 当前浏览器验证：7 个 derived 站点、2 个调度配置站点；BJ02 `not_run`，SH01 `partial/matched 7/0`。
+- 写配置、Auth/RBAC/ADFS 和真实告警阈值继续 fail-closed。
+- REQ-2.1.1、REQ-6.4.3 均保持 `partial`，完成率仍为 `6 / 45 = 13.3%`。
 
 ---
 

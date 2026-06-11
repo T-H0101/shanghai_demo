@@ -22,8 +22,36 @@ interface EnvKeyRef {
   configured: boolean
 }
 
+interface RegistrySite {
+  id: string
+  name: string
+  code: string
+  status: string
+  deviceCount: number
+  sourceSiteId?: string
+  sourceTable?: string
+  description?: string
+}
+
+interface SiteRuntimeStatus {
+  siteCode: string
+  siteName: string
+  intervalSeconds: number
+  schedulerStatus: string
+  schedulerStartedAt: string | null
+  packageStatus: string
+  packageBatchId: string | null
+  consistencyStatus: string
+  matchedTableCount: number | null
+  mismatchedTableCount: number | null
+}
+
 interface SettingsSnapshot {
   sites: SyncSiteConfig[]
+  registrySites: RegistrySite[]
+  registryDataSource: string
+  registrySource: string
+  siteStatuses: SiteRuntimeStatus[]
   envKeyRefs: EnvKeyRef[]
   systemStatus: string
   systemUptime: number | null
@@ -35,6 +63,10 @@ interface SettingsSnapshot {
 
 const EMPTY_SNAPSHOT: SettingsSnapshot = {
   sites: [],
+  registrySites: [],
+  registryDataSource: "empty",
+  registrySource: "none",
+  siteStatuses: [],
   envKeyRefs: [],
   systemStatus: "unknown",
   systemUptime: null,
@@ -54,23 +86,37 @@ export default function Page() {
     setError(null)
 
     try {
-      const [syncRes, healthRes, dbHealthRes] = await Promise.all([
+      const [syncRes, healthRes, dbHealthRes, sitesRes, siteStatusRes] = await Promise.all([
         fetch("/api/sync/config", { cache: "no-store" }),
         fetch("/api/system/health", { cache: "no-store" }),
         fetch("/api/system/db-health", { cache: "no-store" }),
+        fetch("/api/sites", { cache: "no-store" }),
+        fetch("/api/sync/sites/status", { cache: "no-store" }),
       ])
-      const [sync, health, dbHealth] = await Promise.all([
+      const [sync, health, dbHealth, sites, siteStatus] = await Promise.all([
         syncRes.json(),
         healthRes.json(),
         dbHealthRes.json(),
+        sitesRes.json(),
+        siteStatusRes.json(),
       ])
 
-      if (!syncRes.ok || !healthRes.ok || (!dbHealthRes.ok && dbHealthRes.status !== 503)) {
+      if (
+        !syncRes.ok ||
+        !healthRes.ok ||
+        (!dbHealthRes.ok && dbHealthRes.status !== 503) ||
+        !sitesRes.ok ||
+        !siteStatusRes.ok
+      ) {
         throw new Error("读取系统配置或健康状态失败")
       }
 
       setSnapshot({
         sites: sync.data?.sites ?? [],
+        registrySites: sites.data ?? [],
+        registryDataSource: sites.dataSource ?? "empty",
+        registrySource: sites.source ?? "none",
+        siteStatuses: siteStatus.data?.items ?? [],
         envKeyRefs: sync.data?.runtime?.envKeyRefs ?? [],
         systemStatus: health.status ?? "unknown",
         systemUptime: typeof health.uptime === "number" ? health.uptime : null,
@@ -132,11 +178,48 @@ export default function Page() {
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-        <Card className="gap-0">
+        <Card className="gap-0" data-testid="settings-site-registry">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Server className="h-5 w-5" />
-              多站点同步策略
+              站点注册/派生来源
+            </CardTitle>
+            <CardDescription>
+              来源：{snapshot.registrySource}，dataSource={snapshot.registryDataSource}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              derived 仅表示从中心业务表发现站点编码，不等同于源端 `tbl_site` 真实注册。
+            </div>
+            {snapshot.registrySites.length === 0 && !loading ? (
+              <p className="text-sm text-slate-500">暂无可验证的站点注册或派生记录。</p>
+            ) : (
+              snapshot.registrySites.map((site) => (
+                <div key={site.id} className="rounded-lg border bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">{site.name}</p>
+                      <p className="font-mono text-xs text-slate-500">
+                        {site.code} · sourceSiteId={site.sourceSiteId ?? "—"}
+                      </p>
+                    </div>
+                    <Badge variant="outline">{site.status}</Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    设备 {site.deviceCount ?? 0} · sourceTable={site.sourceTable ?? "—"}
+                  </p>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0" data-testid="settings-site-runtime">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Server className="h-5 w-5" />
+              中心调度配置
             </CardTitle>
             <CardDescription>来源：中心库 sync_sites，仅展示安全字段</CardDescription>
           </CardHeader>
@@ -146,6 +229,12 @@ export default function Page() {
             ) : (
               snapshot.sites.map((site) => (
                 <div key={site.siteCode} className="rounded-lg border bg-slate-50 p-3">
+                  {(() => {
+                    const runtime = snapshot.siteStatuses.find(
+                      (item) => item.siteCode === site.siteCode
+                    )
+                    return (
+                      <>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">{site.siteName}</p>
@@ -166,7 +255,24 @@ export default function Page() {
                         {site.credentialKeyRef ?? "未配置"}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-slate-500">最近调度</p>
+                      <p className="mt-1 font-medium">
+                        {runtime?.schedulerStatus ?? "not_run"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">最近一致性</p>
+                      <p className="mt-1 font-medium">
+                        {runtime?.consistencyStatus ?? "not_run"} ·{" "}
+                        {runtime?.matchedTableCount ?? "—"} /{" "}
+                        {runtime?.mismatchedTableCount ?? "—"}
+                      </p>
+                    </div>
                   </div>
+                      </>
+                    )
+                  })()}
                 </div>
               ))
             )}
