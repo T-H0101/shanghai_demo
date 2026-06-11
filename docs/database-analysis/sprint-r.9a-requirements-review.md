@@ -163,13 +163,21 @@
 ## 13. requirements 完成度
 
 - **总需求数**: 45
-- **complete**: 9 (R.4 后不变)
+- **complete**: 7 (R.3 重算, R.4 维持)
 - **partial**: 13 (R.4 +1, R.9A 不变)
-- **blocked_by_source_schema**: 8
-- **blocked_by_site_change**: 1
-- **blocked_by_auth**: 4
-- **blocked_by_external_system**: 8
-- **out_of_scope**: 2
-- **requirements 完成率**: 9/(45-2) = **20.9%** (R.4 持平)
+- **blocked_by_source_schema**: 6
+- **blocked_by_site_change**: 5
+- **blocked_by_auth**: 9 (R.4 +2)
+- **blocked_by_external_system**: 2 (R.4 +2)
+- **not_started**: 8 (R.4 +1)
+- **out_of_scope**: 0 (R.4 修正 R.2 违规, 0 项)
+- **requirements 完成率**: 7 / (45 - 0) = **15.6%** (与 R.3/R.4/R.6/R.7 一致, R.9A 不变)
 
-**变化**: 0 (R.9A 是实现层修复, 不改变需求侧状态)
+**公式依据**: CLAUDE.md 附录 B: `complete / (total - out_of_scope) × 100%`
+- R.3: 7/45 = 15.6%
+- R.4: 7/45 = 15.6% (修 bug 不增能力)
+- R.6: 7/45 = 15.6% (修 e2e 不增能力)
+- R.7: 7/45 = 15.6% (一致性 +1, partial)
+- **R.9A: 7/45 = 15.6%** (页面真实化不改变需求侧状态)
+
+**变化**: 0 (R.9A 是实现层修复, 不改变需求侧状态, 公式与 R.3/R.4/R.6/R.7 完全一致)
