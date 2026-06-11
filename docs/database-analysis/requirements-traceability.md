@@ -1,6 +1,6 @@
 # Requirements Traceability Matrix (需求追踪矩阵)
 
-> **状态**: ✅ Sprint R.2 完成 (2026-06-09)
+> **状态**: ✅ Sprint R.11A 完成 (2026-06-11)
 > **唯一标准**: `docs/source/requirements.md`
 > **依据**: `CLAUDE.md` 9 大强约束 + `docs/database-analysis/requirements-strict-review-template.md` 13 段
 > **机器可读版本**: `requirements-traceability.json` (同目录)
@@ -731,21 +731,21 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 盘笼统一查询 (在线/离线 + 导出) |
-| module | `app/api/racks/route.ts`, `lib/api/api-providers.ts` |
+| module | `app/api/racks/route.ts`, `app/api/racks/export/route.ts`, `lib/api/api-providers.ts` |
 | priority | P1 |
 | current_status | **partial** |
-| implemented_files | `app/api/racks/route.ts`, `app/racks/page.tsx`, `lib/api/api-providers.ts` |
-| related_api | `GET /api/racks` |
+| implemented_files | `app/api/racks/route.ts`, `app/api/racks/export/route.ts`, `app/racks/page.tsx`, `lib/api/api-providers.ts` |
+| related_api | `GET /api/racks`, `GET /api/racks/export` |
 | related_db_tables | `unified_devices` |
 | ui_pages | `/racks` |
-| backend_reality | ✅ `unified_devices` 当前 13 台；SH01 4 台；槽位中心表总计 447 条 |
-| ui_reality | ⚠️ 列表与详情读取真实 API；失败/空数据显式 error/empty；导出未实现 |
+| backend_reality | ✅ `unified_devices` 当前 13 台；SH01 4 台；R.11A 支持真实 CSV、站点/状态过滤、记录数与 SHA-256 摘要 |
+| ui_reality | ⚠️ 列表与详情读取真实 API；失败/空数据显式 error/empty；导出按钮下载真实附件 |
 | mock_or_simulator | API 模式列表和统计已移除 mock fallback |
-| blocker_type | `not_started` |
-| missing_parts | 真实设备导出事件 |
+| blocker_type | `blocked_by_auth` |
+| missing_parts | Auth/RBAC 与站点权限过滤尚未接入 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | 实现基于真实设备数据的导出并增加浏览器事件 e2e |
+| next_action | Auth/RBAC 可用后补导出权限过滤与审计 |
 | verification_command | `pnpm e2e:racks` |
 
 ### 2.5 §5 辅助保障 (5 项)

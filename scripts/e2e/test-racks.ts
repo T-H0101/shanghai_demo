@@ -3,6 +3,7 @@
  */
 
 import { readFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -47,6 +48,32 @@ async function main() {
     `items=${siteRacks.data?.length ?? 0}`
   )
 
+  const exportRes = await fetch(`${BASE}/api/racks/export?siteCode=SH01`)
+  const exportText = await exportRes.text()
+  const exportLines = exportText.trim().split("\n")
+  check(
+    "设备导出 API 返回真实 CSV",
+    exportRes.status === 200 &&
+      exportRes.headers.get("content-type")?.includes("text/csv") === true &&
+      exportLines.length === (siteRacks.data?.length ?? 0) + 1,
+    `HTTP ${exportRes.status} rows=${Math.max(0, exportLines.length - 1)}`
+  )
+  check(
+    "设备导出内容含真实字段与 SH01 数据",
+    exportLines[0]?.includes("device_id") &&
+      exportLines[0]?.includes("site_code") &&
+      siteRacks.data?.every((item: { id: string }) => exportText.includes(item.id)),
+    `header=${exportLines[0] ?? ""}`
+  )
+  check(
+    "设备导出返回记录数与 SHA-256 摘要",
+    exportRes.headers.get("x-export-record-count") === String(siteRacks.data?.length ?? 0) &&
+      exportRes.headers.get("x-content-sha256") ===
+        createHash("sha256").update(exportText, "utf8").digest("hex") &&
+      exportRes.headers.get("content-disposition")?.includes("devices-SH01-") === true,
+    `count=${exportRes.headers.get("x-export-record-count")}`
+  )
+
   const providerSource = await readFile("lib/api/api-providers.ts", "utf8")
   const rackProviderBlock =
     providerSource.split("export const apiRackProvider")[1]?.split("// ============================================================")[0] ?? ""
@@ -78,6 +105,12 @@ async function main() {
       pageSource.includes('"database" | "empty" | "error"') &&
       pageSource.includes("中心库暂无设备数据") &&
       pageSource.includes("中心库设备数据读取失败")
+  )
+  check(
+    "导出按钮调用真实 API 并下载文件",
+    pageSource.includes("/api/racks/export") &&
+      pageSource.includes("URL.createObjectURL") &&
+      !pageSource.includes("设备数据导出功能开发中")
   )
 
   console.log(`\n=== Racks: ${pass} pass, ${fail} fail ===`)

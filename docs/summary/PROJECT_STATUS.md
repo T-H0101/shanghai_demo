@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.10D 完成 (Racks API fail-closed)
+> **Sprint**: Sprint R.11A 完成 (设备真实 CSV 导出)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.11A — 设备真实 CSV 导出
+
+- 新增 `GET /api/racks/export`，从 `unified_devices` 按站点/状态导出真实 CSV。
+- 响应包含附件文件名、数据源、记录数和 SHA-256 内容摘要。
+- `/racks` 导出按钮已接真实 API；SH01 附件 4 条，与设备列表一致。
+- REQ-4.3.2 因 Auth/RBAC 与站点权限过滤未接入，继续保持 `partial`。
+- requirements 完成率保持 `6 / 45 = 13.3%`。
 
 ---
 

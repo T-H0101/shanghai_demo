@@ -3,13 +3,24 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.11A 设备真实 CSV 导出
+
+- [x] `GET /api/racks/export` 读取 `unified_devices`
+- [x] 支持 siteCode/status 过滤
+- [x] 返回记录数与 SHA-256 内容摘要
+- [x] `/racks` 导出按钮接真实 API
+- [x] e2e 验证附件正文、记录数和摘要
+- [ ] Auth/RBAC 可用后补权限过滤与审计
+
+---
+
 ## R.10D Racks API fail-closed
 
 - [x] API 失败和空集不回退 mock
 - [x] 页面显示 database/empty/error
 - [x] `e2e:racks` 纳入 `e2e:all`
 - [x] 修正 REQ-4.3.2 过度完成声明
-- [ ] 实现真实设备导出与浏览器事件 e2e
+- [x] 实现真实设备导出与事件 e2e (R.11A)
 
 ---
 

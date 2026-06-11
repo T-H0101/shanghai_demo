@@ -93,6 +93,7 @@ export default function Page() {
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
   const [syncing, setSyncing] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -476,6 +477,41 @@ export default function Page() {
     finally { setSyncing(false) }
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      if (!isAllSites && siteCode) params.set("siteCode", siteCode)
+      const response = await fetch(`/api/racks/export?${params.toString()}`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+      const blob = await response.blob()
+      const disposition = response.headers.get("content-disposition") ?? ""
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "devices.csv"
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: "设备数据已导出",
+        description: `${response.headers.get("x-export-record-count") ?? "0"} 条真实设备记录`,
+      })
+    } catch {
+      toast({
+        title: "设备导出失败",
+        description: "未生成本地替代数据，请检查中心库连接后重试。",
+        variant: "destructive",
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const handleViewTasks = (rack: Rack) => {
     router.push(`/tasks?device=${rack.rackId}`)
   }
@@ -641,10 +677,15 @@ export default function Page() {
             <Button variant="outline" size="sm" className="h-8" onClick={() => setShowMount(true)}>
               <Plug className="h-4 w-4 mr-1" />挂载网盘
             </Button>
-            <Button variant="outline" size="sm" className="h-8" onClick={() => {
-              toast({ title: "导出功能", description: "设备数据导出功能开发中" })
-            }}>
-              <Download className="h-4 w-4 mr-1" />导出
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => void handleExport()}
+              disabled={exporting || racksDataSource === "error"}
+              data-testid="racks-export"
+            >
+              <Download className="h-4 w-4 mr-1" />{exporting ? "导出中" : "导出"}
             </Button>
             <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSync} disabled={syncing}>
               <RefreshCw className={cn("h-4 w-4 mr-1", syncing && "animate-spin")} />同步
