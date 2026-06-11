@@ -3,6 +3,35 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.12 /logs 真实日志检索与导出 (2026-06-11 完成)
+
+> **核心**: /logs 页面从 mockAuditLogs 切换到 /api/logs 整合 6 类日志, 含 CSV/JSON 真实下载与 SHA-256 摘要。
+
+### 改造
+- `app/logs/page.tsx` 移除 mockAuditLogs / useLoginAuditStore / 假证书, 改 `fetch /api/logs` + `fetch /api/logs/export`
+- 6 Tab 真实: sync_package / sync_table / sync_scheduler / sync_consistency / control / audit
+- 4 筛选: siteCode / status / keyword / dateFrom-dateTo (debounce 500ms)
+- 数字签名按钮显式 "未接入", 不伪造证书 (R.1 §7)
+- 登录流水 amber banner 显式 blocked_by_auth
+
+### 新增 API
+- `GET /api/logs` (~340 行): 整合 6 表, 6 筛选, 显式 dataSource
+- `GET /api/logs/export` (~280 行): CSV/JSON, 真实数据库, x-sha256 头
+
+### 验证
+- e2e:logs **37/37** (R.12 新增, 含 SHA-256 摘要校验)
+- e2e:all 全过 (10 脚本, 含 logs)
+- 7 项基线全绿 (tsc/build/smoke/consistency/baseline/e2e:logs/e2e:all)
+- REQ-5.1.2 / REQ-5.1.3 partial 强化, 完成率仍 13.3%
+
+### 下一 Sprint (R.13 候选)
+- Excel (xlsx) 导出
+- 数字签名密钥托管方案
+- 登录审计 (依赖 ADFS)
+- /api/logs 性能优化 (分页/索引)
+
+---
+
 ## R.11D Settings 多站点真实集成
 
 - [x] Settings 读取 `/api/sites`

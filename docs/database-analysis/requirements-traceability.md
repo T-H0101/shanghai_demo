@@ -780,37 +780,36 @@
 | module | — |
 | priority | P2 |
 | current_status | **partial** |
-| implemented_files | `app/api/sync/export/route.ts`, `app/sync/page.tsx` |
-| related_api | `GET /api/sync/export` |
-| related_db_tables | `sync_package_log`, `sync_table_log`, `sync_scheduler_log`, `sync_consistency_log` |
+| implemented_files | `app/api/sync/export/route.ts`, `app/api/logs/export/route.ts`, `app/sync/page.tsx`, `app/logs/page.tsx` |
+| related_api | `GET /api/sync/export`, `GET /api/logs/export` |
+| related_db_tables | `sync_package_log`, `sync_table_log`, `sync_scheduler_log`, `sync_consistency_log`, `control_command`, `audit_log` |
 | ui_pages | `/sync`, `/logs` |
-| backend_reality | ⚠️ R.11B 四类日志真实导出，支持 CSV/JSON、siteCode、记录数和 SHA-256 完整性摘要 |
-| ui_reality | ⚠️ `/sync` 可选择四类日志并下载真实 CSV；`/logs` 仍为旧 mock 页面 |
-| mock_or_simulator | 导出 API 与 `/sync` 事件无 mock；DRY_RUN/skipped 日志保持透明 |
+| backend_reality | ✅ R.11B 四类日志真实导出 (sync_export); R.12 新增六类日志整合导出 (logs/export), CSV/JSON/记录数/SHA-256 摘要; 数字签名仅做 SHA-256 摘要, 不冒充证书签名 |
+| ui_reality | ✅ `/sync` 可选四类日志下载 CSV; `/logs` 接 `/api/logs/export` 真实下载, 含 SHA-256 显示 |
+| mock_or_simulator | 导出 API 与两处 UI 事件均无 mock; DRY_RUN/skipped 日志保持透明 |
 | blocker_type | `not_started` |
-| missing_parts | Excel、证书/私钥数字签名、大数据分片/异步导出、两年留存策略、`/logs` 页面真实化 |
+| missing_parts | Excel、证书/私钥数字签名 (R.1 §7 禁止假签名)、大数据分片/异步导出、两年留存策略 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
 | next_action | 设计签名密钥托管、异步分片与留存策略后继续 |
-| verification_command | `pnpm e2e:sync` |
+| verification_command | `pnpm e2e:logs`, `pnpm e2e:sync` |
 
 #### REQ-5.1.3 日志检索
 
 | 字段 | 值 |
 |---|---|
 | requirement_text | 日志检索 (关键字/错误码/任务类型) |
-| module | — |
+| module | `app/api/logs/route.ts` |
 | priority | P1 |
 | current_status | **partial** |
-| implemented_files | `app/logs/page.tsx` |
-| related_api | `GET /api/sync/logs` |
-| related_db_tables | `sync_*_log` |
+| implemented_files | `app/api/logs/route.ts`, `app/logs/page.tsx` |
+| related_api | `GET /api/logs` |
+| related_db_tables | `sync_package_log`, `sync_table_log`, `sync_scheduler_log`, `sync_consistency_log`, `control_command`, `audit_log` |
 | ui_pages | `/logs` |
-| backend_reality | ⚠️ 表格 + 基础筛选, 无模糊匹配 |
-| ui_reality | ⚠️ 基础筛选可用 |
-| mock_or_simulator | — |
+| backend_reality | ✅ R.12 整合 6 类日志检索, 支持 type/siteCode/status/keyword/dateFrom/dateTo 筛选, 模糊匹配 batchId/commandNo/siteCode/actor 等 |
+| ui_reality | ✅ `/logs` 6 Tab + 4 筛选 (debounce 500ms) + dataSource 显式 Badge |
+| mock_or_simulator | — (无 mock fallback, error 状态显式处理) |
 | blocker_type | `not_started` |
-| missing_parts | 模糊匹配 API + UI 输入 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
 | next_action | 后续 Sprint |

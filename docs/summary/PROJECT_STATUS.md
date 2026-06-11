@@ -1,8 +1,61 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.11D 完成 (Settings 多站点真实集成)
+> **Sprint**: Sprint R.12 完成 (/logs 真实日志检索与导出)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.12 — /logs 真实日志检索与导出 (2026-06-11 完成)
+
+> **范围**: /logs 页面 + /api/logs 整合 6 类日志, 不接 ClickHouse / 不伪造系统日志 / 不写 secret
+> **结论**: 实现层从 mock 转为真实数据库, REQ-5.1.2/5.1.3 partial 强化, 完成率 13.3% 不变
+
+### 改造
+
+| 原 (R.12 之前) | 现 (R.12) |
+|---|---|
+| `import { auditLogs } from "@/lib/mock/audit"` | 移除, 改 `fetch /api/logs` |
+| 7 个 mock Tab (operations/security/system/task/compliance/alerts/login) | 6 个真实 Tab (sync_package/sync_table/sync_scheduler/sync_consistency/control/audit) |
+| 8 个 mock 字段筛选 | 4 个真实筛选 (siteCode/status/keyword/dateFrom-dateTo, debounce 500ms) |
+| `handleExport` 1.5s setTimeout 假下载 | `fetch /api/logs/export` 真实下载, 含 SHA-256 显示 |
+| `handleVerifySignature` 假证书 | 按钮改名 "数字签名校验 (未接入)" + toast 提示 |
+| 硬编码 `auditStats` | `useMemo` 从真实数据派生 |
+| `useLoginAuditStore` 客户端 zustand | 完全移除, 改 amber banner 显式 blocked_by_auth |
+
+### 新增 API
+- `GET /api/logs` (~340 行): 整合 6 类日志, 6 筛选, 显式 dataSource
+- `GET /api/logs/export` (~280 行): CSV/JSON, 真实数据库, SHA-256 完整性摘要, x-record-count 头
+
+### 支持日志类型 (6 类)
+1. sync_package_log (R.2D.4)
+2. sync_table_log (R.2D.4)
+3. sync_scheduler_log (R.8)
+4. sync_consistency_log (R.7)
+5. control_command (R.4)
+6. audit_log (既有)
+
+### 阻塞显式
+- 登录流水 → blocked_by_auth (依赖 ADFS)
+- 数字签名 → 需证书/私钥托管 (R.1 §7 禁止伪造)
+- Excel → 仍缺 (R.11B 已记)
+
+### 7 项验证 (全绿)
+- tsc: 0 错 / build: 成功 / smoke: passed
+- check:sync-consistency SH01: 7/7 matched
+- baseline:check: 13/13
+- e2e:logs: **37/37** (R.12 新增)
+- e2e:all: 全过 (含 logs)
+
+### 详情
+- `docs/database-analysis/sprint-r.12-requirements-review.md`
+- `scripts/e2e/test-logs.ts`
+
+### 下一 Sprint (R.13 候选)
+- Excel (xlsx) 导出 (R.11B/R.12 缺)
+- 数字签名密钥托管方案
+- 登录审计 (依赖 ADFS)
+- `/api/logs` 性能: 当前每类取 50 行, 大数据场景需分页/索引优化
 
 ---
 
