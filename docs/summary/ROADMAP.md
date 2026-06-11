@@ -3,6 +3,34 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.9A /sites 页面真实化 (2026-06-11 完成)
+
+> **核心**: /sites 页面从 mockSites 切换到 /api/sites, 写操作按钮 disabled, 真实一致性校验。
+
+### 改造
+- `app/sites/page.tsx` 移除 mockSites / mockSiteProvider, 改 `fetch /api/sites`
+- 4 个 StatCard 改为 `useMemo` 派生
+- 4 个按钮: 注册/启用禁用/SSO → disabled + toast 提示; 一致性 → 真实 R.7 API
+
+### dataSource 显示
+- database / derived / empty / error 四态显式 Badge
+- 派生态: 顶部标识 + 列表标题说明 + 详情面板 amber 框
+
+### 验证
+- e2e:sites 9/9 → **22/22** (新增 13 项 R.9A 检查)
+- e2e:all 78/78 → **91/91** (其他 5 脚本不受影响)
+- 7 项基线全绿 (tsc/build/smoke/consistency/baseline/e2e:sites/e2e:all)
+
+### 需求状态
+- REQ-2.1.1 仍为 `partial` (实现层修复, 源端 blocker 不变)
+
+### 下一 Sprint (R.9B 候选)
+- `unified_site_registry` 表落库
+- 站点 CRUD + 启用/禁用联动
+- ADFS / SSO 接入 (需领导决策)
+
+---
+
 ## R.8A-1 Post-Review + 多站点架构确认 (2026-06-11 完成)
 
 > **核心**: e2e 78/78 修复 + 多站点架构结论文档化 + /sites 真实状态检查

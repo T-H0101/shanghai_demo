@@ -1,8 +1,55 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.8A-1 完成 (R.8 Post-Review + 多站点架构确认)
+> **Sprint**: Sprint R.9A 完成 (/sites 页面真实化)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.9A — /sites 页面真实化 (2026-06-11 完成)
+
+> **范围**: /sites 页面从 mockSites 切换到 /api/sites, 不新增表/API/页面
+> **结论**: 实现层从 mock 转为真实 derived, 需求层不变 (REQ-2.1.1 仍 blocked_by_source_schema)
+
+### 改造
+
+| 原 (R.8A-1 之前) | 现 (R.9A) |
+|---|---|
+| `import { sites as mockSites }` | 移除, 改 `fetch('/api/sites')` |
+| `useState<Site[]>(mockSites)` 6 站点 | `useState<Site[]>([])` + `useEffect` + 7 derived 站点 |
+| 4 个 StatCard 硬编码 siteStats | `useMemo` 从真实数据派生 |
+| `handleSync` 1.5s 假同步 | `loadSites()` 真实刷新 |
+| `handleCreateSite` 假创建 | disabled + `handleUnsupported` toast |
+| `handleToggleStatus` 假切换 | Power 按钮 disabled |
+| `handleSSO` 假跳转 | SSO 按钮 disabled (REQ-2.1.2 blocked_by_auth) |
+| `mockSiteProvider.checkConsistency` 假报告 | 真实 `GET /api/sync/consistency?siteCode=...` (R.7) |
+
+### dataSource 显示
+- `database` 绿色 / `derived` 琥珀 (含派生说明) / `empty` 灰色 / `error` 红色
+- 派生态: 顶部 Badge + 列表标题旁 "(由同步数据派生，名称/IP/联系人暂缺)" + 详情面板 amber 框
+
+### 写操作按钮禁用 (4 个)
+1. 注册新站点 → disabled + "站点登记功能未接入"
+2. 启用/禁用 (Power) → disabled + "站点启用/禁用功能未接入"
+3. SSO → disabled + "REQ-2.1.2 blocked_by_auth"
+4. 一致性校验 → **真实** (R.7 API)
+
+### 7 项验证 (全绿)
+- tsc: 0 错 / build: 成功 / smoke: passed
+- check:sync-consistency SH01: 7/7 matched
+- baseline:check: 13/13
+- e2e:sites: **22/22** (R.6 9 项 → R.9A 22 项)
+- e2e:all: **91/91** (R.8A-1 78/78 → R.9A +13)
+
+### 详情
+- `docs/database-analysis/sprint-r.9a-sites-page-real-data.md`
+- `docs/database-analysis/sprint-r.9a-requirements-review.md`
+
+### 下一 Sprint (R.9B 候选)
+- `unified_site_registry` 表落库 (R.8A-1 设计, 暂未实施)
+- 站点 CRUD API + 页面 (基于 site_registry)
+- 站点启用/禁用联动 (需 site_registry.enabled)
+- ADFS / SSO 跳转接入 (需领导决策, REQ-2.1.2)
 
 ---
 
