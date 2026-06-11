@@ -3,6 +3,17 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.10C Users 真实只读化
+
+- [x] `/api/users` 移除 mock fallback
+- [x] `/users` 改读 `unified_users`
+- [x] 移除假创建、封禁、删除、密码重置和权限同步
+- [x] Auth/RBAC 缺口显式 blocked
+- [x] `e2e:users` 纳入 `e2e:all`
+- [ ] 等真实 Auth、Site 多对多和权限模型后实现写能力
+
+---
+
 ## R.10B Settings 真实只读化
 
 - [x] 移除 Settings mock 配置和假成功事件

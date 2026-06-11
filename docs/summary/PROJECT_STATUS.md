@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.10B 完成 (Settings 真实只读化)
+> **Sprint**: Sprint R.10C 完成 (Users 真实只读化)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.10C — Users 真实只读化
+
+- `/api/users` 移除 mock fallback，中心库失败或空数据时 fail-closed。
+- `/users` 移除 mock 用户、站点、任务、权限树和全部 local state 假写操作。
+- 页面只读展示 `unified_users` 当前 4 条记录与来源字段。
+- 账号生命周期、密码重置、RBAC 和权限同步明确 `blocked_by_auth`。
+- 新增 `e2e:users` 并纳入 `e2e:all`；需求状态和完成率不虚增。
 
 ---
 

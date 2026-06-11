@@ -40,7 +40,7 @@
 - [x] 运行目标测试，确认失败。
 - [x] 将页面改为只读真实运行配置和健康状态。
 - [x] 加入 `e2e:settings` 和 `e2e:all`。
-- [ ] 运行目标测试与全量检查。
+- [x] 运行目标测试与全量检查。
 - [ ] 更新文档并提交 `feat(settings): show verified runtime config`。
 
 ### Task 3: R.10C Users 真实只读化
@@ -52,12 +52,12 @@
 - Modify: `package.json`
 - Modify: traceability/status/review docs
 
-- [ ] 写 users API 禁止 mock fallback、页面真实读取和 auth 阻塞测试。
-- [ ] 运行目标测试，确认失败。
-- [ ] API 改为 database/empty/error 三态。
-- [ ] 页面改为真实只读列表，禁用所有 auth/RBAC 写操作。
-- [ ] 加入 `e2e:users` 和 `e2e:all`。
-- [ ] 运行目标测试与全量检查。
+- [x] 写 users API 禁止 mock fallback、页面真实读取和 auth 阻塞测试。
+- [x] 运行目标测试，确认失败。
+- [x] API 改为 fail-closed，页面处理 database/empty/error 三态。
+- [x] 页面改为真实只读列表，禁用所有 auth/RBAC 写操作。
+- [x] 加入 `e2e:users` 和 `e2e:all`。
+- [x] 运行目标测试与全量检查。
 - [ ] 更新文档并提交 `feat(users): replace mock accounts with real read model`。
 
 ### Task 4: R.10D Racks API fail-closed
