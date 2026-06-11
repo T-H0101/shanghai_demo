@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { RefreshCw, Search, Send, Filter, Terminal } from "lucide-react"
+import { RefreshCw, Search, Send, Filter, Terminal, AlertTriangle } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
 import { cn } from "@/lib/utils"
 
@@ -142,14 +142,24 @@ function ControlContent() {
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <PageHeader
           title="控制命令"
-          description={`Sprint 4.5: control_command 队列 · ${siteCode ?? "All Sites"}`}
+          description={`Sprint 4.5: control_command 队列 · ${siteCode ?? "All Sites"} · 站点 app 消费待确认 (R.1 §6 blocked_by_site_change)`}
           actions={
-            <Button onClick={load} variant="outline" size="sm" disabled={loading}>
+            <Button onClick={load} variant="outline" size="sm" disabled={loading} data-testid="control-refresh">
               <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
               刷新
             </Button>
           }
         />
+
+        {/* R.14F: 顶部 blocker 显式说明 — 无站点 app 消费 evidence */}
+        <Card className="gap-0 border-amber-200 bg-amber-50" data-testid="control-blocker-banner">
+          <CardContent className="p-3 flex gap-2 items-center text-sm">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+            <span className="text-amber-900">
+              control_command 框架已完成 (audit + simulator), 站点 app 是否消费 (poll/ack) 暂无 evidence (REQ-4.2.* blocked_by_site_change)
+            </span>
+          </CardContent>
+        </Card>
 
         {/* 顶部统计 */}
         <div className="grid gap-4 md:grid-cols-5">

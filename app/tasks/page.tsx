@@ -240,7 +240,7 @@ function TasksPageContent() {
     await taskProvider.completeTask(task.id)
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "completed", status: "completed" as const, progress: 100 } : t))
     if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "completed", status: "completed" as const, progress: 100 } : null)
-    toast({ title: "任务已完成", description: `「${task.name}」已标记为完成` })
+    toast({ title: "任务已标记完成", description: `「${task.name}」状态已更新 (前端标记, 未提交 control_command)` })
   }
 
   const handleFail = async (task: TaskItem, e?: React.MouseEvent) => {
@@ -331,7 +331,7 @@ function TasksPageContent() {
       setSelected(newTask)
       setShowCreate(false)
       setCreateForm({})
-      toast({ title: "任务创建成功", description: `「${newTask.name}」已创建${createForm.packagingThreads?.length ? `，使用 ${createForm.packagingThreads.length} 线程封包` : ""}` })
+      toast({ title: "任务已记录到控制队列", description: `「${newTask.name}」已通过 control_command 创建 (audit 提交, 站点执行待确认)` })
     } catch {
       toast({ title: "创建失败", variant: "destructive" })
     }
@@ -513,9 +513,9 @@ function TasksPageContent() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
                       {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
-                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="暂停" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)}><Pause className="h-3.5 w-3.5" /></Button>}
-                      {t.phase === "paused" && <Button variant="ghost" size="icon" className="h-7 w-7" title="恢复" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)}><Play className="h-3.5 w-3.5" /></Button>}
-                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置" onClick={e => handleControlCommand(t, "task_reset", "重置", e)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
+                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="暂停" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)}><Pause className="h-3.5 w-3.5" /></Button>}
+                      {t.phase === "paused" && <Button variant="ghost" size="icon" className="h-7 w-7" title="恢复" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)}><Play className="h-3.5 w-3.5" /></Button>}
+                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置" data-testid="task-row-reset" onClick={e => handleControlCommand(t, "task_reset", "重置", e)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="导出" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
