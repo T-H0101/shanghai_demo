@@ -734,19 +734,19 @@
 | module | `app/api/racks/route.ts`, `app/api/racks/export/route.ts`, `lib/api/api-providers.ts` |
 | priority | P1 |
 | current_status | **partial** |
-| implemented_files | `app/api/racks/route.ts`, `app/api/racks/export/route.ts`, `app/racks/page.tsx`, `lib/api/api-providers.ts` |
-| related_api | `GET /api/racks`, `GET /api/racks/export` |
+| implemented_files | `app/api/racks/route.ts`, `app/api/racks/export/route.ts`, `app/racks/page.tsx`, `lib/api/api-providers.ts`, `lib/export/*` (R.13 框架) |
+| related_api | `GET /api/racks`, `GET /api/racks/export` (R.13 三格式 csv/json/xlsx) |
 | related_db_tables | `unified_devices` |
 | ui_pages | `/racks` |
-| backend_reality | ✅ `unified_devices` 当前 13 台；SH01 4 台；R.11A 支持真实 CSV、站点/状态过滤、记录数与 SHA-256 摘要 |
-| ui_reality | ⚠️ 列表与详情读取真实 API；失败/空数据显式 error/empty；导出按钮下载真实附件 |
-| mock_or_simulator | API 模式列表和统计已移除 mock fallback |
+| backend_reality | ✅ `unified_devices` 当前 13 台；SH01 4 台；R.11A 支持真实 CSV、站点/状态过滤、记录数与 SHA-256 摘要；R.13 升级到统一框架, 增加 JSON + XLSX(501) + sanitize + audit_log 落库 |
+| ui_reality | ⚠️ 列表与详情读取真实 API；失败/空数据显式 error/empty；R.13 新增 format 下拉 (CSV/JSON/XLSX); XLSX 显式 "未接入" toast |
+| mock_or_simulator | API 模式列表/统计/导出均无 mock; XLSX 不伪造 |
 | blocker_type | `blocked_by_auth` |
-| missing_parts | Auth/RBAC 与站点权限过滤尚未接入 |
+| missing_parts | Auth/RBAC 与站点权限过滤尚未接入; XLSX 真实实现待依赖审批 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
 | next_action | Auth/RBAC 可用后补导出权限过滤与审计 |
-| verification_command | `pnpm e2e:racks` |
+| verification_command | `pnpm e2e:racks`, `pnpm e2e:exports` |
 
 ### 2.5 §5 辅助保障 (5 项)
 
@@ -780,19 +780,19 @@
 | module | — |
 | priority | P2 |
 | current_status | **partial** |
-| implemented_files | `app/api/sync/export/route.ts`, `app/api/logs/export/route.ts`, `app/sync/page.tsx`, `app/logs/page.tsx` |
-| related_api | `GET /api/sync/export`, `GET /api/logs/export` |
-| related_db_tables | `sync_package_log`, `sync_table_log`, `sync_scheduler_log`, `sync_consistency_log`, `control_command`, `audit_log` |
-| ui_pages | `/sync`, `/logs` |
-| backend_reality | ✅ R.11B 四类日志真实导出 (sync_export); R.12 新增六类日志整合导出 (logs/export), CSV/JSON/记录数/SHA-256 摘要; 数字签名仅做 SHA-256 摘要, 不冒充证书签名 |
-| ui_reality | ✅ `/sync` 可选四类日志下载 CSV; `/logs` 接 `/api/logs/export` 真实下载, 含 SHA-256 显示 |
-| mock_or_simulator | 导出 API 与两处 UI 事件均无 mock; DRY_RUN/skipped 日志保持透明 |
-| blocker_type | `not_started` |
-| missing_parts | Excel、证书/私钥数字签名 (R.1 §7 禁止假签名)、大数据分片/异步导出、两年留存策略 |
+| implemented_files | `app/api/sync/export/route.ts`, `app/api/logs/export/route.ts`, `app/api/racks/export/route.ts`, `app/api/users/export/route.ts`, `lib/export/*` (R.13 框架), `app/sync/page.tsx`, `app/logs/page.tsx`, `app/racks/page.tsx`, `app/users/page.tsx` |
+| related_api | `GET /api/sync/export`, `GET /api/logs/export`, `GET /api/racks/export`, `GET /api/users/export` |
+| related_db_tables | `sync_package_log`, `sync_table_log`, `sync_scheduler_log`, `sync_consistency_log`, `control_command`, `audit_log`, `unified_devices`, `unified_users` |
+| ui_pages | `/sync`, `/logs`, `/racks`, `/users` |
+| backend_reality | ✅ R.13 统一导出框架 `lib/export/` 落地: CSV (RFC 4180 CRLF) + JSON (稳定 schema) + SHA-256 摘要 (非证书签名) + sanitize 黑名单 (字段+值 regex) + audit_log 真实落库 (action='export', actor='system'); 4 端点全部 refactor 接框架, 头部兼容新旧两套; XLSX 显式 HTTP 501 + `code=not_implemented` (无 xlsx/exceljs 依赖, blocked_by_dependency_policy); 数字签名仍仅 SHA-256 摘要, 不冒充证书签名 |
+| ui_reality | ✅ 4 页面统一接入 format 下拉 (csv/json/xlsx); toast "导出完成 + SHA-256 摘要已生成"; XLSX 按钮显式 "未接入" + 501 toast 提示; e2e:exports 173/173 含审计真实写入校验 (before=22 → after=23) + 14 项 secret/password/database_url 0 命中 |
+| mock_or_simulator | 4 端点 + 4 页面 0 mock; XLSX 不伪造 (R.1 §7); SHA-256 不冒充签名 |
+| blocker_type | `partial: blocked_by_dependency_policy` (XLSX) + `not_started` (数字签名、大文件分片、两年留存) |
+| missing_parts | Excel (无 xlsx 依赖, 需领导批准引入)、证书/私钥数字签名 (R.1 §7 禁假)、大文件分片/异步导出、两年留存策略 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | 设计签名密钥托管、异步分片与留存策略后继续 |
-| verification_command | `pnpm e2e:logs`, `pnpm e2e:sync` |
+| next_action | (1) 引 exceljs 依赖落 XLSX (需决策); (2) 设计签名密钥托管; (3) 异步分片导出 |
+| verification_command | `pnpm e2e:exports`, `pnpm e2e:logs`, `pnpm e2e:sync`, `pnpm e2e:racks` |
 
 #### REQ-5.1.3 日志检索
 

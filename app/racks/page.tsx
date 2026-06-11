@@ -94,6 +94,7 @@ export default function Page() {
   const [keyword, setKeyword] = useState("")
   const [syncing, setSyncing] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportFormat, setExportFormat] = useState<"csv" | "json" | "xlsx">("csv")
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -480,14 +481,22 @@ export default function Page() {
   const handleExport = async () => {
     setExporting(true)
     try {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ format: exportFormat })
       if (!isAllSites && siteCode) params.set("siteCode", siteCode)
       const response = await fetch(`/api/racks/export?${params.toString()}`)
+      if (response.status === 501) {
+        const body = await response.json().catch(() => null)
+        const msg = body?.message ?? "Excel 暂未接入, 请选择 CSV 或 JSON"
+        toast({ title: "导出格式暂未接入", description: msg, variant: "destructive" })
+        return
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
+      const sha256 = response.headers.get("x-sha256") ?? ""
+      const recordCount = response.headers.get("x-record-count") ?? "0"
       const blob = await response.blob()
       const disposition = response.headers.get("content-disposition") ?? ""
-      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "devices.csv"
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `devices.${exportFormat}`
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement("a")
       anchor.href = url
@@ -498,8 +507,8 @@ export default function Page() {
       URL.revokeObjectURL(url)
 
       toast({
-        title: "设备数据已导出",
-        description: `${response.headers.get("x-export-record-count") ?? "0"} 条真实设备记录`,
+        title: "导出完成",
+        description: `${recordCount} 条真实设备记录, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
       })
     } catch {
       toast({
@@ -677,6 +686,16 @@ export default function Page() {
             <Button variant="outline" size="sm" className="h-8" onClick={() => setShowMount(true)}>
               <Plug className="h-4 w-4 mr-1" />挂载网盘
             </Button>
+            <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as typeof exportFormat)}>
+              <SelectTrigger className="h-8 w-[100px]" data-testid="racks-export-format">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="xlsx">XLSX (未接入)</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               size="sm"
@@ -685,7 +704,7 @@ export default function Page() {
               disabled={exporting || racksDataSource === "error"}
               data-testid="racks-export"
             >
-              <Download className="h-4 w-4 mr-1" />{exporting ? "导出中" : "导出"}
+              <Download className="h-4 w-4 mr-1" />{exporting ? "导出中" : `导出 ${exportFormat.toUpperCase()}`}
             </Button>
             <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSync} disabled={syncing}>
               <RefreshCw className={cn("h-4 w-4 mr-1", syncing && "animate-spin")} />同步

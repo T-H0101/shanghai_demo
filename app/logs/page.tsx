@@ -188,7 +188,7 @@ export default function Page() {
   }, [siteCode, status, keyword, dateFrom, dateTo])
 
   // 真实导出 (走 /api/logs/export)
-  const handleExport = async (format: "csv" | "json") => {
+  const handleExport = async (format: "csv" | "json" | "xlsx") => {
     if (items.length === 0) {
       toast({ title: "无数据可导出", description: "请先调整检索条件获取日志", variant: "destructive" })
       return
@@ -205,6 +205,12 @@ export default function Page() {
       if (dateFrom) sp.set("dateFrom", dateFrom)
       if (dateTo) sp.set("dateTo", dateTo)
       const res = await fetch(`/api/logs/export?${sp.toString()}`)
+      if (res.status === 501) {
+        const body = await res.json().catch(() => null)
+        const msg = body?.message ?? "Excel 暂未接入, 请选择 CSV 或 JSON"
+        toast({ title: "导出格式暂未接入", description: msg, variant: "destructive" })
+        return
+      }
       if (!res.ok) {
         const txt = await res.text().catch(() => "")
         throw new Error(`HTTP ${res.status}${txt ? `: ${txt.slice(0, 100)}` : ""}`)
@@ -309,6 +315,18 @@ export default function Page() {
             >
               {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
               JSON
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => handleExport("xlsx")}
+              disabled={exporting || items.length === 0}
+              data-testid="logs-export-xlsx"
+              title="Excel 当前未接入 (blocked_by_dependency_policy), 点击会提示"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              XLSX (未接入)
             </Button>
           </div>
         }

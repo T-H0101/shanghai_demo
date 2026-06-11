@@ -165,6 +165,7 @@ export default function SyncCenterPage() {
   const [siteSyncStatuses, setSiteSyncStatuses] = useState<SiteSyncStatus[]>([])
   const [siteStatusNote, setSiteStatusNote] = useState("")
   const [exportKind, setExportKind] = useState<'package' | 'table' | 'scheduler' | 'consistency'>('package')
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'xlsx'>('csv')
   const [exporting, setExporting] = useState(false)
 
   // Sprint 2F.4: 全局 siteCode
@@ -328,15 +329,23 @@ export default function SyncCenterPage() {
   const handleExport = async () => {
     setExporting(true)
     try {
-      const sp = new URLSearchParams({ kind: exportKind, format: 'csv' })
+      const sp = new URLSearchParams({ kind: exportKind, format: exportFormat })
       const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
       if (effectiveSiteCode) sp.set('siteCode', effectiveSiteCode)
       const response = await fetch(`/api/sync/export?${sp.toString()}`)
+      if (response.status === 501) {
+        const body = await response.json().catch(() => null)
+        const msg = body?.message ?? 'Excel 暂未接入, 请选择 CSV 或 JSON'
+        toast({ title: '导出格式暂未接入', description: msg, variant: 'destructive' })
+        return
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
+      const sha256 = response.headers.get('x-sha256') ?? ''
+      const recordCount = response.headers.get('x-record-count') ?? '0'
       const blob = await response.blob()
       const disposition = response.headers.get('content-disposition') ?? ''
-      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `sync-${exportKind}.csv`
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `sync-${exportKind}.${exportFormat}`
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
@@ -347,8 +356,8 @@ export default function SyncCenterPage() {
       URL.revokeObjectURL(url)
 
       toast({
-        title: '同步日志已导出',
-        description: `${response.headers.get('x-export-record-count') ?? '0'} 条真实记录`,
+        title: '导出完成',
+        description: `${recordCount} 条真实记录, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
       })
     } catch {
       toast({
@@ -382,6 +391,16 @@ export default function SyncCenterPage() {
                   <SelectItem value="consistency">一致性日志</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as typeof exportFormat)}>
+                <SelectTrigger className="h-8 w-[100px]" data-testid="sync-export-format">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="json">JSON</SelectItem>
+                  <SelectItem value="xlsx">XLSX (未接入)</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 variant="outline"
                 size="sm"
@@ -391,7 +410,7 @@ export default function SyncCenterPage() {
                 data-testid="sync-export"
               >
                 <Download className="mr-1 h-4 w-4" />
-                {exporting ? '导出中' : '导出 CSV'}
+                {exporting ? '导出中' : `导出 ${exportFormat.toUpperCase()}`}
               </Button>
             </div>
           }

@@ -1,6 +1,8 @@
-import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { buildExport } from "@/lib/export"
+import { toNextResponse } from "@/lib/export/next-response"
+import { recordExport } from "@/lib/export/audit"
 
 export const dynamic = "force-dynamic"
 
@@ -87,28 +89,25 @@ const EXPORT_DEFINITIONS = {
 } as const
 
 type ExportKind = keyof typeof EXPORT_DEFINITIONS
-type ExportFormat = "csv" | "json"
+const ALLOWED_FORMATS = ["csv", "json", "xlsx"] as const
+type ExportFormat = (typeof ALLOWED_FORMATS)[number]
 
 function isExportKind(value: string): value is ExportKind {
   return value in EXPORT_DEFINITIONS
 }
 
-function csvCell(value: unknown): string {
-  if (value == null) return ""
-  const text = typeof value === "object" ? JSON.stringify(value) : String(value)
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
-}
+interface AnyRow extends Record<string, unknown> {}
 
 export async function GET(request: NextRequest) {
   const kindValue = request.nextUrl.searchParams.get("kind") ?? ""
-  const formatValue = request.nextUrl.searchParams.get("format") ?? "csv"
+  const formatValue = (request.nextUrl.searchParams.get("format") ?? "csv").toLowerCase()
 
-  if (!isExportKind(kindValue) || !["csv", "json"].includes(formatValue)) {
+  if (!isExportKind(kindValue) || !ALLOWED_FORMATS.includes(formatValue as ExportFormat)) {
     return NextResponse.json(
       {
         code: 400,
-        message: "kind must be package/table/scheduler/consistency and format must be csv/json",
-        source: "validation",
+        message: "kind must be package/table/scheduler/consistency and format must be csv/json/xlsx",
+        dataSource: "validation",
       },
       { status: 400 }
     )
@@ -123,7 +122,7 @@ export async function GET(request: NextRequest) {
   if (siteCode) params.push(siteCode)
 
   try {
-    const result = await query<Record<string, unknown>>(
+    const result = await query<AnyRow>(
       `SELECT ${definition.columns.join(", ")}
        FROM ${definition.source}
        ${whereClause}
@@ -132,46 +131,32 @@ export async function GET(request: NextRequest) {
       params
     )
 
-    const body = format === "json"
-      ? JSON.stringify({
-          kind,
-          source: definition.source,
-          siteCode: siteCode || null,
-          data: result.rows,
-        })
-      : [
-          definition.columns.join(","),
-          ...result.rows.map((row) =>
-            definition.columns.map((column) => csvCell(row[column])).join(",")
-          ),
-        ].join("\r\n")
-    const digest = createHash("sha256").update(body, "utf8").digest("hex")
-    const scope = siteCode || "all-sites"
-    const filename = `sync-${kind}-${scope}-${new Date().toISOString().slice(0, 10)}.${format}`
-
-    return new NextResponse(body, {
-      status: 200,
-      headers: {
-        "Content-Type": format === "json"
-          ? "application/json; charset=utf-8"
-          : "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
-        "X-Data-Source": definition.source,
-        "X-Export-Kind": kind,
-        "X-Export-Record-Count": String(result.rows.length),
-        "X-Content-SHA256": digest,
-      },
+    const exportResult = buildExport<AnyRow>({
+      exportType: `sync_${kind}`,
+      dataSource: definition.source,
+      format,
+      columns: [...definition.columns] as Array<keyof AnyRow & string>,
+      rows: result.rows,
+      siteCode: siteCode || null,
+      filters: { kind },
+      filenamePrefix: `sync-${kind}`,
     })
+
+    if (exportResult.code === "ok") {
+      await recordExport(exportResult.manifest)
+    }
+
+    // R.13 兼容: 旧 e2e (test-sync) 检查 x-export-kind=kind (短名: package/table/...)
+    // 框架默认 x-export-kind = exportType = "sync_package", 这里改回短名
+    const res = toNextResponse(exportResult)
+    if (exportResult.code === "ok") {
+      res.headers.set("x-export-kind", kind)
+    }
+    return res
   } catch (error) {
     console.error("[API Error] /api/sync/export:", error)
     return NextResponse.json(
-      {
-        code: 500,
-        message: "Internal server error",
-        source: "error",
-        traceId: `api-${Date.now()}`,
-      },
+      { code: 500, message: "Internal server error", dataSource: "error", traceId: `api-${Date.now()}` },
       { status: 500 }
     )
   }

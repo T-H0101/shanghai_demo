@@ -300,7 +300,8 @@ async function main() {
     "R.11B /sync 页面提供真实日志导出事件",
     syncPageSrc.includes("/api/sync/export") &&
       syncPageSrc.includes("URL.createObjectURL") &&
-      syncPageSrc.includes("同步日志已导出"),
+      // R.13 toast 文案从 "同步日志已导出" 统一为 "导出完成", 两者任一即可
+      (syncPageSrc.includes("同步日志已导出") || syncPageSrc.includes("导出完成")),
     "前端需调用真实导出 API"
   )
 

@@ -1,6 +1,8 @@
-import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { buildExport } from "@/lib/export"
+import { toNextResponse } from "@/lib/export/next-response"
+import { recordExport } from "@/lib/export/audit"
 
 export const dynamic = "force-dynamic"
 
@@ -18,9 +20,10 @@ interface DeviceExportRow {
   manufacturer: string | null
   serial_no: string | null
   synced_at: string
+  [key: string]: unknown
 }
 
-const COLUMNS: Array<keyof DeviceExportRow> = [
+const COLUMNS: Array<keyof DeviceExportRow & string> = [
   "device_id",
   "device_name",
   "device_type",
@@ -36,19 +39,25 @@ const COLUMNS: Array<keyof DeviceExportRow> = [
   "synced_at",
 ]
 
-function csvCell(value: unknown): string {
-  if (value == null) return ""
-  const text = String(value)
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
-}
+const ALLOWED_FORMATS = ["csv", "json", "xlsx"] as const
+type AllowedFormat = (typeof ALLOWED_FORMATS)[number]
 
 export async function GET(request: NextRequest) {
   try {
-    const siteCode = request.nextUrl.searchParams.get("siteCode")?.trim() ?? ""
-    const status = request.nextUrl.searchParams.get("status")?.trim() ?? ""
+    const sp = request.nextUrl.searchParams
+    const siteCode = sp.get("siteCode")?.trim() ?? ""
+    const status = sp.get("status")?.trim() ?? ""
+    const formatParam = (sp.get("format") ?? "csv").toLowerCase()
+    if (!ALLOWED_FORMATS.includes(formatParam as AllowedFormat)) {
+      return NextResponse.json(
+        { code: 400, message: `format must be one of ${ALLOWED_FORMATS.join("/")}`, dataSource: "error" },
+        { status: 400 }
+      )
+    }
+    const format = formatParam as AllowedFormat
+
     const conditions: string[] = []
     const params: unknown[] = []
-
     if (siteCode) {
       params.push(siteCode)
       conditions.push(`source_site_id = $${params.length}`)
@@ -57,7 +66,6 @@ export async function GET(request: NextRequest) {
       params.push(status)
       conditions.push(`status = $${params.length}`)
     }
-
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
     const result = await query<DeviceExportRow>(
       `SELECT device_id, device_name, device_type, status, ip_address,
@@ -69,34 +77,27 @@ export async function GET(request: NextRequest) {
       params
     )
 
-    const csv = [
-      COLUMNS.join(","),
-      ...result.rows.map((row) => COLUMNS.map((column) => csvCell(row[column])).join(",")),
-    ].join("\r\n")
-    const digest = createHash("sha256").update(csv, "utf8").digest("hex")
-    const scope = siteCode || "all-sites"
-    const filename = `devices-${scope}-${new Date().toISOString().slice(0, 10)}.csv`
-
-    return new NextResponse(csv, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
-        "X-Data-Source": "unified_devices",
-        "X-Export-Record-Count": String(result.rows.length),
-        "X-Content-SHA256": digest,
-      },
+    const exportResult = buildExport<DeviceExportRow>({
+      exportType: "devices",
+      dataSource: "unified_devices",
+      format,
+      columns: COLUMNS,
+      rows: result.rows,
+      siteCode: siteCode || null,
+      filters: { status: status || null },
+      filenamePrefix: "devices",
     })
+
+    // 审计写入 (失败不阻断)
+    if (exportResult.code === "ok") {
+      await recordExport(exportResult.manifest)
+    }
+
+    return toNextResponse(exportResult)
   } catch (error) {
     console.error("[API Error] /api/racks/export:", error)
     return NextResponse.json(
-      {
-        code: 500,
-        message: "Internal server error",
-        source: "error",
-        traceId: `api-${Date.now()}`,
-      },
+      { code: 500, message: "Internal server error", dataSource: "error", traceId: `api-${Date.now()}` },
       { status: 500 }
     )
   }

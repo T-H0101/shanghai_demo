@@ -1,14 +1,17 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { AlertTriangle, Database, ShieldAlert, UserRound, Users } from "lucide-react"
+import { AlertTriangle, Database, Download, ShieldAlert, UserRound, Users } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "@/hooks/use-toast"
 
 interface UserRecord {
   id: string
@@ -33,6 +36,50 @@ export default function Page() {
   const [selected, setSelected] = useState<UserRecord | null>(null)
   const [dataSource, setDataSource] = useState<DataSource>("empty")
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportFormat, setExportFormat] = useState<"csv" | "json" | "xlsx">("csv")
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const sp = new URLSearchParams({ format: exportFormat })
+      const response = await fetch(`/api/users/export?${sp.toString()}`)
+      if (response.status === 501) {
+        const body = await response.json().catch(() => null)
+        const msg = body?.message ?? "Excel 暂未接入, 请选择 CSV 或 JSON"
+        toast({ title: "导出格式暂未接入", description: msg, variant: "destructive" })
+        return
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+      const sha256 = response.headers.get("x-sha256") ?? ""
+      const recordCount = response.headers.get("x-record-count") ?? "0"
+      const blob = await response.blob()
+      const disposition = response.headers.get("content-disposition") ?? ""
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `users.${exportFormat}`
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: "导出完成",
+        description: `${recordCount} 条真实账号, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
+      })
+    } catch {
+      toast({
+        title: "账号导出失败",
+        description: "未生成本地替代数据，请检查中心库连接后重试。",
+        variant: "destructive",
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -81,6 +128,31 @@ export default function Page() {
         title="用户与权限"
         description="中心库账号只读视图；认证、生命周期与权限分配尚未接入"
         badge={dataSource === "database" ? "DATABASE" : dataSource.toUpperCase()}
+        actions={
+          <div className="flex items-center gap-2">
+            <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as typeof exportFormat)}>
+              <SelectTrigger className="h-8 w-[100px]" data-testid="users-export-format">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="xlsx">XLSX (未接入)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => void handleExport()}
+              disabled={exporting || dataSource === "error"}
+              data-testid="users-export"
+            >
+              <Download className="mr-1 h-4 w-4" />
+              {exporting ? "导出中" : `导出 ${exportFormat.toUpperCase()}`}
+            </Button>
+          </div>
+        }
       />
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

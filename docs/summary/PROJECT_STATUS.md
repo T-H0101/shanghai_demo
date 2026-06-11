@@ -1,8 +1,78 @@
 # Project Status
 
-> **截至**: 2026-06-11
-> **Sprint**: Sprint R.12 完成 (/logs 真实日志检索与导出)
+> **截至**: 2026-06-12
+> **Sprint**: Sprint R.13 完成 (统一导出框架)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.13 — 统一导出框架 (2026-06-12 完成)
+
+> **范围**: lib/export 抽象 + 4 端点接框架 + /api/users/export 新增 + audit_log 落库 + 4 页面 format 下拉
+> **结论**: 3 套不一致 csvEscape/header 收敛为单一框架, secret 双层 sanitize, XLSX 显式 partial: blocked_by_dependency_policy, 完成率 13.3% 不变
+
+### 框架 (lib/export/)
+
+| 文件 | 行数 | 职责 |
+|---|---|---|
+| index.ts | ~120 | buildExport 入口 + exportHeaders |
+| csv.ts | ~30 | RFC 4180 CSV CRLF |
+| json.ts | ~40 | 稳定 JSON schema |
+| xlsx.ts | ~40 | 显式 not_implemented |
+| sha256.ts | ~12 | 完整性摘要 (非签名) |
+| manifest.ts | ~40 | ExportManifest 构建 |
+| sanitize.ts | ~80 | 字段 + 值黑名单 |
+| audit.ts | ~40 | recordExport → audit_log |
+| next-response.ts | ~30 | NextResponse 适配器 |
+| **合计** | **~430** | 单一框架 |
+
+### 端点改造 / 新增
+
+| 端点 | 状态 | 说明 |
+|---|---|---|
+| /api/racks/export | refactor 104→90 行 | csv/json/xlsx + sanitize + audit |
+| /api/sync/export | refactor 178→130 行 | 4 kind 保留, 框架接管 CSV/JSON 主体 |
+| /api/logs/export | refactor 267→220 行 | 6 类查询保留, 主体走框架 + xlsx 501 |
+| **/api/users/export** | **新增 ~130 行** | unified_users 白名单 13 列, 不导 raw_data |
+
+### 前端 (4 页面接入)
+- /sync: sync-export-format Select 下拉 (csv/json/xlsx)
+- /racks: racks-export-format Select 下拉
+- /users: PageHeader actions 新增 export 按钮 + 下拉
+- /logs: XLSX 第三按钮, 501 toast 提示
+
+### 审计 (audit_log 落库)
+- 复用现有表, 不新建
+- action='export', actor='system' (ADFS 未接入), result='success'
+- after_json = 完整 ExportManifest (含 sha256, dataSource, filters)
+- 失败仅 warn, 不阻断导出本身
+
+### XLSX 决策: blocked_by_dependency_policy
+- 项目无 xlsx/exceljs 依赖 (~700KB-1.1MB)
+- CLAUDE.md 禁无关重依赖, 需领导决策
+- R.1 §7 禁伪造 → 不能用 .xlsx 文件名包 CSV
+- HTTP 501 + 显式 message, 前端 toast "导出格式暂未接入"
+
+### Secret Sanitize (双层)
+- 字段名黑名单: password/secret/token/api_key/database_url 等 15 类 (子串)
+- 值 regex 黑名单: postgres://user:pwd@ / Bearer / sk- / xoxb- 等 5 类
+- e2e 实测: 7 端点 × CSV+JSON = 14 项检查全 0 命中
+
+### 头部兼容 (R.13 同时输出新旧两套)
+- 新 (R.13 统一): x-sha256 / x-record-count / x-export-type / x-export-format / x-manifest
+- 旧 (兼容): x-content-sha256 / x-export-record-count / x-export-kind
+- 旧 e2e (test-racks/test-sync) 无需修改
+
+### 验证 (10 项全过)
+- tsc 0 错 / build 成功 / smoke / consistency 7/7 / baseline 13/13
+- **e2e:exports 173/173** (R.13 新增)
+- e2e:logs 37/37 / e2e:sync / e2e:racks / e2e:all 全过
+
+### 下一 Sprint (R.14 候选)
+- 引 exceljs 真实 XLSX (需领导批准依赖)
+- /api/logs/export 大文件分片 / 异步导出 (REQ-5.1.2 要求)
+- 用 audit_log 反查"谁导了什么" UI 面板
+- 嵌套 JSON 字段深度 sanitize
 
 ---
 

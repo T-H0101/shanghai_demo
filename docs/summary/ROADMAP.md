@@ -1,7 +1,38 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-11
+> 截至: 2026-06-12
+
+## R.13 统一导出框架 (2026-06-12 完成)
+
+> **核心**: lib/export 单一框架收敛 3 套不一致 CSV/header 实现, 新增 users 导出, audit_log 落库, secret 双层 sanitize, XLSX 显式 partial: blocked_by_dependency_policy。
+
+### 改造
+- `lib/export/` 9 文件 ~430 行 (index/csv/json/xlsx/sha256/manifest/sanitize/audit/next-response)
+- 重构 3 端点: racks/export (104→90), sync/export (178→130), logs/export (267→220)
+- 新增 `/api/users/export` (~130 行, unified_users 白名单 13 列)
+- 4 页面接 format 下拉 (logs/sync/racks/users), toast "导出完成 + SHA-256 摘要已生成"
+- 头部兼容: 同时输出 x-sha256/x-record-count (新) + x-content-sha256/x-export-record-count (旧)
+
+### 验证
+- e2e:exports **173/173** (R.13 新增, 7 端点 × CSV+JSON+XLSX 矩阵 + 审计 + selector + 措辞)
+- e2e:all 全过 (11 脚本含 exports)
+- 10 项基线全绿
+- audit_log 实测 +1 (before=22 → after=23)
+- secret/password/database_url 0 命中 (14 项检查)
+
+### 需求状态
+- REQ-5.1.2 (日志导出): partial 强化, XLSX 显式 blocked_by_dependency_policy
+- REQ-4.3.2 (盘笼导出): partial 强化, 3 格式
+- REQ-4.1.2 (检索导出): partial, /api/users/export 落地
+- 完成率 6/45 = **13.3%** (R.13 不升 complete)
+
+### 下一 Sprint (R.14 候选)
+- 引 exceljs 真实 XLSX (需领导批准依赖)
+- /api/logs/export 大文件分片 / 异步导出
+- audit_log "谁导了什么" 反查 UI
+
+---
 
 ## R.12 /logs 真实日志检索与导出 (2026-06-11 完成)
 
