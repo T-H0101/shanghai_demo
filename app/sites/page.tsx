@@ -235,7 +235,7 @@ export default function Page() {
         badge="SITE MGMT"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8" onClick={loadSites} disabled={loading}>
+            <Button variant="outline" size="sm" className="h-8" onClick={loadSites} disabled={loading} data-testid="sites-refresh">
               {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
               刷新
             </Button>
@@ -244,6 +244,7 @@ export default function Page() {
               className="h-8 bg-blue-600 hover:bg-blue-700"
               onClick={() => handleUnsupported("注册新站点")}
               title="站点登记功能未接入"
+              data-testid="sites-register"
             >
               注册新站点
             </Button>
@@ -463,7 +464,7 @@ export default function Page() {
               {selected.description && (
                 <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg p-3">{selected.description}</p>
               )}
-              <Button variant="outline" className="w-full h-8" size="sm" onClick={() => handleCheckConsistency(selected)} disabled={checking}>
+              <Button variant="outline" className="w-full h-8" size="sm" onClick={() => handleCheckConsistency(selected)} disabled={checking} data-testid="sites-consistency">
                 {checking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
                 数据一致性校验
               </Button>

@@ -120,7 +120,7 @@ export default function Page() {
     setVolumeFilter("")
     setPage(1)
     setSearchResults([])
-    toast({ title: "已重置筛选条件" })
+    toast({ title: "筛选条件已清空" })
   }
 
   const handleExport = () => {

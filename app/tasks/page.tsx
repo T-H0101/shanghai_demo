@@ -22,7 +22,6 @@ import {
   taskProvider,
   isApiMode,
 } from "@/lib/api"
-import { racks as mockRacks } from "@/lib/mock/racks"
 import type { TaskItem, TaskType, TaskPhase, TaskLogEntry } from "@/lib/types/task"
 import { TASK_TYPE_LABELS, TASK_PHASE_LABELS, TASK_PHASE_COLORS, TASK_PHASES_BY_TYPE } from "@/lib/types/task"
 import type { Rack } from "@/lib/types/rack"
@@ -159,6 +158,8 @@ function TasksPageContent() {
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState<Partial<TaskItem & { packagingThreads: number }>>({})
   const [tab, setTab] = useState<string>("all")
+  // R.15: 关联设备下拉改用真实 /api/racks, 替 mockRacks
+  const [rackOptions, setRackOptions] = useState<{ id: string; rackId: string; deviceType: string | null }[]>([])
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -186,6 +187,23 @@ function TasksPageContent() {
   useEffect(() => {
     if (siteReady) loadTasks()
   }, [loadTasks, siteReady])
+
+  // R.15: 拉 /api/racks 真设备列表 (替 mockRacks, 仅 showCreate 弹窗打开时拉)
+  useEffect(() => {
+    if (!showCreate || !isApiMode) return
+    const ac = new AbortController()
+    const sp = new URLSearchParams()
+    sp.set("limit", "200")
+    if (!isAllSites && siteCode) sp.set("siteCode", siteCode)
+    fetch(`/api/racks?${sp.toString()}`, { signal: ac.signal, cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        const rows = Array.isArray(json?.rows) ? json.rows : Array.isArray(json?.data) ? json.data : []
+        setRackOptions(rows.map((r: any) => ({ id: String(r.id), rackId: r.rackId ?? r.id, deviceType: r.deviceType ?? null })))
+      })
+      .catch(() => { /* ignore */ })
+    return () => ac.abort()
+  }, [showCreate, isApiMode, isAllSites, siteCode])
 
   const openDetail = (task: TaskItem) => { setSelected(task); setDrawerOpen(true) }
 
@@ -870,13 +888,19 @@ function TasksPageContent() {
             <div className="space-y-2">
               <Label>关联设备</Label>
               <Select value={createForm.deviceId ?? "__none__"} onValueChange={v => {
-                const rack = v === "__none__" ? null : mockRacks.find(r => r.id === v)
+                // R.15: 从 rackOptions 查找 (替 mockRacks.find)
+                const rack = v === "__none__" ? null : rackOptions.find(r => r.id === v)
                 setCreateForm(f => ({ ...f, deviceId: v === "__none__" ? undefined : v, rackId: v === "__none__" ? undefined : v, deviceName: rack?.rackId }))
               }}>
-                <SelectTrigger><SelectValue placeholder="选择设备（可选）" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={isApiMode ? "从 /api/racks 加载" : "选择设备（可选）"} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">不指定设备</SelectItem>
-                  {mockRacks.map(r => <SelectItem key={r.id} value={r.id}>{r.rackId}（{r.deviceType}）</SelectItem>)}
+                  {(isApiMode ? rackOptions : []).map(r => (
+                    <SelectItem key={r.id} value={r.id}>{r.rackId}（{r.deviceType ?? "—"}）</SelectItem>
+                  ))}
+                  {!isApiMode && (
+                    <SelectItem value="__demo__" disabled>非 API 模式: 此场景仅 mock 演示</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -22,7 +22,6 @@ import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMo
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
 import { useSite } from "@/lib/site/site-context"
-import { sites as mockSites } from "@/lib/mock/sites"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
 import type { TaskItem } from "@/lib/types/task"
@@ -130,12 +129,30 @@ export default function Page() {
   // 恢复提交中
   const [restoreSubmitting, setRestoreSubmitting] = useState(false)
 
+  // R.15: mountForm.siteName 改用真实 /api/sites, 不用 mockSites
+  const [siteOptions, setSiteOptions] = useState<{ code: string; name: string }[]>([])
+
   const showApiWriteUnavailable = (action: string) => {
     toast({
       title: "操作接口未接入",
       description: `当前 API 模式仅支持数据展示，暂不能${action}`,
     })
   }
+
+  // R.15: 加载 /api/sites 站点列表 (真实接口, 替 mockSites)
+  useEffect(() => {
+    if (!isApiMode) return
+    let cancelled = false
+    fetch("/api/sites", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (cancelled) return
+        const rows = Array.isArray(json?.data) ? json.data : []
+        setSiteOptions(rows.map((s: any) => ({ code: s.code ?? s.id, name: s.name ?? s.code ?? s.id })))
+      })
+      .catch(() => { /* ignore, 走 empty 兜底 */ })
+    return () => { cancelled = true }
+  }, [isApiMode])
 
   // 初始化浏览文件
   useEffect(() => {
@@ -1164,11 +1181,14 @@ export default function Page() {
             <div className="space-y-2">
               <Label>所属站点</Label>
               <Select value={mountForm.siteName ?? ""} onValueChange={v => setMountForm(f => ({ ...f, siteName: v }))}>
-                <SelectTrigger><SelectValue placeholder="选择站点" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={isApiMode ? "从 /api/sites 加载" : "选择站点"} /></SelectTrigger>
                 <SelectContent>
-                  {mockSites.map(site => (
-                    <SelectItem key={site.id} value={site.name}>{site.name}</SelectItem>
+                  {(isApiMode ? siteOptions : []).map(site => (
+                    <SelectItem key={site.code} value={site.name}>{site.name} ({site.code})</SelectItem>
                   ))}
+                  {!isApiMode && (
+                    <SelectItem value="__demo__" disabled>非 API 模式: 此场景仅 mock 演示</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

@@ -5,7 +5,7 @@
  * 对应 REQ-5.1 (日志管理): 采集 / 检索 / 导出
  *
  * 改造前 (R.12 之前):
- *   - 硬编码 `import { auditLogs } from "@/lib/mock/audit"` (R.10C 之前)
+ *   - 硬编码 `import { auditLogs } from "@/lib/mock/audit"` (R.10C 之前, R.12 已删除)
  *   - useState 直接灌入 mock 审计日志
  *   - 7 个 tab (operations / security / system / task / compliance / alerts / login)
  *   - 数字签名校验按钮 (假证书, R.1 §7 禁止)

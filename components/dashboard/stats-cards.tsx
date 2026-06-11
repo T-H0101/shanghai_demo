@@ -23,6 +23,8 @@ export function StatsCards() {
   const { siteCode, isAllSites, isReady } = useSite()
   const [taskStats, setTaskStats] = useState({ total: 0, running: 0, completed: 0, failed: 0, pending: 0 })
   const [rackStats, setRackStats] = useState({ total: 0, online: 0, offline: 0, avgUsage: 0, totalCapacity: "0 TB", remainingCapacity: "0 TB", usedSlots: 0, totalSlotsAll: 0 })
+  // R.15: dataSource 显式 (database / empty / error), 不允许 mock 静默 fallback
+  const [dataSource, setDataSource] = useState<"database" | "empty" | "error" | "loading">("loading")
 
   const loadStats = async () => {
     try {
@@ -41,7 +43,10 @@ export function StatsCards() {
         pending: tasks.filter((task) => task.phase === "pending").length,
       })
       setRackStats(rStats)
-    } catch { /* ignore */ }
+      setDataSource(tasks.length === 0 && rStats.total === 0 ? "empty" : "database")
+    } catch {
+      setDataSource("error")
+    }
   }
 
   // 首次加载 + 路由变化时重新读取
@@ -57,9 +62,16 @@ export function StatsCards() {
   }, [])
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-2">
+      {/* R.15: dataSource 显式 (R.10D 统一规范) */}
+      <div className="flex items-center gap-2 text-[10px] text-slate-500" data-testid="dashboard-stats-source">
+        <Database className="h-3 w-3" />
+        <span>dataSource: <code className="font-mono">{dataSource}</code></span>
+        {dataSource === "error" && <span className="text-red-600">中心库读取失败, 未 fallback mock</span>}
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Card 1 - 任务总数 */}
-      <Card className="p-4">
+      <Card className="p-4" data-testid="dashboard-stat-tasks">
         <div className="flex items-center gap-2 mb-3">
           <div className="p-1.5 rounded bg-blue-50">
             <Activity className="h-4 w-4 text-blue-600" />
@@ -77,7 +89,7 @@ export function StatsCards() {
       </Card>
 
       {/* Card 2 - 运行任务 */}
-      <Card className="p-4">
+      <Card className="p-4" data-testid="dashboard-stat-running">
         <div className="flex items-center gap-2 mb-3">
           <div className="p-1.5 rounded bg-emerald-50">
             <Activity className="h-4 w-4 text-emerald-600" />
@@ -94,7 +106,7 @@ export function StatsCards() {
       </Card>
 
       {/* Card 3 - 设备在线 */}
-      <Card className="p-4">
+      <Card className="p-4" data-testid="dashboard-stat-devices">
         <div className="flex items-center gap-2 mb-3">
           <div className="p-1.5 rounded bg-indigo-50">
             <HardDrive className="h-4 w-4 text-indigo-600" />
@@ -112,7 +124,7 @@ export function StatsCards() {
       </Card>
 
       {/* Card 4 - 存储使用率 */}
-      <Card className="p-4">
+      <Card className="p-4" data-testid="dashboard-stat-storage">
         <div className="flex items-center gap-2 mb-3">
           <div className="p-1.5 rounded bg-amber-50">
             <Database className="h-4 w-4 text-amber-600" />
@@ -127,6 +139,7 @@ export function StatsCards() {
           已用 {rackStats.usedSlots}/{rackStats.totalSlotsAll} 盘位
         </div>
       </Card>
+      </div>
     </div>
   )
 }

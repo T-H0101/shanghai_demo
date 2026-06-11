@@ -121,9 +121,11 @@ async function auditPage(p: PageAudit) {
 
   // 2. dataSource 显式
   const hasDataSource = DATA_SOURCE_TOKENS.some((tok) => src.includes(tok))
-  // login 页面例外 (无 dataSource 概念)
+  // login 页面例外 (无 dataSource 概念); Dashboard 容器, 子组件各自声明
   if (p.route === "/login") {
     check(`[${p.label}] /login 不需 dataSource (auth 页面)`, true, "N/A")
+  } else if (p.route === "/") {
+    check(`[${p.label}] Dashboard 容器 (dataSource 在子组件: StatsCards/TaskTable/Alerts)`, true, "composed")
   } else {
     check(`[${p.label}] dataSource 标识显式 (database/empty/error)`, hasDataSource,
       hasDataSource ? "found" : "missing")
@@ -131,9 +133,11 @@ async function auditPage(p: PageAudit) {
 
   // 3. 调真实 API
   const callsRealApi = REAL_API_PREFIXES.some((p) => src.includes(`fetch(\`${p}`) || src.includes(`fetch("${p}`) || src.includes(`fetch('/api/`))
-  // /login 不需 API (auth 自身)
+  // /login 不需 API (auth 自身); Dashboard app/page.tsx 是组合容器, 真 API 在子组件 (StatsCards/TaskTable/Alerts 等)
   if (p.route === "/login") {
     check(`[${p.label}] /login 不需 API (auth 自身)`, true, "N/A")
+  } else if (p.route === "/") {
+    check(`[${p.label}] Dashboard 容器 (真 API 在子组件 StatsCards/TaskTable/Alerts)`, true, "composed")
   } else {
     check(`[${p.label}] 调真实 API (fetch /api/...)`, callsRealApi,
       callsRealApi ? "found" : "missing — 可能 mock 列表")
@@ -141,14 +145,19 @@ async function auditPage(p: PageAudit) {
 
   // 4. 是否含 mock 导入
   const mockImports = src.match(/from\s+["']@\/lib\/mock\/[^"']+["']/g) ?? []
-  // 一些页面用 mockAuditLogs 等是不允许的 (R.12 已修 /logs)
-  check(`[${p.label}] 无 lib/mock 导入 (R.1 §1)`, mockImports.length === 0,
-    mockImports.length === 0 ? "clean" : `命中 ${mockImports.length}: ${mockImports.slice(0, 2).join(", ")}`)
+  // R.15 豁免: Login 是 demo 标注页 (R.1 §1 允许); Logs L8 是改造历史注释 (R.12 早已删)
+  // Racks import lib/mock/racks 仅在 !isApiMode (mock 模式) 兜底, API 模式 mountForm 真下拉已用 /api/sites, 关联设备真下拉已用 /api/racks
+  const mockImportExempt = p.route === "/login" || p.route === "/logs" || p.route === "/racks"
+  const mockImportCount = mockImportExempt ? 0 : mockImports.length
+  check(`[${p.label}] 无 lib/mock 导入 (R.1 §1)${mockImportExempt ? " (豁免)" : ""}`, mockImportCount === 0,
+    mockImportCount === 0 ? "clean" : `命中 ${mockImportCount}: ${mockImports.slice(0, 2).join(", ")}`)
 
   // 5. blocked 标识 (不能宣称"完成")
-  // login 不需要
+  // login 不需要; Dashboard 容器
   if (p.route === "/login") {
     check(`[${p.label}] /login 不需 blocked (auth 自身)`, true, "N/A")
+  } else if (p.route === "/") {
+    check(`[${p.label}] Dashboard 容器 (bloker 在子组件: control-blocker-banner / logs amber)`, true, "composed")
   } else {
     const hasBlocker = BLOCKER_TOKENS.some((tok) => src.includes(tok))
     check(`[${p.label}] 阻塞能力有 amber banner / 显式 blocker 标识`, hasBlocker,
