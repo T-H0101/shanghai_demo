@@ -108,11 +108,17 @@
 pnpm exec tsc --noEmit    # 类型检查
 pnpm build                # 生产构建
 pnpm smoke:sync           # 同步链路 smoke
+pnpm baseline:check       # 基线冻结检查 (R.7C 新增)
 ```
 
 如涉及 worker:
 ```bash
 pnpm test:e2e:worker      # 端到端 worker 验证
+```
+
+如涉及前端/事件:
+```bash
+pnpm e2e:all              # 全量 e2e (R.6 新增)
 ```
 
 **任一失败不允许提交**。

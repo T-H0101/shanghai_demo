@@ -1,8 +1,24 @@
 # Project Status
 
 > **截至**: 2026-06-10
-> **Sprint**: Sprint R.7B 完成 (清理污染 + schema 基线)
+> **Sprint**: Sprint R.7C 完成 (基线冻结)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.7C — 基线冻结 (2026-06-10 完成)
+
+### baseline:check (13 项)
+- ✅ 一致性 7/7 matched
+- ✅ 污染数据清零 (3 表)
+- ✅ executor 无假执行
+- ✅ /api/sites 不返回 mock
+- ✅ /api/search 501 not_implemented
+- ✅ traceability out_of_scope = 0
+- **13 pass, 0 fail**
+
+### CLAUDE.md
+§8 提交前检查新增 `pnpm baseline:check` (任一失败不允许提交)
 
 ---
 

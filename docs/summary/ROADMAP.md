@@ -3,6 +3,18 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-10
 
+## R.7C 基线冻结 (2026-06-10 完成)
+
+> **核心**: baseline:check 13 项自动检查，后续 Sprint 必须通过。
+
+### baseline:check 13 项
+一致性 7/7 / 污染清零 / executor 无假执行 / /api 状态 / traceability / disc_files.sql / 表数
+
+### CLAUDE.md
+§8 新增 `pnpm baseline:check` (任一失败不允许 commit)
+
+---
+
 ## R.7B 清理中心库污染 + Schema 基线 (2026-06-10 完成)
 
 > **核心**: 清理 13 行测试污染，7/7 matched；disc_files.sql 纳入基线。
