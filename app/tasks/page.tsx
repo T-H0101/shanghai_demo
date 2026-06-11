@@ -276,8 +276,11 @@ function TasksPageContent() {
     toast({ title: "导出任务", description: `「${task.name}」数据导出中...` })
   }
 
-  // Sprint 4.8.2-R: 暂停/恢复/重置 按钮 (audit/simulator, 走 control_command 队列)
-  // 真实执行需要站点集成, 当前只创建控制命令记录
+  // Sprint 4.8.2-R + R.16: 暂停/恢复/重置 按钮 (audit + executor 同步尝试)
+  // POST 写 control_command 后, 调 executor 一次 (DRY_RUN 控制):
+  //   - DRY_RUN=false + 站点可达 → "worker 已写入测试站点库"
+  //   - DRY_RUN=true / 站点不可达 → "等待站点拉取执行" (原 MVP 路径)
+  // 真实完成需站点 app 消费 evidence, R.1 §6 已显式 blocked_by_site_change
   const handleControlCommand = async (
     task: TaskItem,
     commandType: "task_pause" | "task_resume" | "task_reset",
@@ -290,6 +293,8 @@ function TasksPageContent() {
       return
     }
     try {
+      // R.16: targetId 用 source_id (源端 bigint), executor 按 parseInt 找 tbl_task.id
+      const targetId = (task as any).sourceId ?? task.id
       const res = await fetch("/api/control/commands", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -297,17 +302,38 @@ function TasksPageContent() {
           sourceSiteId: task.siteCode,
           commandType,
           targetType: "task",
-          targetId: task.id,
-          payload: { taskNo: task.taskNo, name: task.name, phase: task.phase },
+          targetId,
+          payload: { taskNo: task.taskNo, name: task.name, phase: task.phase, unifiedId: task.id },
         }),
       })
       const data = await res.json()
       if (!res.ok || !data.ok) {
         throw new Error(data.error || "提交失败")
       }
+      const cmdId = data.command?.id ?? null
+      // R.16: 同步尝试执行一次 (DRY_RUN=false 时真写测试站点库)
+      let executionNote = "已提交到控制队列, 等待站点拉取执行"
+      if (cmdId) {
+        try {
+          const execRes = await fetch(`/api/control/commands/${cmdId}/execute`, { method: "POST" })
+          if (execRes.ok) {
+            const execData = await execRes.json()
+            const r = execData.result
+            if (r?.status === "success" || r?.status === "dry_run_success") {
+              executionNote = r.status === "success"
+                ? "worker 已写入测试站点库 (DRY_RUN=false), 站点应用执行待确认"
+                : "DRY_RUN 模拟, 数据库未改, 等待站点拉取真改"
+            } else if (r?.status === "unsupported") {
+              executionNote = `源端不支持: ${r?.reason ?? "blocked_by_source_schema"}`
+            } else if (r?.status === "failed") {
+              executionNote = `worker 执行失败: ${r?.errorMessage ?? "unknown"}`
+            }
+          }
+        } catch { /* execute 端点不可用, 降级到"等待站点拉取"路径 */ }
+      }
       toast({
         title: `${label}命令已提交`,
-        description: `「${task.name}」${label}命令已记录到控制队列, 等待站点拉取执行`,
+        description: `「${task.name}」${label}命令: ${executionNote}`,
       })
     } catch (err) {
       toast({

@@ -111,6 +111,7 @@ function mapTaskToDTO(row: TaskRow): TaskDTO {
   const deviceNameMap: Record<string, string> = {}
   return {
     id: row.id,
+    sourceId: row.source_id,  // R.16: 源端 tbl_task.id (bigint), executor parseInt 必需
     taskNo: row.task_no,
     name: row.task_name || row.task_no,
     type: TYPE_MAP[row.task_type] ?? "other",

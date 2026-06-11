@@ -218,11 +218,18 @@ export async function getControlCommand(
   id: string
 ): Promise<ControlCommandRow | null> {
   if (!id) return null
-  const res = await query<any>(
-    `SELECT * FROM control_command WHERE id = $1 OR command_no = $1 LIMIT 1`,
+  // R.16 修复: id 是 uuid, command_no 是 text; 不能直接 $1 通用
+  // 先按 id 查 (uuid cast), 没命中再按 command_no 查
+  const byId = await query<any>(
+    `SELECT * FROM control_command WHERE id = $1::uuid LIMIT 1`,
     [id]
   )
-  return res.rows[0] ? rowToCommand(res.rows[0]) : null
+  if (byId.rows[0]) return rowToCommand(byId.rows[0])
+  const byNo = await query<any>(
+    `SELECT * FROM control_command WHERE command_no = $1 LIMIT 1`,
+    [id]
+  )
+  return byNo.rows[0] ? rowToCommand(byNo.rows[0]) : null
 }
 
 /**
