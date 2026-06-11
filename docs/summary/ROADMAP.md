@@ -3,6 +3,16 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.10A 调度参数与多站点安全配置
+
+- [x] scheduler 支持 `--siteCode=SH01`
+- [x] `GET /api/sync/config` 去敏读取 `sync_sites`
+- [x] `/sync` 只读展示多站点同步配置
+- [ ] Settings 展示真实运行配置和健康状态 (R.10B)
+- [ ] 配置写入、权限和审计
+
+---
+
 ## R.9A /sites 页面真实化 (2026-06-11 完成)
 
 > **核心**: /sites 页面从 mockSites 切换到 /api/sites, 写操作按钮 disabled, 真实一致性校验。

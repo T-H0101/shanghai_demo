@@ -1,8 +1,17 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.9A 完成 (/sites 页面真实化)
+> **Sprint**: Sprint R.10A 完成 (调度参数与多站点安全配置)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.10A — 调度参数与多站点安全配置
+
+- scheduler 正确支持 `--siteCode=SH01`。
+- 新增 `GET /api/sync/config`，真实读取 `sync_sites`，仅返回安全字段和 env key 引用。
+- `/sync` 展示多站点同步周期、启用状态、凭据键引用，并声明中心配置不是源端真实性证据。
+- REQ-6.4.3：`not_started` → `partial`；requirements 完成率仍为 15.6%。
 
 ---
 

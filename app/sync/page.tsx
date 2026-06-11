@@ -69,6 +69,16 @@ interface TableListResponse {
   data: TableItem[]
 }
 
+interface SyncConfigSite {
+  siteCode: string
+  siteName: string
+  enabled: boolean
+  intervalSeconds: number
+  status: string
+  credentialKeyRef: string | null
+  lastConnectedAt: string | null
+}
+
 function statusColor(status: string): string {
   switch (status) {
     case 'success':
@@ -130,6 +140,8 @@ export default function SyncCenterPage() {
     packageBatchId: string | null
     errorMessage: string | null
   }>>([])
+  const [syncConfigSites, setSyncConfigSites] = useState<SyncConfigSite[]>([])
+  const [syncConfigNote, setSyncConfigNote] = useState("")
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -251,6 +263,24 @@ export default function SyncCenterPage() {
     return () => { cancelled = true }
   }, [siteCodeFilter])
 
+  // Sprint R.10A: 只读加载多站点同步配置，接口不返回连接值或 secret。
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/sync/config")
+      .then((response) => response.json())
+      .then((data) => {
+        if (cancelled) return
+        setSyncConfigSites(data.data?.sites ?? [])
+        setSyncConfigNote(data.data?.reality?.note ?? "")
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSyncConfigSites([])
+        setSyncConfigNote("同步配置读取失败")
+      })
+    return () => { cancelled = true }
+  }, [])
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
@@ -320,6 +350,54 @@ export default function SyncCenterPage() {
           </Card>
         )}
 
+        <Card className="gap-0" data-testid="sync-config-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              多站点同步配置
+              <Badge className="bg-blue-100 text-blue-700">只读</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-xs text-amber-700 mb-3">
+              {syncConfigNote || "中心配置仅用于调度，不作为源端真实站点证据。"}
+            </p>
+            {syncConfigSites.length === 0 ? (
+              <div className="text-sm text-slate-500">暂无中心同步配置。</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>站点</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>同步周期</TableHead>
+                    <TableHead>凭据键引用</TableHead>
+                    <TableHead>最近连接</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {syncConfigSites.map((site) => (
+                    <TableRow key={site.siteCode}>
+                      <TableCell>
+                        <div className="font-medium text-sm">{site.siteName}</div>
+                        <div className="font-mono text-xs text-slate-500">{site.siteCode}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={site.enabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}>
+                          {site.enabled ? site.status : "disabled"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{site.intervalSeconds} 秒</TableCell>
+                      <TableCell className="font-mono text-xs">{site.credentialKeyRef ?? "未配置"}</TableCell>
+                      <TableCell className="text-xs">{formatDateTime(site.lastConnectedAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Sprint R.8: 自动同步调度区域 */}
         <Card className="gap-0" data-testid="scheduler-card">
           <CardHeader className="pb-3">
@@ -338,7 +416,7 @@ export default function SyncCenterPage() {
           <CardContent className="pt-0">
             {schedulerLogs.length === 0 ? (
               <div className="text-sm text-slate-600">
-                尚未运行过自动同步。运行 <code className="text-xs">pnpm scheduler:sync:once -- SH01</code> 启动。
+                尚未运行过自动同步。运行 <code className="text-xs">pnpm scheduler:sync:once -- --siteCode=SH01</code> 启动。
               </div>
             ) : (
               <Table>

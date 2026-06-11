@@ -171,6 +171,41 @@ async function main() {
     `dataSource=${consistencySh01.dataSource}`
   )
 
+  // ===== Sprint R.10A: 多站点安全配置 =====
+  const configRes = await fetch(`${BASE}/api/sync/config`)
+  const config = await configRes.json()
+  const configText = JSON.stringify(config)
+  check(
+    "R.10A /api/sync/config 返回中心库配置",
+    configRes.status === 200 && config.code === 0 && config.source === "sync_sites",
+    `HTTP=${configRes.status} source=${config.source}`
+  )
+  check(
+    "R.10A 多站点配置包含安全字段",
+    Array.isArray(config.data?.sites) &&
+      config.data.sites.length > 0 &&
+      config.data.sites.every((site: { siteCode?: string; intervalSeconds?: number }) =>
+        typeof site.siteCode === "string" && typeof site.intervalSeconds === "number"
+      ),
+    `sites=${config.data?.sites?.length ?? 0}`
+  )
+  check(
+    "R.10A 配置 API 不泄露连接值或 secret",
+    !configText.includes("dbHost") &&
+      !configText.includes("dbUser") &&
+      !configText.includes("databaseUrl") &&
+      !configText.includes("password") &&
+      !configText.includes("secretValue"),
+    "仅允许 credentialKeyRef / env key ref"
+  )
+  check(
+    "R.10A /sync 页面展示多站点同步配置",
+    syncPageSrc.includes("/api/sync/config") &&
+      syncPageSrc.includes("多站点同步配置") &&
+      syncPageSrc.includes("credentialKeyRef"),
+    "前端需展示安全配置来源"
+  )
+
   console.log(`\n=== Sync: ${pass} pass, ${fail} fail ===`)
   process.exit(fail > 0 ? 1 : 0)
 }

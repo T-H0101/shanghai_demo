@@ -53,7 +53,7 @@ async function main() {
   // 1. 跑 scheduler:sync:once (真跑, 写 sync_scheduler_log)
   console.log('  [1] Running scheduler:sync:once...')
   try {
-    const output = execSync('pnpm scheduler:sync:once -- SH01', {
+    const output = execSync('pnpm scheduler:sync:once -- --siteCode=SH01', {
       encoding: 'utf8',
       timeout: 120_000,
       cwd: process.cwd(),
@@ -63,6 +63,11 @@ async function main() {
       'scheduler:sync:once 成功',
       output.includes('success') || output.includes('Scheduler Run Result'),
       output.includes('success') ? 'status=success' : 'result printed'
+    )
+    check(
+      'scheduler 正确解析 --siteCode=SH01',
+      output.includes('siteCode:     SH01') && !output.includes('siteCode=--siteCode=SH01'),
+      output.includes('siteCode:     SH01') ? 'siteCode=SH01' : '参数解析错误'
     )
   } catch (err: unknown) {
     const e = err as { stdout?: string; stderr?: string }

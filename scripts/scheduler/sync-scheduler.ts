@@ -19,16 +19,13 @@
 import { execSync } from 'child_process'
 import { randomUUID } from 'crypto'
 import { query } from '@/lib/db/postgres'
+import { parseSchedulerArgs } from '@/lib/sync/scheduler-args'
 
-const SITE_CODE = getArg('--siteCode') ?? process.argv[process.argv.length - 1] ?? 'SH01'
-const INTERVAL = parseInt(getArg('--interval') ?? '3600', 10)
-const ONCE = process.argv.includes('--once')
-const DRY_RUN = process.argv.includes('--dry-run')
-
-function getArg(flag: string): string | undefined {
-  const idx = process.argv.indexOf(flag)
-  return idx >= 0 && idx + 1 < process.argv.length ? process.argv[idx + 1] : undefined
-}
+const schedulerArgs = parseSchedulerArgs(process.argv.slice(2))
+const SITE_CODE = schedulerArgs.siteCode
+const INTERVAL = schedulerArgs.intervalSeconds
+const ONCE = schedulerArgs.once
+const DRY_RUN = schedulerArgs.dryRun
 
 function log(msg: string) {
   console.log(`[scheduler ${new Date().toISOString()}] ${msg}`)

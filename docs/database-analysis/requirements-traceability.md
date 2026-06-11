@@ -350,19 +350,19 @@
 | module | `lib/sync/sync-engine.ts` |
 | priority | P0 |
 | current_status | **complete** |
-| implemented_files | `lib/sync/sync-engine.ts` |
-| related_api | `POST /api/sync/package` + `/api/sync/trigger` |
-| related_db_tables | `sync_package_log` + `sync_table_log` |
+| implemented_files | `lib/sync/sync-engine.ts`, `lib/sync/scheduler-args.ts`, `scripts/scheduler/sync-scheduler.ts`, `app/api/sync/config/route.ts`, `app/sync/page.tsx` |
+| related_api | `POST /api/sync/package` + `/api/sync/trigger` + `GET /api/sync/config` |
+| related_db_tables | `sync_package_log` + `sync_table_log` + `sync_sites` |
 | ui_pages | `/sync` |
-| backend_reality | ✅ 手动 trigger + HMAC push (Sprint 2G.1) + 周期同步可在站点侧配置 |
-| ui_reality | ✅ /sync 页面有"立即同步"按钮 |
+| backend_reality | ✅ 手动 trigger + HMAC push + scheduler 真执行；R.10A 正确解析 `--siteCode=SH01` 并读取 `sync_sites` |
+| ui_reality | ✅ `/sync` 展示多站点同步周期、启用状态和 credential env key 引用，不展示 secret |
 | mock_or_simulator | — |
 | blocker_type | — |
 | missing_parts | — |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
 | next_action | — |
-| verification_command | `pnpm smoke:sync` |
+| verification_command | `pnpm e2e:sync && pnpm scheduler:sync:once -- --siteCode=SH01 && pnpm e2e:scheduler` |
 
 #### REQ-2.3.3 数据一致性校验
 
@@ -1131,22 +1131,22 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 配置 (同步周期/告警阈值可页面配置) |
-| module | (未实现) |
+| module | `app/api/sync/config/route.ts` |
 | priority | P2 |
-| current_status | **not_started** |
-| implemented_files | — |
-| related_api | — |
-| related_db_tables | — |
-| ui_pages | — |
-| backend_reality | ❌ 无配置页 |
-| ui_reality | ❌ |
-| mock_or_simulator | N/A |
+| current_status | **partial** |
+| implemented_files | `app/api/sync/config/route.ts`, `app/sync/page.tsx` |
+| related_api | `GET /api/sync/config` |
+| related_db_tables | `sync_sites` |
+| ui_pages | `/sync` |
+| backend_reality | ✅ 真实读取中心配置；只返回 env key 引用，不返回 secret 值 |
+| ui_reality | ⚠️ 可查看多站点同步配置，当前只读 |
+| mock_or_simulator | 无 mock；中心配置不作为源端真实性证据 |
 | blocker_type | `not_started` |
-| missing_parts | 配置页 + 持久化 |
+| missing_parts | 告警阈值配置、配置写入 API、权限与审计 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | 后续 Sprint |
-| verification_command | (待实现) |
+| next_action | R.10B Settings 真实只读化；写入能力后续单独实施 |
+| verification_command | `pnpm e2e:sync` |
 
 ---
 
@@ -1157,8 +1157,8 @@
 | 状态 | 数量 | 占比 | REQ 列表 |
 |---|---|---|---|
 | **complete** | **7** | 15.6% | 1.1.1, 1.2.1, 2.3.1, 2.3.2, 4.3.2, 5.1.1, 6.1.1, 6.2.1 (注: 6.3.x 架构级) |
-| **partial** | **13** | 28.9% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2 |
-| **not_started** | **8** | 17.8% | 2.3.3, 4.1.1, 4.1.3, 5.1.2, 5.2.2, 6.2.2, 6.4.3 (含 R.4 新增 REQ-4.1.1 not_implemented) |
+| **partial** | **14** | 31.1% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2, 6.4.3 |
+| **not_started** | **7** | 15.6% | 2.3.3, 4.1.1, 4.1.3, 5.1.2, 5.2.2, 6.2.2 (含 R.4 新增 REQ-4.1.1 not_implemented) |
 | **blocked_by_source_schema** | **6** | 13.3% | 2.1.1, 2.1.3, 3.1.1, 3.3.1, 4.1.2, 4.2.2 (真控制), 4.3.1, 5.2.1 |
 | **blocked_by_site_change** | **5** | 11.1% | 3.1.2, 4.2.1 (副), 4.2.3 (主), 4.2.4, 6.1.3 |
 | **blocked_by_auth** | **9** | 20.0% | 2.1.2, 2.2.1, 2.2.2 (R.4 改回), 2.2.3, 3.1.3, 3.2.1 (R.4 改回), 3.2.2, 3.3.2, 6.2.2, 6.2.3, 6.2.4, 6.4.1 |
