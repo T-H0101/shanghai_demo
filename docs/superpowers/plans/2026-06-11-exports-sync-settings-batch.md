@@ -48,15 +48,15 @@
 - Create: `app/api/sync/sites/status/route.ts`
 - Modify: `app/sync/page.tsx`
 - Modify: `scripts/e2e/test-sync.ts`
-- Create: `docs/requirements-review/2026-06-11-r11c-site-sync-status.md`
+- Create: `docs/database-analysis/sprint-r.11c-requirements-review.md`
 - Modify: traceability/status/roadmap docs
 
-- [ ] 先增加状态聚合 API、空状态和前端展示失败测试。
-- [ ] 运行 `pnpm e2e:sync`，确认 RED。
-- [ ] 实现基于 `sync_sites` 的 LATERAL 最新日志聚合。
-- [ ] 在 `/sync` 展示每站点 scheduler/package/consistency 状态。
-- [ ] 更新 REQ-2.3.3 的实际实现证据，保持 `partial`。
-- [ ] 运行全量检查，提交并推送。
+- [x] 先增加状态聚合 API、空状态和前端展示失败测试。
+- [x] 运行 `pnpm e2e:sync`，确认 RED。
+- [x] 实现基于 `sync_sites` 的 LATERAL 最新日志聚合。
+- [x] 在 `/sync` 展示每站点 scheduler/package/consistency 状态。
+- [x] 更新 REQ-2.3.3 的实际实现证据，保持 `partial`。
+- [x] 运行全量检查，提交并推送。
 
 ### Task 4: R.11D Settings 站点与调度视图
 

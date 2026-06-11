@@ -1,6 +1,6 @@
 # Requirements Traceability Matrix (需求追踪矩阵)
 
-> **状态**: ✅ Sprint R.11B 完成 (2026-06-11)
+> **状态**: ✅ Sprint R.11C 完成 (2026-06-11)
 > **唯一标准**: `docs/source/requirements.md`
 > **依据**: `CLAUDE.md` 9 大强约束 + `docs/database-analysis/requirements-strict-review-template.md` 13 段
 > **机器可读版本**: `requirements-traceability.json` (同目录)
@@ -14,8 +14,8 @@
 |---|---|---|
 | **总需求数** | **45** | (45 atomic, R.3 重算 + 2 项 R.2 漏) |
 | **complete** | **6** | 13.3% (R.10D 诚实修正 REQ-4.3.2 导出缺失) |
-| **partial** | **16** | 35.6% |
-| **not_started** | **6** | 13.3% |
+| **partial** | **17** | 37.8% |
+| **not_started** | **5** | 11.1% |
 | **blocked_by_source_schema** | **6** | 13.3% (R.4 +1: REQ-4.2.2 任务控制真控制路径 blocked) |
 | **blocked_by_site_change** | **5** | 11.1% |
 | **blocked_by_auth** | **9** | 20.0% (R.4 +2: REQ-2.2.2 / 3.2.1 从 out_of_scope 改回) |
@@ -369,22 +369,22 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 数据一致性校验 (每日差异报告) |
-| module | — |
+| module | `scripts/check-sync-consistency.ts`, `app/api/sync/consistency/route.ts`, `app/api/sync/sites/status/route.ts` |
 | priority | P1 |
-| current_status | **not_started** |
-| implemented_files | — |
-| related_api | — |
-| related_db_tables | — |
-| ui_pages | — |
-| backend_reality | ❌ 无定时校验 job |
-| ui_reality | ❌ 无差异报告页 |
-| mock_or_simulator | N/A |
+| current_status | **partial** |
+| implemented_files | `scripts/check-sync-consistency.ts`, `app/api/sync/consistency/route.ts`, `app/api/sync/sites/status/route.ts`, `app/sync/page.tsx` |
+| related_api | `GET /api/sync/consistency`, `GET /api/sync/sites/status` |
+| related_db_tables | `sync_consistency_log`, `sync_scheduler_log`, `sync_package_log`, `sync_sites` |
+| ui_pages | `/sync` |
+| backend_reality | ⚠️ 7 张已接入源表可真实校验并写日志；R.11C 按站点聚合最近调度、数据包和一致性记录 |
+| ui_reality | ⚠️ 最近校验与每站点最新状态可见；无日志显式 `not_run` |
+| mock_or_simulator | 无 mock；skipped/DRY_RUN 保持透明 |
 | blocker_type | `not_started` |
-| missing_parts | cron job + diff report API + UI |
+| missing_parts | 每日自动执行保证、完整差异历史报告、人工修复、按数据类型配置 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | 后续 Sprint 实现 cron + diff |
-| verification_command | `pnpm db:query "SELECT * FROM sync_table_log WHERE status='mismatch' LIMIT 10"` (待实现) |
+| next_action | 补每日调度保证、差异历史和人工修复流程 |
+| verification_command | `pnpm check:sync-consistency -- --siteCode=SH01 && pnpm e2e:sync` |
 
 ### 2.3 §3 核心管控 (7 项)
 
@@ -914,12 +914,12 @@
 | module | `lib/sync/sync-engine.ts` |
 | priority | P1 |
 | current_status | **partial** |
-| implemented_files | `lib/sync/sync-engine.ts` |
-| related_api | `POST /api/sync/package` |
-| related_db_tables | `sync_package_log` |
-| ui_pages | — |
-| backend_reality | ⚠️ 手动 trigger 验证通过, 周期同步由站点侧负责 |
-| ui_reality | — |
+| implemented_files | `lib/sync/sync-engine.ts`, `app/api/sync/sites/status/route.ts`, `app/sync/page.tsx` |
+| related_api | `POST /api/sync/package`, `GET /api/sync/sites/status` |
+| related_db_tables | `sync_package_log`, `sync_scheduler_log`, `sync_consistency_log`, `sync_sites` |
+| ui_pages | `/sync` |
+| backend_reality | ⚠️ 手动 trigger 与 scheduler 记录可查；R.11C 聚合每站点最近运行时间和状态，周期同步仍由站点侧负责 |
+| ui_reality | ⚠️ 可查看配置周期和最近状态，但不能证明增量 ≤10s / 全量 ≤30min |
 | mock_or_simulator | — |
 | blocker_type | `blocked_by_site_change` |
 | missing_parts | 站点侧周期同步客户端 |
@@ -1157,8 +1157,8 @@
 | 状态 | 数量 | 占比 | REQ 列表 |
 |---|---|---|---|
 | **complete** | **6** | 13.3% | 1.1.1, 1.2.1, 2.3.1, 2.3.2, 5.1.1, 6.1.1, 6.2.1 (注: 6.3.x 架构级) |
-| **partial** | **16** | 35.6% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 4.3.2, 5.1.2, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2, 6.4.3 |
-| **not_started** | **6** | 13.3% | 2.3.3, 4.1.1, 4.1.3, 5.2.2, 6.2.2 (含 R.4 新增 REQ-4.1.1 not_implemented) |
+| **partial** | **17** | 37.8% | 2.1.1, 2.1.3, 2.3.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 4.3.2, 5.1.2, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2, 6.4.3 |
+| **not_started** | **5** | 11.1% | 4.1.1, 4.1.3, 5.2.2, 6.2.2 (含 R.4 新增 REQ-4.1.1 not_implemented) |
 | **blocked_by_source_schema** | **6** | 13.3% | 2.1.1, 2.1.3, 3.1.1, 3.3.1, 4.1.2, 4.2.2 (真控制), 4.3.1, 5.2.1 |
 | **blocked_by_site_change** | **5** | 11.1% | 3.1.2, 4.2.1 (副), 4.2.3 (主), 4.2.4, 6.1.3 |
 | **blocked_by_auth** | **9** | 20.0% | 2.1.2, 2.2.1, 2.2.2 (R.4 改回), 2.2.3, 3.1.3, 3.2.1 (R.4 改回), 3.2.2, 3.3.2, 6.2.2, 6.2.3, 6.2.4, 6.4.1 |
@@ -1219,7 +1219,7 @@ requirements 完成率 = complete / (total - out_of_scope) × 100%
 | 1 | **REQ-2.2.1** | ADFS 集成登录 | blocked_by_auth | **解锁 CLAUDE.md** | 5d | 解锁后带动 6 项 |
 | 2 | **REQ-4.2.2** | 任务控制 (暂停/恢复/重置/优先) | partial | **领导决策**: 站点加 paused/priority 字段 | 5d (站点) + 3d (项目) | 真控制 |
 | 3 | **REQ-4.2.3** | 数据巡检 (SM3) | partial | **领导决策**: 站点 poll 行为 | 8d (站点) + 5d (项目) | 真巡检 |
-| 4 | **REQ-2.3.3** | 数据一致性校验 (每日差异) | not_started | 无外部阻塞, 项目可自主 | 2d | 后端 cron |
+| 4 | **REQ-2.3.3** | 数据一致性校验 (每日差异) | partial | 缺每日保证、人工修复与类型化配置 | 2d | 后端 cron |
 | 5 | **REQ-3.1.3** | 账号生命周期 (写 API) | blocked_by_auth | 依赖 REQ-2.2.1 | 3d (解锁后) | 业务 API |
 | 6 | **REQ-4.2.1** | 任务管理 (新建) | partial | 架构决议"总控是否发起" | 3d | 业务 API |
 | 7 | **REQ-5.1.2** | 日志导出 (Excel/CSV+签名) | partial | 缺 Excel、证书签名、分片与留存策略 | 1d | UI 增强 |

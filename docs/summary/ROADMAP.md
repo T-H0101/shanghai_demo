@@ -3,6 +3,17 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.11C 每站点最新状态
+
+- [x] `sync_sites` 关联最近 scheduler/package/consistency
+- [x] 无日志站点返回 `not_run`
+- [x] `/sync` 展示每站点最新状态
+- [x] API 不返回连接值或 secret
+- [ ] 每日自动执行保证
+- [ ] 差异历史、人工修复和按类型配置
+
+---
+
 ## R.11B 同步日志真实导出
 
 - [x] package/table/scheduler/consistency 四类真实日志

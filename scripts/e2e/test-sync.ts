@@ -245,6 +245,57 @@ async function main() {
       syncPageSrc.includes("credentialKeyRef"),
     "前端需展示安全配置来源"
   )
+
+  const siteStatusRes = await fetch(`${BASE}/api/sync/sites/status`)
+  const siteStatusText = await siteStatusRes.text()
+  let siteStatus: Record<string, any> = {}
+  try {
+    siteStatus = JSON.parse(siteStatusText)
+  } catch {
+    siteStatus = {}
+  }
+  const siteStatusItems = siteStatus.data?.items ?? []
+  check(
+    "R.11C 每站点最新状态 API 真实聚合",
+    siteStatusRes.status === 200 &&
+      siteStatus.dataSource === "sync_sites + latest sync logs (database)" &&
+      siteStatusItems.length === config.data?.sites?.length,
+    `HTTP ${siteStatusRes.status} sites=${siteStatusItems.length}`
+  )
+  check(
+    "R.11C 状态覆盖 scheduler/package/consistency",
+    siteStatusItems.length > 0 &&
+    siteStatusItems.every((item: Record<string, unknown>) =>
+      typeof item.siteCode === "string" &&
+      typeof item.intervalSeconds === "number" &&
+      typeof item.schedulerStatus === "string" &&
+      typeof item.packageStatus === "string" &&
+      typeof item.consistencyStatus === "string"
+    ),
+    `items=${siteStatusItems.length}`
+  )
+  check(
+    "R.11C 无日志站点显式 not_run",
+    siteStatusItems.some((item: Record<string, unknown>) =>
+      item.schedulerStatus === "not_run" ||
+      item.packageStatus === "not_run" ||
+      item.consistencyStatus === "not_run"
+    ),
+    "不填充假成功状态"
+  )
+  check(
+    "R.11C 聚合 API 不泄露 secret",
+    !JSON.stringify(siteStatus).match(/databaseUrl|password|secretValue|dbHost|dbUser/),
+    "仅返回安全状态字段"
+  )
+  check(
+    "R.11C /sync 页面展示每站点最新状态",
+    syncPageSrc.includes("/api/sync/sites/status") &&
+      syncPageSrc.includes("site-sync-status-card") &&
+      syncPageSrc.includes("每站点最新状态"),
+    "前端需展示聚合状态"
+  )
+
   check(
     "R.11B /sync 页面提供真实日志导出事件",
     syncPageSrc.includes("/api/sync/export") &&

@@ -80,6 +80,25 @@ interface SyncConfigSite {
   lastConnectedAt: string | null
 }
 
+interface SiteSyncStatus {
+  siteCode: string
+  siteName: string
+  enabled: boolean
+  intervalSeconds: number
+  configStatus: string
+  schedulerStatus: string
+  schedulerStartedAt: string | null
+  exportStatus: string
+  pushStatus: string
+  packageStatus: string
+  packageBatchId: string | null
+  packageCreatedAt: string | null
+  consistencyStatus: string
+  consistencyCheckedAt: string | null
+  matchedTableCount: number | null
+  mismatchedTableCount: number | null
+}
+
 function statusColor(status: string): string {
   switch (status) {
     case 'success':
@@ -143,6 +162,8 @@ export default function SyncCenterPage() {
   }>>([])
   const [syncConfigSites, setSyncConfigSites] = useState<SyncConfigSite[]>([])
   const [syncConfigNote, setSyncConfigNote] = useState("")
+  const [siteSyncStatuses, setSiteSyncStatuses] = useState<SiteSyncStatus[]>([])
+  const [siteStatusNote, setSiteStatusNote] = useState("")
   const [exportKind, setExportKind] = useState<'package' | 'table' | 'scheduler' | 'consistency'>('package')
   const [exporting, setExporting] = useState(false)
 
@@ -280,6 +301,26 @@ export default function SyncCenterPage() {
         if (cancelled) return
         setSyncConfigSites([])
         setSyncConfigNote("同步配置读取失败")
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/sync/sites/status")
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled) return
+        setSiteSyncStatuses(data.data?.items ?? [])
+        setSiteStatusNote(data.reality?.note ?? "")
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSiteSyncStatuses([])
+        setSiteStatusNote("每站点最新状态读取失败")
       })
     return () => { cancelled = true }
   }, [])
@@ -455,6 +496,75 @@ export default function SyncCenterPage() {
                       <TableCell className="text-sm">{site.intervalSeconds} 秒</TableCell>
                       <TableCell className="font-mono text-xs">{site.credentialKeyRef ?? "未配置"}</TableCell>
                       <TableCell className="text-xs">{formatDateTime(site.lastConnectedAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0" data-testid="site-sync-status-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              每站点最新状态
+              <Badge className="bg-blue-100 text-blue-700">运行日志</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="mb-3 text-xs text-amber-700">
+              {siteStatusNote || "无日志时显示 not_run，不推断站点成功。"}
+            </p>
+            {siteSyncStatuses.length === 0 ? (
+              <div className="text-sm text-slate-500">暂无每站点运行状态。</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>站点</TableHead>
+                    <TableHead>周期</TableHead>
+                    <TableHead>调度</TableHead>
+                    <TableHead>导出/推送</TableHead>
+                    <TableHead>最近数据包</TableHead>
+                    <TableHead>一致性</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {siteSyncStatuses.map((item) => (
+                    <TableRow key={item.siteCode}>
+                      <TableCell>
+                        <div className="text-sm font-medium">{item.siteName}</div>
+                        <div className="font-mono text-xs text-slate-500">{item.siteCode}</div>
+                      </TableCell>
+                      <TableCell className="text-xs">{item.intervalSeconds} 秒</TableCell>
+                      <TableCell>
+                        <Badge className={statusColor(item.schedulerStatus)}>
+                          {item.schedulerStatus}
+                        </Badge>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {formatDateTime(item.schedulerStartedAt)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {item.exportStatus} / {item.pushStatus}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColor(item.packageStatus)}>
+                          {item.packageStatus}
+                        </Badge>
+                        <div className="mt-1 max-w-[180px] truncate font-mono text-xs text-slate-500">
+                          {item.packageBatchId ?? "—"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColor(item.consistencyStatus)}>
+                          {item.consistencyStatus}
+                        </Badge>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {item.matchedTableCount ?? "—"} / {item.mismatchedTableCount ?? "—"}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

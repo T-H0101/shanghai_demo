@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.11B 完成 (同步日志真实导出)
+> **Sprint**: Sprint R.11C 完成 (每站点最新状态)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.11C — 每站点最新同步与一致性状态
+
+- 新增 `GET /api/sync/sites/status`，按 `sync_sites` 关联每站点最近 scheduler/package/consistency 记录。
+- 无日志站点明确返回 `not_run`，不填充假成功状态。
+- `/sync` 展示站点周期、调度、导出/推送、最近数据包和一致性状态。
+- REQ-2.3.3 从滞后的 `not_started` 纠正为 `partial`；每日保证、人工修复和类型化配置仍缺失。
+- requirements 完成率保持 `6 / 45 = 13.3%`。
 
 ---
 
