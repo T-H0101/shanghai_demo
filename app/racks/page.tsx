@@ -39,6 +39,8 @@ import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 type DeviceCategory = "all" | "hdd" | "optical" | "offline" | "nas" | "abnormal"
+type ApiRacksDataSource = "database" | "empty" | "error"
+type RacksDataSource = ApiRacksDataSource | "mock"
 
 const deviceStatusMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   online: { label: "在线", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
@@ -85,7 +87,9 @@ export default function Page() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [slotGroups, setSlotGroups] = useState<RackSlotGroup[]>([])
   const [slotDetailStatus, setSlotDetailStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle")
-  const [racksDataSource, setRacksDataSource] = useState<"database" | "fallback" | "mock">("mock")
+  const [racksDataSource, setRacksDataSource] = useState<RacksDataSource>(
+    isApiMode ? "empty" : "mock"
+  )
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
   const [syncing, setSyncing] = useState(false)
@@ -356,9 +360,11 @@ export default function Page() {
         rackProvider.getAll(isAllSites ? undefined : siteCode ?? undefined),
         rackProvider.getStats(isAllSites ? undefined : siteCode ?? undefined)
       ])
-      setRackList(racksData.length > 0 ? racksData : mockRacks)
+      setRackList(racksData)
       setStats(statsData as any)
-      if (!selected) setSelected((racksData.length > 0 ? racksData : mockRacks)[0] ?? null)
+      setSelected(current =>
+        racksData.find(rack => rack.id === current?.id) ?? racksData[0] ?? null
+      )
       // 数据源追踪
       if (isApiMode) {
         setRacksDataSource(getRacksDataSource())
@@ -366,10 +372,11 @@ export default function Page() {
         setRacksDataSource("mock")
       }
     } catch {
-      setRackList(mockRacks)
-      setRacksDataSource(isApiMode ? "fallback" : "mock")
+      setRackList([])
+      setSelected(null)
+      setRacksDataSource(isApiMode ? "error" : "mock")
     }
-  }, [selected, isAllSites, siteCode])
+  }, [isAllSites, siteCode])
 
   useEffect(() => { if (siteReady) loadRacks() }, [loadRacks, siteReady])
 
@@ -647,10 +654,16 @@ export default function Page() {
       />
 
       {/* ── 数据源提示 ────────────────────────────────────────── */}
-      {isApiMode && racksDataSource === "fallback" && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      {isApiMode && racksDataSource === "error" && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>当前数据库不可用，正在显示模拟数据。真实设备信息暂不可用。</span>
+          <span>中心库设备数据读取失败，未使用模拟数据回退。</span>
+        </div>
+      )}
+      {isApiMode && racksDataSource === "empty" && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+          <Info className="h-4 w-4 shrink-0" />
+          <span>中心库暂无设备数据，未使用模拟数据填充。</span>
         </div>
       )}
 
@@ -738,7 +751,15 @@ export default function Page() {
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={12} className="text-center py-10 text-slate-400">未找到匹配设备</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={12} className="text-center py-10 text-slate-400">
+                        {racksDataSource === "error"
+                          ? "中心库设备数据读取失败"
+                          : racksDataSource === "empty"
+                            ? "中心库暂无设备数据"
+                            : "未找到匹配设备"}
+                      </TableCell>
+                    </TableRow>
                   ) : filtered.map(r => {
                     const ds = deviceStatusMap[r.deviceStatus ?? "online"] ?? deviceStatusMap.online
                     const DsIcon = ds.icon

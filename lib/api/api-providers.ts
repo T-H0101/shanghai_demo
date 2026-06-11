@@ -174,9 +174,9 @@ export const apiTaskProvider: TaskProvider = {
 // ============================================================
 
 // 数据源追踪：记录最近一次 racks 数据来源
-let _racksDataSource: "database" | "fallback" = "fallback"
+let _racksDataSource: "database" | "empty" | "error" = "empty"
 
-export function getRacksDataSource(): "database" | "fallback" {
+export function getRacksDataSource(): "database" | "empty" | "error" {
   return _racksDataSource
 }
 
@@ -225,20 +225,25 @@ export const apiRackProvider: RackProvider = {
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const json = await response.json()
       if (json.code !== 0) throw new Error(json.message)
-      _racksDataSource = json.source === "database" ? "database" : "fallback"
-      return json.data
+      const racks = Array.isArray(json.data) ? json.data : []
+      _racksDataSource = racks.length > 0 ? "database" : "empty"
+      return racks
     } catch {
-      _racksDataSource = "fallback"
-      return mockRackProvider.getAll(siteCode)
+      _racksDataSource = "error"
+      return []
     }
   },
 
   getById: async (id: string) => {
-    return fetchWithFallback(
-      `${API_BASE}/api/racks/${id}`,
-      () => mockRackProvider.getById(id),
-      "RackProvider.getById"
-    )
+    try {
+      const response = await fetch(`${API_BASE}/api/racks/${id}`)
+      if (!response.ok) return undefined
+      const json = await response.json()
+      if (json.code !== 0) return undefined
+      return json.data
+    } catch {
+      return undefined
+    }
   },
 
   getStats: async (siteCode?: string) => {
@@ -269,7 +274,20 @@ export const apiRackProvider: RackProvider = {
           : 0,
       }
     } catch {
-      return mockRackProvider.getStats(siteCode)
+      return {
+        total: 0,
+        normal: 0,
+        warning: 0,
+        fault: 0,
+        maintenance: 0,
+        online: 0,
+        offline: 0,
+        totalCapacity: "0 B",
+        remainingCapacity: "0 B",
+        usedSlots: 0,
+        totalSlotsAll: 0,
+        avgUsage: 0,
+      }
     }
   },
 

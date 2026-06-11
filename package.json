@@ -50,7 +50,8 @@
     "e2e:search": "tsx scripts/e2e/test-search.ts",
     "e2e:settings": "tsx scripts/e2e/test-settings.ts",
     "e2e:users": "tsx scripts/e2e/test-users.ts",
-    "e2e:all": "pnpm e2e:dashboard && pnpm e2e:tasks && pnpm e2e:sync && pnpm e2e:control && pnpm e2e:sites && pnpm e2e:search && pnpm e2e:settings && pnpm e2e:users"
+    "e2e:racks": "tsx scripts/e2e/test-racks.ts",
+    "e2e:all": "pnpm e2e:dashboard && pnpm e2e:tasks && pnpm e2e:sync && pnpm e2e:control && pnpm e2e:sites && pnpm e2e:search && pnpm e2e:settings && pnpm e2e:users && pnpm e2e:racks"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

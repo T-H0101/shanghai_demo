@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.10C 完成 (Users 真实只读化)
+> **Sprint**: Sprint R.10D 完成 (Racks API fail-closed)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.10D — Racks API fail-closed
+
+- `apiRackProvider` 列表、详情和统计不再在 API 失败时回退 mock。
+- `/racks` 在 API 模式下明确展示 `database`、`empty`、`error`，空集不再填充 `mockRacks`。
+- 当前真实数据：中心库 13 台设备，SH01 4 台；浏览器验收显示 SH01 3 在线、1 离线。
+- 新增 `e2e:racks` 并纳入 `e2e:all`。
+- 追踪审计发现 REQ-4.3.2 的真实导出未实现，状态从 `complete` 诚实修正为 `partial`；完成率 15.6% → 13.3%。
 
 ---
 

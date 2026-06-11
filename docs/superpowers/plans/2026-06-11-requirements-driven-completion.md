@@ -69,9 +69,9 @@
 - Modify: `package.json`
 - Modify: traceability/status/review docs
 
-- [ ] 写 API 模式不允许 mock fallback 的失败测试。
-- [ ] 运行目标测试，确认失败。
-- [ ] Provider 和页面实现 database/empty/error 三态。
-- [ ] 加入 `e2e:racks` 和 `e2e:all`。
-- [ ] 运行目标测试与全量检查。
+- [x] 写 API 模式不允许 mock fallback 的失败测试。
+- [x] 运行目标测试，确认失败。
+- [x] Provider 和页面实现 database/empty/error 三态。
+- [x] 加入 `e2e:racks` 和 `e2e:all`。
+- [x] 运行目标测试与全量检查。
 - [ ] 更新文档并提交 `fix(racks): fail closed without mock fallback`。

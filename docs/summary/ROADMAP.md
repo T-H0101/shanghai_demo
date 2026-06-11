@@ -3,6 +3,16 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.10D Racks API fail-closed
+
+- [x] API 失败和空集不回退 mock
+- [x] 页面显示 database/empty/error
+- [x] `e2e:racks` 纳入 `e2e:all`
+- [x] 修正 REQ-4.3.2 过度完成声明
+- [ ] 实现真实设备导出与浏览器事件 e2e
+
+---
+
 ## R.10C Users 真实只读化
 
 - [x] `/api/users` 移除 mock fallback

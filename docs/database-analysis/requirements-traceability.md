@@ -13,15 +13,15 @@
 | 指标 | 数值 | 公式 |
 |---|---|---|
 | **总需求数** | **45** | (45 atomic, R.3 重算 + 2 项 R.2 漏) |
-| **complete** | **7** | 15.6% (R.3 重算, R.4 维持) |
-| **partial** | **13** | 28.9% (R.4 +1: REQ-2.1.1 站点 /api/sites 100% mock → derived) |
-| **not_started** | **8** | 17.8% (R.4 +1: REQ-4.1.1 检索 /api/search not_implemented) |
+| **complete** | **6** | 13.3% (R.10D 诚实修正 REQ-4.3.2 导出缺失) |
+| **partial** | **15** | 33.3% |
+| **not_started** | **7** | 15.6% |
 | **blocked_by_source_schema** | **6** | 13.3% (R.4 +1: REQ-4.2.2 任务控制真控制路径 blocked) |
 | **blocked_by_site_change** | **5** | 11.1% |
 | **blocked_by_auth** | **9** | 20.0% (R.4 +2: REQ-2.2.2 / 3.2.1 从 out_of_scope 改回) |
 | **blocked_by_external_system** | **2** | 4.4% (R.4 +2: REQ-4.1.1 / 4.1.2 ES/ClickHouse) |
 | **out_of_scope** | **0** | 0% (R.4 修正 R.2 违规, 0 项) |
-| **requirements 完成率** | **7 / 45 = 15.6%** | complete / (total - out_of_scope) |
+| **requirements 完成率** | **6 / 45 = 13.3%** | complete / (total - out_of_scope) |
 
 **R.4 修正 R.2 错误**:
 - ❌ R.2 把 REQ-2.2.2 / 3.2.1 标 out_of_scope, 违反 R.1 §1 ("不允许把需求降级 / 删除")
@@ -328,13 +328,13 @@
 | module | `lib/sync/package-dispatcher.ts` |
 | priority | P0 |
 | current_status | **complete** |
-| implemented_files | `lib/sync/*` |
-| related_api | `POST /api/sync/package` |
+| implemented_files | `lib/sync/*`, `lib/api/api-providers.ts`, `app/racks/page.tsx`, `app/users/page.tsx` |
+| related_api | `POST /api/sync/package`, `GET /api/racks`, `GET /api/users` |
 | related_db_tables | `unified_devices` + `unified_file_index` + `unified_users` + `unified_tasks` |
 | ui_pages | `/racks` / `/search` / `/users` / `/tasks` |
 | backend_reality | ✅ 4/4 类型真实 (13 张白名单 dispatcher) |
-| ui_reality | ✅ 4 个页面都有真实数据 |
-| mock_or_simulator | — |
+| ui_reality | ⚠️ 设备与账号页面已 fail-closed；文件检索仍显式 blocked，不用 mock 冒充 |
+| mock_or_simulator | 设备/账号 API 页面无 mock fallback |
 | blocker_type | — |
 | missing_parts | — |
 | needed_site_schema_change | — |
@@ -731,22 +731,22 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 盘笼统一查询 (在线/离线 + 导出) |
-| module | `lib/api/rack-provider.ts` |
+| module | `app/api/racks/route.ts`, `lib/api/api-providers.ts` |
 | priority | P1 |
-| current_status | **complete** |
-| implemented_files | `app/racks/page.tsx`, `lib/api/rack-provider.ts` |
+| current_status | **partial** |
+| implemented_files | `app/api/racks/route.ts`, `app/racks/page.tsx`, `lib/api/api-providers.ts` |
 | related_api | `GET /api/racks` |
 | related_db_tables | `unified_devices` |
 | ui_pages | `/racks` |
-| backend_reality | ✅ 6 设备 + 396 盘位真实 (Sprint 2C.4) |
-| ui_reality | ✅ Racks 页面有列表 + 详情 drawer |
-| mock_or_simulator | — |
-| blocker_type | — |
-| missing_parts | — |
+| backend_reality | ✅ `unified_devices` 当前 13 台；SH01 4 台；槽位中心表总计 447 条 |
+| ui_reality | ⚠️ 列表与详情读取真实 API；失败/空数据显式 error/empty；导出未实现 |
+| mock_or_simulator | API 模式列表和统计已移除 mock fallback |
+| blocker_type | `not_started` |
+| missing_parts | 真实设备导出事件 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | — |
-| verification_command | `pnpm db:query "SELECT COUNT(*) FROM unified_devices"` |
+| next_action | 实现基于真实设备数据的导出并增加浏览器事件 e2e |
+| verification_command | `pnpm e2e:racks` |
 
 ### 2.5 §5 辅助保障 (5 项)
 
@@ -1156,8 +1156,8 @@
 
 | 状态 | 数量 | 占比 | REQ 列表 |
 |---|---|---|---|
-| **complete** | **7** | 15.6% | 1.1.1, 1.2.1, 2.3.1, 2.3.2, 4.3.2, 5.1.1, 6.1.1, 6.2.1 (注: 6.3.x 架构级) |
-| **partial** | **14** | 31.1% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2, 6.4.3 |
+| **complete** | **6** | 13.3% | 1.1.1, 1.2.1, 2.3.1, 2.3.2, 5.1.1, 6.1.1, 6.2.1 (注: 6.3.x 架构级) |
+| **partial** | **15** | 33.3% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 4.3.2, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2, 6.4.3 |
 | **not_started** | **7** | 15.6% | 2.3.3, 4.1.1, 4.1.3, 5.1.2, 5.2.2, 6.2.2 (含 R.4 新增 REQ-4.1.1 not_implemented) |
 | **blocked_by_source_schema** | **6** | 13.3% | 2.1.1, 2.1.3, 3.1.1, 3.3.1, 4.1.2, 4.2.2 (真控制), 4.3.1, 5.2.1 |
 | **blocked_by_site_change** | **5** | 11.1% | 3.1.2, 4.2.1 (副), 4.2.3 (主), 4.2.4, 6.1.3 |
@@ -1179,16 +1179,16 @@
 
 ```
 requirements 完成率 = complete / (total - out_of_scope) × 100%
-                    = 7 / (45 - 0) × 100%
-                    = 7 / 45 × 100%
-                    = 15.6%
+                    = 6 / (45 - 0) × 100%
+                    = 6 / 45 × 100%
+                    = 13.3%
 ```
 
 | 维度 | 数值 |
 |---|---|
-| **requirements 完成度** | **15.6%** (7/45) |
-| **partial 率** | 26.8% (11/41) |
-| **已着手率** (complete + partial) | 48.8% (20/41) |
+| **requirements 完成度** | **13.3%** (6/45) |
+| **partial 率** | 33.3% (15/45) |
+| **已着手率** (complete + partial) | 46.7% (21/45) |
 | **永久阻塞** (out_of_scope) | 4.7% (2/43) |
 | **依赖站点 + 源端** | 25.6% (11/43) |
 | **依赖 Auth** | 14.0% (6/43) |

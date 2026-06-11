@@ -3,7 +3,7 @@
  * 盘架列表 API
  *
  * API mode: 读取 unified_devices 真实中心表
- * Mock mode: 使用 mock 数据（通过 apiRackProvider fallback）
+ * 查询失败或空数据时由调用方显式处理，不允许 mock fallback。
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -169,7 +169,8 @@ export async function GET(request: NextRequest) {
       {
         code: 500,
         message: "Internal server error",
-        data: null,
+        data: [],
+        source: "error",
         traceId: `api-${Date.now()}`,
       },
       { status: 500 }
