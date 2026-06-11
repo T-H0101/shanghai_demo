@@ -118,6 +118,18 @@ export default function SyncCenterPage() {
     mismatchedTableCount?: number
     dataSource?: string
   } | null>(null)
+  // Sprint R.8: 自动同步调度日志
+  const [schedulerLogs, setSchedulerLogs] = useState<Array<{
+    runId: string
+    siteCode: string
+    startedAt: string
+    status: string
+    exportStatus: string
+    pushStatus: string
+    consistencyStatus: string
+    packageBatchId: string | null
+    errorMessage: string | null
+  }>>([])
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -212,6 +224,33 @@ export default function SyncCenterPage() {
     return () => { cancelled = true }
   }, [siteCodeFilter])
 
+  // Sprint R.8: 加载自动同步调度日志
+  useEffect(() => {
+    let cancelled = false
+    const sc = siteCodeFilter || ''
+    fetch(`/api/sync/scheduler/logs?siteCode=${encodeURIComponent(sc)}&limit=5`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        setSchedulerLogs((data.data?.items ?? []).map((item: Record<string, unknown>) => ({
+          runId: item.run_id as string,
+          siteCode: item.site_code as string,
+          startedAt: item.started_at as string,
+          status: item.status as string,
+          exportStatus: item.export_status as string,
+          pushStatus: item.push_status as string,
+          consistencyStatus: item.consistency_status as string,
+          packageBatchId: item.package_batch_id as string | null,
+          errorMessage: item.error_message as string | null,
+        })))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSchedulerLogs([])
+      })
+    return () => { cancelled = true }
+  }, [siteCodeFilter])
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
@@ -280,6 +319,68 @@ export default function SyncCenterPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Sprint R.8: 自动同步调度区域 */}
+        <Card className="gap-0" data-testid="scheduler-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              自动同步调度
+              {schedulerLogs.length > 0 ? (
+                <Badge className="bg-slate-100 text-slate-600">
+                  最近 {schedulerLogs.length} 次
+                </Badge>
+              ) : (
+                <Badge className="bg-slate-100 text-slate-500">未运行</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {schedulerLogs.length === 0 ? (
+              <div className="text-sm text-slate-600">
+                尚未运行过自动同步。运行 <code className="text-xs">pnpm scheduler:sync:once -- SH01</code> 启动。
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>运行时间</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>导出</TableHead>
+                    <TableHead>推送</TableHead>
+                    <TableHead>一致性</TableHead>
+                    <TableHead>Batch ID</TableHead>
+                    <TableHead>错误</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {schedulerLogs.map((log) => (
+                    <TableRow key={log.runId}>
+                      <TableCell className="font-mono text-xs">
+                        {new Date(log.startedAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {log.status === 'success' && <Badge className="bg-emerald-100 text-emerald-700">成功</Badge>}
+                        {log.status === 'partial' && <Badge className="bg-amber-100 text-amber-700">部分</Badge>}
+                        {log.status === 'failed' && <Badge className="bg-red-100 text-red-700">失败</Badge>}
+                        {log.status === 'running' && <Badge className="bg-blue-100 text-blue-700">运行中</Badge>}
+                      </TableCell>
+                      <TableCell className="text-xs">{log.exportStatus}</TableCell>
+                      <TableCell className="text-xs">{log.pushStatus}</TableCell>
+                      <TableCell className="text-xs">{log.consistencyStatus}</TableCell>
+                      <TableCell className="font-mono text-xs max-w-[120px] truncate">
+                        {log.packageBatchId ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-red-600 max-w-[200px] truncate">
+                        {log.errorMessage ?? '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         {/* 筛选器 */}
         <Card>

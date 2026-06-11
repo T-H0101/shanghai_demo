@@ -1,7 +1,24 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-10
+> 截至: 2026-06-11
+
+## R.8 自动同步与一致性校验调度器 (2026-06-11 完成)
+
+> **对应**: REQ-2.3.3 + REQ-6.1.3
+
+### 新增
+- `scripts/scheduler/sync-scheduler.ts` (export→push→consistency→log)
+- `sync_scheduler_log` 表 + `GET /api/sync/scheduler/logs` API
+- `/sync` 页面 scheduler-card
+- `scripts/e2e/test-scheduler.ts` (14/14)
+- package scripts: `scheduler:sync` / `scheduler:sync:once` / `e2e:scheduler`
+
+### 下一 Sprint (R.9)
+- 站点 app 配合 (poll control_command)
+- ADFS 接入 (需领导决策)
+
+---
 
 ## R.7C 基线冻结 (2026-06-10 完成)
 

@@ -1,8 +1,34 @@
 # Project Status
 
-> **截至**: 2026-06-10
-> **Sprint**: Sprint R.7C 完成 (基线冻结)
+> **截至**: 2026-06-11
+> **Sprint**: Sprint R.8 完成 (每小时自动同步 + 一致性校验调度器)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.8 — 自动同步与一致性校验调度器 (2026-06-11 完成)
+
+> **对应**: REQ-2.3.3 + REQ-6.1.3 (§2.3.3 数据一致性校验 + §6.1.3 同步时效)
+
+### 新增
+- `scripts/scheduler/sync-scheduler.ts` (export→push→consistency→log)
+- `sync_scheduler_log` 表 (12 字段)
+- `GET /api/sync/scheduler/logs` API
+- `/sync` 页面 scheduler-card 区域
+- `scripts/e2e/test-scheduler.ts` (14/14 全过)
+- package scripts: `scheduler:sync` / `scheduler:sync:once` / `e2e:scheduler`
+
+### 调度执行结果
+- export: success / push: success (去重 skipped) / consistency: matched
+- duration: 1575ms
+- status: success
+
+### 验证
+- tsc: 0 错 / build: 25/25 / smoke: passed
+- check:sync-consistency: 7/7 matched
+- baseline:check: 13 pass, 0 fail
+- e2e:scheduler: 14/14
+- e2e:all: 77/78 (control 1 fail R.6 遗留)
 
 ---
 
