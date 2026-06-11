@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.11A 完成 (设备真实 CSV 导出)
+> **Sprint**: Sprint R.11B 完成 (同步日志真实导出)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.11B — 同步日志真实导出
+
+- 新增 `GET /api/sync/export`，真实读取 package/table/scheduler/consistency 四类日志。
+- 支持 CSV、JSON、siteCode 和 SHA-256 完整性摘要；单次上限 5000 条。
+- `/sync` 可选择四类日志并触发真实 CSV 下载。
+- REQ-5.1.2 从 `not_started` 调整为 `partial`；SHA-256 不冒充证书数字签名。
+- requirements 完成率保持 `6 / 45 = 13.3%`。
 
 ---
 

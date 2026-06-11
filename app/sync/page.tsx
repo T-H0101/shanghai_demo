@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { RefreshCw, Search, Package, AlertCircle, ShieldCheck } from 'lucide-react'
+import { RefreshCw, Search, Package, AlertCircle, ShieldCheck, Download } from 'lucide-react'
 import { useSite } from '@/lib/site/site-context'
+import { toast } from '@/hooks/use-toast'
 
 interface PackageItem {
   id: string
@@ -142,6 +143,8 @@ export default function SyncCenterPage() {
   }>>([])
   const [syncConfigSites, setSyncConfigSites] = useState<SyncConfigSite[]>([])
   const [syncConfigNote, setSyncConfigNote] = useState("")
+  const [exportKind, setExportKind] = useState<'package' | 'table' | 'scheduler' | 'consistency'>('package')
+  const [exporting, setExporting] = useState(false)
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -281,6 +284,42 @@ export default function SyncCenterPage() {
     return () => { cancelled = true }
   }, [])
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const sp = new URLSearchParams({ kind: exportKind, format: 'csv' })
+      const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
+      if (effectiveSiteCode) sp.set('siteCode', effectiveSiteCode)
+      const response = await fetch(`/api/sync/export?${sp.toString()}`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+      const blob = await response.blob()
+      const disposition = response.headers.get('content-disposition') ?? ''
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? `sync-${exportKind}.csv`
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: '同步日志已导出',
+        description: `${response.headers.get('x-export-record-count') ?? '0'} 条真实记录`,
+      })
+    } catch {
+      toast({
+        title: '同步日志导出失败',
+        description: '未生成本地替代日志，请检查中心库连接后重试。',
+        variant: 'destructive',
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
@@ -289,6 +328,32 @@ export default function SyncCenterPage() {
         <PageHeader
           title="同步中心"
           description="查看站点推送到总控的数据包批次和表级同步状态"
+          actions={
+            <div className="flex items-center gap-2">
+              <Select value={exportKind} onValueChange={(value) => setExportKind(value as typeof exportKind)}>
+                <SelectTrigger className="h-8 w-[150px]" data-testid="sync-export-kind">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="package">同步批次</SelectItem>
+                  <SelectItem value="table">表级日志</SelectItem>
+                  <SelectItem value="scheduler">调度日志</SelectItem>
+                  <SelectItem value="consistency">一致性日志</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => void handleExport()}
+                disabled={exporting}
+                data-testid="sync-export"
+              >
+                <Download className="mr-1 h-4 w-4" />
+                {exporting ? '导出中' : '导出 CSV'}
+              </Button>
+            </div>
+          }
         />
 
         {/* Sprint R.7: 数据一致性校验卡片 */}

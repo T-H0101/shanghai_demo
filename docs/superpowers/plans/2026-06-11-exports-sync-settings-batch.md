@@ -26,21 +26,21 @@
 - [x] 更新 requirements review 与追踪文档。
 - [x] 运行全量检查，提交并推送。
 
-### Task 2: R.11B 同步日志签名导出
+### Task 2: R.11B 同步日志完整性摘要导出
 
 **Files:**
 - Create: `app/api/sync/export/route.ts`
 - Modify: `app/sync/page.tsx`
 - Modify: `scripts/e2e/test-sync.ts`
-- Create: `docs/requirements-review/2026-06-11-r11b-sync-export.md`
+- Create: `docs/database-analysis/sprint-r.11b-requirements-review.md`
 - Modify: traceability/status/roadmap docs
 
-- [ ] 先增加四类日志、CSV/JSON、站点过滤、摘要和前端事件失败测试。
-- [ ] 运行 `pnpm e2e:sync`，确认 RED。
-- [ ] 实现真实日志导出 API 和 `/sync` 下载事件。
-- [ ] 验证下载内容与中心库记录一致。
-- [ ] 更新 REQ-5.1.2 为诚实的 `partial`。
-- [ ] 运行全量检查，提交并推送。
+- [x] 先增加四类日志、CSV/JSON、站点过滤、摘要和前端事件失败测试。
+- [x] 运行 `pnpm e2e:sync`，确认 RED。
+- [x] 实现真实日志导出 API 和 `/sync` 下载事件。
+- [x] 验证下载内容与中心库记录一致。
+- [x] 更新 REQ-5.1.2 为诚实的 `partial`。
+- [x] 运行全量检查，提交并推送。
 
 ### Task 3: R.11C 每站点最新同步状态
 

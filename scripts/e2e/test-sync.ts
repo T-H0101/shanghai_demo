@@ -13,6 +13,8 @@
  * 不实施: 真实浏览器 (R.6 占位说明)
  */
 
+import { createHash } from "node:crypto"
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
 let pass = 0, fail = 0
@@ -63,6 +65,44 @@ async function main() {
     "table log 含 skipped (DRY_RUN 标记)",
     logItems.some((l: { status: string }) => l.status === "skipped"),
     `skipped=${logItems.filter((l: { status: string }) => l.status === "skipped").length}`
+  )
+
+  const exportKinds = ["package", "table", "scheduler", "consistency"] as const
+  for (const kind of exportKinds) {
+    const exportRes = await fetch(`${BASE}/api/sync/export?kind=${kind}&format=json`)
+    const exportText = await exportRes.text()
+    let exportJson: { data?: unknown[] } = {}
+    try {
+      exportJson = JSON.parse(exportText)
+    } catch {
+      exportJson = {}
+    }
+    check(
+      `R.11B ${kind} 日志真实 JSON 导出`,
+      exportRes.status === 200 &&
+        Array.isArray(exportJson.data) &&
+        exportJson.data.length > 0 &&
+        exportRes.headers.get("x-export-kind") === kind &&
+        exportRes.headers.get("x-content-sha256") ===
+          createHash("sha256").update(exportText, "utf8").digest("hex"),
+      `HTTP ${exportRes.status} rows=${exportJson.data?.length ?? 0}`
+    )
+  }
+
+  const exportCsvRes = await fetch(
+    `${BASE}/api/sync/export?kind=package&format=csv&siteCode=SH01`
+  )
+  const exportCsv = await exportCsvRes.text()
+  check(
+    "R.11B package CSV 站点过滤与附件内容可验证",
+    exportCsvRes.status === 200 &&
+      exportCsvRes.headers.get("content-type")?.includes("text/csv") === true &&
+      exportCsvRes.headers.get("content-disposition")?.includes("sync-package-SH01-") === true &&
+      exportCsvRes.headers.get("x-data-source") === "sync_package_log" &&
+      exportCsv.split("\n").slice(1).filter(Boolean).every((line) => line.includes("SH01")) &&
+      exportCsvRes.headers.get("x-content-sha256") ===
+        createHash("sha256").update(exportCsv, "utf8").digest("hex"),
+    `HTTP ${exportCsvRes.status} count=${exportCsvRes.headers.get("x-export-record-count")}`
   )
 
   // 4. HMAC 鉴权 (R.2G.1)
@@ -204,6 +244,13 @@ async function main() {
       syncPageSrc.includes("多站点同步配置") &&
       syncPageSrc.includes("credentialKeyRef"),
     "前端需展示安全配置来源"
+  )
+  check(
+    "R.11B /sync 页面提供真实日志导出事件",
+    syncPageSrc.includes("/api/sync/export") &&
+      syncPageSrc.includes("URL.createObjectURL") &&
+      syncPageSrc.includes("同步日志已导出"),
+    "前端需调用真实导出 API"
   )
 
   console.log(`\n=== Sync: ${pass} pass, ${fail} fail ===`)

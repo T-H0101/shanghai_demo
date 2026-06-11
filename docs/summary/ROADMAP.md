@@ -3,6 +3,18 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.11B 同步日志真实导出
+
+- [x] package/table/scheduler/consistency 四类真实日志
+- [x] CSV/JSON 与 siteCode 过滤
+- [x] 记录数和 SHA-256 完整性摘要
+- [x] `/sync` 类型选择与真实下载事件
+- [ ] Excel 与证书/私钥数字签名
+- [ ] 大数据分片/异步导出与两年留存策略
+- [ ] `/logs` 页面移除 mock
+
+---
+
 ## R.11A 设备真实 CSV 导出
 
 - [x] `GET /api/racks/export` 读取 `unified_devices`

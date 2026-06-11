@@ -1,6 +1,6 @@
 # Requirements Traceability Matrix (需求追踪矩阵)
 
-> **状态**: ✅ Sprint R.11A 完成 (2026-06-11)
+> **状态**: ✅ Sprint R.11B 完成 (2026-06-11)
 > **唯一标准**: `docs/source/requirements.md`
 > **依据**: `CLAUDE.md` 9 大强约束 + `docs/database-analysis/requirements-strict-review-template.md` 13 段
 > **机器可读版本**: `requirements-traceability.json` (同目录)
@@ -14,8 +14,8 @@
 |---|---|---|
 | **总需求数** | **45** | (45 atomic, R.3 重算 + 2 项 R.2 漏) |
 | **complete** | **6** | 13.3% (R.10D 诚实修正 REQ-4.3.2 导出缺失) |
-| **partial** | **15** | 33.3% |
-| **not_started** | **7** | 15.6% |
+| **partial** | **16** | 35.6% |
+| **not_started** | **6** | 13.3% |
 | **blocked_by_source_schema** | **6** | 13.3% (R.4 +1: REQ-4.2.2 任务控制真控制路径 blocked) |
 | **blocked_by_site_change** | **5** | 11.1% |
 | **blocked_by_auth** | **9** | 20.0% (R.4 +2: REQ-2.2.2 / 3.2.1 从 out_of_scope 改回) |
@@ -281,7 +281,7 @@
 | 字段 | 值 |
 |---|---|
 | requirement_text | 集团 AD ↔ 站点本地账号映射 |
-| module | — |
+| module | `app/api/sync/export/route.ts`, `app/sync/page.tsx` |
 | priority | P1 |
 | current_status | **blocked_by_auth + blocked_by_site_change** (R.4 修正 R.2 out_of_scope 违规) |
 | implemented_files | — |
@@ -779,20 +779,20 @@
 | requirement_text | 日志导出 (Excel/CSV + 数字签名) |
 | module | — |
 | priority | P2 |
-| current_status | **not_started** |
-| implemented_files | — |
-| related_api | — |
-| related_db_tables | `sync_package_log` |
-| ui_pages | `/logs` |
-| backend_reality | ❌ 页面无导出按钮 |
-| ui_reality | ❌ |
-| mock_or_simulator | N/A |
+| current_status | **partial** |
+| implemented_files | `app/api/sync/export/route.ts`, `app/sync/page.tsx` |
+| related_api | `GET /api/sync/export` |
+| related_db_tables | `sync_package_log`, `sync_table_log`, `sync_scheduler_log`, `sync_consistency_log` |
+| ui_pages | `/sync`, `/logs` |
+| backend_reality | ⚠️ R.11B 四类日志真实导出，支持 CSV/JSON、siteCode、记录数和 SHA-256 完整性摘要 |
+| ui_reality | ⚠️ `/sync` 可选择四类日志并下载真实 CSV；`/logs` 仍为旧 mock 页面 |
+| mock_or_simulator | 导出 API 与 `/sync` 事件无 mock；DRY_RUN/skipped 日志保持透明 |
 | blocker_type | `not_started` |
-| missing_parts | 导出 API + UI 按钮 + 数字签名 |
+| missing_parts | Excel、证书/私钥数字签名、大数据分片/异步导出、两年留存策略、`/logs` 页面真实化 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | 后续 Sprint |
-| verification_command | (待实现) |
+| next_action | 设计签名密钥托管、异步分片与留存策略后继续 |
+| verification_command | `pnpm e2e:sync` |
 
 #### REQ-5.1.3 日志检索
 
@@ -1157,8 +1157,8 @@
 | 状态 | 数量 | 占比 | REQ 列表 |
 |---|---|---|---|
 | **complete** | **6** | 13.3% | 1.1.1, 1.2.1, 2.3.1, 2.3.2, 5.1.1, 6.1.1, 6.2.1 (注: 6.3.x 架构级) |
-| **partial** | **15** | 33.3% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 4.3.2, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2, 6.4.3 |
-| **not_started** | **7** | 15.6% | 2.3.3, 4.1.1, 4.1.3, 5.1.2, 5.2.2, 6.2.2 (含 R.4 新增 REQ-4.1.1 not_implemented) |
+| **partial** | **16** | 35.6% | 2.1.1, 2.1.3, 3.1.1, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 4.3.2, 5.1.2, 5.1.3, 6.1.2, 6.1.3, 6.2.3, 6.4.1, 6.4.2, 6.4.3 |
+| **not_started** | **6** | 13.3% | 2.3.3, 4.1.1, 4.1.3, 5.2.2, 6.2.2 (含 R.4 新增 REQ-4.1.1 not_implemented) |
 | **blocked_by_source_schema** | **6** | 13.3% | 2.1.1, 2.1.3, 3.1.1, 3.3.1, 4.1.2, 4.2.2 (真控制), 4.3.1, 5.2.1 |
 | **blocked_by_site_change** | **5** | 11.1% | 3.1.2, 4.2.1 (副), 4.2.3 (主), 4.2.4, 6.1.3 |
 | **blocked_by_auth** | **9** | 20.0% | 2.1.2, 2.2.1, 2.2.2 (R.4 改回), 2.2.3, 3.1.3, 3.2.1 (R.4 改回), 3.2.2, 3.3.2, 6.2.2, 6.2.3, 6.2.4, 6.4.1 |
@@ -1222,7 +1222,7 @@ requirements 完成率 = complete / (total - out_of_scope) × 100%
 | 4 | **REQ-2.3.3** | 数据一致性校验 (每日差异) | not_started | 无外部阻塞, 项目可自主 | 2d | 后端 cron |
 | 5 | **REQ-3.1.3** | 账号生命周期 (写 API) | blocked_by_auth | 依赖 REQ-2.2.1 | 3d (解锁后) | 业务 API |
 | 6 | **REQ-4.2.1** | 任务管理 (新建) | partial | 架构决议"总控是否发起" | 3d | 业务 API |
-| 7 | **REQ-5.1.2** | 日志导出 (Excel/CSV+签名) | not_started | 无外部阻塞, 1 API + 1 按钮 | 1d | UI 增强 |
+| 7 | **REQ-5.1.2** | 日志导出 (Excel/CSV+签名) | partial | 缺 Excel、证书签名、分片与留存策略 | 1d | UI 增强 |
 | 8 | **REQ-4.1.3** | 检索结果导出 | not_started | 无外部阻塞, 1 API + 1 按钮 | 0.5d | UI 增强 |
 | 9 | **REQ-6.2.3** | 操作审计 (业务层) | partial | 依赖 Auth | 2d (解锁后) | 业务 API |
 | 10 | **REQ-5.1.3** | 日志模糊检索 | partial | 无外部阻塞, 1 API 增强 | 1d | UI 增强 |
