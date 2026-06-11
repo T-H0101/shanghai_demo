@@ -25,7 +25,7 @@
 - [ ] 运行目标测试，确认因功能缺失失败。
 - [ ] 实现参数解析和只读安全配置 API。
 - [ ] 在 `/sync` 展示配置来源、站点周期和凭据键引用。
-- [ ] 运行目标测试与全量检查。
+- [x] 运行目标测试与全量检查。
 - [ ] 更新文档并提交 `feat(sync): expose safe multi-site config`。
 
 ### Task 2: R.10B Settings 真实只读化
@@ -36,10 +36,10 @@
 - Modify: `package.json`
 - Modify: traceability/status/review docs
 
-- [ ] 写 `/settings` 无 mock、无假写操作、读取真实 API 的失败测试。
-- [ ] 运行目标测试，确认失败。
-- [ ] 将页面改为只读真实运行配置和健康状态。
-- [ ] 加入 `e2e:settings` 和 `e2e:all`。
+- [x] 写 `/settings` 无 mock、无假写操作、读取真实 API 的失败测试。
+- [x] 运行目标测试，确认失败。
+- [x] 将页面改为只读真实运行配置和健康状态。
+- [x] 加入 `e2e:settings` 和 `e2e:all`。
 - [ ] 运行目标测试与全量检查。
 - [ ] 更新文档并提交 `feat(settings): show verified runtime config`。
 

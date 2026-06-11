@@ -1,161 +1,260 @@
 "use client"
-import { useState } from "react"
+
+import { useCallback, useEffect, useState } from "react"
+import { AlertTriangle, Database, KeyRound, RefreshCw, Server, ShieldAlert } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { defaultSettings } from "@/lib/mock/settings"
-import type { SystemSettings } from "@/lib/types/settings"
-import { Save, RotateCcw, Download, Server, Mail, Bell, Webhook } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+
+interface SyncSiteConfig {
+  siteCode: string
+  siteName: string
+  enabled: boolean
+  intervalSeconds: number
+  status: string
+  credentialKeyRef: string | null
+}
+
+interface EnvKeyRef {
+  key: string
+  configured: boolean
+}
+
+interface SettingsSnapshot {
+  sites: SyncSiteConfig[]
+  envKeyRefs: EnvKeyRef[]
+  systemStatus: string
+  systemUptime: number | null
+  databaseConnected: boolean
+  databaseStatus: string
+  databaseLatencyMs: number | null
+  realityNote: string
+}
+
+const EMPTY_SNAPSHOT: SettingsSnapshot = {
+  sites: [],
+  envKeyRefs: [],
+  systemStatus: "unknown",
+  systemUptime: null,
+  databaseConnected: false,
+  databaseStatus: "unknown",
+  databaseLatencyMs: null,
+  realityNote: "",
+}
 
 export default function Page() {
-  const [settings, setSettings] = useState<SystemSettings>(defaultSettings)
-  const svcStatus = { healthy: "正常", degraded: "降级", down: "宕机" }
-  const svcColor = { healthy: "bg-emerald-500", degraded: "bg-amber-500", down: "bg-red-500" }
+  const [snapshot, setSnapshot] = useState<SettingsSnapshot>(EMPTY_SNAPSHOT)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSave = () => {
-    toast({ title: "保存成功", description: "系统设置已保存，将在下一同步周期生效" })
-  }
+  const loadSettings = useCallback(async () => {
+    setLoading(true)
+    setError(null)
 
-  const handleReset = () => {
-    setSettings(defaultSettings)
-    toast({ title: "已重置", description: "所有设置已恢复为默认值" })
-  }
+    try {
+      const [syncRes, healthRes, dbHealthRes] = await Promise.all([
+        fetch("/api/sync/config", { cache: "no-store" }),
+        fetch("/api/system/health", { cache: "no-store" }),
+        fetch("/api/system/db-health", { cache: "no-store" }),
+      ])
+      const [sync, health, dbHealth] = await Promise.all([
+        syncRes.json(),
+        healthRes.json(),
+        dbHealthRes.json(),
+      ])
 
-  const handleExport = () => {
-    toast({ title: "导出中...", description: "正在生成配置文件..." })
-    setTimeout(() => {
-      toast({ title: "导出成功", description: "配置文件已导出为 config.json" })
-    }, 1000)
-  }
+      if (!syncRes.ok || !healthRes.ok || (!dbHealthRes.ok && dbHealthRes.status !== 503)) {
+        throw new Error("读取系统配置或健康状态失败")
+      }
 
-  const handleTestAlert = () => {
-    toast({ title: "测试邮件发送中...", description: "正在向收件人发送测试邮件..." })
-    setTimeout(() => {
-      toast({ title: "发送成功", description: `测试邮件已发送至 ${settings.alert.emailRecipients}` })
-    }, 1500)
-  }
+      setSnapshot({
+        sites: sync.data?.sites ?? [],
+        envKeyRefs: sync.data?.runtime?.envKeyRefs ?? [],
+        systemStatus: health.status ?? "unknown",
+        systemUptime: typeof health.uptime === "number" ? health.uptime : null,
+        databaseConnected: Boolean(dbHealth.database?.connected),
+        databaseStatus: dbHealth.database?.status ?? "unknown",
+        databaseLatencyMs:
+          typeof dbHealth.database?.latencyMs === "number" ? dbHealth.database.latencyMs : null,
+        realityNote: sync.data?.reality?.note ?? "",
+      })
+    } catch (loadError) {
+      setSnapshot(EMPTY_SNAPSHOT)
+      setError(loadError instanceof Error ? loadError.message : "读取系统设置失败")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadSettings()
+  }, [loadSettings])
 
   return (
     <AppShell>
-      <PageHeader title="系统设置" description="同步、告警、安全与任务策略配置" badge="SETTINGS"
-        actions={<div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8" onClick={handleReset}><RotateCcw className="h-4 w-4 mr-1"/>重置</Button>
-          <Button variant="outline" size="sm" className="h-8" onClick={handleExport}><Download className="h-4 w-4 mr-1"/>导出</Button>
-          <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSave}><Save className="h-4 w-4 mr-1"/>保存</Button>
-        </div>} />
+      <PageHeader
+        title="系统设置"
+        description="查看同步策略、安全配置引用与运行健康状态"
+        badge="READ ONLY"
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => void loadSettings()}
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-1 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            刷新
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">当前页面只读</p>
+            <p className="mt-1 text-xs">
+              写配置接口为 not_implemented；JWT、RBAC、ADFS 与敏感安全策略为 blocked_by_auth。
+              页面不会保存、导出或测试发送任何配置。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
         <Card className="gap-0">
-          <CardHeader><CardTitle className="text-base">同步设置</CardTitle><CardDescription>实时与定时同步策略</CardDescription></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between"><Label>实时同步</Label><Switch checked={settings.sync.realtimeSync} onCheckedChange={(v) => setSettings({...settings, sync: {...settings.sync, realtimeSync: v}})} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">定时同步周期(分钟)</Label><Input type="number" value={settings.sync.scheduledIntervalMinutes} onChange={(e) => setSettings({...settings, sync: {...settings.sync, scheduledIntervalMinutes: parseInt(e.target.value) || 0}})} className="h-9 mt-1" /></div>
-              <div><Label className="text-xs">全量同步时间</Label><Input value={settings.sync.fullSyncTime} onChange={(e) => setSettings({...settings, sync: {...settings.sync, fullSyncTime: e.target.value}})} className="h-9 mt-1" /></div>
-              <div><Label className="text-xs">重试次数</Label><Input type="number" value={settings.sync.retryCount} onChange={(e) => setSettings({...settings, sync: {...settings.sync, retryCount: parseInt(e.target.value) || 0}})} className="h-9 mt-1" /></div>
-              <div><Label className="text-xs">重试间隔(秒)</Label><Input type="number" value={settings.sync.retryIntervalSeconds} onChange={(e) => setSettings({...settings, sync: {...settings.sync, retryIntervalSeconds: parseInt(e.target.value) || 0}})} className="h-9 mt-1" /></div>
-            </div>
-            <div><Label className="text-xs">一致性校验时间</Label><Input value={settings.sync.consistencyCheckTime} onChange={(e) => setSettings({...settings, sync: {...settings.sync, consistencyCheckTime: e.target.value}})} className="h-9 mt-1" /></div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Server className="h-5 w-5" />
+              多站点同步策略
+            </CardTitle>
+            <CardDescription>来源：中心库 sync_sites，仅展示安全字段</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {snapshot.sites.length === 0 && !loading ? (
+              <p className="text-sm text-slate-500">暂无可读取的站点同步配置。</p>
+            ) : (
+              snapshot.sites.map((site) => (
+                <div key={site.siteCode} className="rounded-lg border bg-slate-50 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{site.siteName}</p>
+                      <p className="font-mono text-xs text-slate-500">{site.siteCode}</p>
+                    </div>
+                    <Badge variant={site.enabled ? "default" : "secondary"}>
+                      {site.enabled ? site.status : "disabled"}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-slate-500">同步周期</p>
+                      <p className="mt-1 font-medium">{site.intervalSeconds} 秒</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">凭据键引用</p>
+                      <p className="mt-1 break-all font-mono font-medium">
+                        {site.credentialKeyRef ?? "未配置"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+            {snapshot.realityNote && (
+              <p className="text-xs text-amber-700">{snapshot.realityNote}</p>
+            )}
           </CardContent>
         </Card>
 
         <Card className="gap-0">
-          <CardHeader><CardTitle className="text-base">告警设置</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">站点离线阈值(分钟)</Label><Input type="number" value={settings.alert.siteOfflineThresholdMinutes} onChange={(e) => setSettings({...settings, alert: {...settings.alert, siteOfflineThresholdMinutes: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">硬件异常阈值</Label><Input type="number" value={settings.alert.hardwareAnomalyThreshold} onChange={(e) => setSettings({...settings, alert: {...settings.alert, hardwareAnomalyThreshold: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">任务超时(分钟)</Label><Input type="number" value={settings.alert.taskTimeoutMinutes} onChange={(e) => setSettings({...settings, alert: {...settings.alert, taskTimeoutMinutes: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">容量预警(%)</Label><Input type="number" value={settings.alert.capacityWarningPercent} onChange={(e) => setSettings({...settings, alert: {...settings.alert, capacityWarningPercent: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="h-5 w-5" />
+              运行时配置引用
+            </CardTitle>
+            <CardDescription>仅显示环境变量键名和是否配置，不返回 secret 值</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {snapshot.envKeyRefs.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2"
+                >
+                  <span className="break-all font-mono text-xs">{item.key}</span>
+                  <Badge variant={item.configured ? "default" : "outline"}>
+                    {item.configured ? "已配置" : "未配置"}
+                  </Badge>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-between"><Label>邮件提醒</Label><Switch checked={settings.alert.emailNotification} onCheckedChange={(v) => setSettings({...settings, alert: {...settings.alert, emailNotification: v}})} /></div>
-            <div><Label className="text-xs">收件人</Label><Input value={settings.alert.emailRecipients} onChange={(e) => setSettings({...settings, alert: {...settings.alert, emailRecipients: e.target.value}})} className="h-9 mt-1"/></div>
-            <Button variant="outline" size="sm" onClick={handleTestAlert} className="mt-2"><Mail className="h-4 w-4 mr-1"/>发送测试邮件</Button>
           </CardContent>
         </Card>
 
         <Card className="gap-0">
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Webhook className="h-5 w-5"/>推送路径配置</CardTitle><CardDescription>告警与状态变更的回调通知地址</CardDescription></CardHeader>
-          <CardContent className="space-y-4">
-            <div><Label className="text-xs">告警回调地址</Label><Input value={settings.alert.pushUrl} onChange={(e) => setSettings({...settings, alert: {...settings.alert, pushUrl: e.target.value}})} placeholder="https://your-webhook-endpoint.com/alerts" className="h-9 mt-1"/></div>
-            <div><Label className="text-xs">状态变更通知地址</Label><Input value={settings.alert.statusChangeCallback} onChange={(e) => setSettings({...settings, alert: {...settings.alert, statusChangeCallback: e.target.value}})} placeholder="https://your-callback.com/status" className="h-9 mt-1"/></div>
-            <div className="flex items-center justify-between"><Label className="text-xs">启用推送</Label><Switch checked={settings.alert.pushEnabled} onCheckedChange={(v) => setSettings({...settings, alert: {...settings.alert, pushEnabled: v}})} /></div>
-            <div className="flex items-center justify-between"><Label className="text-xs">推送失败重试</Label><Switch checked={settings.alert.pushRetryOnFail} onCheckedChange={(v) => setSettings({...settings, alert: {...settings.alert, pushRetryOnFail: v}})} /></div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Database className="h-5 w-5" />
+              运行健康
+            </CardTitle>
+            <CardDescription>来源：实时 system health 与 database health API</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border bg-slate-50 p-4">
+              <p className="text-xs text-slate-500">应用服务</p>
+              <p className="mt-2 text-lg font-semibold">{snapshot.systemStatus}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                运行 {snapshot.systemUptime === null ? "—" : `${Math.floor(snapshot.systemUptime)} 秒`}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-slate-50 p-4">
+              <p className="text-xs text-slate-500">中心数据库</p>
+              <p className="mt-2 text-lg font-semibold">{snapshot.databaseStatus}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {snapshot.databaseConnected ? "已连接" : "未连接"} · 延迟{" "}
+                {snapshot.databaseLatencyMs === null ? "—" : `${snapshot.databaseLatencyMs} ms`}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
         <Card className="gap-0">
-          <CardHeader><CardTitle className="text-base">安全设置</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">JWT 过期(小时)</Label><Input type="number" value={settings.security.jwtExpiryHours} onChange={(e) => setSettings({...settings, security: {...settings.security, jwtExpiryHours: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">登录失败锁定阈值</Label><Input type="number" value={settings.security.loginFailLockThreshold} onChange={(e) => setSettings({...settings, security: {...settings.security, loginFailLockThreshold: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-            </div>
-            <div><Label className="text-xs">IP 锁定策略</Label>
-              <Select value={settings.security.ipLockPolicy} onValueChange={(v) => setSettings({...settings, security: {...settings.security, ipLockPolicy: v as "strict" | "moderate" | "off"}})}>
-                <SelectTrigger className="h-9 mt-1"><SelectValue/></SelectTrigger>
-                <SelectContent><SelectItem value="strict">严格</SelectItem><SelectItem value="moderate">适中</SelectItem><SelectItem value="off">关闭</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between"><Label>敏感数据加密</Label><Switch checked={settings.security.sensitiveDataEncryption} onCheckedChange={(v) => setSettings({...settings, security: {...settings.security, sensitiveDataEncryption: v}})} /></div>
-          </CardContent>
-        </Card>
-
-        <Card className="gap-0">
-          <CardHeader><CardTitle className="text-base">任务设置</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between"><Label>恢复任务优先</Label><Switch checked={settings.task.restorePriority} onCheckedChange={(v) => setSettings({...settings, task: {...settings.task, restorePriority: v}})} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">备份并发数</Label><Input type="number" value={settings.task.backupConcurrency} onChange={(e) => setSettings({...settings, task: {...settings.task, backupConcurrency: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">巡检抽样比例(%)</Label><Input type="number" value={settings.task.inspectSamplePercent} onChange={(e) => setSettings({...settings, task: {...settings.task, inspectSamplePercent: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-            </div>
-            <div><Label className="text-xs">日志保留周期(天)</Label><Input type="number" value={settings.task.logRetentionDays} onChange={(e) => setSettings({...settings, task: {...settings.task, logRetentionDays: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-          </CardContent>
-        </Card>
-
-        <Card className="gap-0">
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Server className="h-5 w-5"/>监控阈值</CardTitle><CardDescription>系统健康状态判定阈值配置</CardDescription></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">站点离线超时(分钟)</Label><Input type="number" value={settings.alert.siteOfflineThresholdMinutes} onChange={(e) => setSettings({...settings, alert: {...settings.alert, siteOfflineThresholdMinutes: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">硬件异常判定次数</Label><Input type="number" value={settings.alert.hardwareAnomalyThreshold} onChange={(e) => setSettings({...settings, alert: {...settings.alert, hardwareAnomalyThreshold: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">任务执行超时(分钟)</Label><Input type="number" value={settings.alert.taskTimeoutMinutes} onChange={(e) => setSettings({...settings, alert: {...settings.alert, taskTimeoutMinutes: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-              <div><Label className="text-xs">容量预警阈值(%)</Label><Input type="number" value={settings.alert.capacityWarningPercent} onChange={(e) => setSettings({...settings, alert: {...settings.alert, capacityWarningPercent: parseInt(e.target.value) || 0}})} className="h-9 mt-1"/></div>
-            </div>
-            <div className="flex items-center justify-between"><Label className="text-xs">启用容量预警</Label><Switch checked={settings.alert.emailNotification} onCheckedChange={(v) => setSettings({...settings, alert: {...settings.alert, emailNotification: v}})} /></div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldAlert className="h-5 w-5" />
+              未接入能力
+            </CardTitle>
+            <CardDescription>不使用 mock 或本地状态冒充配置完成</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <BlockedItem label="配置写入、重置、导出" status="not_implemented" />
+            <BlockedItem label="邮件、Webhook 测试发送" status="not_implemented" />
+            <BlockedItem label="JWT、RBAC、ADFS 安全策略" status="blocked_by_auth" />
+            <BlockedItem label="真实告警阈值与任务策略" status="blocked_by_external_system" />
           </CardContent>
         </Card>
       </div>
-
-      <Card className="gap-0">
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Server className="h-5 w-5"/>服务监控</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {settings.services.map((s) => (
-              <div key={s.id} className="border rounded-lg p-4 bg-slate-50">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium text-sm">{s.name}</span>
-                  <Badge className={`${svcColor[s.status]} text-white text-xs`}>{svcStatus[s.status]}</Badge>
-                </div>
-                <p className="text-xs text-slate-500 mb-3">v{s.version} · 可用性 {s.uptime} · API {s.apiLatencyMs}ms</p>
-                <div className="space-y-2 text-xs">
-                  <div><span className="text-slate-500 w-12 inline-block">CPU</span><Progress value={s.cpu} className="h-1.5 inline-flex flex-1 w-[calc(100%-3rem)] ml-2"/></div>
-                  <div><span className="text-slate-500 w-12 inline-block">内存</span><Progress value={s.memory} className="h-1.5 flex-1 ml-2"/></div>
-                  <div><span className="text-slate-500 w-12 inline-block">磁盘</span><Progress value={s.disk} className="h-1.5 flex-1 ml-2"/></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </AppShell>
+  )
+}
+
+function BlockedItem({ label, status }: { label: string; status: string }) {
+  return (
+    <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+      <span>{label}</span>
+      <Badge variant="outline" className="font-mono text-[10px]">
+        {status}
+      </Badge>
+    </div>
   )
 }

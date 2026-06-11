@@ -3,12 +3,23 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-11
 
+## R.10B Settings 真实只读化
+
+- [x] 移除 Settings mock 配置和假成功事件
+- [x] 展示真实同步策略、env key 引用、应用与数据库健康
+- [x] 写配置、告警发送与认证能力显式 blocked/not_implemented
+- [x] `e2e:settings` 纳入 `e2e:all`
+- [ ] 配置写入权限与审计
+- [ ] CPU/内存/磁盘真实指标源
+
+---
+
 ## R.10A 调度参数与多站点安全配置
 
 - [x] scheduler 支持 `--siteCode=SH01`
 - [x] `GET /api/sync/config` 去敏读取 `sync_sites`
 - [x] `/sync` 只读展示多站点同步配置
-- [ ] Settings 展示真实运行配置和健康状态 (R.10B)
+- [x] Settings 展示真实运行配置和健康状态 (R.10B)
 - [ ] 配置写入、权限和审计
 
 ---

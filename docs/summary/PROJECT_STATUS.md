@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-11
-> **Sprint**: Sprint R.10A 完成 (调度参数与多站点安全配置)
+> **Sprint**: Sprint R.10B 完成 (Settings 真实只读化)
 > **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+
+---
+
+## Sprint R.10B — Settings 真实只读化
+
+- `/settings` 移除 `defaultSettings` mock、local state 假保存、假导出和假邮件成功。
+- 页面真实读取同步配置、应用健康和中心数据库健康，只展示安全 env key 引用。
+- 配置写入、邮件/Webhook、JWT/RBAC/ADFS 与真实告警阈值显式标记阻塞。
+- 新增 `e2e:settings` 并纳入 `e2e:all`。
+- REQ-6.4.2、REQ-6.4.3 仍为 `partial`；requirements 完成率仍为 15.6%。
 
 ---
 

@@ -1112,41 +1112,41 @@
 | module | `app/api/system/*` |
 | priority | P1 |
 | current_status | **partial** |
-| implemented_files | `app/api/system/db-health/route.ts`, `app/api/system/health/route.ts` |
-| related_api | `GET /api/system/health` |
+| implemented_files | `app/api/system/db-health/route.ts`, `app/api/system/health/route.ts`, `app/settings/page.tsx` |
+| related_api | `GET /api/system/health`, `GET /api/system/db-health` |
 | related_db_tables | — |
-| ui_pages | (无 UI) |
-| backend_reality | ⚠️ API 有, UI 无 |
-| ui_reality | ❌ 无监控 dashboard |
+| ui_pages | `/settings` |
+| backend_reality | ✅ 系统进程与中心数据库健康 API 真实可读 |
+| ui_reality | ⚠️ 只读展示应用状态、运行时长、数据库连接与延迟 |
 | mock_or_simulator | — |
 | blocker_type | `not_started` |
-| missing_parts | 监控 dashboard |
+| missing_parts | CPU/内存/磁盘完整监控、历史趋势与告警 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | 后续 Sprint |
-| verification_command | `curl localhost:3000/api/system/health` |
+| next_action | 接入真实主机指标源后补 CPU/内存/磁盘与趋势 |
+| verification_command | `pnpm e2e:settings` |
 
 #### REQ-6.4.3 配置 (同步周期/告警阈值可页面配置)
 
 | 字段 | 值 |
 |---|---|
 | requirement_text | 配置 (同步周期/告警阈值可页面配置) |
-| module | `app/api/sync/config/route.ts` |
+| module | `app/api/sync/config/route.ts`, `app/settings/page.tsx` |
 | priority | P2 |
 | current_status | **partial** |
-| implemented_files | `app/api/sync/config/route.ts`, `app/sync/page.tsx` |
-| related_api | `GET /api/sync/config` |
+| implemented_files | `app/api/sync/config/route.ts`, `app/sync/page.tsx`, `app/settings/page.tsx` |
+| related_api | `GET /api/sync/config`, `GET /api/system/health`, `GET /api/system/db-health` |
 | related_db_tables | `sync_sites` |
-| ui_pages | `/sync` |
+| ui_pages | `/sync`, `/settings` |
 | backend_reality | ✅ 真实读取中心配置；只返回 env key 引用，不返回 secret 值 |
-| ui_reality | ⚠️ 可查看多站点同步配置，当前只读 |
+| ui_reality | ⚠️ 可查看同步策略、安全 env key 引用和健康状态；当前只读 |
 | mock_or_simulator | 无 mock；中心配置不作为源端真实性证据 |
 | blocker_type | `not_started` |
 | missing_parts | 告警阈值配置、配置写入 API、权限与审计 |
 | needed_site_schema_change | — |
 | needed_site_app_change | — |
-| next_action | R.10B Settings 真实只读化；写入能力后续单独实施 |
-| verification_command | `pnpm e2e:sync` |
+| next_action | 设计配置写入权限、审计与告警阈值真实来源后再开放写操作 |
+| verification_command | `pnpm e2e:sync && pnpm e2e:settings` |
 
 ---
 
