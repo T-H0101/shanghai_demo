@@ -49,6 +49,20 @@ export function buildSiteAgentSigningString(input: {
   ].join("\n")
 }
 
+export function signSiteAgentRequest(input: {
+  siteCode: string
+  timestamp: string
+  nonce: string
+  method: string
+  path: string
+  rawBody: string
+  secret: string
+}): string {
+  return createHmac("sha256", input.secret)
+    .update(buildSiteAgentSigningString(input), "utf8")
+    .digest("hex")
+}
+
 export function verifySiteAgentRequest(
   input: VerifySiteAgentRequestInput
 ): SiteAgentAuthResult {
@@ -93,17 +107,15 @@ export function verifySiteAgentRequest(
     }
   }
 
-  const signingString = buildSiteAgentSigningString({
+  const expected = signSiteAgentRequest({
     siteCode: input.siteCode,
     timestamp: input.timestamp,
     nonce: input.nonce,
     method: input.method,
     path: input.path,
     rawBody: input.rawBody,
+    secret,
   })
-  const expected = createHmac("sha256", secret)
-    .update(signingString, "utf8")
-    .digest("hex")
   const actualBuffer = Buffer.from(input.signature, "utf8")
   const expectedBuffer = Buffer.from(expected, "utf8")
   if (

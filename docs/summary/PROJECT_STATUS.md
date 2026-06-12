@@ -1,8 +1,23 @@
 # Project Status
 
 > **截至**: 2026-06-12
-> **Sprint**: Sprint R.19A 完成 (Site Agent heartbeat 基础设施)
-> **当前主线**: R.19B 独立 Agent 同步客户端
+> **Sprint**: Sprint R.19B 完成 (独立 Site Agent heartbeat client)
+> **当前主线**: R.19C 真实小表 package push / retry / spool
+
+---
+
+## Sprint R.19B — 独立 Site Agent heartbeat client (2026-06-12)
+
+- 新增 `pnpm agent:site` 独立进程入口，默认周期 heartbeat，支持 `--once` 验收。
+- Agent 在站点侧使用 `SITE_DATABASE_URL` 执行 `SELECT 1` 探活，并主动调用总控。
+- secret/数据库 URL 只从环境读取；结构化日志仅显示 env key ref 和安全运行字段。
+- 初始 control capability 全部 `supported=false`，不把未实现 adapter 宣称为真实控制。
+- 新增 systemd service、空值环境模板和部署文档。
+- `pnpm e2e:site-agent-client` 7/7 通过；SH01 runtime 实测
+  `e2e-site-agent-client / r19b-e2e / reachable=true`。
+- 尚未证明生产站点已安装长期运行，requirements 完成率保持 `3/45 = 6.7%`。
+
+下一步: R.19C 实现真实小表 package push、重试、spool 和 batch 幂等。
 
 ---
 

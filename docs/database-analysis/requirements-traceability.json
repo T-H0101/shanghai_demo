@@ -210,6 +210,8 @@
         "lib/sync/package-dispatcher.ts",
         "lib/site-agent/config.ts",
         "lib/site-agent/hmac.ts",
+        "lib/site-agent/heartbeat-client.ts",
+        "scripts/site-agent/run.ts",
         "app/api/site-agent/heartbeat/route.ts"
       ],
       "related_api": [
@@ -224,18 +226,18 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "同步 package 通过 HMAC API 松耦合；R.19A heartbeat 已具备请求级 HMAC、nonce 防重放和运行状态持久化。独立 Agent、同步客户端和控制 poll/ack/result 尚未部署。",
+      "backend_reality": "同步 package 通过 HMAC API 松耦合；R.19A 总控 heartbeat 具备 HMAC/防重放；R.19B 独立 Agent client 已真实探活站点 DB 并主动回传。package client 和控制 poll/ack/result 尚未实现。",
       "ui_reality": "/sync 展示真实 heartbeat 状态，不提供改站点按钮",
       "mock_or_simulator": "N/A",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
-        "可长期运行的独立 Site Agent",
+        "生产站点实际部署并长期运行",
         "生产控制路径移除中心库直连",
         "HTTP control poll/ack/result"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": "部署 Site Agent 主动 push 同步并 poll/ack/result 控制命令",
-      "next_action": "R.19 实现独立 Site Agent",
+      "next_action": "R.19C package client + R.19D control client",
       "verification_command": "pnpm smoke:sync"
     },
     {
@@ -327,12 +329,12 @@
         "Dashboard alert-center",
         "/sync"
       ],
-      "backend_reality": "R.19A 可接收签名 heartbeat 并按 5/15 分钟阈值计算 online/stale/offline；尚无长期 Agent 进程、硬件指标和自动告警。",
+      "backend_reality": "R.19A 可接收签名 heartbeat；R.19B 独立 Agent 支持 5 分钟默认周期和站点 DB 探活。尚未在生产站点长期部署，无硬件指标和自动告警。",
       "ui_reality": "/sync 显示 Agent online/degraded/stale/offline/not_registered；告警中心仍无真实站点告警",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_source_schema",
       "missing_parts": [
-        "长期 Agent 周期 heartbeat",
+        "生产站点长期部署",
         "光盘库/离线库硬件指标",
         "离线和硬件异常自动告警"
       ],
@@ -486,7 +488,7 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "已有手动 trigger、定时 scheduler、HMAC package push 和 Agent heartbeat 状态；缺独立 Agent 的关键状态实时推送、自动重试告警和站点离线补传。",
+      "backend_reality": "已有手动 trigger、定时 scheduler、HMAC package API 和独立 Agent heartbeat；Agent 尚未实现 package push、自动重试告警和站点离线补传。",
       "ui_reality": "/sync 展示多站点周期、Agent heartbeat 状态和 credential env key 引用，不展示 secret 值",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",

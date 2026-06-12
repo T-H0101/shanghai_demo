@@ -1,0 +1,20 @@
+[Unit]
+Description=Unified Disc Platform Site Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=site-agent
+Group=site-agent
+WorkingDirectory=/opt/unified-disc-platform
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/unified-disc-site-agent.env
+ExecStart=/usr/bin/pnpm agent:site
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

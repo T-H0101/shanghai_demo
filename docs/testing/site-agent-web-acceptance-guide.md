@@ -1,6 +1,6 @@
 # Site Agent Web Acceptance Guide
 
-> R.18 建立基线；R.19A 已实现 heartbeat、运行状态表和 `/sync` 状态展示。
+> R.18 建立基线；R.19A 实现总控 heartbeat；R.19B 实现独立 Agent client。
 
 ## 1. 环境
 
@@ -10,13 +10,18 @@ set -a && source .env.local && set +a
 pnpm dev
 ```
 
-R.19A 尚未提供长期运行的独立 Agent 入口。先发送一条真实签名
-heartbeat 并完成 API/数据库验收:
+一次性启动真实 Agent client:
 
 ```bash
 set -a && source .env.local && set +a
-pnpm e2e:site-agent
+SITE_CODE=SH01 \
+SITE_AGENT_ID=manual-sh01-agent \
+SITE_AGENT_VERSION=manual-r19b \
+pnpm agent:site -- --once
 ```
+
+长期运行和 systemd 步骤见
+`docs/operations/site-agent-deployment.md`。
 
 浏览器打开 `http://localhost:3000/sync`。
 
@@ -52,6 +57,8 @@ docker exec unified_disc_postgres \
 - BJ02: `not_registered / 未注册`。
 - 浏览器 console error: 0。
 - `pnpm e2e:site-agent`: 17/17 pass。
+- `pnpm e2e:site-agent-client`: 7/7 pass。
+- R.19B 浏览器复核: SH01 `online / r19b-e2e`，console error 0。
 
 ## 3. Sites 页面（后续 R.19）
 

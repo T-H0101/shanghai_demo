@@ -192,7 +192,9 @@ interface SiteActionAdapter {
 
 - R.19A 已完成 heartbeat 请求级 HMAC、nonce 防重放、
   `site_agent_runtime` 持久化和 `/sync` 状态展示。
-- 独立 Agent 进程、package push、spool、control poll/ack/result 仍未完成。
+- R.19B 已完成独立 heartbeat client、站点 DB 探活、systemd 模板和
+  无 secret 日志验证。
+- package push、spool、control poll/ack/result 仍未完成。
 
 验收:
 
