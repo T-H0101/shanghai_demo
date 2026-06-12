@@ -116,7 +116,8 @@ async function dispatchMagzines(input: DispatchInput): Promise<DispatchResult> {
 async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
   // Sprint 2H.2: 源表主键是 slot_id, 不是 id
   // 字段映射: mag_id→magazine_id, slot_order→slot_index, max_cap→capacity, disc_type→media_type
-  return inlineUpsert(input, 'unified_slots', {
+  // R.17 增强: tbl_slots 没有 lib_id 列, slot.device_id 通过 tbl_magzines.mag_id→lib_id 反查填入
+  const upsertResult = await inlineUpsert(input, 'unified_slots', {
     sourceIdField: 'slot_id',
     columns: [
       { source: 'mag_id',     target: 'magazine_id' },
@@ -125,6 +126,27 @@ async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
       { source: 'disc_type',  target: 'media_type' },
     ],
   })
+  // R.17 二次回填: 用 unified_magazines.device_id 反向填 unified_slots.device_id
+  // 仅对 device_id 为空的行更新
+  // R.17.1 修正: unified_magazines.magazine_id 字段在源端是空, JOIN 应用 source_id (=tbl_magzines.mag_id)
+  if (upsertResult.upserted > 0) {
+    try {
+      const { query: pgQuery } = await import('@/lib/db/postgres')
+      await pgQuery(
+        `UPDATE unified_slots s
+         SET device_id = m.device_id, updated_at = NOW()
+         FROM unified_magazines m
+         WHERE s.source_site_id = m.source_site_id
+           AND s.magazine_id = m.source_id
+           AND s.source_site_id = $1
+           AND (s.device_id IS NULL OR s.device_id = '')`,
+        [input.siteCode]
+      )
+    } catch (e) {
+      console.warn(`[R.17 dispatcherSlots] backfill device_id failed: ${(e as Error).message}`)
+    }
+  }
+  return upsertResult
 }
 
 async function dispatchHardDisks(input: DispatchInput): Promise<DispatchResult> {

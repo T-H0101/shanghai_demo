@@ -120,11 +120,17 @@ export async function GET(request: NextRequest) {
     const { rows } = await query<VolumeRow>(sql, params)
     const adaptedVolumes = rows.map(mapVolumeToDTO)
 
-    const response: ApiResponse<VolumeDTO[]> & { source: "database" } = {
+    const response: ApiResponse<VolumeDTO[]> & { source: "database"; sourceEvidence?: any } = {
       code: 0,
       message: "ok",
       data: adaptedVolumes,
       source: "database",
+      sourceEvidence: {
+        sourceTable: "unified_volumes",
+        rowCount: adaptedVolumes.length,
+        syncedAt: rows[0]?.synced_at ? (typeof rows[0].synced_at === "string" ? rows[0].synced_at : rows[0].synced_at.toISOString()) : new Date().toISOString(),
+        mapper: "Sprint 2H.2 inlineUpsert (R.17 复核)",
+      },
       traceId: `api-${Date.now()}`,
     }
 

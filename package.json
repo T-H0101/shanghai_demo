@@ -51,12 +51,13 @@
     "e2e:settings": "tsx scripts/e2e/test-settings.ts",
     "e2e:users": "tsx scripts/e2e/test-users.ts",
     "e2e:racks": "tsx scripts/e2e/test-racks.ts",
+    "e2e:volumes": "tsx scripts/e2e/test-volumes.ts",
     "e2e:logs": "tsx scripts/e2e/test-logs.ts",
     "e2e:exports": "tsx scripts/e2e/test-exports.ts",
     "e2e:r16-control-loop": "tsx scripts/e2e/test-r16-control-loop.ts",
     "e2e:r16-postreview": "tsx scripts/e2e/test-r16-postreview-truth-audit.ts",
     "e2e:full-audit": "tsx scripts/e2e/test-full-audit.ts",
-    "e2e:all": "pnpm e2e:dashboard && pnpm e2e:tasks && pnpm e2e:sync && pnpm e2e:control && pnpm e2e:sites && pnpm e2e:search && pnpm e2e:settings && pnpm e2e:users && pnpm e2e:racks && pnpm e2e:logs && pnpm e2e:exports && pnpm e2e:r16-control-loop && pnpm e2e:r16-postreview && pnpm e2e:full-audit"
+    "e2e:all": "pnpm e2e:dashboard && pnpm e2e:tasks && pnpm e2e:sync && pnpm e2e:control && pnpm e2e:sites && pnpm e2e:search && pnpm e2e:settings && pnpm e2e:users && pnpm e2e:racks && pnpm e2e:volumes && pnpm e2e:logs && pnpm e2e:exports && pnpm e2e:r16-control-loop && pnpm e2e:r16-postreview && pnpm e2e:full-audit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

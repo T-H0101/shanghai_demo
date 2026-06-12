@@ -113,6 +113,80 @@ async function main() {
       !pageSource.includes("设备数据导出功能开发中")
   )
 
+  console.log("\n--- R.17 盘位明细 (Racks/Slots closure) ---")
+  // R.17: 选第一个 SH01 设备, 验证 /api/racks/[id] + /api/racks/[id]/slots
+  const firstRack = siteRacks.data?.[0]
+  check(
+    "[R.17] /api/racks 至少 1 个 SH01 设备",
+    !!firstRack,
+    `id=${firstRack?.id ?? "—"}`
+  )
+  if (firstRack) {
+    // 1. /api/racks/[id] 详情 (R.17 真实化, 不再 mock)
+    const detailRes = await fetch(`${BASE}/api/racks/${encodeURIComponent(firstRack.id)}?siteCode=SH01`)
+    const detail = await detailRes.json()
+    const detailCages = detail?.data?.cages ?? []
+    const detailSlots = detail?.data?.slots ?? []
+    check(
+      "[R.17] /api/racks/[id] 真实化 (无 mock)",
+      detailRes.status === 200 && detail.source === "database" && Array.isArray(detailCages),
+      `code=${detailRes.status} source=${detail.source} cages=${detailCages.length}`
+    )
+    check(
+      "[R.17] /api/racks/[id] 含 slot 明细 (与 DB 一致或合理)",
+      detailCages.length > 0 || detailSlots.length > 0,
+      `cages=${detailCages.length} slots=${detailSlots.length}`
+    )
+    check(
+      "[R.17] /api/racks/[id] slot 含 sourceEvidence (R.5 §10)",
+      detailSlots.every((s: any) => s.sourceSiteId && s.sourceTable && s.sourceId) ||
+        detailCages.every((c: any) => c.slots.every((s: any) => s.sourceSiteId && s.sourceTable && s.sourceId)),
+      `sourceEvidence 字段全有`
+    )
+
+    // 2. /api/racks/[id]/slots (R.17 新增)
+    const slotsRes = await fetch(`${BASE}/api/racks/${encodeURIComponent(firstRack.id)}/slots?siteCode=SH01`)
+    const slotsJson = await slotsRes.json()
+    const slotsCages = slotsJson?.data?.cages ?? []
+    const slotsFlat = slotsJson?.data?.slots ?? []
+    check(
+      "[R.17] /api/racks/[id]/slots 端点真存在",
+      slotsRes.status === 200 && slotsJson.code === 0,
+      `code=${slotsRes.status}`
+    )
+    check(
+      "[R.17] /api/racks/[id]/slots 不来自 mock (source=database)",
+      slotsJson.source === "database" && slotsFlat.length > 0,
+      `source=${slotsJson.source} slots=${slotsFlat.length}`
+    )
+    check(
+      "[R.17] /api/racks/[id]/slots slot 含 capacity (不伪造)",
+      slotsFlat.every((s: any) => !s.id || s.capacity === undefined || typeof s.capacity === "string"),
+      `capacity 字段类型正确 (string 或 undefined, 数字 = 伪造)`
+    )
+    // 3. slot 数量软约束 (R.17 决定: slots 端只返 device 关联, detail 端返 site 级全集, 故 slots ≤ detail)
+    check(
+      "[R.17] slots 端 slot 数量 ≤ detail 端 (R.17 设计: slots 按设备, detail 按 site)",
+      slotsFlat.length <= detailSlots.length,
+      `slots=${slotsFlat.length} ≤ detail=${detailSlots.length}`
+    )
+    // 4. siteCode 生效 (R.7B)
+    const wrongSite = await fetch(`${BASE}/api/racks/${encodeURIComponent(firstRack.id)}/slots?siteCode=INVALID`)
+    const wrongJson = await wrongSite.json()
+    check(
+      "[R.17] siteCode=INVALID 不命中 (正确回 404/400)",
+      wrongSite.status === 404 || wrongSite.status === 400 || wrongJson.code === 404 || wrongJson.code === 400,
+      `status=${wrongSite.status} code=${wrongJson.code}`
+    )
+  }
+
+  // 5. /api/racks 列表含 sourceEvidence (R.5 §10)
+  check(
+    "[R.17] /api/racks 列表含 sourceEvidence",
+    racks.sourceEvidence && racks.sourceEvidence.sourceTable === "unified_devices",
+    `sourceTable=${racks.sourceEvidence?.sourceTable ?? "—"}`
+  )
+
   console.log(`\n=== Racks: ${pass} pass, ${fail} fail ===`)
   if (fail > 0) process.exit(1)
 }

@@ -159,6 +159,12 @@ export async function GET(request: NextRequest) {
       message: "ok",
       data,
       source: "database" as const,
+      sourceEvidence: {
+        sourceTable: "unified_devices",
+        rowCount: data.length,
+        syncedAt: data[0]?.lastSyncAt ?? new Date().toISOString(),
+        mapper: "Sprint 2H.2 inlineUpsert (R.17 复核)",
+      },
       traceId: `api-${Date.now()}`,
     }
 
