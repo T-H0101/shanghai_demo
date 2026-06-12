@@ -1,8 +1,22 @@
 # Project Status
 
 > **截至**: 2026-06-12
-> **Sprint**: Sprint R.13 完成 (统一导出框架)
-> **当前主线**: Sprint 4.5 完成 (control_command 控制队列 MVP)
+> **Sprint**: Sprint R.18 完成 (基线重构和 Site Agent 协议冻结)
+> **当前主线**: R.19 可部署 Site Agent
+
+---
+
+## Sprint R.18 — 基线重构和 Site Agent 协议冻结 (2026-06-12)
+
+- 实施决策: 允许 Site Agent 主动轮询总控，并在站点本地通过可替换 adapter 调数据库/API。
+- 生产边界: 总控不直接连接或修改生产站点数据库。
+- 固化 sync/control/heartbeat/HMAC/幂等协议和网页验收说明。
+- 建立 requirement 到源表、存储分类、API/UI/e2e 的接入矩阵。
+- 修复 traceability: 所有状态规范为 8 选 1；旧 JSON 统计与条目不一致。
+- 诚实下调 7 个过度 complete 项，requirements 完成率校准为 `3/45 = 6.7%`。
+- 不改业务代码，不把协议冻结宣称为 Agent 已完成。
+
+下一步: R.19 实现独立 Site Agent、heartbeat、真实 package push、HTTP control poll/ack/result 和本地幂等。
 
 ---
 

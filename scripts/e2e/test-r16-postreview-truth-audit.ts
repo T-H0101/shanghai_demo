@@ -40,6 +40,12 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== R.16-Review — Control execution truth audit e2e ===\n")
+  const traceability = JSON.parse(
+    readFileSync("docs/database-analysis/requirements-traceability.json", "utf8")
+  ) as {
+    completion_rate: { numerator: number; denominator: number; rate_pct: number }
+  }
+  const completion = traceability.completion_rate
 
   // 0. 找 sourceId 在 1-100 范围的任务 (tbl_task 真实存在)
   const tasksRes = await fetch(`${BASE}/api/tasks?pageSize=50`)
@@ -198,7 +204,13 @@ async function main() {
   console.log("\n--- [8] 防误宣: 边界声明 ---")
   check("[8] 站点 app 消费 evidence = 0", true, "✅ blocked_by_site_change 维持 (R.16-Review 未解除)")
   check("[8] 真控制做到数据库层 (非应用层)", true, "✅ 测试站点库写入已验证 (DRY_RUN=false 路径)")
-  check("[8] requirements 仍 partial, 不升 complete", true, "✅ R.16-Review 维持 R.16 完成的 6/45 = 13.3% 完成率")
+  check(
+    "[8] requirements 仍 partial, 不升 complete",
+    completion.numerator === 3 &&
+      completion.denominator === 45 &&
+      completion.rate_pct === 6.7,
+    `R.18 当前口径 ${completion.numerator}/${completion.denominator} = ${completion.rate_pct}%`
+  )
 
   console.log(`\n=== R.16-Review truth audit e2e: ${pass} pass, ${fail} fail ===`)
   if (fail === 0) {
@@ -209,7 +221,9 @@ async function main() {
     console.log("  - audit_log 落 ✅  (DB 层 evidence, before/after status 整数)")
     console.log("  - control_command 状态流转 ✅  (DB 层 evidence)")
     console.log("  - 站点应用消费证据 ❌  (应用层 0 evidence, blocked_by_site_change)")
-    console.log("  - requirements 完成度 6/45 = 13.3% (不变)")
+    console.log(
+      `  - requirements 完成度 ${completion.numerator}/${completion.denominator} = ${completion.rate_pct}% (R.18 当前口径)`
+    )
   }
   process.exit(fail > 0 ? 1 : 0)
 }

@@ -3,6 +3,28 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-12
 
+## R.18 基线重构和 Site Agent 协议冻结 (2026-06-12 完成)
+
+- [x] 允许 Site Agent 主动轮询总控并在本地调用数据库/API。
+- [x] 生产环境禁止总控直连站点数据库。
+- [x] 固化 Site Agent sync/control/heartbeat/HMAC v1 协议。
+- [x] 建立 requirement-table integration matrix。
+- [x] 建立 pause/resume/reset/priority/inspect/recovery capability matrix。
+- [x] 修正 traceability 非法状态和统计冲突。
+- [x] requirements 完成率校准为 `3/45 = 6.7%`。
+- [x] 编写 `/sites`、`/sync`、`/tasks`、`/control` 网页验收指南。
+
+## R.19 可部署 Site Agent (进行中)
+
+- [ ] 独立 Agent 入口和环境变量引用配置。
+- [ ] heartbeat API 和运行状态表。
+- [ ] 真实小表 package push、重试、spool 和幂等。
+- [ ] HTTP control poll/ack/result。
+- [ ] PostgreSQL action adapter，首期 pause/resume。
+- [ ] Agent e2e、网页和数据库验收。
+
+详细路线: `docs/summary/ROADMAP_R18_R25.md`
+
 ## R.16-Review 控制执行真相审计 (2026-06-12 完成)
 
 > **核心**: 仅审查 R.16, 不新增功能。复核 "任务控制真执行" / "status=20 paused" / "同步回读" 三件事证据, 显式标 blocked_by_site_change, 避免过度宣称。
