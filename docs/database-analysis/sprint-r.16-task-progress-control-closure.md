@@ -21,11 +21,18 @@
 | **successCount/errorCount** | (无) | `success_count`/`fail_count` ✅ | (无) | (无) | (无) |
 | **currentFile/currentDisc** | (无) | `medium_task_id` → tbl_task | (无) | `disc_id` ✅ | (无) |
 | **completedAt** | `update_dt` (status 完成) | `finished_time` | `end_time` | `end_dt` | (无) |
-| **paused/resumed/reset** | **❌ 无独立 paused 列** | (无) | (无) | (无) | (无) |
+| **paused/resumed/reset** | **status 整数枚举** (task_type=0/2/3): 20=任务暂停, 0=刻录成功/恢复, 1=数据准备中/重置, 6=就绪 | (无) | (无) | (无) | (无) |
 
 **关键结论**:
-- ✅ 8/9 字段 (除 paused 状态) 在源表都有真值, **统一通过 unified_tasks 8 字段 + R.2F.1 mapping 接入**
-- ❌ **paused/resumed/reset 仍是 blocked_by_source_schema** — 站点 170 张表 0 张有 paused 列; R.3 修复采用 status 整数枚举 (20=paused), **这是事实上的 workaround**, 必须显式标
+- ✅ 8/9 字段 (除 paused 状态枚举) 在源表都有真值, **统一通过 unified_tasks 8 字段 + R.2F.1 mapping 接入**
+- ✅ **paused/resumed/reset 用 status 整数枚举表达 (与 `docs/source/tbl_task_status.docx` 官方对照表一致)**:
+  - 0 = 刻录成功 (恢复目标, task_resume 写入)
+  - 1 = 数据准备中 (重置目标, task_reset 写入 status=1, burn_status=0)
+  - 6 = 就绪
+  - **20 = 任务暂停 (task_pause 写入)**
+  - 22/23 = status=3 的细化 (R.4.5 已用)
+- ✅ R.3 修复已采用整数枚举, R.16 executor 与官方对照表完全对齐
+- ⚠️ 站点 app 是否消费 status 变化仍 0 evidence → 仍标 `blocked_by_site_change`
 
 ---
 
