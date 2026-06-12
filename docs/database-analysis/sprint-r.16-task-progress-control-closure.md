@@ -25,14 +25,15 @@
 
 **关键结论**:
 - ✅ 8/9 字段 (除 paused 状态枚举) 在源表都有真值, **统一通过 unified_tasks 8 字段 + R.2F.1 mapping 接入**
-- ✅ **paused/resumed/reset 用 status 整数枚举表达 (与 `docs/source/tbl_task_status.docx` 官方对照表一致)**:
-  - 0 = 刻录成功 (恢复目标, task_resume 写入)
-  - 1 = 数据准备中 (重置目标, task_reset 写入 status=1, burn_status=0)
-  - 6 = 就绪
-  - **20 = 任务暂停 (task_pause 写入)**
+- ✅ **paused/resumed/reset 用 status 整数枚举表达 (与 `docs/source/tbl_task_status.docx` 官方对照表一致, R.16-Review 复核)**:
+  - **0 = 刻录成功** (恢复目标, task_resume 写入) — `docx L96-97, type=0/2/3`
+  - **1 = 数据准备中** (R.4 task_reset 沿用历史 SQL 写 status=1, burn_status=0; ⚠️ 严格说 docx 中 status=1 官方语义是"数据准备中", 含义与"重置"不完全等价, R.16 不改 SQL 行为, 仅显式标注)
+  - **6 = 就绪**
+  - **20 = 任务暂停** (task_pause 写入) — `docx L118-119, type=0/2/3`
   - 22/23 = status=3 的细化 (R.4.5 已用)
-- ✅ R.3 修复已采用整数枚举, R.16 executor 与官方对照表完全对齐
-- ⚠️ 站点 app 是否消费 status 变化仍 0 evidence → 仍标 `blocked_by_site_change`
+- ⚠️ task_reset 写 `status=1, burn_status=0`: disc_files.sql L292 注释 burn_status=0 = "已完成数据库表合并", 与"重置"无直接语义对应, **R.4 沿用原 SQL 是历史 workaround, 非官方重置语义** (R.16-Review 显式标注, 不修改)
+- ✅ R.3 修复已采用整数枚举, R.16 executor 写 20/0/1 与官方对照表完全对齐 (R.16-Review 验证)
+- ⚠️ 站点 app 是否消费 status 变化仍 0 evidence → 仍标 `blocked_by_site_change` (R.16-Review 复核未变)
 
 ---
 
@@ -97,20 +98,27 @@
 
 ### 4.1 新增端点: `POST /api/control/commands/[id]/execute`
 - 读 control_command 行 (id 走 `id::uuid` cast, command_no 走 text)
-- 调 `executor.executeCommand(cmd)`
+- 调 `executor.executeCommand(cmd)` (R.3 + R.4 累计 6 commandType)
 - 写回 status / result / completed_at
 - 异常 → status=failed + error_message
 
 **6 commandType 全部支持** (R.4.5+R.3 累计):
 
-| commandType | targetTable | 真实执行条件 (DRY_RUN=false) |
-|---|---|---|
-| task_pause | tbl_task | `UPDATE tbl_task SET status=20 WHERE id=...` |
-| task_resume | tbl_task | `UPDATE tbl_task SET status=0 WHERE id=...` |
-| task_reset | tbl_task | `UPDATE tbl_task SET status=1, burn_status=0 WHERE id=...` |
-| task_priority_restore | tbl_task | `UPDATE tbl_task SET priority=1 WHERE id=...` (需 priority 列, 否则 unsupported) |
-| inspect_start | tbl_check_patrol_task | 需 source_id/verify_result 列, 否则 unsupported |
-| recovery_start | tbl_hot_restore_record | 需 source_id 列, 否则 unsupported |
+| commandType | targetTable | 真实执行条件 (DRY_RUN=false) | 与官方对照表一致性 |
+|---|---|---|---|
+| task_pause | tbl_task | `UPDATE tbl_task SET status=20 WHERE id=...` | ✅ docx L118-119 |
+| task_resume | tbl_task | `UPDATE tbl_task SET status=0 WHERE id=...` | ✅ docx L96-97 |
+| task_reset | tbl_task | `UPDATE tbl_task SET status=1, burn_status=0 WHERE id=...` | ⚠️ docx status=1=数据准备中, **R.4 沿用历史 workaround, 非官方重置语义** (R.16-Review 标注) |
+| task_priority_restore | tbl_task | `UPDATE tbl_task SET priority=1 WHERE id=...` (需 priority 列, 否则 unsupported) | ⚠️ disc_files.sql L291 priority 不存在 → 0 evidence; R.16-Review 标 blocked_by_source_schema |
+| inspect_start | tbl_check_patrol_task | 需 source_id/verify_result 列, 否则 unsupported | ⚠️ 0 evidence, R.16-Review 标 blocked_by_source_schema |
+| recovery_start | tbl_hot_restore_record | 需 source_id 列, 否则 unsupported | ⚠️ 0 evidence, R.16-Review 标 blocked_by_source_schema |
+
+**R.16-Review 复核结论** (2026-06-12):
+- 2 个 commandType 与官方语义**完全一致** (task_pause=20, task_resume=0)
+- 1 个 commandType (task_reset) 是**历史 workaround, 非官方语义** — 不修改, 显式标注
+- 3 个 commandType 是**unsupported 路径** (源端缺字段), 行为正确
+- **真控制做到哪一层**: 总控写入 control_command ✅ → executor 同步执行 ✅ → 测试站点库真写 (DRY_RUN=false) ✅ → audit_log 落 ✅ → control_command 状态流转 ✅ → import:tasks 同步回读 unified_tasks ✅
+- **没做到的层**: 站点应用消费 evidence — 0 evidence, 仍 blocked_by_site_change (需领导决策)
 
 ### 4.2 R.16 关键修复: targetId 用 sourceId (源端 bigint)
 **bug**: 之前前端 POST `targetId=task.id` (unified uuid), executor `parseInt` → NaN → TASK_NOT_FOUND

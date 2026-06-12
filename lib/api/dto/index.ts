@@ -131,6 +131,8 @@ export interface TaskDTO {
   status: TaskStatus
   priority: Priority
   progress: number | null
+  // R.16: 源端 tbl_task.id (bigint 字符串), executor parseInt 必需
+  sourceId?: string
 
   // 基本信息
   archiveName: string

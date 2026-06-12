@@ -3,6 +3,61 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-12
 
+## R.16-Review 控制执行真相审计 (2026-06-12 完成)
+
+> **核心**: 仅审查 R.16, 不新增功能。复核 "任务控制真执行" / "status=20 paused" / "同步回读" 三件事证据, 显式标 blocked_by_site_change, 避免过度宣称。
+
+### 审计发现
+- ✅ **status=20 官方证据闭环**: `docs/source/tbl_task_status.docx` L118-119 明确写 "20=任务暂停" (type=0/2/3), L150-151 (type=1); executor.ts L131 `PAUSED_STATUS = 20` 与官方一致
+- ✅ **2/6 commandType 与官方枚举完全对齐**: task_pause=20, task_resume=0
+- ⚠️ **1/6 是历史 workaround**: task_reset 写 `status=1, burn_status=0` — disc_files.sql L291-292 官方语义不匹配 (status=1=数据准备中, burn_status=0=已完成数据库表合并), R.4 沿用原 SQL; **R.16-Review 显式标注, 不修改**
+- ❌ **3/6 是 unsupported**: task_priority_restore/inspect_start/recovery_start 源端缺字段 (R.4 已知)
+- ❌ **L7 站点 app 消费 evidence = 0**: 维持 blocked_by_site_change, 不解除
+
+### 真控制 7 层 evidence (R.16-Review 新公式)
+| 层 | 完成度 | 证据 |
+|---|---|---|
+| L1 控制队列框架 | 100% | control_command 表 + 5 函数 |
+| L2 总控写入 + 列表 | 100% | POST 201 + GET 列表 |
+| L3 executor 6 dispatch | 100% | 6 exec 函数全支持 |
+| L4 真写测试站点库 (DRY_RUN=false) | 50% | 3 真写 + 3 unsupported |
+| L5 audit_log 落 | 100% | 19 行 task_pause, before/after 完整 |
+| L6 状态机 + 同步回读 | 100% | execute 端点 + import:tasks |
+| L7 站点应用消费 | 0% | **0 evidence, blocked_by_site_change** |
+| **总完成度** | **50.0%** (6/7 层) | L7 阻塞 |
+
+### 风险文案修正
+- R.16 文档 `sprint-r.16-task-progress-control-closure.md` L29-32 增补 task_reset workaround 标注
+- 前端 toast 全部合规, 无需改 (L292/L324/L334 显式"待确认" / "等待站点拉取")
+- 0 处 "暂停成功" / "控制成功" / "真控制完成" 误宣
+
+### 新增 e2e
+- `scripts/e2e/test-r16-postreview-truth-audit.ts` (8 步 26 项, **26/26 pass**)
+- 重点: 严格区分 4 类 status (success/dry_run_success/unsupported/failed) + UI 静态扫描 9 禁用词 + 边界声明 3 项硬约束
+
+### 验证
+- e2e:r16-postreview **26/26**
+- e2e:r16-control-loop 17/17 (R.16 原 e2e 维持)
+- e2e:tasks 11/11, e2e:control 19/19
+- tsc/build/smoke/consistency/baseline/e2e:worker 全过
+
+### 完成率
+- **不变**: 6/45 = 13.3% (R.16-Review 不触发 blocked→complete)
+- R.16-Review 是**审计强化**非**功能新增**, 完成度公式保持 R.16 后的口径
+
+### 文档
+- `docs/database-analysis/sprint-r.16-postreview-control-truth-audit.md` (新增, R.16-Review 主报告)
+- `docs/database-analysis/sprint-r.16-task-progress-control-closure.md` (1 处校准: task_reset workaround 标注)
+
+### 后续 Sprint 候选 (R.17+)
+- 🚨 L7 站点 app 消费 evidence (领导决策 + 站点 app 团队投入)
+- ⚠️ L4 3 DDL patch (priority/source_id/verify_result, 站点运维评估)
+- ℹ️ unified_tasks 加 `last_control_at` (R.16 已知缺口)
+- ℹ️ disc_files.sql 注释补 status=20
+- ℹ️ task_reset SQL 重构 (与站点应用方确认"重置"官方语义)
+
+---
+
 ## R.13 统一导出框架 (2026-06-12 完成)
 
 > **核心**: lib/export 单一框架收敛 3 套不一致 CSV/header 实现, 新增 users 导出, audit_log 落库, secret 双层 sanitize, XLSX 显式 partial: blocked_by_dependency_policy。
