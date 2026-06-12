@@ -97,17 +97,27 @@ interface SiteSyncStatus {
   consistencyCheckedAt: string | null
   matchedTableCount: number | null
   mismatchedTableCount: number | null
+  agentStatus: string
+  agentId: string | null
+  agentVersion: string | null
+  agentReportedAt: string | null
+  agentDatabaseReachable: boolean | null
+  agentSpoolDepth: number | null
 }
 
 function statusColor(status: string): string {
   switch (status) {
     case 'success':
+    case 'online':
       return 'bg-emerald-100 text-emerald-700 border-emerald-200'
     case 'failed':
+    case 'offline':
+    case 'degraded':
       return 'bg-red-100 text-red-700 border-red-200'
     case 'running':
       return 'bg-blue-100 text-blue-700 border-blue-200'
     case 'duplicated':
+    case 'stale':
       return 'bg-amber-100 text-amber-700 border-amber-200'
     case 'skipped':
       return 'bg-slate-100 text-slate-700 border-slate-200'
@@ -543,6 +553,7 @@ export default function SyncCenterPage() {
                   <TableRow>
                     <TableHead>站点</TableHead>
                     <TableHead>周期</TableHead>
+                    <TableHead>Site Agent</TableHead>
                     <TableHead>调度</TableHead>
                     <TableHead>导出/推送</TableHead>
                     <TableHead>最近数据包</TableHead>
@@ -557,6 +568,14 @@ export default function SyncCenterPage() {
                         <div className="font-mono text-xs text-slate-500">{item.siteCode}</div>
                       </TableCell>
                       <TableCell className="text-xs">{item.intervalSeconds} 秒</TableCell>
+                      <TableCell data-testid={`site-agent-status-${item.siteCode}`}>
+                        <Badge className={statusColor(item.agentStatus)}>
+                          {item.agentStatus}
+                        </Badge>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {item.agentVersion ?? "未注册"} · {formatDateTime(item.agentReportedAt)}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge className={statusColor(item.schedulerStatus)}>
                           {item.schedulerStatus}

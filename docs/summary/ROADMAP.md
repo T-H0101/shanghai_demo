@@ -16,12 +16,13 @@
 
 ## R.19 可部署 Site Agent (进行中)
 
-- [ ] 独立 Agent 入口和环境变量引用配置。
-- [ ] heartbeat API 和运行状态表。
+- [ ] 独立 Agent 入口；环境变量引用配置模型已完成。
+- [x] heartbeat API、请求级 HMAC、防重放和运行状态表。
+- [x] `/sync` 展示真实 Agent 在线/过期/未注册状态。
 - [ ] 真实小表 package push、重试、spool 和幂等。
 - [ ] HTTP control poll/ack/result。
 - [ ] PostgreSQL action adapter，首期 pause/resume。
-- [ ] Agent e2e、网页和数据库验收。
+- [ ] 完整 Agent e2e；heartbeat 网页/API/数据库验收已完成。
 
 详细路线: `docs/summary/ROADMAP_R18_R25.md`
 

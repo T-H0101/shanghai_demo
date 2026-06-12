@@ -1,8 +1,21 @@
 # Project Status
 
 > **截至**: 2026-06-12
-> **Sprint**: Sprint R.18 完成 (基线重构和 Site Agent 协议冻结)
-> **当前主线**: R.19 可部署 Site Agent
+> **Sprint**: Sprint R.19A 完成 (Site Agent heartbeat 基础设施)
+> **当前主线**: R.19B 独立 Agent 同步客户端
+
+---
+
+## Sprint R.19A — Site Agent heartbeat 基础设施 (2026-06-12)
+
+- 新增 `POST /api/site-agent/heartbeat`，使用请求级 HMAC-SHA256、5 分钟时间窗和数据库 nonce 防重放。
+- 新增 `site_agent_runtime` / `site_agent_nonce` 中心表；只保存安全运行字段，不保存数据库 URL、密码或 secret。
+- `/api/sync/sites/status` 聚合 Agent `online/degraded/stale/offline/not_registered`。
+- `/sync` “每站点最新状态”新增 Site Agent 列；SH01 实测 `online / r19a-e2e`，BJ02 显示 `not_registered`。
+- 新增 `pnpm e2e:site-agent` 并纳入 `e2e:all`，17/17 通过。
+- 本单元不宣称独立 Agent、同步补传或控制执行完成，requirements 完成率保持 `3/45 = 6.7%`。
+
+下一步: R.19B 实现站点侧独立进程、真实小表 package push、重试和本地 spool。
 
 ---
 

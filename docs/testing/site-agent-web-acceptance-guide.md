@@ -1,6 +1,6 @@
 # Site Agent Web Acceptance Guide
 
-> R.18 文档基线。R.19 实现后按本指南进行真实网页验收。
+> R.18 建立基线；R.19A 已实现 heartbeat、运行状态表和 `/sync` 状态展示。
 
 ## 1. 环境
 
@@ -10,16 +10,50 @@ set -a && source .env.local && set +a
 pnpm dev
 ```
 
-另开终端启动 Site Agent:
+R.19A 尚未提供长期运行的独立 Agent 入口。先发送一条真实签名
+heartbeat 并完成 API/数据库验收:
 
 ```bash
 set -a && source .env.local && set +a
-pnpm agent:site -- --siteCode=SH01
+pnpm e2e:site-agent
 ```
 
-浏览器打开 `http://localhost:3000`。
+浏览器打开 `http://localhost:3000/sync`。
 
-## 2. Sites 页面
+## 2. R.19A Sync Center 实测
+
+打开 `/sync`，在“每站点最新状态”表验证:
+
+1. 表头存在 `Site Agent`。
+2. SH01 显示 `online`、`r19a-e2e` 和最近 heartbeat 时间。
+3. 未发送 heartbeat 的 BJ02 显示 `not_registered`，不能显示假在线。
+4. 说明文字明确状态来自签名 heartbeat。
+5. 页面不显示数据库 URL、密码或 secret。
+
+API:
+
+```bash
+curl -s http://localhost:3000/api/sync/sites/status | jq \
+  '.data.items[] | {siteCode,agentStatus,agentVersion,agentReportedAt}'
+```
+
+数据库:
+
+```bash
+docker exec unified_disc_postgres \
+  psql -U unified -d unified_disc_platform \
+  -c "SELECT site_code,agent_id,agent_version,reported_at,database_reachable,spool_depth FROM site_agent_runtime;"
+```
+
+2026-06-12 实测结果:
+
+- `/sync` HTTP 200，实际浏览器 DOM 完整渲染。
+- SH01: `online / r19a-e2e`。
+- BJ02: `not_registered / 未注册`。
+- 浏览器 console error: 0。
+- `pnpm e2e:site-agent`: 17/17 pass。
+
+## 3. Sites 页面（后续 R.19）
 
 打开 `/sites`，验证:
 
@@ -43,7 +77,7 @@ docker exec unified_disc_postgres \
   -c "SELECT site_code, agent_id, agent_version, reported_at FROM site_agent_runtime;"
 ```
 
-## 3. Sync Center
+## 4. Sync Center 完整同步验收（后续 R.19）
 
 打开 `/sync`，验证:
 
@@ -60,7 +94,7 @@ curl -s "http://localhost:3000/api/sync/packages?siteCode=SH01&limit=5" | jq
 curl -s "http://localhost:3000/api/sync/consistency?siteCode=SH01" | jq
 ```
 
-## 4. Tasks 控制
+## 5. Tasks 控制
 
 打开 `/tasks`，选择真实 SH01 任务:
 
@@ -83,7 +117,7 @@ docker exec site_restore_full_postgres \
   -c "SELECT id,status,update_dt FROM tbl_task WHERE id=<TASK_ID>;"
 ```
 
-## 5. 浏览器证据
+## 6. 浏览器证据
 
 每次验收记录:
 
@@ -98,7 +132,7 @@ docker exec site_restore_full_postgres \
 - mock/DRY_RUN 标记。
 - 截图路径。
 
-## 6. 自动化
+## 7. 自动化
 
 ```bash
 pnpm e2e:sites

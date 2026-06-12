@@ -103,6 +103,10 @@ Agent heartbeat 必须携带 capability:
 ```http
 POST /api/site-agent/heartbeat
 content-type: application/json
+x-site-code: SH01
+x-agent-timestamp: <Unix milliseconds>
+x-agent-nonce: <unique nonce>
+x-agent-signature: <HMAC-SHA256 hex>
 ```
 
 ```json
@@ -149,6 +153,10 @@ HMAC-SHA256(
 - nonce 在时间窗内不可重放。
 - header siteCode 与 body/query siteCode 一致。
 - 使用 `timingSafeEqual`。
+
+R.19A 已实现 heartbeat 的请求级 HMAC、数据库 nonce 防重放和
+`site_agent_runtime` upsert。独立 Agent 进程和周期发送由后续 R.19
+单元实现。
 
 现有 site-control 简化签名在 R.25 前升级到同一协议。
 

@@ -188,6 +188,12 @@ interface SiteActionAdapter {
 6. 提供 Docker/systemd 部署方式、health endpoint 和结构化日志。
 7. SH01 以独立进程运行，不由总控 scheduler 直接读取站点库。
 
+当前进度:
+
+- R.19A 已完成 heartbeat 请求级 HMAC、nonce 防重放、
+  `site_agent_runtime` 持久化和 `/sync` 状态展示。
+- 独立 Agent 进程、package push、spool、control poll/ack/result 仍未完成。
+
 验收:
 
 - Agent 停止时总控显示离线或过期，不显示同步成功。

@@ -21,6 +21,22 @@ interface SiteStatusRow {
   consistency_checked_at: string | null
   matched_table_count: number | null
   mismatched_table_count: number | null
+  agent_id: string | null
+  agent_version: string | null
+  agent_reported_at: string | null
+  agent_database_reachable: boolean | null
+  agent_spool_depth: number | null
+  agent_capabilities: Record<string, unknown> | null
+}
+
+function agentStatus(row: SiteStatusRow): string {
+  if (!row.agent_reported_at) return "not_registered"
+  const ageMs = Date.now() - Date.parse(row.agent_reported_at)
+  if (ageMs <= 5 * 60 * 1000) {
+    return row.agent_database_reachable ? "online" : "degraded"
+  }
+  if (ageMs <= 15 * 60 * 1000) return "stale"
+  return "offline"
 }
 
 export async function GET() {
@@ -43,8 +59,15 @@ export async function GET() {
          consistency.status AS consistency_status,
          consistency.checked_at::text AS consistency_checked_at,
          consistency.matched_table_count,
-         consistency.mismatched_table_count
+         consistency.mismatched_table_count,
+         agent.agent_id,
+         agent.agent_version,
+         agent.reported_at::text AS agent_reported_at,
+         agent.database_reachable AS agent_database_reachable,
+         agent.spool_depth AS agent_spool_depth,
+         agent.capabilities AS agent_capabilities
        FROM sync_sites s
+       LEFT JOIN site_agent_runtime agent ON agent.site_code = s.site_code
        LEFT JOIN LATERAL (
          SELECT status, started_at, export_status, push_status, consistency_status
          FROM sync_scheduler_log
@@ -91,12 +114,19 @@ export async function GET() {
           consistencyCheckedAt: row.consistency_checked_at,
           matchedTableCount: row.matched_table_count,
           mismatchedTableCount: row.mismatched_table_count,
+          agentStatus: agentStatus(row),
+          agentId: row.agent_id,
+          agentVersion: row.agent_version,
+          agentReportedAt: row.agent_reported_at,
+          agentDatabaseReachable: row.agent_database_reachable,
+          agentSpoolDepth: row.agent_spool_depth,
+          agentCapabilities: row.agent_capabilities ?? {},
           provenance: "central_configuration_with_latest_runtime_logs",
         })),
       },
       dataSource: "sync_sites + latest sync logs (database)",
       reality: {
-        note: "sync_sites 是中心调度配置；无日志状态返回 not_run，不推断源端运行成功",
+        note: "sync_sites 是中心调度配置；Agent 状态来自签名 heartbeat；无日志状态返回 not_run，不推断源端运行成功",
       },
       traceId: `api-${Date.now()}`,
     })
