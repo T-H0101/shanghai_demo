@@ -1,8 +1,26 @@
 # Project Status
 
-> **截至**: 2026-06-12
-> **Sprint**: Sprint R.19B 完成 (独立 Site Agent heartbeat client)
-> **当前主线**: R.19C 真实小表 package push / retry / spool
+> **截至**: 2026-06-15
+> **Sprint**: Sprint R.19C 完成 (Site Agent 混合同步闭环)
+> **当前主线**: R.19D HTTP control poll/ack/result
+
+---
+
+## Sprint R.19C — Site Agent 混合同步闭环 (2026-06-15)
+
+- Agent 从 `SITE_DATABASE_URL` 读取完整测试站点库，不再依赖 `source_restore` exporter 脚本。
+- 首次同步发送 13 张允许小表；`tbl_task` 后续按 `id + update_dt` 增量，其余 12 表按稳定 SHA-256 快照变化发送。
+- 复用 `POST /api/sync/package` 的 HMAC、白名单、幂等、dispatcher 和 package/table 日志，不新增 API、页面或表。
+- package 发送前原子写入本地 spool；中心未确认时不推进 watermark，重启后优先补传。
+- heartbeat 上报真实 `lastSyncAt` 和 `spoolDepth`。
+- 多站点真实数据暴露同源设备 ID 冲突后，`/api/racks/[id]` 已按 `siteCode` 限定设备，详情 396 个站点 slots 与设备 slots 96 条关系恢复一致。
+- `pnpm e2e:site-agent-sync-core` 11/11、`pnpm e2e:site-agent-sync` 13/13 通过。
+- `pnpm e2e:racks` 24/24 通过。
+- 白盒 e2e 实测 13 表 bootstrap、无变化跳过、37 条真实任务增量、离线 spool、恢复补传和 duplicated 幂等。
+- 未完成完整文件索引、角色/权限/部门关系、最终失败告警和生产站点长期部署。
+- requirements 完成率保持 `3/45 = 6.7%`，本 Sprint 强化 4 个 `partial`，不虚升 `complete`。
+
+下一步: R.19D 实现 Agent HTTP control poll/ack/result；同步侧随后补失败告警和实测延迟报告。
 
 ---
 

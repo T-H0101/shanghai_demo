@@ -1,3 +1,5 @@
+import { resolve } from "node:path"
+
 export interface SiteAgentConfigView {
   siteCode: string
   agentId: string
@@ -6,6 +8,8 @@ export interface SiteAgentConfigView {
   siteDatabaseUrlKeyRef: "SITE_DATABASE_URL"
   agentSecretKeyRef: "SITE_AGENT_SECRET"
   agentSecretFallbackKeyRef: "SYNC_PACKAGE_SECRET"
+  syncPackageSecretKeyRef: "SYNC_PACKAGE_SECRET"
+  stateDirKeyRef: "SITE_AGENT_STATE_DIR"
 }
 
 export interface SiteAgentRuntimeConfig {
@@ -14,13 +18,29 @@ export interface SiteAgentRuntimeConfig {
   agentVersion: string
   platformUrl: string
   heartbeatIntervalMs: number
+  taskSyncIntervalMs: number
+  snapshotSyncIntervalMs: number
+  retryMaxAttempts: number
+  retryBaseMs: number
+  retryMaxMs: number
+  overlapMs: number
+  stateDir: string
   siteDatabaseUrl: string
   secret: string
+  packageSecret: string
 }
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim()
   if (!value) throw new Error(`${name} is required`)
+  return value
+}
+
+function integerEnv(name: string, fallback: number, minimum: number): number {
+  const value = Number(process.env[name] ?? fallback)
+  if (!Number.isInteger(value) || value < minimum) {
+    throw new Error(`${name} must be an integer >= ${minimum}`)
+  }
   return value
 }
 
@@ -33,6 +53,8 @@ export function getSiteAgentConfigView(): SiteAgentConfigView {
     siteDatabaseUrlKeyRef: "SITE_DATABASE_URL",
     agentSecretKeyRef: "SITE_AGENT_SECRET",
     agentSecretFallbackKeyRef: "SYNC_PACKAGE_SECRET",
+    syncPackageSecretKeyRef: "SYNC_PACKAGE_SECRET",
+    stateDirKeyRef: "SITE_AGENT_STATE_DIR",
   }
 }
 
@@ -41,18 +63,16 @@ export function getSiteAgentSecret(): string | null {
 }
 
 export function getSiteAgentRuntimeConfig(): SiteAgentRuntimeConfig {
-  const interval = Number(
-    process.env.SITE_AGENT_HEARTBEAT_INTERVAL_MS ?? 5 * 60 * 1000
+  const interval = integerEnv(
+    "SITE_AGENT_HEARTBEAT_INTERVAL_MS",
+    5 * 60 * 1000,
+    10_000
   )
-  if (!Number.isInteger(interval) || interval < 10_000) {
-    throw new Error(
-      "SITE_AGENT_HEARTBEAT_INTERVAL_MS must be an integer >= 10000"
-    )
-  }
   const secret = getSiteAgentSecret()
   if (!secret) {
     throw new Error("SITE_AGENT_SECRET or SYNC_PACKAGE_SECRET is required")
   }
+  const packageSecret = requiredEnv("SYNC_PACKAGE_SECRET")
 
   return {
     siteCode: requiredEnv("SITE_CODE"),
@@ -63,7 +83,29 @@ export function getSiteAgentRuntimeConfig(): SiteAgentRuntimeConfig {
       ""
     ),
     heartbeatIntervalMs: interval,
+    taskSyncIntervalMs: integerEnv(
+      "SITE_AGENT_TASK_SYNC_INTERVAL_MS",
+      5_000,
+      1_000
+    ),
+    snapshotSyncIntervalMs: integerEnv(
+      "SITE_AGENT_SNAPSHOT_SYNC_INTERVAL_MS",
+      60_000,
+      5_000
+    ),
+    retryMaxAttempts: integerEnv(
+      "SITE_AGENT_SYNC_RETRY_MAX_ATTEMPTS",
+      5,
+      1
+    ),
+    retryBaseMs: integerEnv("SITE_AGENT_SYNC_RETRY_BASE_MS", 1_000, 0),
+    retryMaxMs: integerEnv("SITE_AGENT_SYNC_RETRY_MAX_MS", 30_000, 1),
+    overlapMs: integerEnv("SITE_AGENT_SYNC_OVERLAP_MS", 10_000, 0),
+    stateDir:
+      process.env.SITE_AGENT_STATE_DIR?.trim() ||
+      resolve(process.cwd(), ".site-agent-state"),
     siteDatabaseUrl: requiredEnv("SITE_DATABASE_URL"),
     secret,
+    packageSecret,
   }
 }

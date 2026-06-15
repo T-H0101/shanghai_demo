@@ -119,7 +119,7 @@ interface MagazineRow {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -131,17 +131,34 @@ export async function GET(
       )
     }
 
-    // 1. 查设备 (用 source_id 或 device_id, 兼容两种)
+    // 1. 查设备。source/device id 在不同站点可重复，存在 siteCode 时必须限定站点。
+    const siteCode = request.nextUrl.searchParams.get("siteCode")
+    const deviceParams: unknown[] = [id]
+    const siteCondition = siteCode ? "AND source_site_id = $2" : ""
+    if (siteCode) deviceParams.push(siteCode)
     const devRes = await query<DeviceRow>(
       `SELECT device_id, device_name, device_type, status, ip_address,
               source_site_id, site_code, slot_count, cage_count,
               model, manufacturer, serial_no, synced_at,
               total_capacity, used_capacity, used_slots
        FROM unified_devices
-       WHERE device_id = $1 OR source_id = $1
-       LIMIT 1`,
-      [id]
+       WHERE (id::text = $1 OR device_id = $1 OR source_id = $1)
+       ${siteCondition}
+       ORDER BY (id::text = $1) DESC
+       LIMIT 2`,
+      deviceParams
     )
+    if (!siteCode && devRes.rows.length > 1) {
+      return NextResponse.json(
+        {
+          code: 400,
+          message: "siteCode required for ambiguous rack id",
+          data: null,
+          traceId: `api-${Date.now()}`,
+        },
+        { status: 400 }
+      )
+    }
     const dev = devRes.rows[0]
     if (!dev) {
       return NextResponse.json(

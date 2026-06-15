@@ -5,6 +5,7 @@ import {
   type SiteAgentRuntimeConfig,
 } from "./config"
 import { signSiteAgentRequest } from "./hmac"
+import type { AgentSyncStore } from "./sync/coordinator"
 
 const HEARTBEAT_PATH = "/api/site-agent/heartbeat"
 
@@ -15,7 +16,7 @@ export interface SiteAgentHeartbeat {
   startedAt: string
   reportedAt: string
   databaseReachable: boolean
-  lastSyncAt: null
+  lastSyncAt: string | null
   lastControlAt: null
   spoolDepth: number
   capabilities: Record<string, unknown>
@@ -25,6 +26,24 @@ export interface HeartbeatResult {
   status: number
   dataSource: string
   heartbeat: SiteAgentHeartbeat
+}
+
+export interface SiteAgentSyncStatus {
+  lastSyncAt: string | null
+  spoolDepth: number
+}
+
+export async function readSiteAgentSyncStatus(
+  store: Pick<AgentSyncStore, "loadState" | "spoolDepth">
+): Promise<SiteAgentSyncStatus> {
+  const [state, spoolDepth] = await Promise.all([
+    store.loadState(),
+    store.spoolDepth(),
+  ])
+  return {
+    lastSyncAt: state?.lastSyncAt ?? null,
+    spoolDepth,
+  }
 }
 
 export function getInitialCapabilities(): Record<string, unknown> {
@@ -68,7 +87,8 @@ export async function checkSiteDatabase(
 
 export async function sendSiteAgentHeartbeat(
   config: SiteAgentRuntimeConfig,
-  startedAt: string
+  startedAt: string,
+  syncStatus: SiteAgentSyncStatus = { lastSyncAt: null, spoolDepth: 0 }
 ): Promise<HeartbeatResult> {
   const heartbeat: SiteAgentHeartbeat = {
     siteCode: config.siteCode,
@@ -77,9 +97,9 @@ export async function sendSiteAgentHeartbeat(
     startedAt,
     reportedAt: new Date().toISOString(),
     databaseReachable: await checkSiteDatabase(config.siteDatabaseUrl),
-    lastSyncAt: null,
+    lastSyncAt: syncStatus.lastSyncAt,
     lastControlAt: null,
-    spoolDepth: 0,
+    spoolDepth: syncStatus.spoolDepth,
     capabilities: getInitialCapabilities(),
   }
   const rawBody = JSON.stringify(heartbeat)

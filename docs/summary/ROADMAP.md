@@ -1,7 +1,7 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-12
+> 截至: 2026-06-15
 
 ## R.18 基线重构和 Site Agent 协议冻结 (2026-06-12 完成)
 
@@ -20,10 +20,10 @@
 - [x] heartbeat API、请求级 HMAC、防重放和运行状态表。
 - [x] `/sync` 展示真实 Agent 在线/过期/未注册状态。
 - [x] systemd 模板、空值环境模板和运维验收说明。
-- [ ] 真实小表 package push、重试、spool 和幂等。
+- [x] 真实小表 package push、重试、spool 和幂等。
 - [ ] HTTP control poll/ack/result。
 - [ ] PostgreSQL action adapter，首期 pause/resume。
-- [ ] 完整 Agent e2e；heartbeat 网页/API/数据库验收已完成。
+- [ ] 完整 Agent e2e；heartbeat 与同步白盒/API/数据库验收已完成，控制闭环待实现。
 
 详细路线: `docs/summary/ROADMAP_R18_R25.md`
 

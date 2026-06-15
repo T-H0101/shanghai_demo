@@ -1,7 +1,7 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.18",
-  "date": "2026-06-12",
+  "version": "R.19C",
+  "date": "2026-06-15",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
   "total_requirements": 45,
@@ -211,6 +211,8 @@
         "lib/site-agent/config.ts",
         "lib/site-agent/hmac.ts",
         "lib/site-agent/heartbeat-client.ts",
+        "lib/site-agent/sync/coordinator.ts",
+        "lib/site-agent/sync/package-transport.ts",
         "scripts/site-agent/run.ts",
         "app/api/site-agent/heartbeat/route.ts"
       ],
@@ -226,7 +228,7 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "同步 package 通过 HMAC API 松耦合；R.19A 总控 heartbeat 具备 HMAC/防重放；R.19B 独立 Agent client 已真实探活站点 DB 并主动回传。package client 和控制 poll/ack/result 尚未实现。",
+      "backend_reality": "R.19C 独立 Agent 已从完整测试站点 DB 读取 13 张小表，通过 HMAC package API 主动推送，并在断线时本地 spool、恢复后补传。控制 poll/ack/result 和生产部署尚未完成。",
       "ui_reality": "/sync 展示真实 heartbeat 状态，不提供改站点按钮",
       "mock_or_simulator": "N/A",
       "blocker_type": "blocked_by_site_change",
@@ -236,9 +238,9 @@
         "HTTP control poll/ack/result"
       ],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "部署 Site Agent 主动 push 同步并 poll/ack/result 控制命令",
-      "next_action": "R.19C package client + R.19D control client",
-      "verification_command": "pnpm smoke:sync"
+      "needed_site_app_change": "部署已实现的 Site Agent，并继续实现 poll/ack/result 控制命令",
+      "next_action": "R.19D control client",
+      "verification_command": "pnpm e2e:site-agent-sync"
     },
     {
       "requirement_id": "REQ-2.1.1",
@@ -426,6 +428,8 @@
       "current_status": "partial",
       "implemented_files": [
         "lib/sync/*",
+        "lib/site-agent/sync/*",
+        "scripts/site-agent/run.ts",
         "lib/api/api-providers.ts",
         "app/racks/page.tsx",
         "app/users/page.tsx"
@@ -447,19 +451,19 @@
         "/users",
         "/tasks"
       ],
-      "backend_reality": "设备和任务小表已真实同步；权限仅 tbl_user 基础数据；文件仅 4 行任务级索引样本，完整文件索引未接 ES。",
+      "backend_reality": "R.19C Agent 已真实同步任务、设备、盘笼、盘位、光盘、卷和 tbl_user 基础数据；权限仍只有用户基础表，文件仍只有有界任务级索引，完整文件索引未接外部数据面。",
       "ui_reality": "设备与账号页面已 fail-closed；文件检索仍显式 blocked，不用 mock 冒充",
       "mock_or_simulator": "设备/账号 API 页面无 mock fallback",
       "blocker_type": "blocked_by_external_system",
       "missing_parts": [
         "完整文件索引同步",
         "角色/权限/部门关系同步",
-        "真实站点 Agent 部署"
+        "生产站点 Agent 部署"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": "Site Agent 按分类推送小表，并将完整文件索引写入 ES 数据面",
-      "next_action": "R.19 Agent + R.20 必要小表扩展",
-      "verification_command": "pnpm smoke:sync"
+      "next_action": "R.20 必要小表扩展 + 外部索引决策",
+      "verification_command": "pnpm e2e:site-agent-sync && pnpm smoke:sync"
     },
     {
       "requirement_id": "REQ-2.3.2",
@@ -473,6 +477,11 @@
         "scripts/scheduler/sync-scheduler.ts",
         "app/api/sync/config/route.ts",
         "app/api/site-agent/heartbeat/route.ts",
+        "lib/site-agent/sync/coordinator.ts",
+        "lib/site-agent/sync/file-store.ts",
+        "lib/site-agent/sync/source-reader.ts",
+        "lib/site-agent/sync/package-transport.ts",
+        "scripts/site-agent/run.ts",
         "app/sync/page.tsx"
       ],
       "related_api": [
@@ -488,20 +497,20 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "已有手动 trigger、定时 scheduler、HMAC package API 和独立 Agent heartbeat；Agent 尚未实现 package push、自动重试告警和站点离线补传。",
+      "backend_reality": "R.19C Agent 支持默认 5 秒任务增量轮询、60 秒小表快照检测、--once 手动同步、可配置有界重试、离线 spool 和恢复补传；最终失败告警尚未实现。",
       "ui_reality": "/sync 展示多站点周期、Agent heartbeat 状态和 credential env key 引用，不展示 secret 值",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
-        "关键数据实时同步",
-        "可配置自动重试",
+        "设备关键状态实时延迟实测",
         "最终失败告警",
-        "站点离线队列和补传"
+        "页面触发 Agent 手动全量/增量",
+        "生产站点长期部署"
       ],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "Site Agent 执行实时/定时/手动三类同步并回传运行状态",
-      "next_action": "R.19 Agent + R.21 同步策略闭环",
-      "verification_command": "pnpm e2e:sync && pnpm scheduler:sync:once -- --siteCode=SH01 && pnpm e2e:scheduler"
+      "needed_site_app_change": "生产部署 Site Agent，并配置最终失败告警通道",
+      "next_action": "R.21 同步策略和告警闭环",
+      "verification_command": "pnpm e2e:site-agent-sync && pnpm e2e:sync"
     },
     {
       "requirement_id": "REQ-2.3.3",
@@ -975,17 +984,19 @@
     {
       "requirement_id": "REQ-4.3.2",
       "requirement_text": "盘笼统一查询 (在线/离线 + 导出)",
-      "module": "app/api/racks/route.ts + app/api/racks/export/route.ts + lib/api/api-providers.ts",
+      "module": "app/api/racks/route.ts + app/api/racks/[id]/route.ts + app/api/racks/export/route.ts + lib/api/api-providers.ts",
       "priority": "P1",
       "current_status": "partial",
       "implemented_files": [
         "app/api/racks/route.ts",
+        "app/api/racks/[id]/route.ts",
         "app/api/racks/export/route.ts",
         "app/racks/page.tsx",
         "lib/api/api-providers.ts"
       ],
       "related_api": [
         "GET /api/racks",
+        "GET /api/racks/[id]",
         "GET /api/racks/export"
       ],
       "related_db_tables": [
@@ -994,7 +1005,7 @@
       "ui_pages": [
         "/racks"
       ],
-      "backend_reality": "unified_devices 当前 13 台；SH01 4 台；R.11A 支持按 siteCode/status 导出真实 CSV，并返回记录数与 SHA-256 摘要",
+      "backend_reality": "unified_devices 当前 13 台；SH01 4 台；支持按 siteCode/status 导出真实 CSV；R.19C 修复重复设备 ID 的 siteCode 定位，SH01 详情 396 slots、设备 slots 96 条。",
       "ui_reality": "Racks 列表与详情读取真实 API；API 失败/空数据显式 error/empty；导出按钮下载真实附件",
       "mock_or_simulator": "API 模式列表和统计已移除 mock fallback",
       "blocker_type": "blocked_by_auth",
@@ -1216,6 +1227,8 @@
       "current_status": "partial",
       "implemented_files": [
         "lib/sync/sync-engine.ts",
+        "lib/site-agent/sync/coordinator.ts",
+        "scripts/site-agent/run.ts",
         "app/api/sync/sites/status/route.ts",
         "app/sync/page.tsx"
       ],
@@ -1232,17 +1245,19 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "手动 trigger 与 scheduler 记录可查；R.11C 聚合每站点最近运行时间和状态，周期同步仍由站点侧负责",
+      "backend_reality": "R.19C Agent 默认每 5 秒执行任务增量读取、每 60 秒检测小表快照，真实 package 路径已通过白盒 e2e；尚无生产时延和百万级全量报告。",
       "ui_reality": "/sync 可查看每站点配置周期和最近运行状态，但不能证明增量 ≤10s / 全量 ≤30min",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
-        "站点侧周期同步客户端"
+        "任务变更到中心落库的计时报告",
+        "百万级索引全量测试",
+        "生产站点长期运行证据"
       ],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "站点侧 cron 每小时推 package",
-      "next_action": "等站点侧",
-      "verification_command": "pnpm smoke:sync (手动)"
+      "needed_site_app_change": "生产部署 Agent 并采集持续时延样本",
+      "next_action": "R.21/R.25 性能验收",
+      "verification_command": "pnpm e2e:site-agent-sync"
     },
     {
       "requirement_id": "REQ-6.2.1",
