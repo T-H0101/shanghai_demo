@@ -27,6 +27,15 @@
 - [ ] 生产站点安装、TLS、长期运行和故障演练。
 - [ ] reset/priority/inspect/recovery 官方语义与 adapter。
 
+## R.19E 前端信息架构整合 (2026-06-15)
+
+- [x] 任务列表和控制命令合并到 `/tasks` 双视图。
+- [x] `/control` 保留 307 兼容跳转。
+- [x] 侧栏移除重复控制入口。
+- [x] 顶部伪搜索替换为真实 `/search` 导航并标记外部系统阻塞。
+- [x] 新增白盒事件测试并纳入 `e2e:all`。
+- [ ] Firefox/Edge 和 1920×1080 实机验收留待 R.25。
+
 详细路线: `docs/summary/ROADMAP_R18_R25.md`
 
 ## R.16-Review 控制执行真相审计 (2026-06-12 完成)

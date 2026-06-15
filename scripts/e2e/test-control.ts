@@ -30,9 +30,14 @@ function check(name: string, ok: boolean, detail?: string) {
 async function main() {
   console.log("=== Control 事件 e2e ===\n")
 
-  // 1. 页面能打开
-  const pageRes = await fetch(`${BASE}/control`)
-  check("页面 /control 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
+  // 1. 旧入口兼容跳转到任务中心控制视图
+  const pageRes = await fetch(`${BASE}/control`, { redirect: "manual" })
+  check(
+    "页面 /control 跳转任务中心控制视图",
+    [307, 308].includes(pageRes.status) &&
+      pageRes.headers.get("location")?.endsWith("/tasks?view=commands") === true,
+    `HTTP ${pageRes.status} location=${pageRes.headers.get("location")}`
+  )
 
   // 2. 列表真实 (limit=200 以获取多种状态)
   const listRes = await fetch(`${BASE}/api/control/commands?limit=200`)
@@ -122,8 +127,8 @@ async function main() {
     "已发现"
   )
   check(
-    "前端含 '等待站点拉取' (DRY_RUN 透明)",
-    tasksPage.includes("等待站点拉取") || tasksPage.includes("拉取执行"),
+    "前端含 '等待站点 Agent 执行' (真实异步状态透明)",
+    tasksPage.includes("等待站点 Agent 执行"),
     "已发现"
   )
 

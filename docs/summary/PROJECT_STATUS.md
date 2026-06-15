@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-15
-> **Sprint**: Sprint R.19D 实现完成，待最终门禁提交
-> **当前主线**: pause/resume Agent 闭环验收；随后进行 UI 整合优化
+> **Sprint**: Sprint R.19E 前端信息架构整合
+> **当前主线**: 任务与控制统一入口；随后继续同步实时性和告警闭环
+
+---
+
+## Sprint R.19E — 任务与控制前端整合 (2026-06-15)
+
+- `/tasks` 收敛为“任务列表 / 控制命令”双视图，控制结果读取真实 `control_command`。
+- 命令视图每 5 秒刷新，区分 pending、running、success、failed、unsupported 和历史 DRY_RUN。
+- 侧栏移除重复“控制命令”入口；`/control` 保留 307 兼容跳转。
+- 顶部无事件搜索框改为真实 `/search` 导航，并明确标注“待 ES”。
+- 未新增 API、页面或表；requirements 完成率保持 `3/45 = 6.7%`。
 
 ---
 

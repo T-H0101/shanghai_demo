@@ -106,8 +106,15 @@ async function auditPage(p: PageAudit) {
   console.log(`\n--- ${p.label} (${p.route}) ---`)
 
   // 1. 页面 HTTP 可达
-  const res = await fetch(`${BASE}${p.route}`)
-  check(`[${p.label}] 页面 ${p.route} 200`, res.status === 200, `HTTP ${res.status}`)
+  const isControlRedirect = p.route === "/control"
+  const res = await fetch(`${BASE}${p.route}`, {
+    redirect: isControlRedirect ? "manual" : "follow",
+  })
+  check(
+    `[${p.label}] 页面 ${p.route} ${isControlRedirect ? "307" : "200"}`,
+    isControlRedirect ? res.status === 307 : res.status === 200,
+    `HTTP ${res.status}`
+  )
 
   // 读源
   let src = ""
@@ -118,6 +125,51 @@ async function auditPage(p: PageAudit) {
     return
   }
   check(`[${p.label}] 源文件存在`, true, p.path)
+
+  if (isControlRedirect) {
+    const [tasksSource, panelSource] = await Promise.all([
+      readFile("app/tasks/page.tsx", "utf8"),
+      readFile("components/tasks/control-command-panel.tsx", "utf8"),
+    ])
+    check(
+      `[${p.label}] 兼容入口指向任务中心控制视图`,
+      res.headers.get("location")?.endsWith("/tasks?view=commands") === true,
+      res.headers.get("location") ?? "missing location"
+    )
+    check(
+      `[${p.label}] 目标视图调用真实控制 API`,
+      panelSource.includes("/api/control/commands"),
+      "components/tasks/control-command-panel.tsx"
+    )
+    check(
+      `[${p.label}] 无 lib/mock 导入 (R.1 §1)`,
+      !tasksSource.includes("@/lib/mock/") && !panelSource.includes("@/lib/mock/"),
+      "clean"
+    )
+    check(
+      `[${p.label}] 明确 unsupported / 历史 DRY_RUN 边界`,
+      panelSource.includes("unsupported") && panelSource.includes("历史 DRY_RUN"),
+      "truth boundary"
+    )
+    const forbiddenHits = FORBIDDEN_WORDS.filter((pattern) => pattern.test(panelSource))
+    check(
+      `[${p.label}] 无假成功 toast 措辞 (R.1 §7)`,
+      forbiddenHits.length === 0,
+      forbiddenHits.length === 0 ? "clean" : `命中 ${forbiddenHits.length} 个 pattern`
+    )
+    const e2eScript = await findE2eScriptFor(p.route)
+    check(
+      `[${p.label}] e2e 脚本存在 ${e2eScript ?? "missing"}`,
+      !!e2eScript,
+      e2eScript ? "covered" : "no e2e"
+    )
+    check(
+      `[${p.label}] 目标面板 data-testid 数量 ≥ 1`,
+      (panelSource.match(/data-testid=/g) ?? []).length >= 1,
+      "composed target"
+    )
+    return
+  }
 
   // 2. dataSource 显式
   const hasDataSource = DATA_SOURCE_TOKENS.some((tok) => src.includes(tok))

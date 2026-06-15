@@ -17,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TaskFileIndexPanel } from "@/components/tasks/task-file-index-panel"
+import { ControlCommandPanel } from "@/components/tasks/control-command-panel"
 import {
   taskProvider,
   isApiMode,
@@ -145,6 +146,7 @@ function TasksPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const deviceFilter = searchParams.get("device")
+  const view = searchParams.get("view") === "commands" ? "commands" : "tasks"
 
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [keyword, setKeyword] = useState("")
@@ -290,11 +292,7 @@ function TasksPageContent() {
     toast({ title: "导出任务", description: `「${task.name}」数据导出中...` })
   }
 
-  // Sprint 4.8.2-R + R.16: 暂停/恢复/重置 按钮 (audit + executor 同步尝试)
-  // POST 写 control_command 后, 调 executor 一次 (DRY_RUN 控制):
-  //   - DRY_RUN=false + 站点可达 → "worker 已写入测试站点库"
-  //   - DRY_RUN=true / 站点不可达 → "等待站点拉取执行" (原 MVP 路径)
-  // 真实完成需站点 app 消费 evidence, R.1 §6 已显式 blocked_by_site_change
+  // R.19D: 前端只提交队列，由 Site Agent 拉取、执行、同步并回写最终结果。
   const handleControlCommand = async (
     task: TaskItem,
     commandType: "task_pause" | "task_resume",
@@ -369,6 +367,50 @@ function TasksPageContent() {
   const getPhases = (task: TaskItem): string[] => TASK_PHASES_BY_TYPE[task.type] ?? ["pending", "completed"]
   const getActivePhaseIndex = (task: TaskItem): number => getPhases(task).indexOf(task.phase as string)
 
+  const setView = (nextView: "tasks" | "commands") => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextView === "commands") params.set("view", "commands")
+    else params.delete("view")
+    router.replace(`/tasks${params.size ? `?${params.toString()}` : ""}`)
+  }
+
+  const viewSwitcher = (
+    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm" aria-label="任务中心视图">
+      <Button
+        variant={view === "tasks" ? "default" : "ghost"}
+        size="sm"
+        className={cn("h-8", view === "tasks" && "bg-slate-900 hover:bg-slate-800")}
+        onClick={() => setView("tasks")}
+        data-testid="task-view-tasks"
+      >
+        任务列表
+      </Button>
+      <Button
+        variant={view === "commands" ? "default" : "ghost"}
+        size="sm"
+        className={cn("h-8", view === "commands" && "bg-slate-900 hover:bg-slate-800")}
+        onClick={() => setView("commands")}
+        data-testid="task-view-commands"
+      >
+        控制命令
+      </Button>
+    </div>
+  )
+
+  if (view === "commands") {
+    return (
+      <AppShell>
+        <PageHeader
+          title="任务管理"
+          description="集中查看任务状态、提交控制并跟踪 Site Agent 最终结果"
+          badge="TASK CENTER"
+          actions={viewSwitcher}
+        />
+        <ControlCommandPanel />
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
       <PageHeader
@@ -376,7 +418,8 @@ function TasksPageContent() {
         description="档案数据封包、备份、恢复、扫描任务统一调度与监控"
         badge="TASK CENTER"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {viewSwitcher}
             <DataSourceBadge />
             <Button
               size="sm"

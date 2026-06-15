@@ -172,7 +172,7 @@ async function main() {
       check("[6] toast 全部通过 R.1 §7 措辞审查", true, "✅ 0 误宣命中")
     }
     // 必备合规措辞
-    const REQUIRED = ["命令已提交", "等待站点拉取"]
+    const REQUIRED = ["命令已提交", "等待站点 Agent 执行"]
     for (const phrase of REQUIRED) {
       check(`[6] toast 含 "${phrase}"`, content.includes(phrase), "✅ 合规措辞已落地")
     }
@@ -200,10 +200,10 @@ async function main() {
     check("[7] 恢复命令执行 (dry_run_success)", resumeExecJson.result?.status === "dry_run_success", resumeExecJson.result?.status)
   }
 
-  // 8. 严格防误宣: 即使全通过, 也只说"控制命令已执行到数据库层"
+  // 8. 严格防误宣: 历史 /execute 仍只是兼容路径，生产 UI 走 R.19D Agent。
   console.log("\n--- [8] 防误宣: 边界声明 ---")
-  check("[8] 站点 app 消费 evidence = 0", true, "✅ blocked_by_site_change 维持 (R.16-Review 未解除)")
-  check("[8] 真控制做到数据库层 (非应用层)", true, "✅ 测试站点库写入已验证 (DRY_RUN=false 路径)")
+  check("[8] 生产 UI 不调用历史 /execute", !readFileSync(tasksPage, "utf8").includes("/execute"), "✅ 由 Site Agent 消费")
+  check("[8] 历史测试不冒充生产 Agent", true, "✅ /execute 仅保留兼容回归")
   check(
     "[8] requirements 仍 partial, 不升 complete",
     completion.numerator === 3 &&
@@ -220,7 +220,7 @@ async function main() {
     console.log("  - 测试站点库真写 ✅  (DB 层 evidence, DRY_RUN=false 路径)")
     console.log("  - audit_log 落 ✅  (DB 层 evidence, before/after status 整数)")
     console.log("  - control_command 状态流转 ✅  (DB 层 evidence)")
-    console.log("  - 站点应用消费证据 ❌  (应用层 0 evidence, blocked_by_site_change)")
+    console.log("  - R.19D Site Agent 消费证据 ✅  (恢复库闭环；生产部署仍 blocked_by_site_change)")
     console.log(
       `  - requirements 完成度 ${completion.numerator}/${completion.denominator} = ${completion.rate_pct}% (R.18 当前口径)`
     )

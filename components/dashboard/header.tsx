@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { Search, Bell, Menu, LogOut } from "lucide-react"
 import { clearMockSession, getSession } from "@/lib/auth/session"
 import type { MockSession } from "@/lib/types/auth"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -100,14 +99,20 @@ export function Header({ onMenuClick }: HeaderProps) {
         <Menu className="h-5 w-5" />
       </Button>
 
-      {/* Search */}
-      <div className="relative w-64 lg:w-80 hidden sm:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="搜索任务、站点或日志..."
-          className="pl-10 bg-slate-50 border-slate-200"
-        />
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        className="hidden h-9 justify-start gap-2 border-slate-200 bg-slate-50 text-slate-600 sm:flex sm:w-56 lg:w-72"
+        onClick={() => router.push("/search")}
+        data-testid="global-search-entry"
+        title="统一检索依赖 ES/ClickHouse，当前页面会展示阻塞状态"
+      >
+        <Search className="h-4 w-4 text-slate-400" />
+        <span className="truncate">统一检索</span>
+        <Badge variant="outline" className="ml-auto border-amber-200 bg-amber-50 text-[10px] text-amber-700">
+          待 ES
+        </Badge>
+      </Button>
 
       {/* Status Info */}
       <div className="flex items-center gap-3 lg:gap-6">

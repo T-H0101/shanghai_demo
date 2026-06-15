@@ -1,6 +1,6 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.19D",
+  "version": "R.19E",
   "date": "2026-06-15",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
@@ -930,6 +930,8 @@
       "current_status": "partial",
       "implemented_files": [
         "components/dashboard/alert-center.tsx",
+        "components/tasks/control-command-panel.tsx",
+        "app/tasks/page.tsx",
         "lib/api/alert-adapter.ts"
       ],
       "related_api": [
@@ -941,14 +943,15 @@
       ],
       "ui_pages": [
         "/tasks",
+        "/tasks?view=commands",
         "Dashboard"
       ],
-      "backend_reality": "中心任务列表、进度字段和告警展示存在；缺 Agent 关键状态实时推送和责任人通知。",
-      "ui_reality": "Tasks 表格 + Dashboard alert-center",
+      "backend_reality": "R.19E 将真实 control_command 状态并入任务中心并每 5 秒刷新；任务列表、进度字段和告警展示存在。缺任务状态 <=10 秒同步证明和责任人通知。",
+      "ui_reality": "Tasks 任务/控制双视图 + Dashboard alert-center；/control 307 兼容跳转",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
-        "任务状态 <=10 秒同步",
+        "任务状态 <=10 秒同步证明",
         "失败/超时告警",
         "邮箱通知"
       ],
@@ -1371,13 +1374,19 @@
       "priority": "P2",
       "current_status": "partial",
       "implemented_files": [
-        "(Tailwind v4 + Radix UI)"
+        "(Tailwind v4 + Radix UI)",
+        "components/tasks/control-command-panel.tsx",
+        "components/dashboard/header.tsx",
+        "components/dashboard/sidebar.tsx"
       ],
       "related_api": [],
       "related_db_tables": [],
-      "ui_pages": [],
-      "backend_reality": "当前前端基于 Tailwind/Radix，主要在 Chromium e2e 验证；未完成 Firefox/Edge 和 1920x1080 验收。",
-      "ui_reality": "—",
+      "ui_pages": [
+        "/tasks",
+        "/search"
+      ],
+      "backend_reality": "R.19E 收敛任务/控制重复入口并增加白盒事件测试；当前主要在 Chromium e2e 验证，未完成 Firefox/Edge 和 1920x1080 验收。",
+      "ui_reality": "任务/控制双视图支持桌面表格横向滚动；顶部检索入口明确外部系统阻塞",
       "mock_or_simulator": "—",
       "blocker_type": "not_started",
       "missing_parts": [
@@ -1388,7 +1397,7 @@
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
       "next_action": "R.25 跨浏览器验收",
-      "verification_command": "(手动)"
+      "verification_command": "pnpm e2e:frontend-integration；R.25 再做跨浏览器实机验收"
     },
     {
       "requirement_id": "REQ-6.3.2",
