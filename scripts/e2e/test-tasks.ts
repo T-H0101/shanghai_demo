@@ -127,6 +127,31 @@ async function main() {
     tasksPage.includes("已提交") || tasksPage.includes("提交"),
     "已发现合规措辞"
   )
+  check(
+    "前端不再直接调用 execute 端点",
+    !tasksPage.includes("/execute"),
+    "控制仅提交队列"
+  )
+  check(
+    "新建任务读取节点跳转配置",
+    tasksPage.includes("/api/site-navigation/task-create"),
+    "使用站点节点地址"
+  )
+  check(
+    "未配置节点地址时明确禁用",
+    tasksPage.includes("节点任务创建地址未配置"),
+    "fail closed"
+  )
+  check(
+    "控制文案明确等待 Agent",
+    tasksPage.includes("等待站点 Agent 执行"),
+    "不冒充执行成功"
+  )
+  check(
+    "不再打开本地创建任务弹窗",
+    !tasksPage.includes("setShowCreate(true)"),
+    "总控不重复创建任务"
+  )
 
   // 8. control_command 状态机 (R.4 验证 6 状态)
   const ccRes = await fetch(`${BASE}/api/control/commands?limit=20`)

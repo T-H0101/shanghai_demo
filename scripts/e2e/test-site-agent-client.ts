@@ -60,10 +60,11 @@ async function main() {
     "secret not printed"
   )
   check(
-    "agent does not claim control capability",
-    output.includes('"task_pause":{"supported":false') &&
-      output.includes('"task_resume":{"supported":false'),
-    "control remains unsupported"
+    "agent reports real pause/resume capability",
+    output.includes('"task_pause":{"supported":true') &&
+      output.includes('"task_resume":{"supported":true') &&
+      output.includes("restores persisted pre-pause status"),
+    "PostgreSQL adapter evidence present"
   )
 
   const dbRow = execSync(

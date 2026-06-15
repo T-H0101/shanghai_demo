@@ -18,6 +18,9 @@ export interface SiteAgentRuntimeConfig {
   agentVersion: string
   platformUrl: string
   heartbeatIntervalMs: number
+  controlPollIntervalMs: number
+  controlLeaseMs: number
+  controlBatchSize: number
   taskSyncIntervalMs: number
   snapshotSyncIntervalMs: number
   retryMaxAttempts: number
@@ -83,6 +86,21 @@ export function getSiteAgentRuntimeConfig(): SiteAgentRuntimeConfig {
       ""
     ),
     heartbeatIntervalMs: interval,
+    controlPollIntervalMs: integerEnv(
+      "SITE_AGENT_CONTROL_POLL_INTERVAL_MS",
+      5_000,
+      1_000
+    ),
+    controlLeaseMs: integerEnv(
+      "SITE_AGENT_CONTROL_LEASE_MS",
+      30_000,
+      5_000
+    ),
+    controlBatchSize: integerEnv(
+      "SITE_AGENT_CONTROL_BATCH_SIZE",
+      20,
+      1
+    ),
     taskSyncIntervalMs: integerEnv(
       "SITE_AGENT_TASK_SYNC_INTERVAL_MS",
       5_000,

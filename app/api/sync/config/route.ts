@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { getSafeAuthConfig } from "@/lib/auth/config"
 
 export const dynamic = "force-dynamic"
 
@@ -56,6 +57,7 @@ export async function GET() {
             configured: Boolean(process.env[key]),
           })),
         },
+        auth: getSafeAuthConfig(),
         reality: {
           sourceEvidence: false,
           note: "sites/sync_sites 是中心配置，不代表源端 tbl_site 已有真实数据",

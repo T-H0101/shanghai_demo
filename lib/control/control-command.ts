@@ -14,7 +14,7 @@
  *  - **参数化 SQL** (不信任前端输入)
  */
 
-import { query } from "@/lib/db/postgres"
+import { query, transaction } from "@/lib/db/postgres"
 import { randomBytes } from "crypto"
 
 // ============================================================
@@ -249,34 +249,165 @@ export async function markCommandPulled(
   return res.rows[0] ? rowToCommand(res.rows[0]) : null
 }
 
+export async function claimControlCommands(input: {
+  sourceSiteId: string
+  limit: number
+  leaseMs: number
+}): Promise<ControlCommandRow[]> {
+  const limit = Math.max(1, Math.min(input.limit, 100))
+  const leaseMs = Math.max(5_000, Math.min(input.leaseMs, 10 * 60 * 1000))
+  return transaction(async (client) => {
+    const result = await client.query(
+      `WITH candidates AS (
+         SELECT id
+         FROM control_command
+         WHERE source_site_id = $1
+           AND (
+             status = 'pending'
+             OR (
+               status = 'pulled'
+               AND pulled_at < NOW() - ($3::integer * INTERVAL '1 millisecond')
+             )
+           )
+         ORDER BY requested_at ASC
+         FOR UPDATE SKIP LOCKED
+         LIMIT $2
+       )
+       UPDATE control_command AS command
+       SET status = 'pulled',
+           pulled_at = NOW(),
+           updated_at = NOW()
+       FROM candidates
+       WHERE command.id = candidates.id
+       RETURNING command.*`,
+      [input.sourceSiteId, limit, leaseMs]
+    )
+    return result.rows.map(rowToCommand)
+  })
+}
+
+export async function markCommandRunning(
+  id: string,
+  sourceSiteId: string
+): Promise<ControlCommandRow | null> {
+  const result = await query(
+    `UPDATE control_command
+     SET status = 'running', updated_at = NOW()
+     WHERE id = $1::uuid
+       AND source_site_id = $2
+       AND status = 'pulled'
+     RETURNING *`,
+    [id, sourceSiteId]
+  )
+  return result.rows[0] ? rowToCommand(result.rows[0]) : null
+}
+
 /**
  * 站点回写结果: pulled/running → success / failed / cancelled
  */
 export async function markCommandResult(
   id: string,
-  status: "success" | "failed" | "cancelled",
+  sourceSiteId: string,
+  status: "success" | "failed" | "cancelled" | "unsupported",
   resultOrError: {
     result?: Record<string, unknown>
     errorMessage?: string
   }
-): Promise<ControlCommandRow | null> {
-  if (!["success", "failed", "cancelled"].includes(status)) {
+): Promise<
+  | { kind: "updated"; row: ControlCommandRow }
+  | { kind: "idempotent"; row: ControlCommandRow }
+  | { kind: "not_found" }
+  | { kind: "invalid_state" }
+  | { kind: "conflict" }
+> {
+  if (!["success", "failed", "cancelled", "unsupported"].includes(status)) {
     throw new Error(`invalid final status: ${status}`)
   }
-  const res = await query<any>(
-    `UPDATE control_command
-     SET status = $2,
-         completed_at = now(),
-         result = COALESCE($3::jsonb, result),
-         error_message = $4
-     WHERE id = $1 AND status IN ('pending', 'pulled', 'running')
-     RETURNING *`,
-    [
-      id,
-      status,
-      resultOrError.result ? JSON.stringify(resultOrError.result) : null,
-      resultOrError.errorMessage ?? null,
+  return transaction(async (client) => {
+    const selected = await client.query(
+      `SELECT * FROM control_command
+       WHERE id = $1::uuid AND source_site_id = $2
+       FOR UPDATE`,
+      [id, sourceSiteId]
+    )
+    if (selected.rowCount === 0) return { kind: "not_found" as const }
+
+    const current = rowToCommand(selected.rows[0])
+    const finalStatuses: CommandStatus[] = [
+      "success",
+      "failed",
+      "cancelled",
+      "unsupported",
     ]
-  )
-  return res.rows[0] ? rowToCommand(res.rows[0]) : null
+    const nextResult = resultOrError.result ?? null
+    const nextError = resultOrError.errorMessage ?? null
+    if (finalStatuses.includes(current.status)) {
+      const comparison = await client.query<{ same: boolean }>(
+        `SELECT
+           $1::text = $2::text
+           AND $3::jsonb IS NOT DISTINCT FROM $4::jsonb
+           AND $5::text IS NOT DISTINCT FROM $6::text AS same`,
+        [
+          current.status,
+          status,
+          JSON.stringify(current.result ?? null),
+          JSON.stringify(nextResult),
+          current.errorMessage ?? null,
+          nextError,
+        ]
+      )
+      const same = comparison.rows[0]?.same === true
+      return same
+        ? { kind: "idempotent" as const, row: current }
+        : { kind: "conflict" as const }
+    }
+    if (current.status !== "running") {
+      return { kind: "invalid_state" as const }
+    }
+
+    const updated = await client.query(
+      `UPDATE control_command
+       SET status = $3,
+           completed_at = NOW(),
+           result = $4::jsonb,
+           error_message = $5,
+           updated_at = NOW()
+       WHERE id = $1::uuid AND source_site_id = $2
+       RETURNING *`,
+      [id, sourceSiteId, status, JSON.stringify(nextResult), nextError]
+    )
+    const resultRecord =
+      nextResult && typeof nextResult === "object"
+        ? (nextResult as Record<string, unknown>)
+        : {}
+    await client.query(
+      `INSERT INTO audit_log (
+         command_no, action, target_table, target_id,
+         before_json, after_json, actor, actor_ip,
+         site_code, dry_run, result, error_message
+       )
+       VALUES (
+         $1, $2, $3, $4,
+         $5::jsonb, $6::jsonb, $7, $8,
+         $9, FALSE, $10, $11
+       )`,
+      [
+        current.commandNo,
+        current.commandType,
+        current.targetType === "task" ? "tbl_task" : current.targetType,
+        current.targetId,
+        JSON.stringify(resultRecord.before ?? null),
+        JSON.stringify(resultRecord.after ?? null),
+        "site-agent",
+        null,
+        sourceSiteId,
+        status,
+        nextError,
+      ]
+    )
+    return {
+      kind: "updated" as const,
+      row: rowToCommand(updated.rows[0]),
+    }
+  })
 }

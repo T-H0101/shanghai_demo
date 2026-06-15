@@ -12,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -22,9 +21,8 @@ import {
   taskProvider,
   isApiMode,
 } from "@/lib/api"
-import type { TaskItem, TaskType, TaskPhase, TaskLogEntry } from "@/lib/types/task"
+import type { TaskItem, TaskPhase, TaskLogEntry } from "@/lib/types/task"
 import { TASK_TYPE_LABELS, TASK_PHASE_LABELS, TASK_PHASE_COLORS, TASK_PHASES_BY_TYPE } from "@/lib/types/task"
-import type { Rack } from "@/lib/types/rack"
 import { useSite } from "@/lib/site/site-context"
 import {
   Activity, Pause, Play, RotateCcw, RefreshCw, AlertTriangle, ClipboardList,
@@ -155,11 +153,14 @@ function TasksPageContent() {
   const [scopeFilter, setScopeFilter] = useState<string>("all")
   const [selected, setSelected] = useState<TaskItem | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState<Partial<TaskItem & { packagingThreads: number }>>({})
   const [tab, setTab] = useState<string>("all")
-  // R.15: 关联设备下拉改用真实 /api/racks, 替 mockRacks
-  const [rackOptions, setRackOptions] = useState<{ id: string; rackId: string; deviceType: string | null }[]>([])
+  const [taskCreateNavigation, setTaskCreateNavigation] = useState<{
+    configured: boolean
+    url: string | null
+    reason: string | null
+  } | null>(null)
+  const [taskCreateNavigationLoading, setTaskCreateNavigationLoading] =
+    useState(false)
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -188,22 +189,35 @@ function TasksPageContent() {
     if (siteReady) loadTasks()
   }, [loadTasks, siteReady])
 
-  // R.15: 拉 /api/racks 真设备列表 (替 mockRacks, 仅 showCreate 弹窗打开时拉)
   useEffect(() => {
-    if (!showCreate || !isApiMode) return
-    const ac = new AbortController()
-    const sp = new URLSearchParams()
-    sp.set("limit", "200")
-    if (!isAllSites && siteCode) sp.set("siteCode", siteCode)
-    fetch(`/api/racks?${sp.toString()}`, { signal: ac.signal, cache: "no-store" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => {
-        const rows = Array.isArray(json?.rows) ? json.rows : Array.isArray(json?.data) ? json.data : []
-        setRackOptions(rows.map((r: any) => ({ id: String(r.id), rackId: r.rackId ?? r.id, deviceType: r.deviceType ?? null })))
+    if (!siteReady || isAllSites || !siteCode) {
+      setTaskCreateNavigation(null)
+      return
+    }
+    const controller = new AbortController()
+    setTaskCreateNavigationLoading(true)
+    fetch(
+      `/api/site-navigation/task-create?siteCode=${encodeURIComponent(siteCode)}`,
+      { signal: controller.signal, cache: "no-store" }
+    )
+      .then(async (response) => {
+        const body = await response.json()
+        if (!response.ok || !body.data) {
+          throw new Error(body.message ?? "节点任务创建地址读取失败")
+        }
+        setTaskCreateNavigation(body.data)
       })
-      .catch(() => { /* ignore */ })
-    return () => ac.abort()
-  }, [showCreate, isApiMode, isAllSites, siteCode])
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return
+        setTaskCreateNavigation({
+          configured: false,
+          url: null,
+          reason: "node_task_create_url_load_failed",
+        })
+      })
+      .finally(() => setTaskCreateNavigationLoading(false))
+    return () => controller.abort()
+  }, [siteReady, isAllSites, siteCode])
 
   const openDetail = (task: TaskItem) => { setSelected(task); setDrawerOpen(true) }
 
@@ -283,7 +297,7 @@ function TasksPageContent() {
   // 真实完成需站点 app 消费 evidence, R.1 §6 已显式 blocked_by_site_change
   const handleControlCommand = async (
     task: TaskItem,
-    commandType: "task_pause" | "task_resume" | "task_reset",
+    commandType: "task_pause" | "task_resume",
     label: string,
     e?: React.MouseEvent
   ) => {
@@ -310,30 +324,9 @@ function TasksPageContent() {
       if (!res.ok || !data.ok) {
         throw new Error(data.error || "提交失败")
       }
-      const cmdId = data.command?.id ?? null
-      // R.16: 同步尝试执行一次 (DRY_RUN=false 时真写测试站点库)
-      let executionNote = "已提交到控制队列, 等待站点拉取执行"
-      if (cmdId) {
-        try {
-          const execRes = await fetch(`/api/control/commands/${cmdId}/execute`, { method: "POST" })
-          if (execRes.ok) {
-            const execData = await execRes.json()
-            const r = execData.result
-            if (r?.status === "success" || r?.status === "dry_run_success") {
-              executionNote = r.status === "success"
-                ? "worker 已写入测试站点库 (DRY_RUN=false), 站点应用执行待确认"
-                : "DRY_RUN 模拟, 数据库未改, 等待站点拉取真改"
-            } else if (r?.status === "unsupported") {
-              executionNote = `源端不支持: ${r?.reason ?? "blocked_by_source_schema"}`
-            } else if (r?.status === "failed") {
-              executionNote = `worker 执行失败: ${r?.errorMessage ?? "unknown"}`
-            }
-          }
-        } catch { /* execute 端点不可用, 降级到"等待站点拉取"路径 */ }
-      }
       toast({
         title: `${label}命令已提交`,
-        description: `「${task.name}」${label}命令: ${executionNote}`,
+        description: `「${task.name}」${label}命令已提交到控制队列，等待站点 Agent 执行`,
       })
     } catch (err) {
       toast({
@@ -344,41 +337,24 @@ function TasksPageContent() {
     }
   }
 
-  // 新建任务
-  const handleCreate = async () => {
-    if (isApiMode) return showApiWriteUnavailable("新建任务")
-    if (!createForm.name || !createForm.archiveName) {
-      toast({ title: "请填写必填项", description: "任务名称和档案馆名称为必填项", variant: "destructive" })
+  const handleOpenNodeTaskCreate = () => {
+    if (!siteReady || isAllSites || !siteCode) {
+      toast({
+        title: "请先选择站点",
+        description: "节点任务创建需要明确站点",
+        variant: "destructive",
+      })
       return
     }
-    try {
-      const newTask = await taskProvider.createTask({
-        name: createForm.name!,
-        taskNo: `TK-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(tasks.length + 1).padStart(3, "0")}`,
-        type: (createForm.type as TaskType) ?? "full_package",
-        archiveName: createForm.archiveName!,
-        dataClassification: createForm.dataClassification ?? "馆藏档案",
-        siteCode: createForm.siteName ?? createForm.siteCode ?? "SH-RD-01",
-        sourcePath: createForm.sourcePath ?? "/data/archive/",
-        packagePath: createForm.packagePath ?? "/output/archive/",
-        volumeId: createForm.volumeId,
-        backupScope: (createForm.backupScope as any) ?? "full",
-        packagingMode: (createForm.packagingMode as any) ?? "scan_while_package",
-        deviceId: createForm.deviceId,
-        rackId: createForm.rackId,
-        priority: (createForm.priority as any) ?? "normal",
-        operator: "张建国",
-        department: createForm.department ?? "设备运维部",
-        packagingThreads: createForm.packagingThreads,
-      } as any)
-      setTasks(prev => [newTask, ...prev])
-      setSelected(newTask)
-      setShowCreate(false)
-      setCreateForm({})
-      toast({ title: "任务已记录到控制队列", description: `「${newTask.name}」已通过 control_command 创建 (audit 提交, 站点执行待确认)` })
-    } catch {
-      toast({ title: "创建失败", variant: "destructive" })
+    if (!taskCreateNavigation?.configured || !taskCreateNavigation.url) {
+      toast({
+        title: "节点任务创建地址未配置",
+        description: `请配置 SITE_NODE_TASK_CREATE_URL_${siteCode.toUpperCase()}`,
+        variant: "destructive",
+      })
+      return
     }
+    window.open(taskCreateNavigation.url, "_blank", "noopener,noreferrer")
   }
 
   const handleResetFilters = () => {
@@ -399,7 +375,33 @@ function TasksPageContent() {
         title="任务管理"
         description="档案数据封包、备份、恢复、扫描任务统一调度与监控"
         badge="TASK CENTER"
-        actions={<div className="flex items-center gap-2"><DataSourceBadge /><Button size="sm" className="bg-blue-600" onClick={() => isApiMode ? showApiWriteUnavailable("新建任务") : setShowCreate(true)}><ClipboardList className="h-4 w-4 mr-1" />新建任务</Button></div>}
+        actions={
+          <div className="flex items-center gap-2">
+            <DataSourceBadge />
+            <Button
+              size="sm"
+              className="bg-blue-600"
+              data-testid="task-create-at-node"
+              disabled={
+                taskCreateNavigationLoading ||
+                !siteReady ||
+                isAllSites ||
+                !taskCreateNavigation?.configured
+              }
+              title={
+                isAllSites
+                  ? "请先选择站点"
+                  : taskCreateNavigation?.configured
+                    ? "前往站点节点创建任务"
+                    : "节点任务创建地址未配置"
+              }
+              onClick={handleOpenNodeTaskCreate}
+            >
+              <ClipboardList className="h-4 w-4 mr-1" />
+              节点新建任务
+            </Button>
+          </div>
+        }
       />
 
       {/* ── 统计卡片 ─────────────────────────────────────────── */}
@@ -559,7 +561,7 @@ function TasksPageContent() {
                       {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="暂停" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)}><Pause className="h-3.5 w-3.5" /></Button>}
                       {t.phase === "paused" && <Button variant="ghost" size="icon" className="h-7 w-7" title="恢复" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)}><Play className="h-3.5 w-3.5" /></Button>}
-                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置" data-testid="task-row-reset" onClick={e => handleControlCommand(t, "task_reset", "重置", e)}><RotateCcw className="h-3.5 w-3.5" /></Button>}
+                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置未接入站点 Agent" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="导出" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
@@ -808,7 +810,7 @@ function TasksPageContent() {
                       </Button>
                     )}
                     {selected.phase !== "completed" && selected.phase !== "failed" && selected.phase !== "paused" && (
-                      <Button size="sm" variant="outline" className="text-slate-600 hover:text-slate-700" onClick={() => handleControlCommand(selected, "task_reset", "重置")}>
+                      <Button size="sm" variant="outline" className="text-slate-600" title="重置未接入站点 Agent" disabled>
                         <RotateCcw className="h-3.5 w-3.5 mr-1" />重置
                       </Button>
                     )}
@@ -823,124 +825,6 @@ function TasksPageContent() {
         </DrawerContent>
       </Drawer>
 
-      {/* ── 新建任务弹窗 ─────────────────────────────────────── */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="!max-w-2xl">
-          <DialogHeader><DialogTitle>新建任务</DialogTitle><DialogDescription>创建档案数据封包、备份、扫描任务</DialogDescription></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="col-span-2 space-y-2">
-              <Label>任务名称 *</Label>
-              <Input value={createForm.name ?? ""} onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))} placeholder="如：苏州市档案馆全量封包" />
-            </div>
-            <div className="space-y-2">
-              <Label>任务类型</Label>
-              <Select value={createForm.type ?? "full_package"} onValueChange={v => setCreateForm(f => ({ ...f, type: v as TaskType }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TASK_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>档案馆名称 *</Label>
-              <Input value={createForm.archiveName ?? ""} onChange={e => setCreateForm(f => ({ ...f, archiveName: e.target.value }))} placeholder="如：苏州市档案馆" />
-            </div>
-            <div className="space-y-2">
-              <Label>数据分类</Label>
-              <Input value={createForm.dataClassification ?? ""} onChange={e => setCreateForm(f => ({ ...f, dataClassification: e.target.value }))} placeholder="如：馆藏档案" />
-            </div>
-            <div className="space-y-2">
-              <Label>备份范围</Label>
-              <Select value={createForm.backupScope ?? "full"} onValueChange={v => setCreateForm(f => ({ ...f, backupScope: v as any }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="full">全量</SelectItem>
-                  <SelectItem value="incremental">增量</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>封包流程</Label>
-              <Select value={createForm.packagingMode ?? "scan_while_package"} onValueChange={v => setCreateForm(f => ({ ...f, packagingMode: v as any }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="scan_while_package">边扫描边封包</SelectItem>
-                  <SelectItem value="scan_then_package">先扫描后封包</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>封包线程数</Label>
-              <Select value={String(createForm.packagingThreads?.length ?? 4)} onValueChange={v => {
-                const count = parseInt(v)
-                const threads = Array.from({ length: count }, (_, i) => ({
-                  id: `thread-${i + 1}`,
-                  name: `线程 ${i + 1}`,
-                  status: "waiting" as const,
-                  progress: 0,
-                }))
-                setCreateForm(f => ({ ...f, packagingThreads: threads as any }))
-              }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 线程（单线程）</SelectItem>
-                  <SelectItem value="2">2 线程</SelectItem>
-                  <SelectItem value="4">4 线程（默认）</SelectItem>
-                  <SelectItem value="8">8 线程（高速）</SelectItem>
-                  <SelectItem value="16">16 线程（极速）</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>优先级</Label>
-              <Select value={createForm.priority ?? "normal"} onValueChange={v => setCreateForm(f => ({ ...f, priority: v as any }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="critical">紧急</SelectItem>
-                  <SelectItem value="high">高</SelectItem>
-                  <SelectItem value="normal">普通</SelectItem>
-                  <SelectItem value="low">低</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label>源数据路径</Label>
-              <Input value={createForm.sourcePath ?? ""} onChange={e => setCreateForm(f => ({ ...f, sourcePath: e.target.value }))} placeholder="/data/archive/" />
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label>封包路径</Label>
-              <Input value={createForm.packagePath ?? ""} onChange={e => setCreateForm(f => ({ ...f, packagePath: e.target.value }))} placeholder="/output/archive/" />
-            </div>
-            <div className="space-y-2">
-              <Label>关联设备</Label>
-              <Select value={createForm.deviceId ?? "__none__"} onValueChange={v => {
-                // R.15: 从 rackOptions 查找 (替 mockRacks.find)
-                const rack = v === "__none__" ? null : rackOptions.find(r => r.id === v)
-                setCreateForm(f => ({ ...f, deviceId: v === "__none__" ? undefined : v, rackId: v === "__none__" ? undefined : v, deviceName: rack?.rackId }))
-              }}>
-                <SelectTrigger><SelectValue placeholder={isApiMode ? "从 /api/racks 加载" : "选择设备（可选）"} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">不指定设备</SelectItem>
-                  {(isApiMode ? rackOptions : []).map(r => (
-                    <SelectItem key={r.id} value={r.id}>{r.rackId}（{r.deviceType ?? "—"}）</SelectItem>
-                  ))}
-                  {!isApiMode && (
-                    <SelectItem value="__demo__" disabled>非 API 模式: 此场景仅 mock 演示</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>分配部门</Label>
-              <Input value={createForm.department ?? ""} onChange={e => setCreateForm(f => ({ ...f, department: e.target.value }))} placeholder="如：设备运维部" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>取消</Button>
-            <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">创建任务</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   )
 }

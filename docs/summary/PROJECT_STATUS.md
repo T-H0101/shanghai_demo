@@ -1,8 +1,24 @@
 # Project Status
 
 > **截至**: 2026-06-15
-> **Sprint**: Sprint R.19C 完成 (Site Agent 混合同步闭环)
-> **当前主线**: R.19D HTTP control poll/ack/result
+> **Sprint**: Sprint R.19D 实现完成，待最终门禁提交
+> **当前主线**: pause/resume Agent 闭环验收；随后进行 UI 整合优化
+
+---
+
+## Sprint R.19D — 节点跳转与 Site Agent 暂停/继续闭环 (2026-06-15)
+
+- 总控删除重复的本地任务创建表单，按 `SITE_NODE_TASK_CREATE_URL_<SITE>` 跳转节点；当前 SH01 地址为空，按钮 fail closed。
+- site-control poll/ack/result 升级为请求级 HMAC、时间窗、siteCode 绑定和 nonce 防重放。
+- `control_command` 使用 `FOR UPDATE SKIP LOCKED` 原子租约；final result 支持幂等和冲突拒绝。
+- 独立 Agent 新增耐久控制 store、HTTP transport、PostgreSQL adapter 和控制协调器。
+- 暂停仅允许官方运行状态到 20；继续恢复持久化暂停前状态，纠正历史 `resume=0` 假设。
+- 恢复库真实 E2E 完成 `19→20→19`，并验证中心 command、audit、立即同步和 heartbeat capability。
+- Settings 增加 secret-free Auth 配置状态边界，不实现假 JWT/RBAC。
+- reset/priority/inspect/recovery、节点 URL 和生产 Agent 部署仍未完成。
+- requirements 完成率保持 `3/45 = 6.7%`；REQ-4.2.2 仍为 `partial`。
+
+白盒说明：`docs/testing/r19d-site-agent-control-whitebox-guide.md`。
 
 ---
 

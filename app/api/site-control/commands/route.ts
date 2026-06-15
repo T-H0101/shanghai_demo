@@ -10,36 +10,39 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { listControlCommands, markCommandPulled } from "@/lib/control/control-command"
+import { claimControlCommands } from "@/lib/control/control-command"
 import { verifySiteControlRequest } from "@/lib/auth/site-control-auth"
 
 export async function GET(req: NextRequest) {
-  const auth = verifySiteControlRequest(req)
-  if (!auth.ok) return auth.response
-
   const url = new URL(req.url)
   const siteCode = url.searchParams.get("siteCode")
-  const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 100)
+  const requestedLimit = Number(url.searchParams.get("limit") ?? 20)
+  const limit =
+    Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 100)
+      : 20
 
   if (!siteCode) {
     return NextResponse.json({ error: "missing siteCode" }, { status: 400 })
   }
+  const auth = await verifySiteControlRequest(req, {
+    rawBody: "",
+    payloadSiteCode: siteCode,
+  })
+  if (!auth.ok) return auth.response
 
   try {
-    // 1. 列出 pending (可同时拉多条让站点挑)
-    const { rows } = await listControlCommands({
+    const configuredLeaseMs = Number(
+      process.env.SITE_AGENT_CONTROL_LEASE_MS ?? 30_000
+    )
+    const pulled = await claimControlCommands({
       sourceSiteId: siteCode,
-      status: "pending",
       limit,
+      leaseMs:
+        Number.isInteger(configuredLeaseMs) && configuredLeaseMs >= 5_000
+          ? configuredLeaseMs
+          : 30_000,
     })
-
-    // 2. 自动 mark pulled (FOR UPDATE 语义: 一次只允许一个站点拉)
-    // 注: 当前未做分布式锁, 单进程足够
-    const pulled: typeof rows = []
-    for (const r of rows) {
-      const updated = await markCommandPulled(r.id)
-      if (updated) pulled.push(updated)
-    }
 
     return NextResponse.json({
       ok: true,

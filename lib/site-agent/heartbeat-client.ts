@@ -6,6 +6,7 @@ import {
 } from "./config"
 import { signSiteAgentRequest } from "./hmac"
 import type { AgentSyncStore } from "./sync/coordinator"
+import type { FileControlStore } from "./control/file-store"
 
 const HEARTBEAT_PATH = "/api/site-agent/heartbeat"
 
@@ -17,7 +18,7 @@ export interface SiteAgentHeartbeat {
   reportedAt: string
   databaseReachable: boolean
   lastSyncAt: string | null
-  lastControlAt: null
+  lastControlAt: string | null
   spoolDepth: number
   capabilities: Record<string, unknown>
 }
@@ -31,6 +32,10 @@ export interface HeartbeatResult {
 export interface SiteAgentSyncStatus {
   lastSyncAt: string | null
   spoolDepth: number
+}
+
+export interface SiteAgentControlStatus {
+  lastControlAt: string | null
 }
 
 export async function readSiteAgentSyncStatus(
@@ -47,10 +52,18 @@ export async function readSiteAgentSyncStatus(
 }
 
 export function getInitialCapabilities(): Record<string, unknown> {
-  const blocker = "not_implemented_in_agent"
   return {
-    task_pause: { supported: false, blocker },
-    task_resume: { supported: false, blocker },
+    task_pause: {
+      supported: true,
+      adapter: "postgres",
+      evidence:
+        "tbl_task.status=20 with validated running pre-state",
+    },
+    task_resume: {
+      supported: true,
+      adapter: "postgres",
+      evidence: "restores persisted pre-pause status",
+    },
     task_reset: { supported: false, blocker: "official_semantics_missing" },
     task_priority_restore: {
       supported: false,
@@ -88,7 +101,8 @@ export async function checkSiteDatabase(
 export async function sendSiteAgentHeartbeat(
   config: SiteAgentRuntimeConfig,
   startedAt: string,
-  syncStatus: SiteAgentSyncStatus = { lastSyncAt: null, spoolDepth: 0 }
+  syncStatus: SiteAgentSyncStatus = { lastSyncAt: null, spoolDepth: 0 },
+  controlStatus: SiteAgentControlStatus = { lastControlAt: null }
 ): Promise<HeartbeatResult> {
   const heartbeat: SiteAgentHeartbeat = {
     siteCode: config.siteCode,
@@ -98,7 +112,7 @@ export async function sendSiteAgentHeartbeat(
     reportedAt: new Date().toISOString(),
     databaseReachable: await checkSiteDatabase(config.siteDatabaseUrl),
     lastSyncAt: syncStatus.lastSyncAt,
-    lastControlAt: null,
+    lastControlAt: controlStatus.lastControlAt,
     spoolDepth: syncStatus.spoolDepth,
     capabilities: getInitialCapabilities(),
   }
@@ -151,5 +165,14 @@ export function getSafeAgentStartupLog(config: SiteAgentRuntimeConfig) {
     agentVersion: config.agentVersion,
     platformUrl: config.platformUrl,
     heartbeatIntervalMs: config.heartbeatIntervalMs,
+    controlPollIntervalMs: config.controlPollIntervalMs,
+    controlLeaseMs: config.controlLeaseMs,
+    controlBatchSize: config.controlBatchSize,
   }
+}
+
+export async function readSiteAgentControlStatus(
+  store: Pick<FileControlStore, "lastControlAt">
+): Promise<SiteAgentControlStatus> {
+  return { lastControlAt: await store.lastControlAt() }
 }

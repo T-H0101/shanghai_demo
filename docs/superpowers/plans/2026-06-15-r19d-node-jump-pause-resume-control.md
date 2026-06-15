@@ -385,8 +385,8 @@ Use in-memory test doubles behind the real interfaces and prove:
 ```typescript
 // ACK happens before execute.
 assert.deepEqual(events.slice(0, 2), ["ack", "execute"])
-// Execution is persisted before result upload.
-assert.deepEqual(events, ["ack", "execute", "save_execution", "enqueue_result", "result", "resync"])
+// Execution and center resync complete before final result upload.
+assert.deepEqual(events, ["ack", "execute", "save_execution", "enqueue_result", "resync", "result"])
 // Failed result upload replays without another execute.
 assert.equal(adapterExecutionCount, 1)
 assert.equal(replayedResultCount, 1)
@@ -425,10 +425,10 @@ Each cycle:
 7. Execute adapter.
 8. Persist execution.
 9. Persist pending result.
-10. Upload result.
-11. Remove pending result.
-12. On success, update/clear pause state.
-13. Trigger immediate task sync.
+10. For success, trigger immediate task sync.
+11. Upload result.
+12. Remove pending result.
+13. On resume success, clear pause state.
 
 - [ ] **Step 5: Verify GREEN**
 

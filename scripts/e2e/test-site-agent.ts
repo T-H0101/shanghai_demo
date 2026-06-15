@@ -65,7 +65,11 @@ async function main() {
     spoolDepth: 0,
     capabilities: {
       task_pause: { supported: true, adapter: "postgres", evidence: "tbl_task.status=20" },
-      task_resume: { supported: true, adapter: "postgres", evidence: "tbl_task.status=0" },
+      task_resume: {
+        supported: true,
+        adapter: "postgres",
+        evidence: "restores persisted pre-pause status",
+      },
       task_reset: { supported: false, blocker: "official_semantics_missing" },
     },
   }

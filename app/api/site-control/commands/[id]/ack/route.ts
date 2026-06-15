@@ -8,32 +8,37 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { query } from "@/lib/db/postgres"
+import { markCommandRunning } from "@/lib/control/control-command"
 import { verifySiteControlRequest } from "@/lib/auth/site-control-auth"
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = verifySiteControlRequest(req)
-  if (!auth.ok) return auth.response
   const { id } = await params
+  const rawBody = await req.text()
+  let body: { siteCode?: unknown }
+  try {
+    body = JSON.parse(rawBody) as { siteCode?: unknown }
+  } catch {
+    return NextResponse.json({ error: "invalid json" }, { status: 400 })
+  }
+  const siteCode = typeof body.siteCode === "string" ? body.siteCode : null
+  const auth = await verifySiteControlRequest(req, {
+    rawBody,
+    payloadSiteCode: siteCode,
+  })
+  if (!auth.ok) return auth.response
 
   try {
-    const res = await query(
-      `UPDATE control_command
-       SET status = 'running'
-       WHERE id = $1 AND status IN ('pulled', 'pending')
-       RETURNING id, command_no, status`,
-      [id]
-    )
-    if (res.rows.length === 0) {
+    const row = await markCommandRunning(id, auth.siteCode)
+    if (!row) {
       return NextResponse.json(
-        { error: "command not found or not in pullable state" },
+        { error: "command not found or not in pulled state" },
         { status: 404 }
       )
     }
-    return NextResponse.json({ ok: true, command: res.rows[0] })
+    return NextResponse.json({ ok: true, command: row })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },

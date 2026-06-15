@@ -17,37 +17,73 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = verifySiteControlRequest(req)
-  if (!auth.ok) return auth.response
   const { id } = await params
 
-  let body: any
+  const rawBody = await req.text()
+  let body: Record<string, unknown>
   try {
-    body = await req.json()
+    body = JSON.parse(rawBody) as Record<string, unknown>
   } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 })
   }
 
-  const { status, result, errorMessage } = body ?? {}
-  if (!["success", "failed", "cancelled", "unsupported", "dry_run_success"].includes(status)) {
+  const siteCode =
+    typeof body.siteCode === "string" ? body.siteCode : null
+  const auth = await verifySiteControlRequest(req, {
+    rawBody,
+    payloadSiteCode: siteCode,
+  })
+  if (!auth.ok) return auth.response
+
+  const { status, result, errorMessage } = body
+  if (
+    !["success", "failed", "cancelled", "unsupported"].includes(
+      String(status)
+    )
+  ) {
     return NextResponse.json(
-      { error: "status must be success / failed / cancelled / unsupported / dry_run_success" },
+      { error: "status must be success / failed / cancelled / unsupported" },
       { status: 400 }
     )
   }
 
   try {
-    const row = await markCommandResult(id, status, {
-      result: typeof result === "object" && result ? result : undefined,
-      errorMessage: typeof errorMessage === "string" ? errorMessage : undefined,
-    })
-    if (!row) {
+    const outcome = await markCommandResult(
+      id,
+      auth.siteCode,
+      status as "success" | "failed" | "cancelled" | "unsupported",
+      {
+        result:
+          typeof result === "object" && result
+            ? (result as Record<string, unknown>)
+            : undefined,
+        errorMessage:
+          typeof errorMessage === "string" ? errorMessage : undefined,
+      }
+    )
+    if (outcome.kind === "not_found") {
       return NextResponse.json(
-        { error: "command not found or already finalized" },
+        { error: "command not found" },
         { status: 404 }
       )
     }
-    return NextResponse.json({ ok: true, command: row })
+    if (outcome.kind === "invalid_state") {
+      return NextResponse.json(
+        { error: "command is not running" },
+        { status: 409 }
+      )
+    }
+    if (outcome.kind === "conflict") {
+      return NextResponse.json(
+        { error: "conflicting final result" },
+        { status: 409 }
+      )
+    }
+    return NextResponse.json({
+      ok: true,
+      idempotent: outcome.kind === "idempotent",
+      command: outcome.row,
+    })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },

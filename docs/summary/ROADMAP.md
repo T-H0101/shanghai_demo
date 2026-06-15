@@ -14,16 +14,18 @@
 - [x] requirements 完成率校准为 `3/45 = 6.7%`。
 - [x] 编写 `/sites`、`/sync`、`/tasks`、`/control` 网页验收指南。
 
-## R.19 可部署 Site Agent (进行中)
+## R.19 可部署 Site Agent (开发闭环完成，待生产部署)
 
 - [x] 独立 Agent 入口和环境变量引用配置模型。
 - [x] heartbeat API、请求级 HMAC、防重放和运行状态表。
 - [x] `/sync` 展示真实 Agent 在线/过期/未注册状态。
 - [x] systemd 模板、空值环境模板和运维验收说明。
 - [x] 真实小表 package push、重试、spool 和幂等。
-- [ ] HTTP control poll/ack/result。
-- [ ] PostgreSQL action adapter，首期 pause/resume。
-- [ ] 完整 Agent e2e；heartbeat 与同步白盒/API/数据库验收已完成，控制闭环待实现。
+- [x] HTTP control poll/ack/result，请求级 HMAC、nonce 和租约。
+- [x] PostgreSQL action adapter，首期 pause/resume。
+- [x] 完整 Agent 白盒 e2e：heartbeat、同步、19→20→19 控制、audit 和回读。
+- [ ] 生产站点安装、TLS、长期运行和故障演练。
+- [ ] reset/priority/inspect/recovery 官方语义与 adapter。
 
 详细路线: `docs/summary/ROADMAP_R18_R25.md`
 

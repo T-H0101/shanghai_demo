@@ -22,6 +22,16 @@ interface EnvKeyRef {
   configured: boolean
 }
 
+interface SafeAuthConfig {
+  mode: string
+  issuerUrlConfigured: boolean
+  clientIdConfigured: boolean
+  clientSecretKeyRef: string
+  jwksUrlConfigured: boolean
+  ldapUrlConfigured: boolean
+  ldapBaseDnConfigured: boolean
+}
+
 interface RegistrySite {
   id: string
   name: string
@@ -53,6 +63,7 @@ interface SettingsSnapshot {
   registrySource: string
   siteStatuses: SiteRuntimeStatus[]
   envKeyRefs: EnvKeyRef[]
+  auth: SafeAuthConfig
   systemStatus: string
   systemUptime: number | null
   databaseConnected: boolean
@@ -68,6 +79,15 @@ const EMPTY_SNAPSHOT: SettingsSnapshot = {
   registrySource: "none",
   siteStatuses: [],
   envKeyRefs: [],
+  auth: {
+    mode: "disabled",
+    issuerUrlConfigured: false,
+    clientIdConfigured: false,
+    clientSecretKeyRef: "AUTH_CLIENT_SECRET",
+    jwksUrlConfigured: false,
+    ldapUrlConfigured: false,
+    ldapBaseDnConfigured: false,
+  },
   systemStatus: "unknown",
   systemUptime: null,
   databaseConnected: false,
@@ -118,6 +138,7 @@ export default function Page() {
         registrySource: sites.source ?? "none",
         siteStatuses: siteStatus.data?.items ?? [],
         envKeyRefs: sync.data?.runtime?.envKeyRefs ?? [],
+        auth: sync.data?.auth ?? EMPTY_SNAPSHOT.auth,
         systemStatus: health.status ?? "unknown",
         systemUptime: typeof health.uptime === "number" ? health.uptime : null,
         databaseConnected: Boolean(dbHealth.database?.connected),
@@ -307,6 +328,39 @@ export default function Page() {
           </CardContent>
         </Card>
 
+        <Card className="gap-0" data-testid="settings-auth-config">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldAlert className="h-5 w-5" />
+              Auth 配置边界
+            </CardTitle>
+            <CardDescription>
+              仅显示配置状态和 secret 键引用，不返回 URL、密码或 token
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+              <span className="text-sm">当前模式</span>
+              <Badge variant="outline" className="font-mono">
+                {snapshot.auth.mode}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <ConfigFlag label="OIDC issuer" configured={snapshot.auth.issuerUrlConfigured} />
+              <ConfigFlag label="OIDC client ID" configured={snapshot.auth.clientIdConfigured} />
+              <ConfigFlag label="JWKS" configured={snapshot.auth.jwksUrlConfigured} />
+              <ConfigFlag label="LDAP URL" configured={snapshot.auth.ldapUrlConfigured} />
+              <ConfigFlag label="LDAP base DN" configured={snapshot.auth.ldapBaseDnConfigured} />
+              <div className="rounded border bg-slate-50 px-3 py-2">
+                <p className="text-xs text-slate-500">Client secret 键引用</p>
+                <p className="mt-1 break-all font-mono text-xs font-medium">
+                  {snapshot.auth.clientSecretKeyRef}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="gap-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -351,6 +405,23 @@ export default function Page() {
         </Card>
       </div>
     </AppShell>
+  )
+}
+
+function ConfigFlag({
+  label,
+  configured,
+}: {
+  label: string
+  configured: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+      <span className="text-xs">{label}</span>
+      <Badge variant={configured ? "default" : "outline"}>
+        {configured ? "已配置" : "未配置"}
+      </Badge>
+    </div>
   )
 }
 

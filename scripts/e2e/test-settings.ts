@@ -90,6 +90,28 @@ async function main() {
     source.includes("envKeyRefs") && source.includes("credentialKeyRef")
   )
   check(
+    "Auth 可替换配置边界只返回安全状态",
+    sync.data?.auth?.mode === "disabled" &&
+      sync.data?.auth?.issuerUrlConfigured === false &&
+      sync.data?.auth?.clientIdConfigured === false &&
+      sync.data?.auth?.clientSecretKeyRef === "AUTH_CLIENT_SECRET" &&
+      sync.data?.auth?.jwksUrlConfigured === false &&
+      sync.data?.auth?.ldapUrlConfigured === false &&
+      sync.data?.auth?.ldapBaseDnConfigured === false
+  )
+  check(
+    "Auth 配置 API 不泄露 secret 值",
+    !JSON.stringify(sync.data?.auth ?? {}).includes(
+      process.env.AUTH_CLIENT_SECRET || "__not_configured__"
+    )
+  )
+  check(
+    "Settings 页面展示 Auth 安全配置状态",
+    source.includes("settings-auth-config") &&
+      source.includes("clientSecretKeyRef") &&
+      source.includes("Auth 配置边界")
+  )
+  check(
     "页面区分站点注册来源与中心调度配置",
     source.includes("settings-site-registry") &&
       source.includes("settings-site-runtime") &&

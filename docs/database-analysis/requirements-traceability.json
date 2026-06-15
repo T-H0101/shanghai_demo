@@ -1,6 +1,6 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.19C",
+  "version": "R.19D",
   "date": "2026-06-15",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
@@ -58,9 +58,9 @@
       "恢复任务 (Recovery)",
       "优先恢复 (Priority)"
     ],
-    "link_completion": "control protocol 6/6; production Agent 0/6",
-    "real_control_completion": "0/6 production Agent evidence; pause/resume only validated against test site DB",
-    "ui_completion": "3/6 (pause/resume/reset visible; unsupported and truth wording required)",
+    "link_completion": "control protocol 6/6; Agent pause/resume 2/6; remaining atoms unsupported",
+    "real_control_completion": "2/6 validated through standalone Agent against restored SH01 DB; production deployment pending",
+    "ui_completion": "2/6 actionable (pause/resume); reset remains visible but disabled",
     "audit_dry_run_completion": "5/5 (100%)",
     "must_not_disappear": true,
     "site_ddl_patches_required": [
@@ -77,8 +77,8 @@
       "ALTER TABLE tbl_hot_restore_record ADD COLUMN restore_priority SMALLINT DEFAULT 0"
     ],
     "site_app_changes_required": [
-      "deploy Site Agent using HTTP poll/ack/result; no direct center DB access",
-      "pause/resume through local adapter and immediately sync final task state",
+      "deploy the verified Site Agent to production using HTTP poll/ack/result; no direct center DB access",
+      "pause/resume use the local adapter, persisted pre-pause status and immediate final-state sync",
       "keep reset/priority/inspect/recovery unsupported until official schema/API semantics are approved"
     ]
   },
@@ -97,8 +97,8 @@
       "req_id": "REQ-4.2.2",
       "title": "任务控制 (暂停/恢复/重置/优先)",
       "status": "partial",
-      "decision_point": "领导决策: 站点加 paused/priority 字段",
-      "effort_days": "5d (站点) + 3d (项目)",
+      "decision_point": "pause/resume 已闭环；仍需生产部署、reset 语义和 priority 字段",
+      "effort_days": "production deployment + reset/priority decision",
       "category": "真控制"
     },
     {
@@ -133,8 +133,8 @@
       "req_id": "REQ-4.2.1",
       "title": "任务管理 (新建)",
       "status": "partial",
-      "decision_point": "架构决议: 总控是否发起",
-      "effort_days": 3,
+      "decision_point": "总控跳转节点已确定；缺真实节点创建 URL",
+      "effort_days": "site URL configuration and acceptance",
       "category": "业务 API"
     },
     {

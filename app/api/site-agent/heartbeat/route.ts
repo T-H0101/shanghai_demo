@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { transaction } from "@/lib/db"
 import { verifySiteAgentRequest } from "@/lib/site-agent/hmac"
+import { consumeSiteAgentNonce } from "@/lib/site-agent/nonce-store"
 
 export const dynamic = "force-dynamic"
 
@@ -129,29 +130,21 @@ export async function POST(request: NextRequest) {
 
   const nonce = request.headers.get("x-agent-nonce")!
   try {
+    const nonceResult = await consumeSiteAgentNonce(payload.siteCode, nonce)
+    if (!nonceResult.ok) {
+      return NextResponse.json(
+        {
+          code: nonceResult.code,
+          message:
+            nonceResult.code === "UNKNOWN_SITE"
+              ? "siteCode is not registered in sync_sites"
+              : "nonce has already been used",
+        },
+        { status: nonceResult.code === "UNKNOWN_SITE" ? 404 : 409 }
+      )
+    }
+
     const result = await transaction(async (client) => {
-      const siteResult = await client.query(
-        "SELECT 1 FROM sync_sites WHERE site_code = $1",
-        [payload.siteCode]
-      )
-      if (siteResult.rowCount === 0) {
-        return { kind: "unknown_site" as const }
-      }
-
-      await client.query(
-        "DELETE FROM site_agent_nonce WHERE expires_at < NOW()"
-      )
-      const nonceResult = await client.query(
-        `INSERT INTO site_agent_nonce (site_code, nonce, expires_at)
-         VALUES ($1, $2, NOW() + INTERVAL '10 minutes')
-         ON CONFLICT DO NOTHING
-         RETURNING nonce`,
-        [payload.siteCode, nonce]
-      )
-      if (nonceResult.rowCount === 0) {
-        return { kind: "replayed_nonce" as const }
-      }
-
       const runtimeJson = {
         siteCode: payload.siteCode,
         agentId: payload.agentId,
@@ -206,22 +199,6 @@ export async function POST(request: NextRequest) {
       )
       return { kind: "recorded" as const, row: runtimeResult.rows[0] }
     })
-
-    if (result.kind === "unknown_site") {
-      return NextResponse.json(
-        {
-          code: "UNKNOWN_SITE",
-          message: "siteCode is not registered in sync_sites",
-        },
-        { status: 404 }
-      )
-    }
-    if (result.kind === "replayed_nonce") {
-      return NextResponse.json(
-        { code: "REPLAYED_NONCE", message: "nonce has already been used" },
-        { status: 409 }
-      )
-    }
 
     const row = result.row
     return NextResponse.json({

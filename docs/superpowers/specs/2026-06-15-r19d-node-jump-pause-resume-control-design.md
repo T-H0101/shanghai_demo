@@ -191,7 +191,7 @@ POST /api/site-control/commands/:id/result
 
 真实 Agent 路径禁止返回 `dry_run_success` 作为完成证据。
 
-成功回传后，Agent立即调用 `SyncCoordinator.syncOnce({ includeSnapshots: false })`，不等待下一个5秒周期。总控只有在:
+源端执行成功后，Agent 先调用 `SyncCoordinator.syncOnce({ includeSnapshots: false })`，中心确认同步后再回传 command final result。同步或 result 回传失败均保留本地 pending result 并重试，不重复执行 SQL。总控只有在:
 
 1. command result 为 `success`；
 2. 中心 `unified_tasks` 回读到目标状态；
@@ -254,7 +254,7 @@ AUTH_LDAP_BASE_DN=
 | 动作不支持 | result=`unsupported`，给出 blocker |
 | SQL执行失败 | 事务回滚，回传错误 |
 | result回传失败 | 本地持久化待回传结果并重试，禁止重复执行SQL |
-| 立即同步失败 | 控制结果保留 success，但UI显示“站点已执行，中心状态待同步” |
+| 立即同步失败 | command 保持 running，本地 pending result 重试同步；不提前宣称 success |
 | 重复命令 | 依据 command ID 和终态幂等，不重复执行 |
 
 Control spool 与 Sync spool 分开存储，避免一个领域的失败阻塞另一个领域。

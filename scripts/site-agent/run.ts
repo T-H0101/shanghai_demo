@@ -4,6 +4,7 @@ import {
 } from "../../lib/site-agent/config"
 import {
   getSafeAgentStartupLog,
+  readSiteAgentControlStatus,
   readSiteAgentSyncStatus,
   sendSiteAgentHeartbeat,
 } from "../../lib/site-agent/heartbeat-client"
@@ -11,6 +12,10 @@ import { FileSyncStore } from "../../lib/site-agent/sync/file-store"
 import { PackageTransport } from "../../lib/site-agent/sync/package-transport"
 import { PgSiteSourceReader } from "../../lib/site-agent/sync/source-reader"
 import { SyncCoordinator } from "../../lib/site-agent/sync/coordinator"
+import { FileControlStore } from "../../lib/site-agent/control/file-store"
+import { ControlHttpTransport } from "../../lib/site-agent/control/transport"
+import { PostgresSiteActionAdapter } from "../../lib/site-agent/control/postgres-adapter"
+import { ControlCoordinator } from "../../lib/site-agent/control/coordinator"
 
 function log(event: string, fields: Record<string, unknown>) {
   console.log(
@@ -29,10 +34,19 @@ function sleep(ms: number): Promise<void> {
 async function heartbeatOnce(
   config: SiteAgentRuntimeConfig,
   startedAt: string,
-  store: FileSyncStore
+  store: FileSyncStore,
+  controlStore: FileControlStore
 ) {
-  const syncStatus = await readSiteAgentSyncStatus(store)
-  const result = await sendSiteAgentHeartbeat(config, startedAt, syncStatus)
+  const [syncStatus, controlStatus] = await Promise.all([
+    readSiteAgentSyncStatus(store),
+    readSiteAgentControlStatus(controlStore),
+  ])
+  const result = await sendSiteAgentHeartbeat(
+    config,
+    startedAt,
+    syncStatus,
+    controlStatus
+  )
   log("heartbeat_recorded", {
     siteCode: config.siteCode,
     agentId: config.agentId,
@@ -41,6 +55,7 @@ async function heartbeatOnce(
     dataSource: result.dataSource,
     databaseReachable: result.heartbeat.databaseReachable,
     lastSyncAt: result.heartbeat.lastSyncAt,
+    lastControlAt: result.heartbeat.lastControlAt,
     spoolDepth: result.heartbeat.spoolDepth,
     capabilities: result.heartbeat.capabilities,
   })
@@ -51,7 +66,7 @@ async function main() {
   const config = getSiteAgentRuntimeConfig()
   const startedAt = new Date().toISOString()
   const store = new FileSyncStore(config.stateDir)
-  const coordinator = new SyncCoordinator({
+  const syncCoordinator = new SyncCoordinator({
     siteCode: config.siteCode,
     version: config.agentVersion,
     overlapMs: config.overlapMs,
@@ -61,6 +76,19 @@ async function main() {
     store,
     source: new PgSiteSourceReader(config.siteDatabaseUrl),
     transport: new PackageTransport(config.platformUrl, config.packageSecret),
+  })
+  const controlStore = new FileControlStore(config.stateDir)
+  const controlCoordinator = new ControlCoordinator({
+    store: controlStore,
+    transport: new ControlHttpTransport(
+      config.platformUrl,
+      config.siteCode,
+      config.secret
+    ),
+    adapter: new PostgresSiteActionAdapter(config.siteDatabaseUrl),
+    resync: async () => {
+      await syncCoordinator.syncOnce({ includeSnapshots: false })
+    },
   })
   let stopping = false
 
@@ -73,14 +101,36 @@ async function main() {
 
   log("agent_started", getSafeAgentStartupLog(config))
   let nextHeartbeatAt = 0
+  let nextControlAt = 0
   let nextTaskSyncAt = 0
   let nextSnapshotSyncAt = 0
   do {
     const now = Date.now()
     const includeSnapshots = now >= nextSnapshotSyncAt
+    if (once || now >= nextControlAt) {
+      try {
+        const result = await controlCoordinator.runOnce(
+          config.controlBatchSize
+        )
+        log("control_cycle_completed", {
+          siteCode: config.siteCode,
+          replayed: result.replayed,
+          polled: result.polled,
+          executed: result.executed,
+          finalized: result.finalized,
+        })
+        nextControlAt = Date.now() + config.controlPollIntervalMs
+      } catch (error) {
+        log("control_cycle_failed", {
+          siteCode: config.siteCode,
+          message: error instanceof Error ? error.message : "unknown error",
+        })
+        if (once) throw error
+      }
+    }
     try {
       if (once || now >= nextTaskSyncAt || includeSnapshots) {
-        const result = await coordinator.syncOnce({ includeSnapshots })
+        const result = await syncCoordinator.syncOnce({ includeSnapshots })
         log(
           result.status === "success" ? "sync_completed" : "sync_no_change",
           {
@@ -106,7 +156,7 @@ async function main() {
 
     if (once || Date.now() >= nextHeartbeatAt) {
       try {
-        await heartbeatOnce(config, startedAt, store)
+        await heartbeatOnce(config, startedAt, store, controlStore)
         nextHeartbeatAt = Date.now() + config.heartbeatIntervalMs
       } catch (error) {
         log("heartbeat_failed", {
@@ -120,6 +170,7 @@ async function main() {
     if (!once && !stopping) {
       const nextAt = Math.min(
         nextHeartbeatAt,
+        nextControlAt,
         nextTaskSyncAt,
         nextSnapshotSyncAt
       )

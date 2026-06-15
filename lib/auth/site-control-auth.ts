@@ -1,68 +1,82 @@
-/**
- * Site-control 鉴权 guard.
- *
- * 协议: 与 /api/sync/package 同步协议一致的简化版
- *   - dev 模式 (SYNC_PACKAGE_AUTH_MODE=dev) → 直接放行
- *   - strict 模式 → 校验 x-site-control-signature 头
- *     值必须等于 env SYNC_PACKAGE_SECRET (timingSafeEqual)
- *
- * 设计理由:
- *   - 不修改控制协议 (不变更 header 名称/语义)
- *   - 仅修复时序攻击 (=== → timingSafeEqual)
- *   - Sprint 5.1 接入 ADFS 时, 替换为完整 HMAC + siteCode 校验
- */
-import { timingSafeEqual } from 'crypto'
-import { NextRequest, NextResponse } from 'next/server'
-import { getSyncPackageAuthConfig } from '@/lib/sync/package-auth'
-
-const SIG_HEADER = 'x-site-control-signature'
+import { NextRequest, NextResponse } from "next/server"
+import { getSyncPackageAuthConfig } from "@/lib/sync/package-auth"
+import { verifySiteAgentRequest } from "@/lib/site-agent/hmac"
+import { consumeSiteAgentNonce } from "@/lib/site-agent/nonce-store"
 
 export interface SiteAuthOk {
   ok: true
-  mode: 'dev' | 'strict'
+  mode: "dev" | "strict"
+  siteCode: string
 }
+
 export interface SiteAuthFail {
   ok: false
   response: NextResponse
 }
+
 export type SiteAuthResult = SiteAuthOk | SiteAuthFail
 
-export function verifySiteControlRequest(request: NextRequest): SiteAuthResult {
+export async function verifySiteControlRequest(
+  request: NextRequest,
+  input: {
+    rawBody: string
+    payloadSiteCode: string | null
+  }
+): Promise<SiteAuthResult> {
   const config = getSyncPackageAuthConfig()
-  if (config.mode === 'dev') {
-    return { ok: true, mode: 'dev' }
+  const headerSiteCode = request.headers.get("x-site-code")
+
+  if (config.mode === "dev") {
+    const siteCode = input.payloadSiteCode ?? headerSiteCode
+    if (!siteCode) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { code: "MISSING_SITE_CODE", message: "siteCode is required" },
+          { status: 400 }
+        ),
+      }
+    }
+    return { ok: true, mode: "dev", siteCode }
   }
-  // strict 模式: 必须配置 secret
-  if (!config.secret) {
+
+  const auth = verifySiteAgentRequest({
+    siteCode: headerSiteCode,
+    timestamp: request.headers.get("x-agent-timestamp"),
+    nonce: request.headers.get("x-agent-nonce"),
+    signature: request.headers.get("x-agent-signature"),
+    method: request.method,
+    path: `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    rawBody: input.rawBody,
+    payloadSiteCode: input.payloadSiteCode,
+  })
+  if (!auth.ok) {
     return {
       ok: false,
       response: NextResponse.json(
-        { error: 'SYNC_PACKAGE_SECRET not configured. Set env or SYNC_PACKAGE_AUTH_MODE=dev.' },
-        { status: 503 }
+        { code: auth.code, message: auth.message },
+        { status: auth.code === "AUTH_NOT_CONFIGURED" ? 503 : 401 }
       ),
     }
   }
-  const sig = request.headers.get(SIG_HEADER)
-  if (!sig) {
+
+  const nonce = request.headers.get("x-agent-nonce")!
+  const nonceResult = await consumeSiteAgentNonce(headerSiteCode!, nonce)
+  if (!nonceResult.ok) {
     return {
       ok: false,
       response: NextResponse.json(
-        { error: `missing ${SIG_HEADER} header` },
-        { status: 401 }
+        {
+          code: nonceResult.code,
+          message:
+            nonceResult.code === "UNKNOWN_SITE"
+              ? "siteCode is not registered in sync_sites"
+              : "nonce has already been used",
+        },
+        { status: nonceResult.code === "UNKNOWN_SITE" ? 404 : 409 }
       ),
     }
   }
-  // timingSafeEqual 要求等长, 不等直接拒
-  const a = Buffer.from(sig, 'utf8')
-  const b = Buffer.from(config.secret, 'utf8')
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: `invalid ${SIG_HEADER}` },
-        { status: 401 }
-      ),
-    }
-  }
-  return { ok: true, mode: 'strict' }
+
+  return { ok: true, mode: "strict", siteCode: headerSiteCode! }
 }
