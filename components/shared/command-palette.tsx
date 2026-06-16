@@ -150,8 +150,8 @@ export function CommandPalette() {
     grouped[it.group].push(it)
   }
 
-  // 重新计算 active 在分组视图里的全局下标 (用于视觉高亮)
-  let globalIdx = -1
+  // 当前高亮项 (基于 id, 不基于 index, 避免分组后 index 错位)
+  const activeItemId = filtered[activeIndex]?.id
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -193,8 +193,7 @@ export function CommandPalette() {
                     {groupLabel}
                   </div>
                   {list.map((it) => {
-                    globalIdx += 1
-                    const isActive = globalIdx === activeIndex
+                    const isActive = it.id === activeItemId
                     const active = isAllSites
                       ? it.id === `site-${ALL_SITES}`
                       : it.id === `site-${siteCode ?? ALL_SITES}`

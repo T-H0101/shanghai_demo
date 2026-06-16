@@ -224,6 +224,24 @@ async function main() {
     /key === ['"]Escape['"]/.test(paletteSource),
   )
 
+  // UI-2026-06-E: 命令面板 active 项高亮错位 bug
+  check(
+    "命令面板用 activeItemId (基于 id) 而非 globalIdx (避免分组后错位)",
+    paletteSource.includes("activeItemId = filtered[activeIndex]?.id") &&
+      paletteSource.includes("it.id === activeItemId"),
+  )
+  check(
+    "命令面板源码不再使用 globalIdx 局部变量",
+    !paletteSource.includes("globalIdx"),
+  )
+
+  // 验证修复原理: items 数组中 task_racks (index 6) 与 users (index 8) 不在同一组,
+  // 但分组渲染后 active 仍指向正确项. 通过检查 setActiveIndex 使用 id 而非 index:
+  check(
+    "命令面板 setActiveIndex 走 items.findIndex(id) 路径",
+    paletteSource.includes("setActiveIndex(items.findIndex"),
+  )
+
   // FirstRunCoach 增强
   check(
     "FirstRunCoach AUTO_NEXT_MS 改为 8000 (用户友好)",
