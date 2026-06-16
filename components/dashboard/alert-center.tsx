@@ -138,7 +138,7 @@ export function AlertCenter() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />
+              <div key={`alert-skeleton-${i}`} className="h-10 bg-slate-100 rounded animate-pulse" />
             ))}
           </div>
         ) : alerts.length === 0 ? (

@@ -51,7 +51,7 @@ async function main() {
   check("接受 steps 数组", coachSource.includes("steps"))
   check("localStorage 持久化", coachSource.includes("localStorage"))
   check("首次访问 1.5s 后显示", coachSource.includes("SHOW_DELAY_MS = 1500"))
-  check("5s 后自动跳下一步", coachSource.includes("AUTO_NEXT_MS = 5000"))
+  check("8s 后自动跳下一步 (UI-2026-06-D 增强)", coachSource.includes("AUTO_NEXT_MS = 8000"))
   check("ESC 关闭", coachSource.includes("Escape"))
   check("data-testid 含 pageKey", coachSource.includes("first-run-coach-${pageKey}"))
 
@@ -203,6 +203,95 @@ async function main() {
   // Dashboard KPI 卡片已有 cursor-pointer (R.5 §8)
   const statsSource = readFileSync("components/dashboard/stats-cards.tsx", "utf8")
   check("Dashboard KPI 卡片含 cursor-pointer", (statsSource.match(/cursor-pointer/g) ?? []).length >= 4)
+
+  // ============================================================
+  // 7d. UI-2026-06-D 修复点
+  // ============================================================
+  console.log("\n=== 7d. UI-2026-06-D 修复 ===")
+
+  // 命令面板 ESC 视觉修
+  const paletteSource = readFileSync("components/shared/command-palette.tsx", "utf8")
+  check(
+    "命令面板 Input 区域不再有 ESC kbd 标签 (避免视觉冲突)",
+    !paletteSource.includes('placeholder="搜索页面、站点、操作... (↑↓ 选择, Enter 确认)"'),
+  )
+  check(
+    "命令面板 ESC 提示移到底部 footer",
+    paletteSource.includes("按 <kbd") && paletteSource.includes(">ESC</kbd>"),
+  )
+  check(
+    "命令面板 ESC 行为仍可关闭 (keydown Escape handler)",
+    /key === ['"]Escape['"]/.test(paletteSource),
+  )
+
+  // FirstRunCoach 增强
+  check(
+    "FirstRunCoach AUTO_NEXT_MS 改为 8000 (用户友好)",
+    coachSource.includes("AUTO_NEXT_MS = 8000"),
+  )
+  check(
+    "FirstRunCoach 含 'pause' 按钮",
+    coachSource.includes("paused") && coachSource.includes("setPaused"),
+  )
+  check(
+    "FirstRunCoach 含 'prev' (上一步) 按钮",
+    coachSource.includes("prev") && coachSource.includes("ChevronLeft"),
+  )
+  check(
+    "FirstRunCoach 含 scrollIntoView (自动滚动到目标)",
+    coachSource.includes("scrollIntoView"),
+  )
+  check(
+    "FirstRunCoach 含进度点 (dots)",
+    coachSource.includes("progress-") && coachSource.includes("bg-blue-400"),
+  )
+  check(
+    "FirstRunCoach 气泡宽度增至 320px",
+    coachSource.includes("w-[320px]"),
+  )
+
+  // Dashboard 重复 key 修
+  const heatmapSource = readFileSync("components/dashboard/site-health-heatmap.tsx", "utf8")
+  check(
+    "Site Health Heatmap key 含 heatmap 前缀 + idx (避免重复)",
+    heatmapSource.includes("key={`heatmap-") && /sorted\.map\(\(rack, idx\)/.test(heatmapSource),
+  )
+  const alertCenterSource = readFileSync("components/dashboard/alert-center.tsx", "utf8")
+  check(
+    "Alert Center skeleton key 含 alert-skeleton 前缀",
+    alertCenterSource.includes("key={`alert-skeleton-"),
+  )
+  const taskTableSource = readFileSync("components/dashboard/task-table.tsx", "utf8")
+  check(
+    "Task Table skeleton key 含 task-skeleton 前缀",
+    taskTableSource.includes("key={`task-skeleton-"),
+  )
+
+  // 搜索页 hover 增强
+  const searchSource = readFileSync("app/search/page.tsx", "utf8")
+  check(
+    "搜索页导入 AppTooltip",
+    searchSource.includes("AppTooltip"),
+  )
+  check(
+    "搜索页表格行含 cursor-pointer + hover 反馈",
+    searchSource.includes("hover:bg-blue-50/50") &&
+      searchSource.includes("cursor-pointer"),
+  )
+  check(
+    "搜索页 '发起回迁' 按钮被 AppTooltip 包裹",
+    /<AppTooltip[\s\S]*?search-row-restore[\s\S]*?<\/AppTooltip>/.test(searchSource),
+  )
+  check(
+    "搜索页 '检索' 按钮被 AppTooltip 包裹",
+    /<AppTooltip[\s\S]*?search-submit[\s\S]*?<\/AppTooltip>/.test(searchSource),
+  )
+  check(
+    "搜索页分页按钮被 AppTooltip 包裹",
+    (searchSource.match(/aria-label="上一页"|aria-label="下一页"/g) ?? []).length >= 2,
+  )
+  const searchTooltipCount = (searchSource.match(/<AppTooltip/g) ?? []).length
+  check(`搜索页 AppTooltip 数量 ≥ 4 (实际 ${searchTooltipCount})`, searchTooltipCount >= 4)
 
   // ============================================================
   // 8. requirements 对照

@@ -66,7 +66,7 @@ export function TaskTable() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 bg-slate-100 rounded animate-pulse" />
+              <div key={`task-skeleton-${i}`} className="h-12 bg-slate-100 rounded animate-pulse" />
             ))}
           </div>
         ) : tasks.length === 0 ? (

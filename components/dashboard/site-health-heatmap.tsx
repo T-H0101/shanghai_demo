@@ -60,10 +60,10 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
       </CardHeader>
       <CardContent className="pt-0 flex flex-col h-[calc(100%-2.5rem)]">
         <div className="flex-1 space-y-2 overflow-y-auto min-h-0">
-          {sorted.map((rack) => {
+          {sorted.map((rack, idx) => {
             const status = statusBadge[rack.deviceStatus ?? "online"] ?? statusBadge.online
             return (
-              <div key={`${rack.siteCode}-${rack.rackId}-${rack.id}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-50">
+              <div key={`heatmap-${rack.siteCode ?? "all"}-${rack.rackId ?? "unknown"}-${idx}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-50">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-slate-700 truncate">{rack.rackId}</span>

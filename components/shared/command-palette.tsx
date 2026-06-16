@@ -168,13 +168,12 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="搜索页面、站点、操作... (↑↓ 选择, Enter 确认)"
+            placeholder="搜索页面、站点、操作…"
             className="border-0 shadow-none focus-visible:ring-0 px-0 text-base"
             data-testid="command-palette-input"
+            aria-label="命令面板搜索"
           />
-          <kbd className="hidden md:inline-flex h-6 px-2 items-center text-[10px] font-mono rounded border bg-slate-100 text-slate-500">
-            ESC
-          </kbd>
+          {/* 提示信息: 移到底部 footer, 不与 input 视觉冲突 */}
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto py-2" data-testid="command-palette-list">
@@ -243,12 +242,12 @@ export function CommandPalette() {
         </div>
 
         <div className="border-t px-4 py-2 text-[11px] text-slate-500 flex items-center justify-between">
-          <span>共 {filtered.length} 项</span>
-          <span className="flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono">↑</kbd>
-            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono">↓</kbd>
+          <span>共 {filtered.length} 项 · 按 <kbd className="px-1 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">ESC</kbd> 关闭</span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">↑</kbd>
+            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">↓</kbd>
             <span>导航</span>
-            <kbd className="ml-2 px-1.5 py-0.5 rounded border bg-slate-100 font-mono">↵</kbd>
+            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">↵</kbd>
             <span>选择</span>
           </span>
         </div>

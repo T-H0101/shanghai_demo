@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { SearchFile } from "@/lib/types/search"
-import { Search, Download, Shield, ChevronLeft, ChevronRight, Filter, RotateCcw, AlertTriangle, Database } from "lucide-react"
+import { Search, Download, Shield, ChevronLeft, ChevronRight, Filter, RotateCcw, AlertTriangle, Database, RefreshCw, FileDown } from "lucide-react"
+import { AppTooltip } from "@/components/shared/tooltip"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
@@ -247,10 +248,29 @@ export default function Page() {
               </SelectContent>
             </Select>
             <div className="flex gap-2">
-              <Button size="sm" className="bg-blue-600" onClick={handleSearch} data-testid="search-submit" disabled={searching}>
-                {searching ? "检索中..." : "检索"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleReset} data-testid="search-reset"><RotateCcw className="h-4 w-4" /></Button>
+              <AppTooltip content="执行跨站点全文检索 (依赖 ES/ClickHouse, 当前 501)">
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors"
+                  onClick={handleSearch}
+                  data-testid="search-submit"
+                  disabled={searching}
+                >
+                  {searching ? "检索中..." : "检索"}
+                </Button>
+              </AppTooltip>
+              <AppTooltip content="清除所有筛选条件, 显示全部">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={handleReset}
+                  data-testid="search-reset"
+                  aria-label="重置筛选"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </AppTooltip>
             </div>
           </div>
         </CardContent>
@@ -286,7 +306,7 @@ export default function Page() {
                   </TableCell>
                 </TableRow>
               ) : paged.map((f) => (
-                <TableRow key={f.id} className="hover:bg-slate-50">
+                <TableRow key={f.id} className="hover:bg-blue-50/50 transition-colors cursor-pointer">
                   <TableCell><p className="font-medium text-sm text-blue-700">{f.fileName}</p></TableCell>
                   <TableCell className="text-xs font-mono truncate max-w-[160px]">{f.path}</TableCell>
                   <TableCell className="text-sm">{f.size}</TableCell>
@@ -298,9 +318,17 @@ export default function Page() {
                   <TableCell className="text-slate-500 text-sm">{f.createdAt}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleRestore(f)}>
-                        发起回迁
-                      </Button>
+                      <AppTooltip content="发起回迁请求 (依赖 ES 检索定位)">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                          onClick={() => handleRestore(f)}
+                          data-testid="search-row-restore"
+                        >
+                          发起回迁
+                        </Button>
+                      </AppTooltip>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -310,8 +338,30 @@ export default function Page() {
           <div className="flex justify-between mt-4 pt-4 border-t">
             <p className="text-sm text-slate-500">第 {page}/{totalPages} 页，共 {filtered.length} 条</p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page<=1} onClick={() => setPage(p=>p-1)}><ChevronLeft className="h-4 w-4"/></Button>
-              <Button variant="outline" size="sm" disabled={page>=totalPages} onClick={() => setPage(p=>p+1)}><ChevronRight className="h-4 w-4"/></Button>
+              <AppTooltip content="上一页">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer hover:bg-slate-100 transition-colors disabled:cursor-not-allowed"
+                  disabled={page<=1}
+                  onClick={() => setPage(p=>p-1)}
+                  aria-label="上一页"
+                >
+                  <ChevronLeft className="h-4 w-4"/>
+                </Button>
+              </AppTooltip>
+              <AppTooltip content="下一页">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer hover:bg-slate-100 transition-colors disabled:cursor-not-allowed"
+                  disabled={page>=totalPages}
+                  onClick={() => setPage(p=>p+1)}
+                  aria-label="下一页"
+                >
+                  <ChevronRight className="h-4 w-4"/>
+                </Button>
+              </AppTooltip>
             </div>
           </div>
         </CardContent>
