@@ -465,45 +465,68 @@ function TasksPageContent() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1.5 flex-1 min-w-[200px]">
               <Label className="text-xs text-slate-500">关键词搜索</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input placeholder="任务名称 / 编号 / 档案馆" className="pl-9 h-9" value={keyword} onChange={e => setKeyword(e.target.value)} />
-              </div>
+              <AppTooltip content="按任务名称 / 编号 / 档案馆模糊搜索, 实时过滤">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="任务名称 / 编号 / 档案馆"
+                    className="pl-9 h-9"
+                    value={keyword}
+                    onChange={e => setKeyword(e.target.value)}
+                    data-testid="tasks-search-input"
+                  />
+                </div>
+              </AppTooltip>
             </div>
             <div className="space-y-1.5 w-36">
               <Label className="text-xs text-slate-500">任务类型</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部类型</SelectItem>
-                  {Object.entries(TASK_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <AppTooltip content="按任务类型筛选 (备份/恢复/扫描等)">
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="h-9" data-testid="tasks-type-filter"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部类型</SelectItem>
+                    {Object.entries(TASK_TYPE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </AppTooltip>
             </div>
             <div className="space-y-1.5 w-36">
               <Label className="text-xs text-slate-500">当前阶段</Label>
-              <Select value={phaseFilter} onValueChange={setPhaseFilter}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部阶段</SelectItem>
-                  {Object.entries(TASK_PHASE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <AppTooltip content="按任务执行阶段筛选, 排查失败/暂停任务">
+                <Select value={phaseFilter} onValueChange={setPhaseFilter}>
+                  <SelectTrigger className="h-9" data-testid="tasks-phase-filter"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部阶段</SelectItem>
+                    {Object.entries(TASK_PHASE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </AppTooltip>
             </div>
             <div className="space-y-1.5 w-28">
               <Label className="text-xs text-slate-500">备份范围</Label>
-              <Select value={scopeFilter} onValueChange={setScopeFilter}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部</SelectItem>
-                  <SelectItem value="full">全量</SelectItem>
-                  <SelectItem value="incremental">增量</SelectItem>
-                </SelectContent>
-              </Select>
+              <AppTooltip content="全量 / 增量封包范围">
+                <Select value={scopeFilter} onValueChange={setScopeFilter}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="full">全量</SelectItem>
+                    <SelectItem value="incremental">增量</SelectItem>
+                  </SelectContent>
+                </Select>
+              </AppTooltip>
             </div>
-            <Button variant="outline" size="sm" className="h-9" onClick={handleResetFilters} disabled={!hasFilters}>
-              <RefreshCw className="h-3.5 w-3.5 mr-1" />重置
-            </Button>
+            <AppTooltip content="清除所有筛选条件, 显示全部任务">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 cursor-pointer hover:bg-slate-100 transition-colors"
+                onClick={handleResetFilters}
+                disabled={!hasFilters}
+                data-testid="tasks-reset-filters"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />重置
+              </Button>
+            </AppTooltip>
           </div>
           {deviceFilter && (
             <div className="mt-2 flex items-center gap-2">
@@ -886,6 +909,9 @@ function TasksPageContent() {
         pageKey="tasks"
         steps={[
           { selector: '[data-testid="task-row-pause"]', message: "点击暂停图标可提交暂停命令, 站点 Agent 收到后会异步暂停任务" },
+          { selector: '[data-testid="tasks-search-input"]', message: "按名称/编号快速筛选任务" },
+          { selector: '[data-testid="tasks-phase-filter"]', message: "按阶段筛选 (暂停/失败/运行中)" },
+          { selector: '[data-testid="tasks-reset-filters"]', message: "一键清除全部筛选, 显示全部任务" },
         ]}
       />
     </AppShell>

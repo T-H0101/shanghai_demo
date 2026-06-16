@@ -44,7 +44,10 @@ export default function Page() {
         pageKey="dashboard"
         steps={[
           { selector: '[data-testid="command-palette-trigger"]', message: "按 ⌘K 快速跳转到任意页面 / 切换站点" },
-          { selector: '[data-testid="dashboard-stat-tasks"]', message: "点击 KPI 卡片可跳转到对应详情页" },
+          { selector: '[data-testid="dashboard-stat-tasks"]', message: "点击 KPI 卡片跳转到任务详情" },
+          { selector: '[data-testid="dashboard-stat-devices"]', message: "查看设备在线状态, 跳转到盘架管理" },
+          { selector: '[data-testid="dashboard-recent-syncs"]', message: "查看最近的同步记录, 失败包会红色高亮" },
+          { selector: '[data-testid="dashboard-task-table"]', message: "鼠标悬停任务行可暂停/恢复, 不会立即执行" },
         ]}
       />
     </AppShell>

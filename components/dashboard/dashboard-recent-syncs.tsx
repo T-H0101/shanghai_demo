@@ -100,7 +100,7 @@ export function DashboardRecentSyncs() {
   }
 
   return (
-    <Card className="gap-0 h-full">
+    <Card className="gap-0 h-full" data-testid="dashboard-recent-syncs">
       <CardHeader className="pb-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

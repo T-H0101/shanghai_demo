@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import { AppTooltip } from "@/components/shared/tooltip"
+import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -235,19 +237,29 @@ export default function Page() {
         badge="SITE MGMT"
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8" onClick={loadSites} disabled={loading} data-testid="sites-refresh">
-              {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-              刷新
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 bg-blue-600 hover:bg-blue-700"
-              onClick={() => handleUnsupported("注册新站点")}
-              title="站点登记功能未接入"
-              data-testid="sites-register"
-            >
-              注册新站点
-            </Button>
+            <AppTooltip content="重新拉取站点列表, 检查最新状态">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 cursor-pointer hover:bg-slate-100 transition-colors"
+                onClick={loadSites}
+                disabled={loading}
+                data-testid="sites-refresh"
+              >
+                {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                刷新
+              </Button>
+            </AppTooltip>
+            <AppTooltip content="站点登记功能未接入, 后续 Sprint 解锁">
+              <Button
+                size="sm"
+                className="h-8 bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors"
+                onClick={() => handleUnsupported("注册新站点")}
+                data-testid="sites-register"
+              >
+                注册新站点
+              </Button>
+            </AppTooltip>
           </div>
         }
       />
@@ -464,10 +476,19 @@ export default function Page() {
               {selected.description && (
                 <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg p-3">{selected.description}</p>
               )}
-              <Button variant="outline" className="w-full h-8" size="sm" onClick={() => handleCheckConsistency(selected)} disabled={checking} data-testid="sites-consistency">
-                {checking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
-                数据一致性校验
-              </Button>
+              <AppTooltip content="校验中心库与源站点的数据一致性, 找出差异行">
+                <Button
+                  variant="outline"
+                  className="w-full h-8 cursor-pointer hover:bg-slate-100 transition-colors"
+                  size="sm"
+                  onClick={() => handleCheckConsistency(selected)}
+                  disabled={checking}
+                  data-testid="sites-consistency"
+                >
+                  {checking ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                  数据一致性校验
+                </Button>
+              </AppTooltip>
             </div>
           )}
         </DetailPanel>
@@ -552,6 +573,14 @@ export default function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FirstRunCoach
+        pageKey="sites"
+        steps={[
+          { selector: '[data-testid="sites-refresh"]', message: "刷新站点列表, 获取最新在线状态" },
+          { selector: '[data-testid="sites-consistency"]', message: "校验中心库与源站点数据一致性" },
+        ]}
+      />
     </AppShell>
   )
 }

@@ -47,7 +47,7 @@ export function TaskTable() {
   }, [isReady, isAllSites, siteCode])
 
   return (
-    <Card className="gap-0">
+    <Card className="gap-0" data-testid="dashboard-task-table">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">

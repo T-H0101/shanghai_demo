@@ -98,6 +98,17 @@ async function main() {
   check("Tasks 暂停按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-pause[\s\S]*?<\/AppTooltip>/.test(tasksSource))
   check("Tasks 恢复按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-resume[\s\S]*?<\/AppTooltip>/.test(tasksSource))
   check("Tasks 暂停按钮保留 data-testid=task-row-pause", tasksSource.includes('data-testid="task-row-pause"'))
+  // UI-2026-06-C 扩充
+  check("Tasks 搜索输入框含 data-testid", tasksSource.includes('data-testid="tasks-search-input"'))
+  check("Tasks 类型筛选含 data-testid", tasksSource.includes('data-testid="tasks-type-filter"'))
+  check("Tasks 阶段筛选含 data-testid", tasksSource.includes('data-testid="tasks-phase-filter"'))
+  check("Tasks 重置按钮含 data-testid", tasksSource.includes('data-testid="tasks-reset-filters"'))
+  check("Tasks 搜索输入框被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?tasks-search-input[\s\S]*?<\/AppTooltip>/.test(tasksSource))
+  check("Tasks 重置按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?tasks-reset-filters[\s\S]*?<\/AppTooltip>/.test(tasksSource))
+
+  // Tasks AppTooltip 计数
+  const tasksTooltipCount = (tasksSource.match(/<AppTooltip/g) ?? []).length
+  check(`Tasks 含 ≥ 6 个 AppTooltip (实际 ${tasksTooltipCount})`, tasksTooltipCount >= 6)
 
   // ============================================================
   // 6. Dashboard 改造
@@ -108,6 +119,11 @@ async function main() {
   check("Dashboard 挂载 <FirstRunCoach pageKey=\"dashboard\">", dashSource.includes('pageKey="dashboard"'))
   check("Dashboard FirstRunCoach 引导 ⌘K", dashSource.includes("command-palette-trigger"))
   check("Dashboard FirstRunCoach 引导 KPI 卡片", dashSource.includes("dashboard-stat-tasks"))
+  // UI-2026-06-C 扩充: 引导步骤 ≥ 5
+  const dashStepsCount = (dashSource.match(/selector:/g) ?? []).length
+  check(`Dashboard FirstRunCoach 步骤 ≥ 5 (实际 ${dashStepsCount})`, dashStepsCount >= 5)
+  check("Dashboard 引导包含同步趋势 (recent-syncs)", dashSource.includes("dashboard-recent-syncs"))
+  check("Dashboard 引导包含任务表格 (task-table)", dashSource.includes("dashboard-task-table"))
 
   // ============================================================
   // 7. 运行时端到端
@@ -137,6 +153,56 @@ async function main() {
   // 跳转 /search 仍可访问 (兼容保留)
   const searchRes = await fetch(`${BASE}/search`)
   check("/search HTTP 200 (保留兼容)", searchRes.status === 200, `HTTP ${searchRes.status}`)
+
+  // ============================================================
+  // 7b. Sites 页面 Tooltip + FirstRunCoach
+  // ============================================================
+  console.log("\n=== 7b. Sites 页面 Tooltip + FirstRunCoach ===")
+  const sitesPageSource = readFileSync("app/sites/page.tsx", "utf8")
+  check("Sites 导入 AppTooltip", sitesPageSource.includes("AppTooltip"))
+  check("Sites 导入 FirstRunCoach", sitesPageSource.includes("FirstRunCoach"))
+  check("Sites 挂载 <FirstRunCoach pageKey=\"sites\">", sitesPageSource.includes('pageKey="sites"'))
+  check("Sites 刷新按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-refresh[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
+  check("Sites 一致性按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-consistency[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
+  check("Sites 注册按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-register[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
+  const sitesTooltipCount = (sitesPageSource.match(/<AppTooltip/g) ?? []).length
+  check(`Sites 含 ≥ 3 个 AppTooltip (实际 ${sitesTooltipCount})`, sitesTooltipCount >= 3)
+
+  // FirstRunCoach 步骤分布
+  const totalCoachSteps =
+    (dashSource.match(/selector:/g) ?? []).length +
+    (tasksSource.match(/selector:/g) ?? []).length +
+    (sitesPageSource.match(/selector:/g) ?? []).length
+  check(`FirstRunCoach 总步骤 ≥ 11 (D 5 + T 4 + S 2, 实际 ${totalCoachSteps})`, totalCoachSteps >= 11)
+
+  // ============================================================
+  // 7c. Hover 反馈覆盖率
+  // ============================================================
+  console.log("\n=== 7c. Hover 反馈覆盖率 ===")
+  const headerTooltipCount = (headerSource.match(/<AppTooltip/g) ?? []).length
+  const totalAppTooltips = headerTooltipCount + tasksTooltipCount + sitesTooltipCount
+  check(`AppTooltip 总数 ≥ 16 (Header 7 + Tasks 6 + Sites 3, 实际 ${totalAppTooltips})`, totalAppTooltips >= 16)
+
+  // 检查关键按钮有 cursor-pointer (字符串包含即可)
+  check(
+    "Sites 一致性按钮含 cursor-pointer",
+    sitesPageSource.includes("data-testid=\"sites-consistency\"") &&
+      /className="[\s\S]*?cursor-pointer[\s\S]*?data-testid="sites-consistency"/.test(sitesPageSource),
+  )
+  check(
+    "Sites 刷新按钮含 cursor-pointer",
+    sitesPageSource.includes("data-testid=\"sites-refresh\"") &&
+      /className="[\s\S]*?cursor-pointer[\s\S]*?data-testid="sites-refresh"/.test(sitesPageSource),
+  )
+  check(
+    "Tasks 重置按钮含 cursor-pointer",
+    tasksSource.includes("data-testid=\"tasks-reset-filters\"") &&
+      /className="[\s\S]*?cursor-pointer[\s\S]*?data-testid="tasks-reset-filters"/.test(tasksSource),
+  )
+
+  // Dashboard KPI 卡片已有 cursor-pointer (R.5 §8)
+  const statsSource = readFileSync("components/dashboard/stats-cards.tsx", "utf8")
+  check("Dashboard KPI 卡片含 cursor-pointer", (statsSource.match(/cursor-pointer/g) ?? []).length >= 4)
 
   // ============================================================
   // 8. requirements 对照
