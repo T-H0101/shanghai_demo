@@ -211,9 +211,9 @@ export default function Page() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
+                  {users.map((user, idx) => (
                     <TableRow
-                      key={user.id}
+                      key={`user-${user.id}-${idx}`}
                       className={`cursor-pointer ${selected?.id === user.id ? "bg-blue-50" : ""}`}
                       onClick={() => setSelected(user)}
                     >

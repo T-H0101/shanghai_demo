@@ -387,9 +387,9 @@ export default function Page() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((site) => (
+                  {filtered.map((site, idx) => (
                     <TableRow
-                      key={site.id}
+                      key={`site-${site.id}-${idx}`}
                       className={`cursor-pointer hover:bg-slate-50 ${selected?.id === site.id ? "bg-blue-50" : ""}`}
                       onClick={() => setSelected(site)}
                     >

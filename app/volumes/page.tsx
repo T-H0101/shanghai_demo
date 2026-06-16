@@ -291,7 +291,7 @@ function VolumesContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((v) => {
+                  {filtered.map((v, idx) => {
                     const tb = typeBadge[v.type] ?? typeBadge.composite
                     const TbIcon = tb.icon
                     const totalBytes = parseBytes(v.totalCapacity)
@@ -302,7 +302,7 @@ function VolumesContent() {
                       ? Math.round((usedBytes / totalBytes) * 100)
                       : null
                     return (
-                      <TableRow key={v.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelected(v)}>
+                      <TableRow key={`volume-${v.id ?? "unknown"}-${idx}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelected(v)}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <Server className="h-4 w-4 text-muted-foreground" />
