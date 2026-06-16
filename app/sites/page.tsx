@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { AppTooltip } from "@/components/shared/tooltip"
+import { TimeDisplay } from "@/components/shared/time-format"
 import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -505,9 +506,7 @@ export default function Page() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">校验时间</span>
                   <span className="text-sm text-slate-600">
-                    {consistencyReport.checkedAt
-                      ? new Date(consistencyReport.checkedAt).toLocaleString("zh-CN")
-                      : "—"}
+                    <TimeDisplay value={consistencyReport.checkedAt} mode="datetime" />
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

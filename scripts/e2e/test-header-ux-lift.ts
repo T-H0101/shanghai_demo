@@ -242,6 +242,78 @@ async function main() {
     paletteSource.includes("setActiveIndex(items.findIndex"),
   )
 
+  // ============================================================
+  // 7e. UI-2026-06-F 时间格式统一
+  // ============================================================
+  console.log("\n=== 7e. UI-2026-06-F 时间格式统一 ===")
+  const timeFormatSource = readFileSync("components/shared/time-format.tsx", "utf8")
+  check(
+    "TimeDisplay 共享组件存在",
+    timeFormatSource.includes("export function TimeDisplay") && timeFormatSource.includes("export function formatBeijingTime"),
+  )
+  check(
+    "TimeDisplay 支持 4 种 mode: datetime/date/time/relative",
+    timeFormatSource.includes('"datetime"') &&
+      timeFormatSource.includes('"date"') &&
+      timeFormatSource.includes('"time"') &&
+      timeFormatSource.includes('"relative"'),
+  )
+  check(
+    "formatBeijingTime 使用 Asia/Shanghai 时区",
+    timeFormatSource.includes("BEIJING_TZ") && timeFormatSource.includes("Asia/Shanghai"),
+  )
+  check(
+    "格式标准化为 ISO 风格 (yyyy-MM-dd HH:mm:ss, 用 - 分隔)",
+    timeFormatSource.includes(".replace(/\\//g, \"-\")"),
+  )
+  check(
+    "24 小时制 (hour12: false)",
+    timeFormatSource.includes("hour12: false"),
+  )
+  check(
+    "locale 用 zh-CN",
+    timeFormatSource.includes('"zh-CN"'),
+  )
+  check(
+    "处理 null/invalid 输入 (返回空字符串)",
+    timeFormatSource.includes("Number.isNaN(d.getTime())"),
+  )
+
+  // Header 用 TimeDisplay
+  check(
+    "Header 健康检查时间用 TimeDisplay",
+    headerSource.includes("TimeDisplay") && headerSource.includes("header-health-checked-at"),
+  )
+  // Logs 用 TimeDisplay
+  const logsPageSource = readFileSync("app/logs/page.tsx", "utf8")
+  check(
+    "Logs 页表格用 TimeDisplay 显示时间",
+    /<TimeDisplay[\s\S]*?occurred_at[\s\S]*?mode="datetime"/.test(logsPageSource),
+  )
+  // Dashboard 摘要
+  const summarySource = readFileSync("components/dashboard/dashboard-summary-bar.tsx", "utf8")
+  check(
+    "Dashboard 摘要栏用 formatBeijingTime",
+    summarySource.includes("formatBeijingTime"),
+  )
+  // Welcome banner 用 formatBeijingTime
+  const welcomeSource = readFileSync("components/dashboard/welcome-banner.tsx", "utf8")
+  check(
+    "WelcomeBanner 用 formatBeijingTime",
+    welcomeSource.includes("formatBeijingTime"),
+  )
+  // Recent syncs 用 TimeDisplay
+  const recentSyncsSource = readFileSync("components/dashboard/dashboard-recent-syncs.tsx", "utf8")
+  check(
+    "Recent syncs 用 TimeDisplay",
+    recentSyncsSource.includes("TimeDisplay"),
+  )
+  // Sites 一致性用 TimeDisplay
+  check(
+    "Sites 一致性结果用 TimeDisplay",
+    sitesPageSource.includes("TimeDisplay") && sitesPageSource.includes("checkedAt"),
+  )
+
   // FirstRunCoach 增强
   check(
     "FirstRunCoach AUTO_NEXT_MS 改为 8000 (用户友好)",

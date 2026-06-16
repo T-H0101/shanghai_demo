@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, RefreshCw, Package } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
+import { TimeDisplay } from "@/components/shared/time-format"
 import { isApiMode } from "@/lib/api"
 import {
   fetchRecentSyncs,
@@ -32,13 +33,6 @@ function formatDuration(ms: number | null): string {
   if (ms < 1000) return `${ms}ms`
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
   return `${Math.floor(ms / 60_000)}m${Math.floor((ms % 60_000) / 1000)}s`
-}
-
-function formatFinishedAt(value: string | null): string {
-  if (!value) return "—"
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleString("zh-CN", { hour12: false })
 }
 
 export function DashboardRecentSyncs() {
@@ -142,7 +136,7 @@ export function DashboardRecentSyncs() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
-                      <span>{formatFinishedAt(it.finishedAt)}</span>
+                      <TimeDisplay value={it.finishedAt} mode="datetime" />
                       <span>·</span>
                       <span>耗时 {formatDuration(it.durationMs)}</span>
                     </div>

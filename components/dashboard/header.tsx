@@ -31,6 +31,7 @@ import { toast } from "@/hooks/use-toast"
 import { SiteSelector } from "@/components/site/site-selector"
 import { isApiMode } from "@/lib/api"
 import { AppTooltip } from "@/components/shared/tooltip"
+import { TimeDisplay } from "@/components/shared/time-format"
 import { cn } from "@/lib/utils"
 
 interface HeaderProps {
@@ -113,7 +114,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         {systemStatus === "healthy" ? "核心服务 + 中心库 正常" : "健康状态异常"}
       </div>
       <div className="text-[10px] text-slate-300">
-        检查于: {healthCheckedAt ? new Date(healthCheckedAt).toLocaleString("zh-CN", { hour12: false }) : "—"}
+        检查于: <TimeDisplay value={healthCheckedAt} mode="datetime" testid="header-health-checked-at" />
       </div>
     </div>
   )

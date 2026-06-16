@@ -28,6 +28,7 @@ import {
   ShieldCheck,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
+import { formatBeijingTime } from "@/components/shared/time-format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -70,7 +71,7 @@ export function WelcomeBanner() {
   }, [])
 
   useEffect(() => {
-    setNow(new Date().toLocaleString("zh-CN", { hour12: false }))
+    setNow(formatBeijingTime(new Date()))
   }, [])
 
   const overall = health.serviceOk && health.dbOk ? "healthy" : "degraded"

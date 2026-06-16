@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
+import { formatBeijingTime } from "@/components/shared/time-format"
 import { isApiMode } from "@/lib/api"
 import {
   fetchDashboardSummary,
@@ -57,9 +58,7 @@ function toneClasses(tone: StatTile["tone"]): string {
 
 function formatLastSync(value: string | null): string {
   if (!value) return "—"
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleString("zh-CN", { hour12: false })
+  return formatBeijingTime(value)
 }
 
 function formatRate(value: number | null): string {

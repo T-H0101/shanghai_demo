@@ -33,6 +33,7 @@ import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
 import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
+import { TimeDisplay } from "@/components/shared/time-format"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -465,7 +466,7 @@ export default function Page() {
                           <Badge className={`text-xs ${statusBadgeColor(row.status)}`}>{row.status || "—"}</Badge>
                         </TableCell>
                         <TableCell className="text-xs text-slate-500">
-                          {row.occurred_at ? new Date(row.occurred_at).toLocaleString("zh-CN", { hour12: false }) : "—"}
+                          <TimeDisplay value={row.occurred_at} mode="datetime" />
                         </TableCell>
                         <TableCell className="text-xs max-w-[280px] truncate" title={row.summary}>{row.summary}</TableCell>
                       </TableRow>
@@ -483,7 +484,7 @@ export default function Page() {
                   <DetailRow label="状态" value={
                     <Badge className={`text-xs ${statusBadgeColor(selected.status)}`}>{selected.status || "—"}</Badge>
                   } />
-                  <DetailRow label="时间" value={selected.occurred_at ? new Date(selected.occurred_at).toLocaleString("zh-CN", { hour12: false }) : "—"} />
+                  <DetailRow label="时间" value={<TimeDisplay value={selected.occurred_at} mode="datetime" />} />
                   {selected.operator && <DetailRow label="操作人" value={selected.operator} />}
                   {selected.ref_batch_id && <DetailRow label="batchId" value={<code className="text-[10px]">{selected.ref_batch_id}</code>} />}
                   {selected.ref_table_name && <DetailRow label="表名" value={selected.ref_table_name} />}
