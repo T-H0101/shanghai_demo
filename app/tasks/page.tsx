@@ -18,6 +18,8 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TaskFileIndexPanel } from "@/components/tasks/task-file-index-panel"
 import { ControlCommandPanel } from "@/components/tasks/control-command-panel"
+import { AppTooltip } from "@/components/shared/tooltip"
+import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import {
   taskProvider,
   isApiMode,
@@ -602,8 +604,20 @@ function TasksPageContent() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
                       {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
-                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="暂停" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)}><Pause className="h-3.5 w-3.5" /></Button>}
-                      {t.phase === "paused" && <Button variant="ghost" size="icon" className="h-7 w-7" title="恢复" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)}><Play className="h-3.5 w-3.5" /></Button>}
+                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && (
+                        <AppTooltip content="提交任务暂停命令, 等待站点 Agent 异步执行">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)} aria-label="暂停任务">
+                            <Pause className="h-3.5 w-3.5" />
+                          </Button>
+                        </AppTooltip>
+                      )}
+                      {t.phase === "paused" && (
+                        <AppTooltip content="提交任务恢复命令, 等待站点 Agent 异步执行">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)} aria-label="恢复任务">
+                            <Play className="h-3.5 w-3.5" />
+                          </Button>
+                        </AppTooltip>
+                      )}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置未接入站点 Agent" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
                       {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
@@ -868,6 +882,12 @@ function TasksPageContent() {
         </DrawerContent>
       </Drawer>
 
+      <FirstRunCoach
+        pageKey="tasks"
+        steps={[
+          { selector: '[data-testid="task-row-pause"]', message: "点击暂停图标可提交暂停命令, 站点 Agent 收到后会异步暂停任务" },
+        ]}
+      />
     </AppShell>
   )
 }

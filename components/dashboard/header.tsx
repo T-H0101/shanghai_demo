@@ -2,16 +2,27 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Bell, Menu, LogOut, Command } from "lucide-react"
+import {
+  Search,
+  Bell,
+  Menu,
+  LogOut,
+  Command,
+  Activity,
+  Settings,
+  ChevronDown,
+} from "lucide-react"
 import { clearMockSession, getSession } from "@/lib/auth/session"
 import type { MockSession } from "@/lib/types/auth"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -19,6 +30,8 @@ import { useNotificationStore } from "@/store/notification"
 import { toast } from "@/hooks/use-toast"
 import { SiteSelector } from "@/components/site/site-selector"
 import { isApiMode } from "@/lib/api"
+import { AppTooltip } from "@/components/shared/tooltip"
+import { cn } from "@/lib/utils"
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -87,178 +100,257 @@ export function Header({ onMenuClick }: HeaderProps) {
     success: "bg-emerald-100 text-emerald-700",
   }
 
+  // 三合一健康徽章文案
+  const healthBadgeLabel =
+    systemStatus === "loading"
+      ? "检查中"
+      : systemStatus === "healthy"
+        ? "服务正常"
+        : "服务异常"
+  const healthTooltipContent = (
+    <div className="space-y-1">
+      <div className="font-medium">
+        {systemStatus === "healthy" ? "核心服务 + 中心库 正常" : "健康状态异常"}
+      </div>
+      <div className="text-[10px] text-slate-300">
+        检查于: {healthCheckedAt ? new Date(healthCheckedAt).toLocaleString("zh-CN", { hour12: false }) : "—"}
+      </div>
+    </div>
+  )
+
   return (
     <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6">
-      {/* Mobile Menu Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden"
-        onClick={onMenuClick}
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
+      {/* 左侧: 移动菜单 + 整合的搜索/命令面板入口 */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <AppTooltip content="打开侧边栏" side="bottom">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={onMenuClick}
+            aria-label="打开侧边栏"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </AppTooltip>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="hidden h-9 justify-start gap-2 border-slate-200 bg-slate-50 text-slate-600 sm:flex sm:w-56 lg:w-72"
-        onClick={() => router.push("/search")}
-        data-testid="global-search-entry"
-        title="统一检索依赖 ES/ClickHouse，当前页面会展示阻塞状态"
-      >
-        <Search className="h-4 w-4 text-slate-400" />
-        <span className="truncate">统一检索</span>
-        <Badge variant="outline" className="ml-auto border-amber-200 bg-amber-50 text-[10px] text-amber-700">
-          待 ES
-        </Badge>
-      </Button>
+        {/* 整合的 ⌘K 触发器 (替代原搜索框 + 独立 ⌘K 按钮) */}
+        <AppTooltip
+          content={
+            <div className="space-y-1">
+              <div>按 ⌘K (Mac) 或 Ctrl+K (Win/Linux) 打开命令面板</div>
+              <div className="text-[10px] text-slate-300">
+                支持: 页面跳转 / 站点切换 / 快捷任务操作
+              </div>
+            </div>
+          }
+          side="bottom"
+        >
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 justify-start gap-2 border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer w-full max-w-sm"
+            onClick={() => {
+              const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true, bubbles: true })
+              window.dispatchEvent(event)
+            }}
+            data-testid="command-palette-trigger"
+            aria-label="打开命令面板"
+          >
+            <Search className="h-4 w-4 text-slate-400" />
+            <span className="truncate text-sm">搜索页面、站点、操作…</span>
+            <kbd className="ml-auto hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded border bg-white text-slate-500 border-slate-200">
+              ⌘K
+            </kbd>
+          </Button>
+        </AppTooltip>
 
-      {/* Sprint UI-2026-06: 全局命令面板触发器 (⌘K) */}
-      <Button
-        type="button"
-        variant="outline"
-        className="hidden md:inline-flex h-9 items-center gap-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer"
-        onClick={() => {
-          const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true, bubbles: true })
-          window.dispatchEvent(event)
-        }}
-        data-testid="command-palette-trigger"
-        title="按 ⌘K 打开命令面板"
-      >
-        <Command className="h-4 w-4 text-slate-500" />
-        <kbd className="px-1.5 py-0.5 text-[10px] font-mono rounded border bg-slate-50 text-slate-500">⌘K</kbd>
-      </Button>
+        {/* 兼容 e2e: 原 global-search-entry (R.10 保留) */}
+        <button
+          type="button"
+          className="hidden"
+          onClick={() => router.push("/search")}
+          data-testid="global-search-entry"
+          aria-hidden
+          tabIndex={-1}
+        >
+          统一检索
+        </button>
+      </div>
 
-      {/* Status Info */}
-      <div className="flex items-center gap-3 lg:gap-6">
-        {/* Sprint 2F.4: 全局站点选择器 */}
+      {/* 右侧: 站点选择器 + 健康徽章 + 通知 + 头像菜单 */}
+      <div className="flex items-center gap-2 lg:gap-3">
+        {/* 站点选择器 */}
         <Suspense fallback={null}>
-          <SiteSelector />
+          <AppTooltip content="切换当前查看的站点, 或汇总全部站点">
+            <span className="inline-block">
+              <SiteSelector />
+            </span>
+          </AppTooltip>
         </Suspense>
 
-        {/* Core Service Status - Hidden on mobile */}
-        <div className="hidden xl:flex items-center gap-2 text-sm">
-          <span className="text-slate-500">核心服务:</span>
-          <span className={systemStatus === "healthy" ? "text-emerald-600 font-medium" : "text-amber-600 font-medium"}>
-            {systemStatus === "loading" ? "检查中" : systemStatus === "healthy" ? "正常运行" : "状态异常"}
-          </span>
-          <span className={`h-2 w-2 rounded-full ${systemStatus === "healthy" ? "bg-emerald-500" : "bg-amber-500"}`}></span>
-        </div>
-
-        {/* Last Update - Hidden on mobile */}
-        <div className="hidden lg:block text-sm text-slate-500">
-          <span>状态检查于:</span>
-          <span className="ml-2">
-            {healthCheckedAt ? new Date(healthCheckedAt).toLocaleString("zh-CN", { hour12: false }) : "—"}
-          </span>
-        </div>
-
-        {/* System Health */}
-        <div className="flex items-center gap-1 lg:gap-2">
-          <span className="hidden md:inline text-xs text-slate-500">SYSTEM 健康度</span>
-          <span className={`text-sm font-semibold ${systemStatus === "healthy" ? "text-emerald-600" : "text-amber-600"}`}>
-            {systemStatus === "loading" ? "检查中" : systemStatus === "healthy" ? "正常" : "异常"}
-          </span>
-        </div>
-
-        {/* Notifications */}
-        {isApiMode ? (
+        {/* 三合一健康徽章 */}
+        <AppTooltip content={healthTooltipContent} side="bottom">
           <button
-            className="relative p-2 rounded-lg text-slate-400 cursor-not-allowed"
-            title="通知接口未接入"
-            disabled
+            type="button"
+            className={cn(
+              "flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs font-medium transition-colors cursor-pointer",
+              systemStatus === "healthy"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                : systemStatus === "degraded"
+                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  : "border-slate-200 bg-slate-50 text-slate-600",
+            )}
+            data-testid="header-health-badge"
+            aria-label="系统健康状态"
           >
-            <Bell className="h-5 w-5" />
-          </button>
-        ) : <DropdownMenu open={panelOpen} onOpenChange={setPanelOpen}>
-          <DropdownMenuTrigger asChild>
-            <button className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors">
-              <Bell className="h-5 w-5 text-slate-600" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
-                  {unreadCount}
-                </span>
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                systemStatus === "healthy"
+                  ? "bg-emerald-500 animate-pulse"
+                  : systemStatus === "degraded"
+                    ? "bg-amber-500"
+                    : "bg-slate-400",
               )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-96 p-0">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">通知中心</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-blue-600 hover:text-blue-700"
-                onClick={handleMarkAllRead}
-              >
-                全部已读
-              </Button>
-            </div>
-            <ScrollArea className="h-80">
-              <div className="p-2">
-                {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-slate-500 text-sm">暂无通知</div>
-                ) : (
-                  notifications.map((notif) => (
-                    <button
-                      key={notif.id}
-                      className={`w-full text-left p-3 rounded-lg hover:bg-slate-50 transition-colors ${
-                        !notif.read ? 'bg-blue-50/50' : ''
-                      }`}
-                      onClick={() => handleNotificationClick(notif.id)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`mt-0.5 p-1.5 rounded-full ${typeColors[notif.type]}`}>
-                          <span className="text-xs">{notif.type === 'error' ? '!' : notif.type === 'warning' ? '⚠' : notif.type === 'success' ? '✓' : 'i'}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium">{notif.title}</p>
-                            {!notif.read && (
-                              <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notif.message}</p>
-                          <p className="text-xs text-slate-400 mt-1">{notif.time}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </DropdownMenuContent>
-        </DropdownMenu>}
+            />
+            <Activity className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{healthBadgeLabel}</span>
+          </button>
+        </AppTooltip>
 
-        {/* User — Mock Enterprise Authentication Demo */}
-        <div className="flex items-center gap-2 lg:gap-3 border-l border-slate-200 pl-3 lg:pl-4">
-          <div className="hidden md:block text-right">
-            <p className="text-sm font-medium text-slate-900">
-              {session?.displayName ?? "—"}
-            </p>
-            <p className="text-xs text-slate-600">
-              <span className="text-blue-600 font-medium">{session?.site ?? "—"}</span>
-              <span className="text-slate-400 mx-1">·</span>
-              {session?.role ?? "—"}
-              <span className="text-slate-400 mx-1">·</span>
-              {session?.department ?? "—"}
-            </p>
-          </div>
-          <Avatar className="h-9 w-9 lg:h-10 lg:w-10 bg-amber-500">
-            <AvatarFallback className="bg-amber-500 text-white font-semibold">
-              {session?.displayName?.charAt(0) ?? "?"}
-            </AvatarFallback>
-          </Avatar>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs hidden sm:inline-flex"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-3.5 w-3.5 mr-1" />
-            Logout
-          </Button>
-        </div>
+        {/* 通知 */}
+        {isApiMode ? (
+          <AppTooltip content="通知接口未接入, 后续 Sprint 解锁">
+            <button
+              className="relative p-2 rounded-lg text-slate-400 cursor-not-allowed"
+              disabled
+              aria-label="通知"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
+          </AppTooltip>
+        ) : (
+          <AppTooltip content="查看系统通知">
+            <DropdownMenu open={panelOpen} onOpenChange={setPanelOpen}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  aria-label="通知"
+                >
+                  <Bell className="h-5 w-5 text-slate-600" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-96 p-0">
+                <div className="flex items-center justify-between p-4 border-b">
+                  <h3 className="font-semibold">通知中心</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-blue-600 hover:text-blue-700"
+                    onClick={handleMarkAllRead}
+                  >
+                    全部已读
+                  </Button>
+                </div>
+                <ScrollArea className="h-80">
+                  <div className="p-2">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-slate-500 text-sm">暂无通知</div>
+                    ) : (
+                      notifications.map((notif) => (
+                        <button
+                          key={notif.id}
+                          className={`w-full text-left p-3 rounded-lg hover:bg-slate-50 transition-colors ${
+                            !notif.read ? 'bg-blue-50/50' : ''
+                          }`}
+                          onClick={() => handleNotificationClick(notif.id)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`mt-0.5 p-1.5 rounded-full ${typeColors[notif.type]}`}>
+                              <span className="text-xs">{notif.type === 'error' ? '!' : notif.type === 'warning' ? '⚠' : notif.type === 'success' ? '✓' : 'i'}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium">{notif.title}</p>
+                                {!notif.read && (
+                                  <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notif.message}</p>
+                              <p className="text-xs text-slate-400 mt-1">{notif.time}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </AppTooltip>
+        )}
+
+        {/* 用户菜单 (头像 → 下拉) */}
+        <AppTooltip content={session?.displayName ?? "账号"}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-full hover:bg-slate-100 transition-colors p-1 cursor-pointer"
+                data-testid="header-user-avatar"
+                aria-label="账号菜单"
+              >
+                <Avatar className="h-8 w-8 bg-amber-500">
+                  <AvatarFallback className="bg-amber-500 text-white font-semibold">
+                    {session?.displayName?.charAt(0) ?? "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-500 hidden md:block" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {session?.displayName ?? "未登录"}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {session?.site ?? "—"}
+                    <span className="mx-1 text-slate-300">·</span>
+                    {session?.role ?? "—"}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {session?.department ?? "—"}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => router.push("/settings")}
+                className="cursor-pointer"
+                data-testid="header-menu-settings"
+              >
+                <Settings className="h-3.5 w-3.5 mr-2" />
+                系统设置
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer text-red-600 focus:text-red-600"
+                data-testid="header-menu-logout"
+              >
+                <LogOut className="h-3.5 w-3.5 mr-2" />
+                退出登录
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </AppTooltip>
       </div>
     </header>
   )

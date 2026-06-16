@@ -9,6 +9,7 @@ import { TaskTable } from "@/components/dashboard/task-table"
 import { AlertCenter } from "@/components/dashboard/alert-center"
 import { DashboardSummaryBar } from "@/components/dashboard/dashboard-summary-bar"
 import { DashboardRecentSyncs } from "@/components/dashboard/dashboard-recent-syncs"
+import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import { Database } from "lucide-react"
 
 export default function Page() {
@@ -39,6 +40,13 @@ export default function Page() {
           <AlertCenter />
         </div>
       </div>
+      <FirstRunCoach
+        pageKey="dashboard"
+        steps={[
+          { selector: '[data-testid="command-palette-trigger"]', message: "按 ⌘K 快速跳转到任意页面 / 切换站点" },
+          { selector: '[data-testid="dashboard-stat-tasks"]', message: "点击 KPI 卡片可跳转到对应详情页" },
+        ]}
+      />
     </AppShell>
   )
 }
