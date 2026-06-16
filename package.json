@@ -66,7 +66,8 @@
     "e2e:task-navigation": "tsx scripts/e2e/test-task-navigation.ts",
     "e2e:frontend-integration": "tsx scripts/e2e/test-frontend-integration.ts",
     "e2e:full-audit": "tsx scripts/e2e/test-full-audit.ts",
-    "e2e:all": "pnpm e2e:dashboard && pnpm e2e:tasks && pnpm e2e:sync && pnpm e2e:control && pnpm e2e:sites && pnpm e2e:search && pnpm e2e:settings && pnpm e2e:users && pnpm e2e:racks && pnpm e2e:volumes && pnpm e2e:logs && pnpm e2e:exports && pnpm e2e:r16-control-loop && pnpm e2e:r16-postreview && pnpm e2e:site-agent && pnpm e2e:site-agent-client && pnpm e2e:site-agent-sync-core && pnpm e2e:site-agent-sync && pnpm e2e:site-agent-control-core && pnpm e2e:site-agent-control && pnpm e2e:task-navigation && pnpm e2e:frontend-integration && pnpm e2e:full-audit"
+    "e2e:console-usability-lift": "tsx scripts/e2e/test-console-usability-lift.ts",
+    "e2e:all": "pnpm e2e:dashboard && pnpm e2e:tasks && pnpm e2e:sync && pnpm e2e:control && pnpm e2e:sites && pnpm e2e:search && pnpm e2e:settings && pnpm e2e:users && pnpm e2e:racks && pnpm e2e:volumes && pnpm e2e:logs && pnpm e2e:exports && pnpm e2e:r16-control-loop && pnpm e2e:r16-postreview && pnpm e2e:site-agent && pnpm e2e:site-agent-client && pnpm e2e:site-agent-sync-core && pnpm e2e:site-agent-sync && pnpm e2e:site-agent-control-core && pnpm e2e:site-agent-control && pnpm e2e:task-navigation && pnpm e2e:frontend-integration && pnpm e2e:full-audit && pnpm e2e:console-usability-lift"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

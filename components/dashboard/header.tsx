@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Bell, Menu, LogOut } from "lucide-react"
+import { Search, Bell, Menu, LogOut, Command } from "lucide-react"
 import { clearMockSession, getSession } from "@/lib/auth/session"
 import type { MockSession } from "@/lib/types/auth"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -112,6 +112,22 @@ export function Header({ onMenuClick }: HeaderProps) {
         <Badge variant="outline" className="ml-auto border-amber-200 bg-amber-50 text-[10px] text-amber-700">
           待 ES
         </Badge>
+      </Button>
+
+      {/* Sprint UI-2026-06: 全局命令面板触发器 (⌘K) */}
+      <Button
+        type="button"
+        variant="outline"
+        className="hidden md:inline-flex h-9 items-center gap-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer"
+        onClick={() => {
+          const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true, bubbles: true })
+          window.dispatchEvent(event)
+        }}
+        data-testid="command-palette-trigger"
+        title="按 ⌘K 打开命令面板"
+      >
+        <Command className="h-4 w-4 text-slate-500" />
+        <kbd className="px-1.5 py-0.5 text-[10px] font-mono rounded border bg-slate-50 text-slate-500">⌘K</kbd>
       </Button>
 
       {/* Status Info */}
