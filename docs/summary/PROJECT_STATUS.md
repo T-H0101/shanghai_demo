@@ -1,8 +1,20 @@
 # Project Status
 
-> **截至**: 2026-06-15
-> **Sprint**: Sprint R.19E 前端信息架构整合
-> **当前主线**: 任务与控制统一入口；随后继续同步实时性和告警闭环
+> **截至**: 2026-06-18
+> **Sprint**: Sprint R.20 Command Center + 日志检索完成
+> **当前主线**: 同步与控制可视化；随后继续同步实时性和告警闭环
+
+---
+
+## Sprint R.20 — Command Center UI redesign + 日志检索完成 (2026-06-18)
+
+- 首页首屏改为 Command Center，集中展示站点 Agent、同步包、控制队列、告警和核心 KPI。
+- Command Center 只消费现有真实 API，不新增页面/API/表，不使用 mock fallback。
+- `e2e:all` 改为自检 runner：自动加载 `.env.local`、检查健康状态、必要时启动 `pnpm dev`。
+- `/logs` 新增错误码、设备ID、任务类型检索，`GET /api/logs` 同步支持结构化过滤。
+- 新增 `e2e:command-center`，扩展 `e2e:logs`。
+- `REQ-5.1.3` 从 `partial` 提升为 `complete`。
+- requirements 完成率提升为 `4/45 = 8.9%`。
 
 ---
 

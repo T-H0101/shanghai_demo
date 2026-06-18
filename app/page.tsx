@@ -1,13 +1,10 @@
 "use client"
 
 import { AppShell } from "@/components/layout/app-shell"
-import { WelcomeBanner } from "@/components/dashboard/welcome-banner"
-import { StatsCards } from "@/components/dashboard/stats-cards"
+import { CommandCenterPanel } from "@/components/dashboard/command-center-panel"
 import { SyncTrendChart } from "@/components/dashboard/sync-trend-chart"
-import { SiteHealthHeatmap } from "@/components/dashboard/site-health-heatmap"
 import { TaskTable } from "@/components/dashboard/task-table"
 import { AlertCenter } from "@/components/dashboard/alert-center"
-import { DashboardSummaryBar } from "@/components/dashboard/dashboard-summary-bar"
 import { DashboardRecentSyncs } from "@/components/dashboard/dashboard-recent-syncs"
 import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import { Database } from "lucide-react"
@@ -21,9 +18,7 @@ export default function Page() {
         <span>dataSource: 子组件 API 实时拉取 (taskProvider / rackProvider / /api/sites 等)</span>
         <span className="text-amber-600 ml-2">无 mock fallback · 实时失败时显示 error</span>
       </div>
-      <WelcomeBanner />
-      <DashboardSummaryBar />
-      <StatsCards />
+      <CommandCenterPanel />
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6 items-stretch">
         <div className="xl:col-span-2">
           <SyncTrendChart className="h-full" />

@@ -16,6 +16,9 @@
  *   - siteCode: 站点过滤
  *   - status: 状态过滤
  *   - keyword: 关键字 (logId / batchId / commandNo / 摘要)
+ *   - errorCode: 错误码 / 错误文本匹配
+ *   - deviceId: 设备 ID / targetId 匹配
+ *   - taskType: 任务类型 (刻录/回迁/控制动作) 匹配
  *   - dateFrom: ISO 时间起点 (含)
  *   - dateTo:   ISO 时间终点 (含)
  *   - limit:    默认 50, 最大 500
@@ -53,16 +56,61 @@ interface UnifiedLogRow {
   error_code: string | null
 }
 
-function likeOrEmpty(v: string | null | undefined): string {
-  if (!v) return ""
-  return String(v).replace(/'/g, "''")
+function detailText(detail: unknown): string {
+  if (!detail) return ""
+  if (typeof detail === "string" || typeof detail === "number" || typeof detail === "boolean") {
+    return String(detail).toLowerCase()
+  }
+  if (Array.isArray(detail)) {
+    return detail.map((item) => detailText(item)).filter(Boolean).join(" ")
+  }
+  if (typeof detail === "object") {
+    return Object.values(detail as Record<string, unknown>).map((item) => detailText(item)).filter(Boolean).join(" ")
+  }
+  return ""
 }
 
-function buildKeywordFilter(keyword: string, tsColumn: string): { sql: string; params: unknown[] } {
-  if (!keyword.trim()) return { sql: "", params: [] }
-  // 仅在通用列上做模糊匹配, 不破坏索引
-  const cond = ` AND (summary ILIKE $${tsColumn.split("$").length} OR ref_batch_id ILIKE $${tsColumn.split("$").length} OR COALESCE(site_code, '') ILIKE $${tsColumn.split("$").length})`
-  return { sql: cond, params: [`%${keyword.trim()}%`] }
+function jsonStringValue(value: unknown, key: string): string | null {
+  if (!value || typeof value !== "object") return null
+  const record = value as Record<string, unknown>
+  const direct = record[key]
+  if (typeof direct === "string") return direct
+  const camel = key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+  const camelValue = record[camel]
+  return typeof camelValue === "string" ? camelValue : null
+}
+
+function rowMatchesExtendedFilters(
+  row: UnifiedLogRow,
+  filters: { errorCode: string; deviceId: string; taskType: string },
+): boolean {
+  const detail = detailText(row.detail)
+  const summary = row.summary.toLowerCase()
+
+  if (filters.errorCode.trim()) {
+    const needle = filters.errorCode.trim().toLowerCase()
+    const code = (row.error_code ?? jsonStringValue(row.detail, "error_code") ?? "").toLowerCase()
+    if (!code.includes(needle) && !detail.includes(needle) && !summary.includes(needle)) return false
+  }
+
+  if (filters.deviceId.trim()) {
+    const needle = filters.deviceId.trim().toLowerCase()
+    const deviceId = (jsonStringValue(row.detail, "device_id") ?? jsonStringValue(row.detail, "target_id") ?? "").toLowerCase()
+    if (!deviceId.includes(needle) && !detail.includes(needle) && !summary.includes(needle)) return false
+  }
+
+  if (filters.taskType.trim()) {
+    const needle = filters.taskType.trim().toLowerCase()
+    const taskType = (
+      jsonStringValue(row.detail, "task_type") ??
+      jsonStringValue(row.detail, "command_type") ??
+      jsonStringValue(row.detail, "action") ??
+      ""
+    ).toLowerCase()
+    if (!taskType.includes(needle) && !detail.includes(needle) && !summary.includes(needle)) return false
+  }
+
+  return true
 }
 
 async function fetchSyncPackage(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
@@ -219,10 +267,10 @@ async function fetchControl(siteCode: string, status: string, dateFrom: string, 
   params.push(limit, offset)
   const r = await query<{
     id: string; command_no: string; source_site_id: string; command_type: string;
-    target_id: string; status: string; requested_at: string; completed_at: string | null;
+    target_type: string; target_id: string; status: string; requested_at: string; completed_at: string | null;
     requested_by: string | null; result: unknown; error_message: string | null;
   }>(
-    `SELECT id, command_no, source_site_id, command_type, target_id, status, requested_at, completed_at, requested_by, result, error_message
+    `SELECT id, command_no, source_site_id, command_type, target_type, target_id, status, requested_at, completed_at, requested_by, result, error_message
      FROM control_command ${where}
      ORDER BY requested_at DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -234,12 +282,23 @@ async function fetchControl(siteCode: string, status: string, dateFrom: string, 
     site_code: row.source_site_id,
     status: row.status,
     summary: `${row.command_type} target=${row.target_id} status=${row.status}${row.error_message ? ` — ${row.error_message.slice(0, 80)}` : ""}`,
-    detail: { command_no: row.command_no, command_type: row.command_type, target_id: row.target_id, requested_by: row.requested_by, completed_at: row.completed_at, result: row.result, error_message: row.error_message },
+    detail: {
+      command_no: row.command_no,
+      command_type: row.command_type,
+      target_type: row.target_type,
+      target_id: row.target_id,
+      device_id: row.target_type === "device" ? row.target_id : null,
+      task_type: row.command_type,
+      requested_by: row.requested_by,
+      completed_at: row.completed_at,
+      result: row.result,
+      error_message: row.error_message,
+    },
     occurred_at: row.requested_at,
     operator: row.requested_by,
     ref_batch_id: null,
     ref_table_name: null,
-    error_code: null,
+    error_code: jsonStringValue(row.result, "error_code"),
   }))
 }
 
@@ -269,7 +328,15 @@ async function fetchAudit(siteCode: string, status: string, dateFrom: string, da
     site_code: row.site_code,
     status: row.result,
     summary: `${row.action} ${row.target_table}/${row.target_id} → ${row.result}${row.error_message ? ` — ${row.error_message.slice(0, 80)}` : ""}`,
-    detail: { command_no: row.command_no, action: row.action, target_table: row.target_table, target_id: row.target_id, error_message: row.error_message },
+    detail: {
+      command_no: row.command_no,
+      action: row.action,
+      target_table: row.target_table,
+      target_id: row.target_id,
+      device_id: row.target_table?.includes("device") ? row.target_id : null,
+      task_type: row.action,
+      error_message: row.error_message,
+    },
     occurred_at: row.created_at,
     operator: row.actor,
     ref_batch_id: null,
@@ -297,6 +364,9 @@ export async function GET(request: NextRequest) {
     const siteCode = sp.get("siteCode") ?? ""
     const status = sp.get("status") ?? ""
     const keyword = sp.get("keyword") ?? ""
+    const errorCode = sp.get("errorCode") ?? ""
+    const deviceId = sp.get("deviceId") ?? ""
+    const taskType = sp.get("taskType") ?? ""
     const dateFrom = sp.get("dateFrom") ?? ""
     const dateTo = sp.get("dateTo") ?? ""
     const limit = Math.min(parseInt(sp.get("limit") ?? "50", 10) || 50, 500)
@@ -319,8 +389,9 @@ export async function GET(request: NextRequest) {
       b.occurred_at.localeCompare(a.occurred_at)
     )
 
-    const total = merged.length
-    const items = merged.slice(offset, offset + limit)
+    const filtered = merged.filter((row) => rowMatchesExtendedFilters(row, { errorCode, deviceId, taskType }))
+    const total = filtered.length
+    const items = filtered.slice(offset, offset + limit)
 
     return NextResponse.json({
       code: 0,
@@ -338,8 +409,9 @@ export async function GET(request: NextRequest) {
         requirement: {
           id: "REQ-5.1.3",
           text: "日志检索 (关键字/错误码/任务类型)",
-          status: "partial",
+          status: "complete",
         },
+        filters: { keyword, errorCode, deviceId, taskType, siteCode, status, dateFrom, dateTo },
       },
       traceId,
     })

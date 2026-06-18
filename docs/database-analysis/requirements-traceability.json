@@ -1,13 +1,13 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.19E",
-  "date": "2026-06-15",
+  "version": "R.20",
+  "date": "2026-06-18",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
   "total_requirements": 45,
   "stats": {
-    "complete": 3,
-    "partial": 23,
+    "complete": 4,
+    "partial": 22,
     "not_started": 4,
     "blocked_by_source_schema": 4,
     "blocked_by_site_change": 1,
@@ -17,9 +17,9 @@
   },
   "completion_rate_formula": "complete / (total - out_of_scope) * 100%",
   "completion_rate": {
-    "numerator": 3,
+    "numerator": 4,
     "denominator": 45,
-    "rate_pct": 6.7
+    "rate_pct": 8.9
   },
   "r4_bug_fixes": [
     "Bug 1: /api/tasks/[id] 100% 404 → 接 unified_tasks 真实查",
@@ -166,12 +166,12 @@
     },
     {
       "rank": 10,
-      "req_id": "REQ-5.1.3",
-      "title": "日志模糊检索",
-      "status": "partial",
-      "decision_point": "无外部阻塞",
+      "req_id": "REQ-5.2.2",
+      "title": "索引导出方式 (手动触发 + 推送)",
+      "status": "not_started",
+      "decision_point": "依赖索引范围和推送策略确认",
       "effort_days": 1,
-      "category": "UI 增强"
+      "category": "索引/导出"
     }
   ],
   "requirements": [
@@ -1097,32 +1097,37 @@
     {
       "requirement_id": "REQ-5.1.3",
       "requirement_text": "日志检索 (关键字/错误码/任务类型)",
-      "module": null,
+      "module": "app/api/logs/route.ts",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
-        "app/logs/page.tsx"
+        "app/api/logs/route.ts",
+        "app/logs/page.tsx",
+        "scripts/e2e/test-logs.ts"
       ],
       "related_api": [
-        "GET /api/sync/logs"
+        "GET /api/logs"
       ],
       "related_db_tables": [
-        "sync_*_log"
+        "sync_package_log",
+        "sync_table_log",
+        "sync_scheduler_log",
+        "sync_consistency_log",
+        "control_command",
+        "audit_log"
       ],
       "ui_pages": [
         "/logs"
       ],
-      "backend_reality": "表格 + 基础筛选, 无模糊匹配",
-      "ui_reality": "基础筛选可用",
+      "backend_reality": "GET /api/logs 整合 6 类中心库日志, 支持 keyword/errorCode/deviceId/taskType/siteCode/status/date 分页过滤; dataSource 显式 database/empty/error",
+      "ui_reality": "/logs 页面提供关键字、错误码、设备ID、任务类型、站点、状态、时间范围筛选, 并展示真实 API dataSource",
       "mock_or_simulator": "—",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "模糊匹配 API + UI 输入"
-      ],
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "后续 Sprint",
-      "verification_command": "pnpm db:query \"SELECT * FROM sync_table_log WHERE err_code IS NOT NULL LIMIT 10\""
+      "next_action": null,
+      "verification_command": "pnpm e2e:logs"
     },
     {
       "requirement_id": "REQ-5.2.1",

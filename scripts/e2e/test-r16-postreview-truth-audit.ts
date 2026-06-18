@@ -44,8 +44,10 @@ async function main() {
     readFileSync("docs/database-analysis/requirements-traceability.json", "utf8")
   ) as {
     completion_rate: { numerator: number; denominator: number; rate_pct: number }
+    requirements: Array<{ requirement_id: string; current_status: string }>
   }
   const completion = traceability.completion_rate
+  const controlReq = traceability.requirements.find((r) => r.requirement_id === "REQ-4.2.2")
 
   // 0. 找 sourceId 在 1-100 范围的任务 (tbl_task 真实存在)
   const tasksRes = await fetch(`${BASE}/api/tasks?pageSize=50`)
@@ -205,11 +207,9 @@ async function main() {
   check("[8] 生产 UI 不调用历史 /execute", !readFileSync(tasksPage, "utf8").includes("/execute"), "✅ 由 Site Agent 消费")
   check("[8] 历史测试不冒充生产 Agent", true, "✅ /execute 仅保留兼容回归")
   check(
-    "[8] requirements 仍 partial, 不升 complete",
-    completion.numerator === 3 &&
-      completion.denominator === 45 &&
-      completion.rate_pct === 6.7,
-    `R.18 当前口径 ${completion.numerator}/${completion.denominator} = ${completion.rate_pct}%`
+    "[8] 控制 requirement 仍 partial, 不因本测试升 complete",
+    controlReq?.current_status === "partial",
+    `REQ-4.2.2=${controlReq?.current_status ?? "missing"}; 全局 ${completion.numerator}/${completion.denominator} = ${completion.rate_pct}%`
   )
 
   console.log(`\n=== R.16-Review truth audit e2e: ${pass} pass, ${fail} fail ===`)
@@ -222,7 +222,7 @@ async function main() {
     console.log("  - control_command 状态流转 ✅  (DB 层 evidence)")
     console.log("  - R.19D Site Agent 消费证据 ✅  (恢复库闭环；生产部署仍 blocked_by_site_change)")
     console.log(
-      `  - requirements 完成度 ${completion.numerator}/${completion.denominator} = ${completion.rate_pct}% (R.18 当前口径)`
+      `  - requirements 完成度 ${completion.numerator}/${completion.denominator} = ${completion.rate_pct}%`
     )
   }
   process.exit(fail > 0 ? 1 : 0)

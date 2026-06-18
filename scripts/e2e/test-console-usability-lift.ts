@@ -3,7 +3,7 @@
  *
  * R.5 强约束: 验证 UI-2026-06 引入的 3 个新组件的 10 项
  *   1. CommandPalette (⌘K 命令面板)
- *   2. WelcomeBanner (Dashboard 欢迎横幅)
+ *   2. WelcomeBanner / CommandCenter (Dashboard 首屏运营组件)
  *   3. StatsCards 跨页跳转 (可点击 KPI 卡片)
  *
  * 验证清单 (R.5 §10 强制):
@@ -111,11 +111,12 @@ async function main() {
   )
 
   // ============================================================
-  // Section 2: WelcomeBanner 验证
+  // Section 2: WelcomeBanner / CommandCenter 验证
   // ============================================================
-  console.log("\n=== 2. WelcomeBanner (Dashboard 欢迎横幅) ===")
+  console.log("\n=== 2. Dashboard 首屏运营组件 ===")
 
   const bannerSource = readFileSync("components/dashboard/welcome-banner.tsx", "utf8")
+  const commandCenterSource = readFileSync("components/dashboard/command-center-panel.tsx", "utf8")
   check(
     "欢迎横幅源代码存在",
     bannerSource.includes("WelcomeBanner"),
@@ -154,20 +155,37 @@ async function main() {
     "无 mock data 注入",
     !bannerSource.includes("import { mock") && !bannerSource.includes("mockStore"),
   )
+  check(
+    "CommandCenter 源代码存在",
+    commandCenterSource.includes("CommandCenterPanel"),
+  )
+  check(
+    "CommandCenter 调用真实运营 API",
+    commandCenterSource.includes("/api/dashboard/summary") &&
+      commandCenterSource.includes("/api/sync/sites/status") &&
+      commandCenterSource.includes("/api/control/commands") &&
+      commandCenterSource.includes("/api/alerts"),
+  )
+  check(
+    "CommandCenter 明示 real API only / 无 mock fallback",
+    commandCenterSource.includes("real API only") &&
+      commandCenterSource.includes("无 mock fallback"),
+  )
 
   // ============================================================
-  // Section 3: Dashboard 集成 WelcomeBanner
+  // Section 3: Dashboard 集成首屏运营组件
   // ============================================================
-  console.log("\n=== 3. Dashboard 集成 WelcomeBanner ===")
+  console.log("\n=== 3. Dashboard 集成首屏运营组件 ===")
 
   const dashboardSource = readFileSync("app/page.tsx", "utf8")
   check(
-    "app/page.tsx 导入 WelcomeBanner",
-    dashboardSource.includes("WelcomeBanner") && dashboardSource.includes("import { WelcomeBanner }"),
+    "app/page.tsx 导入 WelcomeBanner 或 CommandCenterPanel",
+    (dashboardSource.includes("WelcomeBanner") && dashboardSource.includes("import { WelcomeBanner }")) ||
+      (dashboardSource.includes("CommandCenterPanel") && dashboardSource.includes("import { CommandCenterPanel }")),
   )
   check(
-    "Dashboard 渲染 <WelcomeBanner />",
-    dashboardSource.includes("<WelcomeBanner"),
+    "Dashboard 渲染首屏运营组件",
+    dashboardSource.includes("<WelcomeBanner") || dashboardSource.includes("<CommandCenterPanel"),
   )
 
   // ============================================================
@@ -221,12 +239,13 @@ async function main() {
   // 这里检查 SSR shell + _next chunks 含组件名作为 SSR 间接证据.
   // 也直接读源代码确认组件被使用.
   check(
-    "WelcomeBanner 被 app/page.tsx 实际使用",
-    dashboardSource.includes("<WelcomeBanner"),
+    "首屏运营组件被 app/page.tsx 实际使用",
+    dashboardSource.includes("<WelcomeBanner") || dashboardSource.includes("<CommandCenterPanel"),
   )
   check(
-    "WelcomeBanner 客户端源代码可访问",
-    bannerSource.includes("查看任务") && bannerSource.includes("管理站点") && bannerSource.includes("审计日志"),
+    "首屏运营组件客户端源代码可访问",
+    (bannerSource.includes("查看任务") && bannerSource.includes("管理站点") && bannerSource.includes("审计日志")) ||
+      (commandCenterSource.includes("COMMAND CENTER") && commandCenterSource.includes("同步中心")),
   )
   check(
     "Dashboard SSR shell 包含 app-shell 客户端组件挂载 (HTML > 10KB, 包含 _next chunks)",
@@ -282,7 +301,7 @@ async function main() {
   check(
     "UI 改动有 data-testid (事件可追溯)",
     paletteSource.includes("data-testid=") &&
-      bannerSource.includes("data-testid=") &&
+      (bannerSource.includes("data-testid=") || commandCenterSource.includes("data-testid=") || commandCenterSource.includes("testid=")) &&
       statsSource.includes("data-testid="),
   )
 

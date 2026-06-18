@@ -1,7 +1,17 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-15
+> 截至: 2026-06-18
+
+## R.20 Command Center + 日志检索完成 (2026-06-18)
+
+- [x] 首页 Command Center 首屏改造，展示站点、同步、控制队列、告警和 KPI。
+- [x] Command Center 只消费现有真实 API，不新增页面/API/表。
+- [x] `e2e:all` 增加 `.env.local` 预加载、健康检查和自动 dev server。
+- [x] `/logs` 支持关键字、错误码、设备ID、任务类型、站点、状态和时间范围检索。
+- [x] `REQ-5.1.3` 提升为 `complete`。
+- [x] requirements 完成率提升为 `4/45 = 8.9%`。
+- [ ] Firefox/Edge 和 1920×1080 实机验收留待 R.25。
 
 ## R.18 基线重构和 Site Agent 协议冻结 (2026-06-12 完成)
 

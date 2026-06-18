@@ -15,7 +15,7 @@
  *   - 移除所有 mock, fetch /api/logs 真实数据库读取
  *   - 6 类日志 Tab (sync_package / sync_table / sync_scheduler / sync_consistency / control / audit)
  *   - login 审计: 中心库无表, 显示 blocked (blocked_by_auth, 等待 ADFS)
- *   - 4 个筛选: siteCode / status / keyword / dateFrom/dateTo
+ *   - 7 个筛选: siteCode / status / keyword / errorCode / deviceId / taskType / dateFrom/dateTo
  *   - 导出走 /api/logs/export 真实 API, 含 SHA-256 摘要
  *   - dataSource 显式 (database | empty | error)
  *   - 数字签名按钮删除 (R.1 §7 不允许假证书)
@@ -113,6 +113,9 @@ export default function Page() {
   const [siteCode, setSiteCode] = useState("")
   const [status, setStatus] = useState("")
   const [keyword, setKeyword] = useState("")
+  const [errorCode, setErrorCode] = useState("")
+  const [deviceId, setDeviceId] = useState("")
+  const [taskType, setTaskType] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   // 数据
@@ -137,10 +140,13 @@ export default function Page() {
     if (siteCode) sp.set("siteCode", siteCode)
     if (status) sp.set("status", status)
     if (keyword) sp.set("keyword", keyword)
+    if (errorCode) sp.set("errorCode", errorCode)
+    if (deviceId) sp.set("deviceId", deviceId)
+    if (taskType) sp.set("taskType", taskType)
     if (dateFrom) sp.set("dateFrom", dateFrom)
     if (dateTo) sp.set("dateTo", dateTo)
     return sp.toString()
-  }, [activeType, siteCode, status, keyword, dateFrom, dateTo])
+  }, [activeType, siteCode, status, keyword, errorCode, deviceId, taskType, dateFrom, dateTo])
 
   const loadLogs = async () => {
     setLoading(true)
@@ -186,7 +192,7 @@ export default function Page() {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteCode, status, keyword, dateFrom, dateTo])
+  }, [siteCode, status, keyword, errorCode, deviceId, taskType, dateFrom, dateTo])
 
   // 真实导出 (走 /api/logs/export)
   const handleExport = async (format: "csv" | "json" | "xlsx") => {
@@ -203,6 +209,9 @@ export default function Page() {
       if (siteCode) sp.set("siteCode", siteCode)
       if (status) sp.set("status", status)
       if (keyword) sp.set("keyword", keyword)
+      if (errorCode) sp.set("errorCode", errorCode)
+      if (deviceId) sp.set("deviceId", deviceId)
+      if (taskType) sp.set("taskType", taskType)
       if (dateFrom) sp.set("dateFrom", dateFrom)
       if (dateTo) sp.set("dateTo", dateTo)
       const res = await fetch(`/api/logs/export?${sp.toString()}`)
@@ -379,8 +388,8 @@ export default function Page() {
           </Tabs>
         </CardHeader>
         <CardContent className="pt-4">
-          {/* 筛选条 (4 个) */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+          {/* 筛选条 (REQ-5.1.3: 关键字 / 错误码 / 设备ID / 任务类型 + 基础条件) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 mb-4">
             <Input
               placeholder="siteCode (如 SH01)"
               className="h-9"
@@ -398,6 +407,27 @@ export default function Page() {
               className="h-9"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
+            />
+            <Input
+              placeholder="错误码 / 错误文本"
+              className="h-9"
+              value={errorCode}
+              onChange={(e) => setErrorCode(e.target.value)}
+              data-testid="logs-filter-error-code"
+            />
+            <Input
+              placeholder="设备ID / targetId"
+              className="h-9"
+              value={deviceId}
+              onChange={(e) => setDeviceId(e.target.value)}
+              data-testid="logs-filter-device-id"
+            />
+            <Input
+              placeholder="任务类型 (刻录/回迁/控制)"
+              className="h-9"
+              value={taskType}
+              onChange={(e) => setTaskType(e.target.value)}
+              data-testid="logs-filter-task-type"
             />
             <Input
               type="datetime-local"

@@ -6,7 +6,7 @@
  *   - /api/logs 200 (整合 6 类日志)
  *   - dataSource 显式 (database | empty | error, 不允许 mock)
  *   - 6 类日志 type 全部支持
- *   - 4 个筛选: siteCode / status / keyword / dateFrom-dateTo
+ *   - 7 个筛选: siteCode / status / keyword / errorCode / deviceId / taskType / dateFrom-dateTo
  *   - /api/logs/export 真实 CSV/JSON 下载, SHA-256 摘要
  *   - 页面不再 import mockLogs / auditLogs / mock 数字签名
  *   - 数字签名按钮显式 "未接入"
@@ -105,6 +105,19 @@ async function main() {
     "筛选 type=audit keyword=TASK (无关键词不应崩溃)",
     kwRes.status === 200 && kwData.code === 0,
     `items=${kwData.data?.items?.length ?? 0}`
+  )
+
+  const structuredRes = await fetch(`${BASE}/api/logs?type=all&errorCode=E&deviceId=DEV&taskType=task&limit=20`)
+  const structuredData = await structuredRes.json()
+  check(
+    "筛选 errorCode/deviceId/taskType 组合 (REQ-5.1.3)",
+    structuredRes.status === 200 && structuredData.code === 0,
+    `items=${structuredData.data?.items?.length ?? 0}`
+  )
+  check(
+    "REQ-5.1.3 meta 状态 complete",
+    structuredData.meta?.requirement?.id === "REQ-5.1.3" && structuredData.meta?.requirement?.status === "complete",
+    `status=${structuredData.meta?.requirement?.status}`
   )
 
   // 8. 筛选: dateFrom / dateTo
@@ -226,10 +239,18 @@ async function main() {
     "6 类 Tab 齐全"
   )
   check(
-    "R.12: 4 个筛选 input (siteCode/status/keyword/date)",
+    "R.20: 7 类筛选 input (siteCode/status/keyword/errorCode/deviceId/taskType/date)",
     logsPage.includes("siteCode") && logsPage.includes("status") && logsPage.includes("keyword") &&
+      logsPage.includes("errorCode") && logsPage.includes("deviceId") && logsPage.includes("taskType") &&
       logsPage.includes("dateFrom") && logsPage.includes("dateTo"),
-    "4 筛选齐全"
+    "REQ-5.1.3 筛选齐全"
+  )
+  check(
+    "R.20: 页面含 errorCode/deviceId/taskType 测试锚点",
+    logsPage.includes('data-testid="logs-filter-error-code"') &&
+      logsPage.includes('data-testid="logs-filter-device-id"') &&
+      logsPage.includes('data-testid="logs-filter-task-type"'),
+    "3 个结构化筛选锚点齐全"
   )
 
   // 13. 数字签名按钮显式未接入 (R.1 §7 禁止假证书)
