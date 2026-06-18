@@ -1,8 +1,17 @@
 # Project Status
 
 > **截至**: 2026-06-18
-> **Sprint**: Sprint R.22 手动同步触发 fail-closed
-> **当前主线**: 同步与控制可视化；随后继续 manual-sync command 通道、同步延迟计时和生产部署验收
+> **Sprint**: Sprint R.23 同步时效白盒证据
+> **当前主线**: 同步与控制可视化；随后继续 manual-sync command 通道、生产持续时延和百万级全量验收
+
+---
+
+## Sprint R.23 — 同步时效白盒证据 (2026-06-18)
+
+- `e2e:site-agent-sync` 新增任务增量同步耗时断言：Agent 读取恢复库并写入中心库必须 `<=10s`。
+- 本次白盒样本为 `<100ms`，证明当前小表增量 package 链路具备低延迟能力。
+- 强化 `REQ-6.1.3` 的 partial 证据；不替代生产持续时延样本、百万级全量同步和长期运行验收。
+- requirements 完成率保持 `4/45 = 8.9%`。
 
 ---
 

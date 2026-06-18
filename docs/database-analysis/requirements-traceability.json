@@ -1,6 +1,6 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.22",
+  "version": "R.23",
   "date": "2026-06-18",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
@@ -1242,6 +1242,7 @@
         "lib/sync/sync-engine.ts",
         "lib/site-agent/sync/coordinator.ts",
         "scripts/site-agent/run.ts",
+        "scripts/e2e/test-site-agent-sync.ts",
         "app/api/sync/sites/status/route.ts",
         "app/sync/page.tsx"
       ],
@@ -1258,18 +1259,18 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "R.19C Agent 默认每 5 秒执行任务增量读取、每 60 秒检测小表快照，真实 package 路径已通过白盒 e2e；尚无生产时延和百万级全量报告。",
-      "ui_reality": "/sync 可查看每站点配置周期和最近运行状态，但不能证明增量 ≤10s / 全量 ≤30min",
+      "backend_reality": "R.19C Agent 默认每 5 秒执行任务增量读取、每 60 秒检测小表快照，真实 package 路径已通过白盒 e2e；R.23 增加任务增量 Agent→中心落库耗时断言，本次样本 <100ms <=10s。尚无生产持续样本和百万级全量报告。",
+      "ui_reality": "/sync 可查看每站点配置周期和最近运行状态；R.23 只提供白盒时效证据，不能替代生产增量 ≤10s / 全量 ≤30min 验收",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
-        "任务变更到中心落库的计时报告",
+        "生产持续时延样本",
         "百万级索引全量测试",
         "生产站点长期运行证据"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": "生产部署 Agent 并采集持续时延样本",
-      "next_action": "R.21/R.25 性能验收",
+      "next_action": "R.25 生产持续时延和百万级全量性能验收",
       "verification_command": "pnpm e2e:site-agent-sync"
     },
     {

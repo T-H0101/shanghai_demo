@@ -160,8 +160,15 @@ async function main() {
       taskWatermark: { maxId: "0", maxUpdateDt: null },
       taskWindowHash: "force-task-incremental",
     })
+    const incrementalStartedAt = Date.now()
     const incremental = await coordinator.syncOnce({ includeSnapshots: false })
+    const incrementalDurationMs = Date.now() - incrementalStartedAt
     check("task incremental succeeds", incremental.status === "success", incremental.status)
+    check(
+      "task incremental e2e latency <=10s",
+      incrementalDurationMs <= 10_000,
+      `${incrementalDurationMs}ms`
+    )
     const incrementalPayload = recording.payloads.at(-1)
     check(
       "task incremental sends only tbl_task",
