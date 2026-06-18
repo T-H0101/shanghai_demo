@@ -1,8 +1,17 @@
 # Project Status
 
 > **截至**: 2026-06-18
-> **Sprint**: Sprint R.21 同步告警摘要闭环
-> **当前主线**: 同步与控制可视化；随后继续手动同步触发、同步延迟计时和生产部署验收
+> **Sprint**: Sprint R.22 手动同步触发 fail-closed
+> **当前主线**: 同步与控制可视化；随后继续 manual-sync command 通道、同步延迟计时和生产部署验收
+
+---
+
+## Sprint R.22 — 手动同步触发 fail-closed (2026-06-18)
+
+- 新增 `POST /api/sync/trigger`，当前返回 501 `blocked_by_site_change`，明确 Site Agent manual-sync command 通道未开放。
+- `/sync` 新增“手动同步触发”阻塞态说明卡，不提供假按钮，不写同步日志，不伪造完成态。
+- 扩展 `e2e:sync`，验证 API fail-closed 和页面阻塞态。
+- 强化 `REQ-2.3.2` 的 partial 证据；requirements 完成率保持 `4/45 = 8.9%`。
 
 ---
 

@@ -3,6 +3,15 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-18
 
+## R.22 手动同步触发 fail-closed (2026-06-18)
+
+- [x] 新增 `/api/sync/trigger` 501 `blocked_by_site_change` 边界。
+- [x] `/sync` 明示网页手动同步触发尚未开放。
+- [x] `e2e:sync` 验证 API fail-closed 和页面阻塞态。
+- [ ] Site Agent manual-sync command 通道。
+- [ ] 网页触发全量/增量同步并写入审计。
+- [ ] 同步延迟计时验收。
+
 ## R.21 同步告警摘要闭环 (2026-06-18)
 
 - [x] `/sync` 新增真实同步告警摘要。

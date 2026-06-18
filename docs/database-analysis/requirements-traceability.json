@@ -1,6 +1,6 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.21",
+  "version": "R.22",
   "date": "2026-06-18",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
@@ -479,6 +479,7 @@
         "scripts/scheduler/sync-scheduler.ts",
         "app/api/sync/config/route.ts",
         "app/api/alerts/route.ts",
+        "app/api/sync/trigger/route.ts",
         "app/api/site-agent/heartbeat/route.ts",
         "lib/site-agent/sync/coordinator.ts",
         "lib/site-agent/sync/file-store.ts",
@@ -501,19 +502,19 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "R.19C Agent 支持默认 5 秒任务增量轮询、60 秒小表快照检测、--once 手动同步、可配置有界重试、离线 spool 和恢复补传；R.21 将失败 package/table 聚合为真实同步告警。",
-      "ui_reality": "/sync 展示多站点周期、Agent heartbeat 状态、credential env key 引用和同步告警摘要，不展示 secret 值",
+      "backend_reality": "R.19C Agent 支持默认 5 秒任务增量轮询、60 秒小表快照检测、--once 手动同步、可配置有界重试、离线 spool 和恢复补传；R.21 将失败 package/table 聚合为真实同步告警；R.22 /api/sync/trigger 返回 501 blocked_by_site_change，不伪造网页手动同步。",
+      "ui_reality": "/sync 展示多站点周期、Agent heartbeat 状态、credential env key 引用、同步告警摘要和手动同步触发阻塞态，不展示 secret 值",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
         "设备关键状态实时延迟实测",
         "最终失败后的通知通道和责任人推送",
-        "页面触发 Agent 手动全量/增量",
+        "页面真实触发 Agent 手动全量/增量",
         "生产站点长期部署"
       ],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "生产部署 Site Agent，并配置最终失败告警通道",
-      "next_action": "R.22 页面手动触发 Agent 全量/增量 + 同步延迟计时",
+      "needed_site_app_change": "生产部署 Site Agent，并提供 manual-sync command 通道和最终失败告警通道",
+      "next_action": "R.23 manual-sync command 通道 + 同步延迟计时",
       "verification_command": "pnpm e2e:site-agent-sync && pnpm e2e:sync"
     },
     {

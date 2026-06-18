@@ -478,6 +478,26 @@ export default function SyncCenterPage() {
           }
         />
 
+        <Card className="gap-0" data-testid="manual-sync-blocked-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              手动同步触发
+              <Badge className="bg-amber-100 text-amber-700">blocked_by_site_change</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-sm text-slate-700">
+              网页触发 Agent 全量/增量同步尚未开放；当前 <code className="text-xs">/api/sync/trigger</code> 显式返回
+              501，不写入同步日志，不伪造完成态。
+            </p>
+            <p className="mt-2 text-xs text-amber-700">
+              现阶段可由运维在受控环境执行 <code>pnpm scheduler:sync:once -- --siteCode=SH01</code>；要开放网页触发，需要 Site Agent
+              增加可审计的 manual-sync command 通道。
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className="gap-0" data-testid="sync-alert-summary-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">

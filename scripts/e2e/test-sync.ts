@@ -339,6 +339,31 @@ async function main() {
     "前端需展示真实聚合来源"
   )
 
+  // ===== Sprint R.22: 手动同步触发 fail-closed =====
+  const triggerRes = await fetch(`${BASE}/api/sync/trigger`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ siteCode: "SH01", mode: "incremental" }),
+  })
+  const triggerJson = await triggerRes.json().catch(() => ({}))
+  check(
+    "R.22 /api/sync/trigger 显式 fail-closed",
+    triggerRes.status === 501 &&
+      triggerJson.code === 501 &&
+      triggerJson.source === "not_implemented" &&
+      triggerJson.blocker === "blocked_by_site_change" &&
+      triggerJson.reqId === "REQ-2.3.2",
+    `HTTP ${triggerRes.status} blocker=${triggerJson.blocker}`
+  )
+  check(
+    "R.22 /sync 页面展示手动同步阻塞态",
+    syncPageSrc.includes("manual-sync-blocked-card") &&
+      syncPageSrc.includes("/api/sync/trigger") &&
+      syncPageSrc.includes("blocked_by_site_change") &&
+      !syncPageSrc.includes("手动同步成功"),
+    "不提供假手动同步成功"
+  )
+
   console.log(`\n=== Sync: ${pass} pass, ${fail} fail ===`)
   process.exit(fail > 0 ? 1 : 0)
 }
