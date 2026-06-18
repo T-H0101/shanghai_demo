@@ -105,6 +105,17 @@ interface SiteSyncStatus {
   agentSpoolDepth: number | null
 }
 
+interface SyncAlertItem {
+  id: string
+  title: string
+  type: string
+  severity: 'critical' | 'warning'
+  status: 'active' | 'resolved' | 'acknowledged'
+  message: string
+  siteCode?: string
+  createdAt: string
+}
+
 function statusColor(status: string): string {
   switch (status) {
     case 'success':
@@ -124,6 +135,12 @@ function statusColor(status: string): string {
     default:
       return 'bg-slate-100 text-slate-700 border-slate-200'
   }
+}
+
+function alertSeverityColor(severity: string): string {
+  return severity === 'critical'
+    ? 'bg-red-100 text-red-700 border-red-200'
+    : 'bg-amber-100 text-amber-700 border-amber-200'
 }
 
 function formatDateTime(iso: string | null): string {
@@ -174,6 +191,9 @@ export default function SyncCenterPage() {
   const [syncConfigNote, setSyncConfigNote] = useState("")
   const [siteSyncStatuses, setSiteSyncStatuses] = useState<SiteSyncStatus[]>([])
   const [siteStatusNote, setSiteStatusNote] = useState("")
+  const [syncAlerts, setSyncAlerts] = useState<SyncAlertItem[]>([])
+  const [syncAlertTotal, setSyncAlertTotal] = useState(0)
+  const [syncAlertError, setSyncAlertError] = useState("")
   const [exportKind, setExportKind] = useState<'package' | 'table' | 'scheduler' | 'consistency'>('package')
   const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'xlsx'>('csv')
   const [exporting, setExporting] = useState(false)
@@ -336,6 +356,35 @@ export default function SyncCenterPage() {
     return () => { cancelled = true }
   }, [])
 
+  // Sprint R.21: 同步告警摘要，真实来源为 /api/alerts 聚合的 sync_package_log / sync_table_log。
+  useEffect(() => {
+    let cancelled = false
+    const sp = new URLSearchParams({ pageSize: "300" })
+    const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
+    if (effectiveSiteCode) sp.set("siteCode", effectiveSiteCode)
+
+    fetch(`/api/alerts?${sp.toString()}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled) return
+        const items = (data.data?.items ?? []) as SyncAlertItem[]
+        const syncItems = items.filter((item) => item.type === "sync" || item.type === "table")
+        setSyncAlerts(syncItems)
+        setSyncAlertTotal(data.data?.total ?? syncItems.length)
+        setSyncAlertError("")
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setSyncAlerts([])
+        setSyncAlertTotal(0)
+        setSyncAlertError(err instanceof Error ? err.message : "同步告警读取失败")
+      })
+    return () => { cancelled = true }
+  }, [siteCodeFilter, isAllSites, siteCode])
+
   const handleExport = async () => {
     setExporting(true)
     try {
@@ -381,6 +430,9 @@ export default function SyncCenterPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const activeSyncAlerts = syncAlerts.filter((item) => item.status === "active").length
+  const criticalSyncAlerts = syncAlerts.filter((item) => item.severity === "critical").length
+  const warningSyncAlerts = syncAlerts.filter((item) => item.severity === "warning").length
 
   return (
     <AppShell>
@@ -425,6 +477,81 @@ export default function SyncCenterPage() {
             </div>
           }
         />
+
+        <Card className="gap-0" data-testid="sync-alert-summary-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              同步告警摘要
+              <Badge className="bg-blue-100 text-blue-700">真实告警源</Badge>
+              {activeSyncAlerts > 0 ? (
+                <Badge className="bg-red-100 text-red-700">{activeSyncAlerts} active</Badge>
+              ) : (
+                <Badge className="bg-emerald-100 text-emerald-700">暂无 active</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="mb-3 text-xs text-amber-700">
+              来源: sync_package_log / sync_table_log，经 /api/alerts 聚合；不接 ClickHouse，不伪造站点硬件告警。
+            </p>
+            {syncAlertError ? (
+              <div className="text-sm text-red-600">同步告警读取失败: {syncAlertError}</div>
+            ) : syncAlerts.length === 0 ? (
+              <div className="text-sm text-slate-500">暂无同步失败告警。</div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                  <div>
+                    <div className="text-slate-500">同步告警</div>
+                    <div className="font-mono text-lg">{syncAlerts.length}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">Critical</div>
+                    <div className="font-mono text-lg text-red-600">{criticalSyncAlerts}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">Warning</div>
+                    <div className="font-mono text-lg text-amber-600">{warningSyncAlerts}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">聚合总告警</div>
+                    <div className="font-mono text-lg">{syncAlertTotal}</div>
+                  </div>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>级别</TableHead>
+                      <TableHead>来源</TableHead>
+                      <TableHead>站点</TableHead>
+                      <TableHead>告警</TableHead>
+                      <TableHead>时间</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {syncAlerts.slice(0, 5).map((alert) => (
+                      <TableRow key={alert.id}>
+                        <TableCell>
+                          <Badge className={alertSeverityColor(alert.severity)}>
+                            {alert.severity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{alert.type}</TableCell>
+                        <TableCell className="font-mono text-xs">{alert.siteCode ?? "—"}</TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium">{alert.title}</div>
+                          <div className="max-w-[420px] truncate text-xs text-slate-500">{alert.message}</div>
+                        </TableCell>
+                        <TableCell className="text-xs">{formatDateTime(alert.createdAt)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Sprint R.7: 数据一致性校验卡片 */}
         {consistency && (

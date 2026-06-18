@@ -305,6 +305,40 @@ async function main() {
     "前端需调用真实导出 API"
   )
 
+  // ===== Sprint R.21: 同步失败告警摘要 =====
+  const alertRes = await fetch(`${BASE}/api/alerts?pageSize=300`)
+  const alertJson = await alertRes.json()
+  const alertItems = alertJson.data?.items ?? []
+  const syncAlertItems = alertItems.filter((item: { type?: string }) =>
+    item.type === "sync" || item.type === "table"
+  )
+  check(
+    "R.21 /api/alerts 聚合同步失败告警",
+    alertRes.status === 200 &&
+      alertJson.code === 0 &&
+      Array.isArray(alertItems) &&
+      syncAlertItems.length > 0,
+    `HTTP ${alertRes.status} syncAlerts=${syncAlertItems.length} total=${alertJson.data?.total ?? 0}`
+  )
+  check(
+    "R.21 同步告警来自真实同步日志",
+    syncAlertItems.every((item: { id?: string; severity?: string; status?: string }) =>
+      typeof item.id === "string" &&
+      (item.id.startsWith("sync-pkg-") || item.id.startsWith("sync-tbl-")) &&
+      (item.severity === "critical" || item.severity === "warning") &&
+      item.status === "active"
+    ),
+    `ids=${syncAlertItems.slice(0, 3).map((item: { id?: string }) => item.id).join(",")}`
+  )
+  check(
+    "R.21 /sync 页面展示同步告警摘要",
+    syncPageSrc.includes("/api/alerts") &&
+      syncPageSrc.includes("sync-alert-summary-card") &&
+      syncPageSrc.includes("同步告警摘要") &&
+      syncPageSrc.includes("sync_package_log / sync_table_log"),
+    "前端需展示真实聚合来源"
+  )
+
   console.log(`\n=== Sync: ${pass} pass, ${fail} fail ===`)
   process.exit(fail > 0 ? 1 : 0)
 }

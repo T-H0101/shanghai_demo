@@ -1,6 +1,6 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.20",
+  "version": "R.21",
   "date": "2026-06-18",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
@@ -308,7 +308,7 @@
     {
       "requirement_id": "REQ-2.1.3",
       "requirement_text": "站点监控 (实时 + 告警, 采集 ≤5 分钟)",
-      "module": "lib/api/alert-adapter.ts",
+      "module": "lib/api/alert-adapter.ts + app/sync/page.tsx",
       "priority": "P1",
       "current_status": "partial",
       "implemented_files": [
@@ -325,14 +325,16 @@
       ],
       "related_db_tables": [
         "unified_sites",
-        "site_agent_runtime"
+        "site_agent_runtime",
+        "sync_package_log",
+        "sync_table_log"
       ],
       "ui_pages": [
         "Dashboard alert-center",
         "/sync"
       ],
-      "backend_reality": "R.19A 可接收签名 heartbeat；R.19B 独立 Agent 支持 5 分钟默认周期和站点 DB 探活。尚未在生产站点长期部署，无硬件指标和自动告警。",
-      "ui_reality": "/sync 显示 Agent online/degraded/stale/offline/not_registered；告警中心仍无真实站点告警",
+      "backend_reality": "R.19A 可接收签名 heartbeat；R.19B 独立 Agent 支持 5 分钟默认周期和站点 DB 探活。R.21 通过 /api/alerts 聚合 sync_package_log / sync_table_log 的失败告警。尚未在生产站点长期部署，无硬件指标告警。",
+      "ui_reality": "/sync 显示 Agent online/degraded/stale/offline/not_registered，并新增同步告警摘要卡；告警中心仍无真实硬件/离线站点告警",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_source_schema",
       "missing_parts": [
@@ -342,8 +344,8 @@
       ],
       "needed_site_schema_change": "站点推 tbl_site.status 变更 + 硬件节点表",
       "needed_site_app_change": "站点周期 (≤5min) 推 package",
-      "next_action": "等源端补监控字段",
-      "verification_command": "pnpm db:query \"SELECT * FROM unified_sites WHERE status='offline'\""
+      "next_action": "生产部署 Agent 后补离线/硬件告警源",
+      "verification_command": "pnpm e2e:sync"
     },
     {
       "requirement_id": "REQ-2.2.1",
@@ -476,6 +478,7 @@
         "lib/sync/scheduler-args.ts",
         "scripts/scheduler/sync-scheduler.ts",
         "app/api/sync/config/route.ts",
+        "app/api/alerts/route.ts",
         "app/api/site-agent/heartbeat/route.ts",
         "lib/site-agent/sync/coordinator.ts",
         "lib/site-agent/sync/file-store.ts",
@@ -487,7 +490,8 @@
       "related_api": [
         "POST /api/sync/package",
         "POST /api/sync/trigger",
-        "GET /api/sync/config"
+        "GET /api/sync/config",
+        "GET /api/alerts"
       ],
       "related_db_tables": [
         "sync_package_log",
@@ -497,19 +501,19 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "R.19C Agent 支持默认 5 秒任务增量轮询、60 秒小表快照检测、--once 手动同步、可配置有界重试、离线 spool 和恢复补传；最终失败告警尚未实现。",
-      "ui_reality": "/sync 展示多站点周期、Agent heartbeat 状态和 credential env key 引用，不展示 secret 值",
+      "backend_reality": "R.19C Agent 支持默认 5 秒任务增量轮询、60 秒小表快照检测、--once 手动同步、可配置有界重试、离线 spool 和恢复补传；R.21 将失败 package/table 聚合为真实同步告警。",
+      "ui_reality": "/sync 展示多站点周期、Agent heartbeat 状态、credential env key 引用和同步告警摘要，不展示 secret 值",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
         "设备关键状态实时延迟实测",
-        "最终失败告警",
+        "最终失败后的通知通道和责任人推送",
         "页面触发 Agent 手动全量/增量",
         "生产站点长期部署"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": "生产部署 Site Agent，并配置最终失败告警通道",
-      "next_action": "R.21 同步策略和告警闭环",
+      "next_action": "R.22 页面手动触发 Agent 全量/增量 + 同步延迟计时",
       "verification_command": "pnpm e2e:site-agent-sync && pnpm e2e:sync"
     },
     {
@@ -540,7 +544,7 @@
       "backend_reality": "7 张已接入源表可执行真实一致性校验并写 sync_consistency_log；R.11C 按配置站点聚合最近调度、数据包和一致性记录",
       "ui_reality": "/sync 展示最近校验与每站点最新状态；无日志显式 not_run",
       "mock_or_simulator": "无 mock；调度中的 skipped/DRY_RUN 保持透明",
-      "blocker_type": "not_started",
+      "blocker_type": "partial",
       "missing_parts": [
         "每日自动执行保证",
         "完整差异历史报告",
@@ -1492,22 +1496,27 @@
         "app/settings/page.tsx",
         "app/api/site-agent/heartbeat/route.ts",
         "app/api/sync/sites/status/route.ts",
+        "app/api/alerts/route.ts",
         "app/sync/page.tsx"
       ],
       "related_api": [
         "GET /api/system/health",
         "GET /api/system/db-health",
         "POST /api/site-agent/heartbeat",
-        "GET /api/sync/sites/status"
+        "GET /api/sync/sites/status",
+        "GET /api/alerts"
       ],
       "related_db_tables": [
-        "site_agent_runtime"
+        "site_agent_runtime",
+        "sync_package_log",
+        "sync_table_log"
       ],
       "ui_pages": [
-        "/settings"
+        "/settings",
+        "/sync"
       ],
-      "backend_reality": "系统进程、中心数据库健康 API 和站点 Agent databaseReachable heartbeat 真实可读",
-      "ui_reality": "/settings 只读展示中心应用状态；/sync 展示站点 Agent 连通状态",
+      "backend_reality": "系统进程、中心数据库健康 API、站点 Agent databaseReachable heartbeat 和同步失败告警聚合真实可读",
+      "ui_reality": "/settings 只读展示中心应用状态；/sync 展示站点 Agent 连通状态和同步告警摘要",
       "mock_or_simulator": "—",
       "blocker_type": "not_started",
       "missing_parts": [

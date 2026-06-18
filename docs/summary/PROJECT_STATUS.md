@@ -1,8 +1,18 @@
 # Project Status
 
 > **截至**: 2026-06-18
-> **Sprint**: Sprint R.20 Command Center + 日志检索完成
-> **当前主线**: 同步与控制可视化；随后继续同步实时性和告警闭环
+> **Sprint**: Sprint R.21 同步告警摘要闭环
+> **当前主线**: 同步与控制可视化；随后继续手动同步触发、同步延迟计时和生产部署验收
+
+---
+
+## Sprint R.21 — 同步告警摘要闭环 (2026-06-18)
+
+- `/sync` 新增“同步告警摘要”卡片，读取现有 `GET /api/alerts`。
+- 告警来源限定为真实中心库 `sync_package_log` / `sync_table_log`，不接 ClickHouse，不伪造站点硬件告警。
+- 扩展 `e2e:sync`，验证 `/api/alerts` 返回 sync/table 告警且页面接线存在。
+- 强化 `REQ-2.3.2`、`REQ-2.1.3`、`REQ-6.4.2` 的 partial 证据。
+- requirements 完成率保持 `4/45 = 8.9%`；未把通知通道、硬件监控或生产部署标成完成。
 
 ---
 
