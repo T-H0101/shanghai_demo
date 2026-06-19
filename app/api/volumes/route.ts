@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
 import type { ApiResponse, VolumeDTO } from "@/lib/api/dto"
 
 const VOLUME_TYPE_MAP: Record<string, VolumeDTO["type"]> = {
@@ -85,6 +86,11 @@ function mapVolumeToDTO(row: VolumeRow): VolumeDTO {
 
 export async function GET(request: NextRequest) {
   try {
+    // Sprint R.29: 防越权
+    const session = await requireSession(request)
+    requirePermission(session, "platform:read")
+    const visibleSites = getVisibleSites(session)
+
     const searchParams = request.nextUrl.searchParams
     const siteCode = searchParams.get("siteCode")
     const type = searchParams.get("type")
@@ -96,6 +102,9 @@ export async function GET(request: NextRequest) {
     if (siteCode) {
       conditions.push(`source_site_id = $${paramIndex++}`)
       params.push(siteCode)
+    } else if (visibleSites) {
+      conditions.push(`source_site_id = ANY($${paramIndex++})`)
+      params.push(visibleSites)
     }
     if (type && type !== "all") {
       if (type === "magnetic") {
@@ -136,6 +145,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response)
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error("[API Error] /api/volumes:", error)
     return NextResponse.json(
       {

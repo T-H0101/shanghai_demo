@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
 import type { ApiResponse, PaginatedResponse, TaskDTO, TaskStatus, TaskType, TaskPhase, Priority } from "@/lib/api/dto"
 
 // unified_tasks.status → TaskDTO.phase（基于真实状态推断阶段）
@@ -155,6 +156,11 @@ function mapTaskToDTO(row: TaskRow): TaskDTO {
 
 export async function GET(request: NextRequest) {
   try {
+    // Sprint R.29: 防越权 - 检查登录和权限
+    const session = await requireSession(request)
+    requirePermission(session, "platform:read")
+    const visibleSites = getVisibleSites(session)
+
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get("page") ?? "1")
     const pageSize = parseInt(searchParams.get("pageSize") ?? "20")
@@ -170,6 +176,10 @@ export async function GET(request: NextRequest) {
     if (siteCode) {
       conditions.push(`source_site_id = $${paramIndex++}`)
       params.push(siteCode)
+    } else if (visibleSites) {
+      // Sprint R.29: 非 group_admin 只看授权站点
+      conditions.push(`source_site_id = ANY($${paramIndex++})`)
+      params.push(visibleSites)
     }
     if (status && status !== "all") {
       conditions.push(`status = $${paramIndex++}`)
@@ -239,6 +249,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response)
   } catch (error) {
+    // Sprint R.29: Auth 错误直接返回
+    if (error instanceof NextResponse) return error
     console.error("[API Error] /api/tasks:", error)
     return NextResponse.json(
       {

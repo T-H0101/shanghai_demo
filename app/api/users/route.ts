@@ -4,8 +4,9 @@
  * 中心库失败或为空时 fail-closed，不允许 mock fallback。
  */
 
-import { NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { listFromTable } from "@/lib/api/list-helper"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
 
 interface UserItem {
   id: string
@@ -24,6 +25,14 @@ interface UserItem {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    // Sprint R.29: 防越权
+    const session = await requireSession(request)
+    requirePermission(session, "users:read")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+  }
+
   return listFromTable<UserItem>(
     {
       sourceTable: "unified_users",

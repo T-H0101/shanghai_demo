@@ -29,6 +29,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
 
 export const dynamic = "force-dynamic"
 
@@ -348,6 +349,10 @@ async function fetchAudit(siteCode: string, status: string, dateFrom: string, da
 export async function GET(request: NextRequest) {
   const traceId = `api-${Date.now()}`
   try {
+    // Sprint R.29: 防越权
+    const session = await requireSession(request)
+    requirePermission(session, "audit:read")
+
     const sp = request.nextUrl.searchParams
     const typeParam = sp.get("type") ?? ""
     const types: LogType[] = (typeParam && typeParam !== "all")
@@ -416,6 +421,7 @@ export async function GET(request: NextRequest) {
       traceId,
     })
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error("[API Error] /api/logs:", error)
     return NextResponse.json(
       {

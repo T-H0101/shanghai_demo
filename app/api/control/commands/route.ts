@@ -21,8 +21,18 @@ import {
   type CommandType,
   type TargetType,
 } from "@/lib/control/control-command"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
 
 export async function POST(req: NextRequest) {
+  // Sprint R.29: 防越权
+  let session
+  try {
+    session = await requireSession(req)
+    requirePermission(session, "control:submit")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+  }
+
   let body: any
   try {
     body = await req.json()
@@ -84,6 +94,14 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  // Sprint R.29: 防越权
+  try {
+    const session = await requireSession(req)
+    requirePermission(session, "control:submit")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+  }
+
   const url = new URL(req.url)
   const sourceSiteId = url.searchParams.get("siteCode") ?? undefined
   const commandType = (url.searchParams.get("commandType") as CommandType | null) ?? undefined

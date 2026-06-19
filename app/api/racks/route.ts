@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
 import type { ApiResponse, RackDTO } from "@/lib/api/dto"
 
 // unified_devices.device_type → 前端显示名
@@ -122,6 +123,11 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
 
 export async function GET(request: NextRequest) {
   try {
+    // Sprint R.29: 防越权
+    const session = await requireSession(request)
+    requirePermission(session, "platform:read")
+    const visibleSites = getVisibleSites(session)
+
     const searchParams = request.nextUrl.searchParams
     const siteCode = searchParams.get("siteCode")
     const status = searchParams.get("status")
@@ -134,6 +140,9 @@ export async function GET(request: NextRequest) {
     if (siteCode) {
       conditions.push(`source_site_id = $${paramIndex++}`)
       params.push(siteCode)
+    } else if (visibleSites) {
+      conditions.push(`source_site_id = ANY($${paramIndex++})`)
+      params.push(visibleSites)
     }
     if (status) {
       conditions.push(`status = $${paramIndex++}`)
@@ -170,6 +179,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response)
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error("[API Error] /api/racks:", error)
     return NextResponse.json(
       {
