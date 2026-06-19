@@ -25,6 +25,18 @@
 - [ ] 主机 CPU/内存/磁盘真实 runtime source。
 - [ ] 历史趋势和阈值告警。
 
+## R.26 平台 Auth 基座 (2026-06-19)
+
+- [x] `/login` 去掉 mock auth provider，改走真实 `/api/auth/login`。
+- [x] 新增 HttpOnly JWT session cookie、`/api/auth/me`、`/api/auth/logout`。
+- [x] 新增 `auth_accounts`、`auth_login_audit`、`auth_role_permissions`。
+- [x] 支持 scrypt 密码哈希、登录审计、失败锁定和 RBAC permissions。
+- [x] 新增 `e2e:auth` 并纳入 `e2e:all`。
+- [ ] 企业 ADFS/LDAP provider adapter。
+- [ ] 站点 SSO encrypted jump。
+- [ ] 登录审计检索/导出 UI 与管理员解锁。
+- [ ] 业务 API 全量权限中间件和跨站/跨部门过滤。
+
 ## R.23 同步时效白盒证据 (2026-06-18)
 
 - [x] `e2e:site-agent-sync` 增加任务增量同步 `<=10s` 断言。

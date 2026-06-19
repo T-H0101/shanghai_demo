@@ -12,6 +12,7 @@ const scripts = [
   "e2e:sites",
   "e2e:search",
   "e2e:settings",
+  "e2e:auth",
   "e2e:users",
   "e2e:racks",
   "e2e:volumes",

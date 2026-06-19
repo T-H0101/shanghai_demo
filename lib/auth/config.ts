@@ -1,4 +1,4 @@
-export type AuthMode = "disabled" | "oidc" | "ldap"
+export type AuthMode = "disabled" | "local" | "oidc" | "ldap"
 
 export interface SafeAuthConfig {
   mode: AuthMode
@@ -17,7 +17,7 @@ function configured(name: string): boolean {
 export function getSafeAuthConfig(): SafeAuthConfig {
   const rawMode = process.env.AUTH_MODE?.trim().toLowerCase() ?? "disabled"
   const mode: AuthMode =
-    rawMode === "oidc" || rawMode === "ldap" ? rawMode : "disabled"
+    rawMode === "local" || rawMode === "oidc" || rawMode === "ldap" ? rawMode : "disabled"
   const configuredRef =
     process.env.AUTH_CLIENT_SECRET_REF?.trim() || "AUTH_CLIENT_SECRET"
   const clientSecretKeyRef = /^[A-Z][A-Z0-9_]{0,127}$/.test(configuredRef)

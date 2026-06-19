@@ -12,8 +12,8 @@ import {
   Settings,
   ChevronDown,
 } from "lucide-react"
-import { clearMockSession, getSession } from "@/lib/auth/session"
-import type { MockSession } from "@/lib/types/auth"
+import { clearSession, getSession } from "@/lib/auth/session"
+import type { AuthSession } from "@/lib/types/auth"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -42,12 +42,12 @@ export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter()
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore()
   const [panelOpen, setPanelOpen] = useState(false)
-  const [session, setSession] = useState<MockSession | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(null)
   const [systemStatus, setSystemStatus] = useState<"loading" | "healthy" | "degraded">("loading")
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
 
   useEffect(() => {
-    setSession(getSession())
+    getSession().then(setSession).catch(() => setSession(null))
   }, [])
 
   useEffect(() => {
@@ -72,8 +72,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   }, [])
 
-  const handleLogout = () => {
-    clearMockSession()
+  const handleLogout = async () => {
+    await clearSession()
     router.replace("/login")
   }
 
@@ -298,7 +298,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         )}
 
         {/* 用户菜单 (头像 → 下拉) */}
-        <AppTooltip content={session?.displayName ?? "账号"}>
+        <AppTooltip content={session?.displayName ?? session?.username ?? "账号"}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -309,7 +309,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               >
                 <Avatar className="h-8 w-8 bg-amber-500">
                   <AvatarFallback className="bg-amber-500 text-white font-semibold">
-                    {session?.displayName?.charAt(0) ?? "?"}
+                    {(session?.displayName ?? session?.username)?.charAt(0) ?? "?"}
                   </AvatarFallback>
                 </Avatar>
                 <ChevronDown className="h-3.5 w-3.5 text-slate-500 hidden md:block" />
@@ -319,10 +319,10 @@ export function Header({ onMenuClick }: HeaderProps) {
               <DropdownMenuLabel>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-semibold text-slate-900">
-                    {session?.displayName ?? "未登录"}
+                    {session?.displayName ?? session?.username ?? "未登录"}
                   </span>
                   <span className="text-xs text-slate-500">
-                    {session?.site ?? "—"}
+                    {session?.siteCode ?? "—"}
                     <span className="mx-1 text-slate-300">·</span>
                     {session?.role ?? "—"}
                   </span>

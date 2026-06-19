@@ -26,6 +26,16 @@
 
 ---
 
+## Sprint R.26 — 平台 Auth 基座 (2026-06-19)
+
+- `/login` 移除 mock 登录链路，改为调用真实 `/api/auth/login`。
+- 新增 `auth_accounts` / `auth_login_audit` / `auth_role_permissions`，支持 scrypt 密码哈希、HttpOnly JWT cookie、登录审计、失败锁定和 RBAC 权限目录。
+- 新增 `/api/auth/me` 和 `/api/auth/logout`，Header 与 RouteGuard 改读服务端 session。
+- `ADFS/LDAP` 仍为外部 IdP 接入边界，不宣称企业直连完成。
+- `blocked_by_auth` 从 9 项降到 6 项；requirements 完成率保持 `4/45 = 8.9%`。
+
+---
+
 ## Sprint R.23 — 同步时效白盒证据 (2026-06-18)
 
 - `e2e:site-agent-sync` 新增任务增量同步耗时断言：Agent 读取恢复库并写入中心库必须 `<=10s`。

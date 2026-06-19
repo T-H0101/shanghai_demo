@@ -1,17 +1,17 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.23",
-  "date": "2026-06-18",
+  "version": "R.26",
+  "date": "2026-06-19",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
   "total_requirements": 45,
   "stats": {
     "complete": 4,
-    "partial": 22,
-    "not_started": 4,
+    "partial": 26,
+    "not_started": 3,
     "blocked_by_source_schema": 4,
     "blocked_by_site_change": 1,
-    "blocked_by_auth": 9,
+    "blocked_by_auth": 6,
     "blocked_by_external_system": 1,
     "out_of_scope": 0
   },
@@ -87,10 +87,10 @@
       "rank": 1,
       "req_id": "REQ-2.2.1",
       "title": "ADFS 集成登录",
-      "status": "blocked_by_auth",
-      "decision_point": "解锁 CLAUDE.md (不做登录权限系统)",
-      "effort_days": 5,
-      "category": "解锁后带动 6 项"
+      "status": "partial",
+      "decision_point": "R.26 已完成平台 local JWT/RBAC 基座；仍缺企业 ADFS/LDAP 直连参数",
+      "effort_days": "IdP config + adapter",
+      "category": "外部 IdP 接入"
     },
     {
       "rank": 2,
@@ -350,29 +350,43 @@
     {
       "requirement_id": "REQ-2.2.1",
       "requirement_text": "ADFS 3.0+ / LDAP 集成登录",
-      "module": "lib/auth/session.ts (60 行 mock)",
+      "module": "app/api/auth/* + lib/auth/*",
       "priority": "P0",
-      "current_status": "blocked_by_auth",
+      "current_status": "partial",
       "implemented_files": [
+        "app/api/auth/login/route.ts",
+        "app/api/auth/me/route.ts",
+        "app/api/auth/logout/route.ts",
+        "lib/auth/server.ts",
+        "lib/auth/jwt.ts",
+        "lib/auth/password.ts",
         "lib/auth/session.ts",
-        "app/login/page.tsx (418 行 UI)"
+        "app/login/page.tsx",
+        "databases/sprint-r.26/auth-foundation.sql",
+        "scripts/e2e/test-auth.ts"
       ],
       "related_api": [],
-      "related_db_tables": [],
-      "ui_pages": [
-        "/login (mock)"
+      "related_db_tables": [
+        "auth_accounts",
+        "auth_login_audit",
+        "auth_role_permissions"
       ],
-      "backend_reality": "0 — 颁发 mock_demo_<user>_<ts> 假 token",
-      "ui_reality": "UI 演示完整, 点击登录无服务端校验",
-      "mock_or_simulator": "mock UI only",
-      "blocker_type": "blocked_by_auth",
+      "ui_pages": [
+        "/login"
+      ],
+      "backend_reality": "R.26 已实现中心平台 local 登录、HttpOnly JWT cookie、/api/auth/me、/api/auth/logout、RBAC 权限目录和服务端密码哈希；未直连企业 ADFS/LDAP。",
+      "ui_reality": "/login 调用真实 /api/auth/login，不再使用 localStorage mock token。",
+      "mock_or_simulator": "无 mock 登录；ADFS/LDAP 为配置边界，未宣称完成",
+      "blocker_type": "blocked_by_external_system",
       "missing_parts": [
-        "ADFS/LDAP 服务端 + JWT 签发"
+        "企业 ADFS/LDAP issuer/token/JWKS/LDAP 参数",
+        "集团账号与企业 IdP 属性映射",
+        "站点 SSO federation"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": "站点接受集团 SSO token",
-      "next_action": "解锁 CLAUDE.md '不做登录权限系统'",
-      "verification_command": "(无, 需 Auth)"
+      "next_action": "获得企业 IdP 参数后实现 oidc/ldap provider adapter",
+      "verification_command": "pnpm e2e:auth"
     },
     {
       "requirement_id": "REQ-2.2.2",
@@ -401,26 +415,35 @@
       "requirement_text": "登录审计 (≥1 年) + 失败 ≥5 次锁定",
       "module": "store/login-audit (前端 localStorage)",
       "priority": "P1",
-      "current_status": "blocked_by_auth",
+      "current_status": "partial",
       "implemented_files": [
-        "store/login-audit.ts"
+        "app/api/auth/login/route.ts",
+        "app/api/auth/logout/route.ts",
+        "lib/auth/server.ts",
+        "databases/sprint-r.26/auth-foundation.sql",
+        "scripts/e2e/test-auth.ts"
       ],
       "related_api": [],
-      "related_db_tables": [],
+      "related_db_tables": [
+        "auth_login_audit",
+        "auth_accounts"
+      ],
       "ui_pages": [
         "/login"
       ],
-      "backend_reality": "仅 localStorage, 无服务端",
-      "ui_reality": "UI 演示完整",
-      "mock_or_simulator": "mock (前端)",
-      "blocker_type": "blocked_by_auth",
+      "backend_reality": "R.26 服务端记录 success/failed/locked/logout 登录审计；连续失败 >=5 次触发锁定；无 TTL 删除逻辑，满足保留基础，但尚无管理端检索/导出/解锁 UI。",
+      "ui_reality": "/login 展示真实锁定反馈；/logs 尚未增加登录审计 tab。",
+      "mock_or_simulator": "无 mock 登录审计",
+      "blocker_type": null,
       "missing_parts": [
-        "服务端 audit_log + 锁定策略"
+        "管理员解锁界面",
+        "登录审计检索/导出 UI",
+        "锁定阈值页面配置"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "解锁 Auth",
-      "verification_command": "(无)"
+      "next_action": "补登录审计管理页/API 后再评 complete",
+      "verification_command": "pnpm e2e:auth"
     },
     {
       "requirement_id": "REQ-2.3.1",
@@ -1304,78 +1327,99 @@
     {
       "requirement_id": "REQ-6.2.2",
       "requirement_text": "存储加密 (不可逆 + 分区隔离)",
-      "module": "(PG TDE 未做)",
+      "module": "auth_accounts.password_hash",
       "priority": "P1",
-      "current_status": "not_started",
-      "implemented_files": [],
+      "current_status": "partial",
+      "implemented_files": [
+        "lib/auth/password.ts",
+        "databases/sprint-r.26/auth-foundation.sql"
+      ],
       "related_api": [],
       "related_db_tables": [
-        "unified_users (无密码字段)"
+        "auth_accounts"
       ],
       "ui_pages": [],
-      "backend_reality": "无密码字段, 无 TDE",
+      "backend_reality": "R.26 平台 auth_accounts 仅保存 scrypt 不可逆密码哈希；未实现 PG TDE、分区隔离或字段级加密。",
       "ui_reality": "—",
       "mock_or_simulator": "N/A",
-      "blocker_type": "blocked_by_auth",
+      "blocker_type": null,
       "missing_parts": [
-        "密码字段 + 不可逆加密 + 分区"
+        "PG TDE 或字段级加密",
+        "分区隔离策略"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "等 Auth",
-      "verification_command": "(无)"
+      "next_action": "设计存储加密和分区隔离策略",
+      "verification_command": "pnpm e2e:auth"
     },
     {
       "requirement_id": "REQ-6.2.3",
       "requirement_text": "操作审计 (不可篡改)",
-      "module": "lib/sync/sync-job-log (同步层)",
+      "module": "lib/sync/sync-job-log + auth_login_audit",
       "priority": "P1",
       "current_status": "partial",
       "implemented_files": [
-        "lib/sync/sync-job-log.ts"
+        "lib/sync/sync-job-log.ts",
+        "lib/auth/server.ts",
+        "databases/sprint-r.26/auth-foundation.sql"
       ],
       "related_api": [
-        "POST /api/sync/package"
+        "POST /api/sync/package",
+        "POST /api/auth/login",
+        "POST /api/auth/logout"
       ],
       "related_db_tables": [
-        "sync_*_log"
+        "sync_*_log",
+        "auth_login_audit",
+        "audit_log"
       ],
       "ui_pages": [
         "/logs"
       ],
-      "backend_reality": "同步层有, 业务层无 (需 Auth)",
-      "ui_reality": "/logs 表格",
+      "backend_reality": "同步层日志、控制/导出 audit_log 与 R.26 登录审计均已落库；尚未覆盖所有业务写操作和不可篡改存证。",
+      "ui_reality": "/logs 可看中心 6 类日志；登录审计 UI 未接入。",
       "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_auth",
+      "blocker_type": null,
       "missing_parts": [
-        "业务操作 audit_log"
+        "全部业务写操作统一审计",
+        "不可篡改存证",
+        "登录审计 UI"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "等 Auth",
-      "verification_command": "pnpm db:query \"SELECT * FROM sync_table_log ORDER BY created_at DESC LIMIT 5\""
+      "next_action": "补业务写操作审计覆盖率和防篡改方案",
+      "verification_command": "pnpm e2e:auth && pnpm e2e:logs"
     },
     {
       "requirement_id": "REQ-6.2.4",
       "requirement_text": "防越权 (跨站/跨部门)",
-      "module": "(RBAC 缺失)",
+      "module": "auth_role_permissions + lib/auth/server.ts",
       "priority": "P0",
-      "current_status": "blocked_by_auth",
-      "implemented_files": [],
+      "current_status": "partial",
+      "implemented_files": [
+        "lib/auth/server.ts",
+        "databases/sprint-r.26/auth-foundation.sql",
+        "scripts/e2e/test-auth.ts"
+      ],
       "related_api": [],
-      "related_db_tables": [],
+      "related_db_tables": [
+        "auth_accounts",
+        "auth_role_permissions"
+      ],
       "ui_pages": [],
-      "backend_reality": "无 RBAC",
-      "ui_reality": "—",
+      "backend_reality": "R.26 建立平台角色、权限目录和 session permissions；尚未把跨站/跨部门过滤应用到所有业务查询。",
+      "ui_reality": "Header 读取真实 session；业务页面权限裁剪未完成。",
       "mock_or_simulator": "N/A",
-      "blocker_type": "blocked_by_auth",
+      "blocker_type": null,
       "missing_parts": [
-        "RBAC 体系"
+        "所有业务 API 的权限中间件",
+        "跨站/跨部门数据过滤",
+        "权限分配 UI 与审计"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "等 Auth + RBAC",
-      "verification_command": "(无)"
+      "next_action": "为关键 API 接入 requirePermission/requireSiteAccess",
+      "verification_command": "pnpm e2e:auth"
     },
     {
       "requirement_id": "REQ-6.3.1",

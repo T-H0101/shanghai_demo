@@ -1,15 +1,5 @@
 "use client"
 
-/**
- * Mock Enterprise Authentication Demo — 统一登录页 UI。
- * 「通过 ADFS 登录」仅为演示文案，不连接真实 IdP。
- *
- * Site-based Mock Authentication Flow:
- * - 输入账号后，根据 mockUsers[].allowedSites 动态显示可选站点
- * - 未输入账号时不显示站点提示
- * - 登录按钮点击后有 1.5s loading 状态
- */
-
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -36,14 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  loginSiteOptions,
-  mockUsers,
-  validateMockCredentials,
-  validateSiteAccess,
-} from "@/lib/mock/auth"
-import { isAuthenticated, saveMockSession } from "@/lib/auth/session"
-import { addLoginAuditLog } from "@/store/login-audit"
+import { isAuthenticated } from "@/lib/auth/session"
 import { cn } from "@/lib/utils"
 
 const capabilities = [
@@ -65,10 +48,12 @@ const capabilities = [
 ]
 
 const federationStatus = [
-  { label: "SSO 模拟", ok: true },
-  { label: "LDAP 模拟", ok: true },
-  { label: "Federation 模拟", ok: true },
+  { label: "JWT 会话", ok: true },
+  { label: "登录审计", ok: true },
+  { label: "ADFS/LDAP 预留", ok: false },
 ]
+
+const defaultSites = ["SH01"]
 
 export default function LoginPage() {
   const router = useRouter()
@@ -79,24 +64,13 @@ export default function LoginPage() {
   const [passwordError, setPasswordError] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [failedAttempts, setFailedAttempts] = useState(0)
-
-  // 登录失败锁定：连续失败5次后锁定30秒
-  const isLocked = failedAttempts >= 5
+  const [isLocked, setIsLocked] = useState(false)
 
   // 清除账号错误
   const clearAccountError = () => setAccountError("")
   const clearPasswordError = () => setPasswordError("")
 
-  // 根据输入的账号获取可选站点
-  const availableSites = (() => {
-    if (!account.trim()) return []
-    const normalized = account.trim().toLowerCase().split("@")[0]
-    const user = mockUsers.find(
-      (u) => u.username.toLowerCase() === normalized
-    )
-    return user?.allowedSites ?? []
-  })()
+  const availableSites = account.trim() ? defaultSites : []
 
   // 当可选站点变化时，如果当前站点不在列表中则清空
   useEffect(() => {
@@ -106,8 +80,12 @@ export default function LoginPage() {
   }, [availableSites, site])
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.replace("/")
+    let cancelled = false
+    isAuthenticated().then((authenticated) => {
+      if (!cancelled && authenticated) router.replace("/")
+    })
+    return () => {
+      cancelled = true
     }
   }, [router])
 
@@ -131,42 +109,42 @@ export default function LoginPage() {
       return
     }
 
-    // 检查是否被锁定
     if (isLocked) {
-      setError("账户已被锁定，请30秒后再试")
-      addLoginAuditLog(account, account, "locked", site, "127.0.0.1", "连续登录失败，账户已锁定")
+      setError("账户已被临时锁定，请稍后再试")
       return
     }
 
     setLoading(true)
-
-    // 1. 校验域账号
-    const user = validateMockCredentials(account, password)
-    if (!user) {
-      setFailedAttempts(prev => prev + 1)
-      setPasswordError("用户名或密码错误")
-      addLoginAuditLog(account, account, "failed", site, "127.0.0.1", "密码错误")
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          username: account,
+          password,
+          siteCode: site,
+        }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        if (response.status === 423 || payload?.code === "AUTH_LOCKED") {
+          setIsLocked(true)
+          setError("账户已被临时锁定，请稍后再试")
+        } else if (payload?.code === "AUTH_SITE_DENIED") {
+          setError("您没有访问该站点的权限，请联系管理员")
+        } else {
+          setPasswordError("用户名或密码错误")
+        }
+        return
+      }
+      setIsLocked(false)
+      router.replace("/")
+    } catch {
+      setError("认证服务暂不可用")
+    } finally {
       setLoading(false)
-      return
     }
-
-    // 2. 校验站点权限：用户必须被授权访问当前选中的站点
-    if (!site || !validateSiteAccess(user, site)) {
-      setFailedAttempts(prev => prev + 1)
-      setError("您没有访问该站点的权限，请联系管理员")
-      addLoginAuditLog(user.username, user.name, "failed", site, "127.0.0.1", "站点权限校验失败")
-      setLoading(false)
-      return
-    }
-
-    // 3. 模拟 enterprise federation 延迟 (1.5s)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // 4. 通过校验，重置失败计数，保存会话并跳转
-    setFailedAttempts(0)
-    addLoginAuditLog(user.username, user.name, "success", site, "127.0.0.1")
-    saveMockSession(user, site)
-    router.replace("/")
   }
 
   const hasEnteredAccount = account.trim().length > 0
@@ -253,7 +231,7 @@ export default function LoginPage() {
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-white">统一身份登录</h2>
               <p className="text-sm text-slate-500 mt-1">
-                Mock Enterprise Authentication Demo
+                平台认证基座
               </p>
             </div>
 
@@ -303,7 +281,7 @@ export default function LoginPage() {
                         </Badge>
                       ))
                     ) : (
-                      <p className="text-xs text-slate-500">No sites available for this account</p>
+                      <p className="text-xs text-slate-500">请输入账号后选择站点</p>
                     )}
                   </div>
                 </div>
@@ -346,7 +324,7 @@ export default function LoginPage() {
                     disabled={!hasEnteredAccount || availableSites.length === 0}
                   >
                     <SelectTrigger className="pl-10 h-11 bg-slate-950 border-slate-700 text-white">
-                      <SelectValue placeholder={hasEnteredAccount ? "Select a site" : "Enter account first"} />
+                    <SelectValue placeholder={hasEnteredAccount ? "选择站点" : "先输入账号"} />
                     </SelectTrigger>
                     <SelectContent>
                       {availableSites.map((opt) => (
@@ -380,21 +358,21 @@ export default function LoginPage() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Connecting to enterprise federation service...
+                    正在认证...
                   </>
                 ) : (
-                  "通过 ADFS 登录（演示）"
+                  "登录统一管控平台"
                 )}
               </Button>
             </form>
 
             <p className="mt-6 text-center text-xs text-slate-500 leading-relaxed">
-              当前为 Mock Authentication Demo，不连接真实 ADFS / LDAP / JWT / SSO Federation。
+              当前使用中心平台账号认证，企业 ADFS / LDAP 作为可插拔边界预留。
               <br />
-              演示账号：admin(admin) · ops(ops) · audit(audit) · operator(operator)
+              本地开发账号：admin / admin
               <br />
               <span className="text-slate-400">
-                admin: 全部站点 | ops: 北京/广州 | audit: 南京/武汉 | operator: 成都/上海
+                登录行为写入 auth_login_audit，连续失败触发锁定。
               </span>
             </p>
 
