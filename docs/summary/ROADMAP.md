@@ -3,6 +3,8 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-18
 
+快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
 ## R.24 日志 XLSX 导出与签名边界 (2026-06-19)
 
 - [x] `/api/logs/export` 真实支持 XLSX。
