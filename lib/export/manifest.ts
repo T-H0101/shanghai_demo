@@ -22,6 +22,11 @@ export interface ExportManifest {
   filters: Record<string, string | null | undefined>
   generatedAt: string
   generator: string
+  signature?: {
+    status: "configured" | "blocked_by_config"
+    keyRef: string | null
+    algorithm: "rsa-sha256"
+  }
 }
 
 export function buildManifest(input: {
@@ -33,6 +38,7 @@ export function buildManifest(input: {
   filename: string
   siteCode: string | null
   filters: Record<string, string | null | undefined>
+  signature?: ExportManifest["signature"]
 }): ExportManifest {
   return {
     exportType: input.exportType,
@@ -45,5 +51,6 @@ export function buildManifest(input: {
     filters: input.filters,
     generatedAt: new Date().toISOString(),
     generator: "unified-disc-platform/lib/export@R.13",
+    signature: input.signature,
   }
 }

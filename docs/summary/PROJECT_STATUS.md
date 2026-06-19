@@ -6,6 +6,16 @@
 
 ---
 
+## Sprint R.24 — 日志 XLSX 导出与签名边界 (2026-06-19)
+
+- `/api/logs/export?format=xlsx` 改为真实 Excel 下载，输出 OOXML 二进制，不再返回 501 占位。
+- `x-manifest` 新增 `signature` 元数据；未配置 `EXPORT_SIGNING_KEY_REF` 时显式 `blocked_by_config`，不伪造数字签名完成。
+- `audit_log` 继续记录成功导出。
+- `pnpm-workspace.yaml` 修复 `sharp` build approval 占位值，恢复脚本执行。
+- `REQ-5.1.2` 仍是 `partial`：已完成 `/logs` Excel/CSV/JSON 真实导出，未完成证书签名、大文件分片、留存策略和刻录/回迁全量业务日志。
+
+---
+
 ## Sprint R.23 — 同步时效白盒证据 (2026-06-18)
 
 - `e2e:site-agent-sync` 新增任务增量同步耗时断言：Agent 读取恢复库并写入中心库必须 `<=10s`。

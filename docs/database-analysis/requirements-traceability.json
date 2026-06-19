@@ -1083,16 +1083,15 @@
         "/sync",
         "/logs"
       ],
-      "backend_reality": "R.11B 真实导出 package/table/scheduler/consistency 四类日志，支持 CSV/JSON、siteCode、记录数和 SHA-256 完整性摘要",
-      "ui_reality": "/sync 可选择四类日志并下载真实 CSV；/logs 仍为旧 mock 页面",
+      "backend_reality": "R.24 /api/logs/export 已真实支持 CSV/JSON/XLSX，XLSX 为真实 OOXML 文件；manifest 含 signature 元数据边界，未配置密钥时显式 blocked_by_config",
+      "ui_reality": "/sync 可选择四类同步日志导出；/logs 页面已接真实导出按钮并可下载 CSV/JSON/XLSX",
       "mock_or_simulator": "导出 API 与 /sync 事件无 mock；日志中的 DRY_RUN/skipped 保持透明",
-      "blocker_type": "not_started",
+      "blocker_type": "blocked_by_external_system",
       "missing_parts": [
-        "Excel",
         "证书或私钥数字签名",
         "大数据分片/异步导出",
         "两年留存策略",
-        "/logs 页面真实化"
+        "刻录/回迁全量业务日志字段"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,

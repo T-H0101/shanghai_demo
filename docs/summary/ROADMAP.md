@@ -3,6 +3,18 @@
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
 > 截至: 2026-06-18
 
+## R.24 日志 XLSX 导出与签名边界 (2026-06-19)
+
+- [x] `/api/logs/export` 真实支持 XLSX。
+- [x] `x-manifest` 增加 `signature` 元数据边界。
+- [x] `e2e:exports` 改为 logs xlsx=200，其余端点继续显式 501。
+- [x] `e2e:logs` 增加 xlsx/signature 校验。
+- [x] 修复 `pnpm-workspace.yaml` 的 `sharp` build approval 占位值。
+- [ ] 真实证书/私钥数字签名。
+- [ ] 大文件分片/异步导出。
+- [ ] 默认 ≥2 年留存策略。
+- [ ] 刻录/回迁全量业务日志接入中心库。
+
 ## R.23 同步时效白盒证据 (2026-06-18)
 
 - [x] `e2e:site-agent-sync` 增加任务增量同步 `<=10s` 断言。

@@ -19,6 +19,7 @@ import { query } from "@/lib/db"
 import { buildExport } from "@/lib/export"
 import { toNextResponse } from "@/lib/export/next-response"
 import { recordExport } from "@/lib/export/audit"
+import { buildXlsxExport } from "@/lib/export/xlsx"
 
 export const dynamic = "force-dynamic"
 
@@ -247,16 +248,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (format === "xlsx") {
-      const result = buildExport<LogRowForExport>({
+      const result = await buildXlsxExport<LogRowForExport>({
         exportType: "logs",
         dataSource: "database",
         format: "xlsx",
         columns: LOG_COLUMNS as unknown as Array<keyof LogRowForExport & string>,
         rows: merged as LogRowForExport[],
         siteCode: siteCode || null,
-        filters: { types: types.join(",") },
+        filters: { types: types.join(","), status: status || null, keyword: keyword || null },
         filenamePrefix: "logs",
       })
+      await recordExport(result.manifest)
       return toNextResponse(result)
     }
 

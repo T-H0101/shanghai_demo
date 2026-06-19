@@ -3,10 +3,10 @@
  *
  * 覆盖矩阵:
  *   导出对象 (5): devices / sync_package / sync_table / sync_scheduler / sync_consistency / users / logs
- *   格式     (3): csv / json / xlsx (xlsx 显式 501 not_implemented)
+ *   格式     (3): csv / json / xlsx (仅 logs 的 xlsx 已真实接入, 其他端点仍显式 501)
  *
  * 验证项 (每条目 ×):
- *   - HTTP 200 (csv/json) 或 501 (xlsx) — 不能 500
+ *   - HTTP 200 (csv/json)；logs 的 xlsx 为 200，其余端点 xlsx 为 501 — 不能 500
  *   - x-sha256 64 hex + 实际正文 hash 一致
  *   - x-record-count 与正文行数对应
  *   - x-data-source = 真实表名 (绝不能是 'mock')
@@ -150,11 +150,44 @@ async function testEndpoint(ep: ExportEndpoint) {
     check(`[${ep.label}] JSON 正文可解析`, parsedOk)
   }
 
-  // XLSX → 501 not_implemented
+  // XLSX: 仅 logs 已真实接入，其他端点仍 501
   const xlsxRes = await fetch(`${BASE}${ep.url("xlsx")}`)
-  check(`[${ep.label}] XLSX 显式 501 (R.13: 无 xlsx 依赖, blocked_by_dependency_policy)`,
-    xlsxRes.status === 501, `HTTP ${xlsxRes.status}`)
-  if (xlsxRes.status === 501) {
+  const logsXlsxEnabled = ep.label === "logs (multi-source)"
+  check(
+    logsXlsxEnabled
+      ? `[${ep.label}] XLSX HTTP 200 (真实导出)`
+      : `[${ep.label}] XLSX 显式 501 (未接入端点保持 blocked_by_dependency_policy)`,
+    logsXlsxEnabled ? xlsxRes.status === 200 : xlsxRes.status === 501,
+    `HTTP ${xlsxRes.status}`
+  )
+  if (logsXlsxEnabled && xlsxRes.status === 200) {
+    const manifestB64 = xlsxRes.headers.get("x-manifest")
+    const recordCount = xlsxRes.headers.get("x-record-count")
+    const sha = xlsxRes.headers.get("x-sha256")
+    const contentType = xlsxRes.headers.get("content-type") ?? ""
+    let manifestOk = false
+    try {
+      const decoded = Buffer.from(manifestB64 ?? "", "base64").toString("utf8")
+      const obj = JSON.parse(decoded)
+      manifestOk =
+        typeof obj.exportType === "string" &&
+        typeof obj.signature === "object" &&
+        typeof obj.signature?.status === "string"
+    } catch {
+      manifestOk = false
+    }
+    check(`[${ep.label}] XLSX content-type 正确`,
+      contentType.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+      contentType)
+    check(`[${ep.label}] XLSX x-manifest 可解码且含 signature`,
+      manifestOk)
+    check(`[${ep.label}] XLSX x-sha256 非空`,
+      typeof sha === "string" && sha.length === 64,
+      `x-sha256=${sha?.slice(0, 12) ?? ""}`)
+    check(`[${ep.label}] XLSX x-record-count 非空`,
+      recordCount !== null,
+      `x-record-count=${recordCount}`)
+  } else if (xlsxRes.status === 501) {
     const body = await xlsxRes.json().catch(() => null)
     check(`[${ep.label}] XLSX 501 body 含 message 说明`,
       typeof body?.message === "string" && body.message.length > 0)

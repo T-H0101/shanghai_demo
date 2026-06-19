@@ -191,6 +191,38 @@ async function main() {
     `parsed=${parsedJsonOk}`
   )
 
+  // 10.1 /api/logs/export XLSX
+  const xlsxRes = await fetch(`${BASE}/api/logs/export?type=audit&format=xlsx&max=10`)
+  const xlsxManifestB64 = xlsxRes.headers.get("x-manifest")
+  const xlsxSha256 = xlsxRes.headers.get("x-sha256")
+  let xlsxManifestOk = false
+  let xlsxManifest: any = null
+  try {
+    xlsxManifest = JSON.parse(Buffer.from(xlsxManifestB64 ?? "", "base64").toString("utf8"))
+    xlsxManifestOk =
+      typeof xlsxManifest.exportType === "string" &&
+      typeof xlsxManifest.signature === "object" &&
+      typeof xlsxManifest.signature?.status === "string"
+  } catch {
+    xlsxManifestOk = false
+  }
+  check(
+    "/api/logs/export XLSX 200",
+    xlsxRes.status === 200 &&
+      (xlsxRes.headers.get("content-type")?.includes("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") ?? false),
+    `HTTP ${xlsxRes.status}`
+  )
+  check(
+    "/api/logs/export XLSX x-manifest 含 signature 元数据",
+    xlsxManifestOk,
+    `signature=${xlsxManifest?.signature?.status ?? "none"}`
+  )
+  check(
+    "/api/logs/export XLSX x-sha256 有效",
+    !!xlsxSha256 && xlsxSha256.length === 64,
+    `x-sha256=${xlsxSha256?.slice(0, 12)}…`
+  )
+
   // 11. SHA-256 实际校验
   const { createHash } = await import("node:crypto")
   const actualSha = createHash("sha256").update(csvBody).digest("hex")

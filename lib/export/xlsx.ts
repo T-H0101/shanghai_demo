@@ -1,24 +1,8 @@
-/**
- * XLSX 实现状态 (Sprint R.13)
- *
- * 决策: 不在 R.13 接 XLSX 真实实现.
- *
- * 理由 (CLAUDE.md 核心约束 + R.1 §7):
- *  1. 项目无 xlsx / exceljs 依赖, 引入需领导决策 (Excel 库 ~700KB-1.1MB)
- *  2. R.1 §7 禁止伪造: 不允许用 .xlsx 文件名包 CSV/JSON 内容
- *  3. requirements.md §5.1 仅要求"Excel/CSV/JSON 三选", CSV/JSON 已真实
- *
- * 当前行为: 返回 ExportResult { status: 501, code: 'not_implemented' }
- * 由 toNextResponse() 翻译为 HTTP 501 + 显式 message.
- *
- * 后续 Sprint 候选 (R.14+):
- *  - 引入 exceljs 依赖, 走真实 XLSX 流式生成
- *  - 或基于 OOXML zip 自实现 (Node.js 内置无 zip, 需引 archiver)
- *  - 任一方向都需先解禁 dependency policy
- */
-
+import ExcelJS from "exceljs"
 import type { ExportInput, ExportResult } from "./index"
 import { buildManifest } from "./manifest"
+import { sanitizeRows } from "./sanitize"
+import { contentSha256 } from "./sha256"
 
 export function xlsxNotImplemented<Row extends Record<string, unknown>>(
   input: ExportInput<Row>
@@ -47,5 +31,63 @@ export function xlsxNotImplemented<Row extends Record<string, unknown>>(
     rowCount: 0,
     manifest,
     code: "not_implemented",
+  }
+}
+
+export async function buildXlsxExport<Row extends Record<string, unknown>>(
+  input: ExportInput<Row>
+): Promise<ExportResult> {
+  const cleanRows = sanitizeRows(input.rows, input.columns)
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+  const scope = (input.siteCode && input.siteCode.trim()) || "all-sites"
+  const prefix = input.filenamePrefix ?? input.exportType
+  const filename = `${prefix}-${scope}-${timestamp}.xlsx`
+
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = "unified-disc-platform"
+  workbook.created = new Date()
+  const sheet = workbook.addWorksheet("Export")
+
+  sheet.columns = input.columns.map((column) => ({
+    header: column,
+    key: column,
+    width: Math.max(column.length + 4, 16),
+  }))
+  for (const row of cleanRows) {
+    sheet.addRow(
+      input.columns.reduce<Record<string, unknown>>((acc, column) => {
+        acc[column] = row[column] ?? ""
+        return acc
+      }, {})
+    )
+  }
+  sheet.views = [{ state: "frozen", ySplit: 1 }]
+
+  const body = Buffer.from(await workbook.xlsx.writeBuffer())
+  const sha256 = contentSha256(body)
+  const signingKeyRef = process.env.EXPORT_SIGNING_KEY_REF?.trim() || null
+  const manifest = buildManifest({
+    exportType: input.exportType,
+    format: "xlsx",
+    dataSource: input.dataSource,
+    rowCount: cleanRows.length,
+    sha256,
+    filename,
+    siteCode: input.siteCode ?? null,
+    filters: input.filters ?? {},
+    signature: signingKeyRef
+      ? { status: "configured", keyRef: signingKeyRef, algorithm: "rsa-sha256" }
+      : { status: "blocked_by_config", keyRef: null, algorithm: "rsa-sha256" },
+  })
+
+  return {
+    status: 200,
+    body,
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    filename,
+    sha256,
+    rowCount: cleanRows.length,
+    manifest,
+    code: "ok",
   }
 }

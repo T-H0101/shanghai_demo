@@ -42,7 +42,7 @@ export interface ExportInput<Row extends Record<string, unknown>> {
 
 export interface ExportResult {
   status: 200 | 501
-  body: string
+  body: string | Buffer
   contentType: string
   filename: string
   sha256: string
