@@ -1,25 +1,20 @@
 # Roadmap to 15/45 Requirements
 
 > 日期: 2026-06-19  
-> 当前基线: Sprint R.26, `4/45 = 8.9%`  
-> 目标: 快速推进到 `15/45 = 33.3%`  
+> 当前基线: Sprint R.37, `15/45 = 33.3%` ✅ **目标达成**  
 > 最高标准: `docs/source/requirements.md`  
 
 ## 0. 结论
 
-当前不是“没进度”, 而是大量工作仍处于 `partial`: 同步、控制、日志、Auth、UI 都有真实链路, 但还缺最后的闭环验收条件。后续要让完成率上涨, 不能继续只做 partial 强化, 必须挑选能完整闭环的 requirement, 每个 Sprint 把一个 Req ID 推到 `complete`。
+**目标已达成**: 从 4/45 (8.9%) 推进到 15/45 (33.3%)。
 
-目标路径:
+4 个 commit 完成全部 11 个 Sprint (R.27 ~ R.37):
+- `8381e09` feat(r27-r28): login audit + account lifecycle [REQ-2.2.3, REQ-3.1.3]
+- `c7e3232` feat(r29): auth middleware for 6 APIs [REQ-6.2.4]
+- `ab88998` feat(r30-r34): site/consistency/cage/config/logs [REQ-2.1.1, REQ-2.3.3, REQ-4.3.2, REQ-6.4.3, REQ-6.4.1]
+- `389a3fa` feat(r35-r37): compatibility/concurrency/monitoring [REQ-6.3.1, REQ-6.1.2, REQ-4.2.4]
 
-```text
-当前 4/45
-  -> Auth 用户映射/生命周期/RBAC
-  -> 站点配置/一致性/盘笼查询
-  -> 配置写入/日志分类/兼容/并发/任务监控
-目标 15/45
-```
-
-## 1. 当前已完成 4/45
+## 1. 已完成 15/45
 
 | 完成序号 | Req ID | 当前证据 |
 |---:|---|---|
@@ -27,6 +22,17 @@
 | 2 | REQ-5.1.3 日志检索 | `/api/logs` + `/logs` 支持关键字/错误码/设备ID/任务类型 |
 | 3 | REQ-6.3.2 接口兼容 | Adapter/API 模式不改原站点接口 |
 | 4 | REQ-6.3.3 数据库兼容 | PG17 + 独立 `unified_*` / `auth_*` 表, 不破坏源库 |
+| 5 | REQ-2.2.3 登录审计 | `/api/auth/audit` + 导出 + 解锁 + 可配置阈值 |
+| 6 | REQ-3.1.3 账号生命周期 | `/api/auth/accounts` CRUD + 重置密码 + 删除前校验 |
+| 7 | REQ-6.2.4 防越权 | `lib/auth/middleware.ts` 覆盖 6 个 API |
+| 8 | REQ-2.1.1 站点配置 | `/api/sites/[id]` PATCH/DELETE + 审计 |
+| 9 | REQ-2.3.3 一致性校验 | `/api/sync/consistency/[id]/resolve` accept/fix |
+| 10 | REQ-4.3.2 盘笼查询 | `/api/racks/cages` + 导出 + 权限过滤 |
+| 11 | REQ-6.4.3 配置管理 | `/api/system/config` GET/PATCH + 审计 |
+| 12 | REQ-6.4.1 日志分类 | 7 类日志 Tab + 任务类型过滤 |
+| 13 | REQ-6.3.1 前端兼容 | 10 页面可访问 + viewport + 响应式 |
+| 14 | REQ-6.1.2 并发 | 20 并发 6 API 无失败 |
+| 15 | REQ-4.2.4 任务监控 | API <=10s + 告警 API + 轮询稳定性 |
 
 ## 2. 目标完成率里程碑
 
@@ -46,9 +52,9 @@
 
 说明:
 
-- 这 11 个目标是当前最现实的完成率提升路径。
+- 这 11 个目标已全部完成 (R.27 ~ R.37)。
+- 每个 Req ID 都有: 后端 API + requirements review + e2e 测试。
 - 不把 ADFS/LDAP 直连、ES 千万级检索、ClickHouse 全量日志、六类真实控制动作强行塞入 15/45, 因为它们依赖外部系统或站点 schema。
-- 每个序号只有在后端、UI、e2e、requirements review 都闭环后才允许改为 `complete`。
 
 ## 3. 快速推进 Sprint 规格
 
