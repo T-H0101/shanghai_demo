@@ -6,6 +6,8 @@
  * 运行: npx tsx scripts/e2e/test-auth-audit.ts
  */
 
+export {} // Make this a module to avoid variable conflicts
+
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000"
 let passed = 0
 let failed = 0
