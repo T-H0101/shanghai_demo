@@ -8,9 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Settings,
-  LayoutDashboard,
   Server,
-  HardDrive,
   ListTodo,
   Users,
   FileText,
@@ -24,7 +22,6 @@ import {
   Minimize2,
   Moon,
   Sun,
-  Monitor,
   Route,
   Layers,
   Gauge,
@@ -47,7 +44,6 @@ import {
 } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { notifications } from "@/lib/mock/notifications"
 
 const NAV_ITEMS = [
   { label: "平台概览", path: "/", icon: Home, category: "首页" },
@@ -72,6 +68,60 @@ interface RouteHistory {
   timestamp: Date
 }
 
+interface AlertItem {
+  id: string
+  title: string
+  type: "sync" | "table" | "control"
+  severity: "critical" | "warning"
+  status: "active" | "resolved" | "acknowledged"
+  message: string
+  time: string
+  siteCode?: string
+}
+
+interface HealthPayload {
+  status?: string
+  uptime?: number
+  checks?: {
+    api?: string
+    memory?: string
+  }
+}
+
+interface DbHealthPayload {
+  database?: {
+    status?: string
+    connected?: boolean
+    latencyMs?: number
+  }
+}
+
+interface CommandPayload {
+  rows?: Array<{
+    id: string
+    commandType: string
+    status: string
+    sourceSiteId: string
+  }>
+  total?: number
+}
+
+interface SiteStatusPayload {
+  items?: Array<{
+    siteCode: string
+    siteName: string
+    agentStatus: string
+    packageStatus: string
+    consistencyStatus: string
+  }>
+}
+
+const BLOCKERS = [
+  { key: "auth", label: "统一认证/RBAC 未开放", blocker: "blocked_by_auth" },
+  { key: "search", label: "统一检索依赖 ES/ClickHouse", blocker: "blocked_by_external_system" },
+  { key: "manual-sync", label: "网页手动同步触发未开放", blocker: "blocked_by_site_change" },
+] as const
+
 export function GlobalControlBall() {
   const router = useRouter()
   const pathname = usePathname()
@@ -82,7 +132,11 @@ export function GlobalControlBall() {
   const [pageLoadTime, setPageLoadTime] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [notificationsData, setNotificationsData] = useState(notifications)
+  const [alertsData, setAlertsData] = useState<AlertItem[]>([])
+  const [healthData, setHealthData] = useState<HealthPayload | null>(null)
+  const [dbHealthData, setDbHealthData] = useState<DbHealthPayload | null>(null)
+  const [commandData, setCommandData] = useState<CommandPayload | null>(null)
+  const [siteStatusData, setSiteStatusData] = useState<SiteStatusPayload | null>(null)
 
   const ballRef = useRef<HTMLDivElement>(null)
   const loadStartTime = useRef(Date.now())
@@ -106,6 +160,61 @@ export function GlobalControlBall() {
     }, 100)
     return () => clearTimeout(timer)
   }, [pathname])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadAssistantData() {
+      try {
+        const [healthRes, dbHealthRes, alertsRes, commandRes, siteStatusRes] = await Promise.all([
+          fetch("/api/system/health", { cache: "no-store" }),
+          fetch("/api/system/db-health", { cache: "no-store" }),
+          fetch("/api/alerts?pageSize=10", { cache: "no-store" }),
+          fetch("/api/control/commands?limit=10", { cache: "no-store" }),
+          fetch("/api/sync/sites/status", { cache: "no-store" }),
+        ])
+
+        const [healthJson, dbHealthJson, alertsJson, commandJson, siteStatusJson] = await Promise.all([
+          healthRes.json().catch(() => null),
+          dbHealthRes.json().catch(() => null),
+          alertsRes.json().catch(() => null),
+          commandRes.json().catch(() => null),
+          siteStatusRes.json().catch(() => null),
+        ])
+
+        if (cancelled) return
+
+        setHealthData(healthJson)
+        setDbHealthData(dbHealthJson)
+        setAlertsData(Array.isArray(alertsJson?.data?.items) ? alertsJson.data.items : [])
+        setCommandData({
+          rows: Array.isArray(commandJson?.rows) ? commandJson.rows : [],
+          total: typeof commandJson?.total === "number" ? commandJson.total : 0,
+        })
+        setSiteStatusData({
+          items: Array.isArray(siteStatusJson?.data?.items) ? siteStatusJson.data.items : [],
+        })
+      } catch {
+        if (!cancelled) {
+          setHealthData(null)
+          setDbHealthData(null)
+          setAlertsData([])
+          setCommandData({ rows: [], total: 0 })
+          setSiteStatusData({ items: [] })
+        }
+      }
+    }
+
+    void loadAssistantData()
+    const timer = setInterval(() => {
+      void loadAssistantData()
+    }, 15000)
+
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
 
   const handleBallClick = () => {
     setShowPanel(!showPanel)
@@ -136,38 +245,45 @@ export function GlobalControlBall() {
     }
   }
 
-  const handleNotificationClick = (notification: typeof notifications[0]) => {
-    // 标记为已读
-    setNotificationsData(prev =>
-      prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
-    )
-    // 如果有目标路径则跳转
-    if (notification.targetPath) {
-      router.push(notification.targetPath)
-      setShowPanel(false)
-      setShowNotifications(false)
+  const handleNotificationClick = (notification: AlertItem) => {
+    if (notification.type === "control") {
+      router.push("/tasks?view=commands")
+    } else if (notification.type === "sync" || notification.type === "table") {
+      router.push("/sync")
+    } else {
+      router.push("/logs")
     }
+    setShowPanel(false)
+    setShowNotifications(false)
   }
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "task": return CheckCircle2
-      case "security": return AlertTriangle
-      case "system": return AlertCircle
+      case "sync": return RefreshCw
+      case "table": return Database
+      case "control": return AlertTriangle
       default: return Info
     }
   }
 
   const getNotificationColor = (type: string) => {
     switch (type) {
-      case "task": return "text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
-      case "security": return "text-amber-500 bg-amber-50 dark:bg-amber-900/20"
-      case "system": return "text-blue-500 bg-blue-50 dark:bg-blue-900/20"
+      case "sync": return "text-blue-500 bg-blue-50 dark:bg-blue-900/20"
+      case "table": return "text-amber-500 bg-amber-50 dark:bg-amber-900/20"
+      case "control": return "text-red-500 bg-red-50 dark:bg-red-900/20"
       default: return "text-slate-500 bg-slate-50 dark:bg-slate-800"
     }
   }
 
-  const unreadCount = notificationsData.filter(n => !n.read).length
+  const unreadCount = alertsData.filter((item) => item.status === "active").length
+
+  const latestSiteItems = siteStatusData?.items ?? []
+  const onlineAgents = latestSiteItems.filter((item) => item.agentStatus === "online").length
+  const pendingCommands = (commandData?.rows ?? []).filter((row) => row.status === "pending").length
+  const activeAlerts = alertsData.filter((item) => item.status === "active").length
+  const dbHealthy = dbHealthData?.database?.status === "healthy"
+  const apiHealthy = healthData?.status === "ok"
+  const assistantStatus = apiHealthy ? (dbHealthy ? "运行正常" : "数据库告警") : "接口异常"
 
   const getCurrentPageName = () => {
     const item = NAV_ITEMS.find((i) => i.path === pathname)
@@ -207,13 +323,13 @@ export function GlobalControlBall() {
       </div>
       <ScrollArea className="h-[320px] pr-1">
         <div className="space-y-2">
-          {notificationsData.length === 0 ? (
+          {alertsData.length === 0 ? (
             <div className="text-center py-8">
               <Bell className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-              <p className="text-[12px] text-slate-500">暂无通知</p>
+              <p className="text-[12px] text-slate-500">暂无真实告警</p>
             </div>
           ) : (
-            notificationsData.map((notification) => {
+            alertsData.map((notification) => {
               const Icon = getNotificationIcon(notification.type)
               const colorClass = getNotificationColor(notification.type)
               return (
@@ -222,7 +338,7 @@ export function GlobalControlBall() {
                   className={cn(
                     "w-full flex items-start gap-2.5 p-2.5 rounded-lg text-left",
                     "text-[13px] transition-colors",
-                    !notification.read
+                    notification.status === "active"
                       ? "bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                   )}
@@ -238,24 +354,22 @@ export function GlobalControlBall() {
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <p className={cn(
                         "text-[13px] font-medium truncate",
-                        !notification.read ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"
+                        notification.status === "active" ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"
                       )}>
                         {notification.title}
                       </p>
-                      {!notification.read && (
+                      {notification.status === "active" && (
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
-                      {notification.description}
+                      {notification.message}
                     </p>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-                      {notification.time}
+                      {notification.time} {notification.siteCode ? `· ${notification.siteCode}` : ""}
                     </p>
                   </div>
-                  {notification.targetPath && (
-                    <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600 shrink-0 mt-1" />
-                  )}
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600 shrink-0 mt-1" />
                 </button>
               )
             })
@@ -361,13 +475,7 @@ export function GlobalControlBall() {
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                       <span className="text-slate-700 dark:text-slate-300">{getCurrentPageName()}</span>
                       <span className="text-slate-400 dark:text-slate-500">|</span>
-                      <span>加载</span>
-                      <span className={cn(
-                        "font-medium",
-                        pageLoadTime < 500 ? "text-emerald-600 dark:text-emerald-400" : pageLoadTime < 1000 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"
-                      )}>
-                        {pageLoadTime}ms
-                      </span>
+                      <span>{assistantStatus}</span>
                     </div>
                   </div>
                 </div>
@@ -434,8 +542,8 @@ export function GlobalControlBall() {
                   value="about"
                   className="text-[11px] font-medium text-slate-600 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white rounded-none gap-1"
                 >
-                  <Info className="h-3 w-3" />
-                  关于
+                  <AlertCircle className="h-3 w-3" />
+                  阻塞
                 </TabsTrigger>
               </TabsList>
 
@@ -576,18 +684,23 @@ export function GlobalControlBall() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/80 dark:border-slate-700/60">
                         <div className="flex items-center gap-1.5 mb-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full",
+                            apiHealthy ? "bg-emerald-500 animate-pulse" : "bg-red-500"
+                          )} />
                           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">系统状态</span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">正常运行</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{assistantStatus}</p>
                       </div>
 
                       <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/80 dark:border-slate-700/60">
                         <div className="flex items-center gap-1.5 mb-1.5">
                           <Database className="h-3.5 w-3.5 text-slate-500" />
-                          <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">数据同步</span>
+                          <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">数据库</span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">已同步</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                          {dbHealthData?.database?.status ?? "unknown"}
+                        </p>
                       </div>
 
                       <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/80 dark:border-slate-700/60">
@@ -601,14 +714,14 @@ export function GlobalControlBall() {
                       <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/80 dark:border-slate-700/60">
                         <div className="flex items-center gap-1.5 mb-1.5">
                           <Shield className="h-3.5 w-3.5 text-slate-500" />
-                          <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">安全状态</span>
+                          <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">认证边界</span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">已保护</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">blocked_by_auth</p>
                       </div>
                     </div>
 
                     <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/80 dark:border-slate-700/60">
-                      <h5 className="text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2.5">性能指标</h5>
+                      <h5 className="text-[12px] font-medium text-slate-700 dark:text-slate-300 mb-2.5">运行摘要</h5>
                       <div className="space-y-2.5">
                         <div>
                           <div className="flex justify-between text-[11px] mb-1">
@@ -631,20 +744,28 @@ export function GlobalControlBall() {
                         </div>
                         <div>
                           <div className="flex justify-between text-[11px] mb-1">
-                            <span className="text-slate-600 dark:text-slate-400">内存使用</span>
-                            <span className="text-slate-600 dark:text-slate-400">45%</span>
+                            <span className="text-slate-600 dark:text-slate-400">活跃告警</span>
+                            <span className="text-slate-600 dark:text-slate-400">{activeAlerts}</span>
                           </div>
                           <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div className="h-full bg-slate-400 rounded-full" style={{ width: "45%" }} />
+                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.min(activeAlerts * 10, 100)}%` }} />
                           </div>
                         </div>
                         <div>
                           <div className="flex justify-between text-[11px] mb-1">
-                            <span className="text-slate-600 dark:text-slate-400">CPU 占用</span>
-                            <span className="text-slate-600 dark:text-slate-400">23%</span>
+                            <span className="text-slate-600 dark:text-slate-400">待执行命令</span>
+                            <span className="text-slate-600 dark:text-slate-400">{pendingCommands}</span>
                           </div>
                           <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div className="h-full bg-slate-400 rounded-full" style={{ width: "23%" }} />
+                            <div className="h-full bg-slate-400 rounded-full" style={{ width: `${Math.min(pendingCommands * 10, 100)}%` }} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+                          <div className="rounded-md bg-white/80 dark:bg-slate-900/70 px-2 py-1.5 border border-slate-200/70 dark:border-slate-700/70">
+                            在线 Agent: <span className="font-medium text-slate-800 dark:text-slate-200">{onlineAgents}</span>
+                          </div>
+                          <div className="rounded-md bg-white/80 dark:bg-slate-900/70 px-2 py-1.5 border border-slate-200/70 dark:border-slate-700/70">
+                            API uptime: <span className="font-medium text-slate-800 dark:text-slate-200">{Math.round(healthData?.uptime ?? 0)}s</span>
                           </div>
                         </div>
                       </div>
@@ -656,38 +777,26 @@ export function GlobalControlBall() {
               <TabsContent value="about" className="p-0 mt-0">
                 <ScrollArea className="h-[380px]">
                   <div className="p-3 space-y-3">
-                    <div className="text-center py-3">
-                      <div className="w-14 h-14 mx-auto mb-2.5 bg-slate-800 dark:bg-slate-700 rounded-xl flex items-center justify-center border border-slate-700 dark:border-slate-600 shadow-lg">
-                        <Globe className="h-7 w-7 text-slate-300" />
-                      </div>
-                      <h4 className="text-[15px] font-semibold text-slate-800 dark:text-slate-200 tracking-tight">光盘库管理平台</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Enterprise Optical Disc Library Platform</p>
-                    </div>
-
-                    <div className="space-y-0.5 border border-slate-200/80 dark:border-slate-700/60 rounded-lg overflow-hidden">
-                      <div className="flex justify-between items-center px-3 py-2 bg-slate-50/80 dark:bg-slate-800/40">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400">版本号</span>
-                        <span className="text-[12px] font-medium text-slate-800 dark:text-slate-200">v1.0.0</span>
-                      </div>
-                      <div className="flex justify-between items-center px-3 py-2 bg-white/80 dark:bg-slate-900/80">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400">框架版本</span>
-                        <span className="text-[12px] font-medium text-slate-800 dark:text-slate-200">Next.js 16.2.6</span>
-                      </div>
-                      <div className="flex justify-between items-center px-3 py-2 bg-slate-50/80 dark:bg-slate-800/40">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400">React 版本</span>
-                        <span className="text-[12px] font-medium text-slate-800 dark:text-slate-200">19.x</span>
-                      </div>
-                      <div className="flex justify-between items-center px-3 py-2 bg-white/80 dark:bg-slate-900/80">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400">主题模式</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5">
-                          {theme === 'dark' ? '深色模式' : '浅色模式'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center px-3 py-2 bg-slate-50/80 dark:bg-slate-800/40">
-                        <span className="text-[12px] text-slate-600 dark:text-slate-400">运行环境</span>
-                        <Badge variant={process.env.NODE_ENV === 'production' ? 'default' : 'outline'} className="text-[10px] px-1.5">
-                          {process.env.NODE_ENV === 'production' ? '生产环境' : '开发环境'}
-                        </Badge>
+                    <h4 className="text-[13px] font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      当前阻塞
+                    </h4>
+                    <div className="space-y-2">
+                      {BLOCKERS.map((item) => (
+                        <div
+                          key={item.key}
+                          className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 dark:border-amber-900/50 dark:bg-amber-950/20"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-medium text-amber-900 dark:text-amber-200">{item.label}</p>
+                            <Badge variant="outline" className="border-amber-300 text-[10px] text-amber-700 dark:border-amber-700 dark:text-amber-300">
+                              {item.blocker}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 text-[11px] text-slate-600 dark:border-slate-700/60 dark:bg-slate-800/40 dark:text-slate-300">
+                        主机 CPU / 内存 / 磁盘趋势暂未接真实 runtime source，避免继续展示伪百分比。
                       </div>
                     </div>
                   </div>

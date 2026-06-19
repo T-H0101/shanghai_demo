@@ -951,8 +951,8 @@
         "/tasks?view=commands",
         "Dashboard"
       ],
-      "backend_reality": "R.19E 将真实 control_command 状态并入任务中心并每 5 秒刷新；任务列表、进度字段和告警展示存在。缺任务状态 <=10 秒同步证明和责任人通知。",
-      "ui_reality": "Tasks 任务/控制双视图 + Dashboard alert-center；/control 307 兼容跳转",
+      "backend_reality": "R.19E 将真实 control_command 状态并入任务中心并每 5 秒刷新；R.25 悬浮助手接入真实 control_command、alerts 和 sync site status 作为全局监控入口。缺任务状态 <=10 秒同步证明和责任人通知。",
+      "ui_reality": "Tasks 任务/控制双视图 + Dashboard alert-center + GlobalControlBall 全局 pending command/alert/agent 概览；/control 307 兼容跳转",
       "mock_or_simulator": "—",
       "blocker_type": "blocked_by_site_change",
       "missing_parts": [
@@ -962,7 +962,7 @@
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": "Site Agent 推送任务状态变化和 Agent heartbeat",
-      "next_action": "R.21 实时同步，R.24 告警",
+      "next_action": "R.21 实时同步，R.25 全局监控入口",
       "verification_command": "pnpm db:query \"SELECT * FROM unified_tasks WHERE phase IN ('scanning','writing') ORDER BY start_time DESC LIMIT 5\""
     },
     {
@@ -1498,7 +1498,9 @@
         "app/api/site-agent/heartbeat/route.ts",
         "app/api/sync/sites/status/route.ts",
         "app/api/alerts/route.ts",
-        "app/sync/page.tsx"
+        "app/sync/page.tsx",
+        "components/ui/global-control-ball.tsx",
+        "scripts/e2e/test-floating-assistant.ts"
       ],
       "related_api": [
         "GET /api/system/health",
@@ -1514,12 +1516,13 @@
       ],
       "ui_pages": [
         "/settings",
-        "/sync"
+        "/sync",
+        "/"
       ],
-      "backend_reality": "系统进程、中心数据库健康 API、站点 Agent databaseReachable heartbeat 和同步失败告警聚合真实可读",
-      "ui_reality": "/settings 只读展示中心应用状态；/sync 展示站点 Agent 连通状态和同步告警摘要",
+      "backend_reality": "系统进程、中心数据库健康 API、站点 Agent databaseReachable heartbeat、控制队列和同步失败告警聚合真实可读",
+      "ui_reality": "/settings 只读展示中心应用状态；/sync 展示站点 Agent 连通状态和同步告警摘要；GlobalControlBall 全局展示 health/db/alerts/commands/site status",
       "mock_or_simulator": "—",
-      "blocker_type": "not_started",
+      "blocker_type": "blocked_by_external_system",
       "missing_parts": [
         "CPU/内存/磁盘完整监控",
         "历史趋势与告警"

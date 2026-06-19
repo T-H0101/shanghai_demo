@@ -65,6 +65,7 @@
     "e2e:site-agent-control": "tsx scripts/e2e/test-site-agent-control.ts",
     "e2e:task-navigation": "tsx scripts/e2e/test-task-navigation.ts",
     "e2e:frontend-integration": "tsx scripts/e2e/test-frontend-integration.ts",
+    "e2e:floating-assistant": "tsx scripts/e2e/test-floating-assistant.ts",
     "e2e:full-audit": "tsx scripts/e2e/test-full-audit.ts",
     "e2e:console-usability-lift": "tsx scripts/e2e/test-console-usability-lift.ts",
     "e2e:header-ux-lift": "tsx scripts/e2e/test-header-ux-lift.ts",

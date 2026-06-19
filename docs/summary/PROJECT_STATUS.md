@@ -16,6 +16,16 @@
 
 ---
 
+## Sprint R.25 — 悬浮助手去 mock (2026-06-19)
+
+- `GlobalControlBall` 移除 `lib/mock/notifications` 和假状态文案。
+- 真实接入 `/api/system/health`、`/api/system/db-health`、`/api/alerts`、`/api/control/commands`、`/api/sync/sites/status`。
+- 系统页不再展示伪造的 `23%` CPU / `45%` 内存，而是改展示真实接口、告警、命令和 Agent 摘要。
+- 新增阻塞页，显式展示 `blocked_by_auth`、`blocked_by_external_system`、`blocked_by_site_change`。
+- 这是 `REQ-6.4.2` / `REQ-4.2.4` 的 partial 强化，不提升 requirements 完成率。
+
+---
+
 ## Sprint R.23 — 同步时效白盒证据 (2026-06-18)
 
 - `e2e:site-agent-sync` 新增任务增量同步耗时断言：Agent 读取恢复库并写入中心库必须 `<=10s`。

@@ -15,6 +15,16 @@
 - [ ] 默认 ≥2 年留存策略。
 - [ ] 刻录/回迁全量业务日志接入中心库。
 
+## R.25 悬浮助手去 mock (2026-06-19)
+
+- [x] `GlobalControlBall` 移除 mock notifications。
+- [x] 接真实 health/db-health/alerts/control-commands/site-status。
+- [x] 去掉假 CPU/内存百分比和“正常运行/已同步/已保护”硬编码。
+- [x] 新增 blocker 页展示 `blocked_by_auth` / `blocked_by_external_system` / `blocked_by_site_change`。
+- [x] 新增 `e2e:floating-assistant` 并纳入 `e2e:all`。
+- [ ] 主机 CPU/内存/磁盘真实 runtime source。
+- [ ] 历史趋势和阈值告警。
+
 ## R.23 同步时效白盒证据 (2026-06-18)
 
 - [x] `e2e:site-agent-sync` 增加任务增量同步 `<=10s` 断言。
