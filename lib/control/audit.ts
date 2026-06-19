@@ -15,16 +15,16 @@
 import { query } from '@/lib/db/postgres'
 
 export interface AuditEntry {
-  commandNo: string
+  commandNo?: string | null
   action: string
   targetTable: string
   targetId: string
-  before: unknown
-  after: unknown
+  before?: unknown
+  after?: unknown
   actor?: string | null
   actorIp?: string | null
-  siteCode: string
-  dryRun: boolean
+  siteCode?: string | null
+  dryRun?: boolean
   result: 'success' | 'failed'
   errorMessage?: string | null
 }
@@ -38,7 +38,7 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
           site_code, dry_run, result, error_message)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12)`,
       [
-        entry.commandNo,
+        entry.commandNo ?? null,
         entry.action,
         entry.targetTable,
         entry.targetId,
@@ -46,8 +46,8 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
         JSON.stringify(entry.after ?? null),
         entry.actor ?? null,
         entry.actorIp ?? null,
-        entry.siteCode,
-        entry.dryRun,
+        entry.siteCode ?? null,
+        entry.dryRun ?? false,
         entry.result,
         entry.errorMessage ?? null,
       ]

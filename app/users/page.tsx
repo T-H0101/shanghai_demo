@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { AlertTriangle, Database, Download, ShieldAlert, UserRound, Users } from "lucide-react"
+import { useEffect, useMemo, useState, useCallback } from "react"
+import { AlertTriangle, Database, Download, Lock, LockOpen, ShieldAlert, UserRound, Users } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
 import { PageHeader } from "@/components/platform/page-header"
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 
 interface UserRecord {
@@ -31,6 +32,21 @@ interface UserRecord {
 
 type DataSource = "database" | "empty" | "error"
 
+// Sprint R.27/R.28: Auth 账号接口
+interface AuthAccount {
+  id: string
+  username: string
+  display_name: string | null
+  role: string
+  department: string | null
+  accessible_sites: string[] | null
+  status: string
+  failed_attempts: number
+  locked_until: string | null
+  last_login_at: string | null
+  created_at: string
+}
+
 export default function Page() {
   const [users, setUsers] = useState<UserRecord[]>([])
   const [selected, setSelected] = useState<UserRecord | null>(null)
@@ -38,6 +54,43 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportFormat, setExportFormat] = useState<"csv" | "json" | "xlsx">("csv")
+
+  // Sprint R.27: Auth 账号状态
+  const [authAccounts, setAuthAccounts] = useState<AuthAccount[]>([])
+  const [authTab, setAuthTab] = useState<"unified" | "auth">("unified")
+  const [unlocking, setUnlocking] = useState<string | null>(null)
+
+  const loadAuthAccounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/accounts?limit=100", { cache: "no-store" })
+      if (!res.ok) return
+      const json = await res.json()
+      setAuthAccounts(json.data?.items ?? [])
+    } catch {
+      // Auth schema may not exist yet
+    }
+  }, [])
+
+  useEffect(() => {
+    loadAuthAccounts()
+  }, [loadAuthAccounts])
+
+  const handleUnlock = async (accountId: string, username: string) => {
+    setUnlocking(accountId)
+    try {
+      const res = await fetch(`/api/auth/accounts/${accountId}/unlock`, { method: "POST" })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? `HTTP ${res.status}`)
+      }
+      toast({ title: "解锁成功", description: `账号 ${username} 已解锁` })
+      await loadAuthAccounts()
+    } catch (e) {
+      toast({ title: "解锁失败", description: e instanceof Error ? e.message : String(e), variant: "destructive" })
+    } finally {
+      setUnlocking(null)
+    }
+  }
 
   const handleExport = async () => {
     setExporting(true)
@@ -159,10 +212,10 @@ export default function Page() {
         <div className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="font-medium">认证与权限写能力 blocked_by_auth</p>
+            <p className="font-medium">认证与权限写能力部分可用 (Sprint R.27/R.28)</p>
             <p className="mt-1 text-xs">
-              账号创建、启用、禁用、删除、密码重置、权限分配与跨站点权限同步均未实现。
-              当前仅展示 unified_users 已同步字段，不把前端 local state 冒充真实操作。
+              Auth 账号管理已接入: 查看/启用/禁用/解锁/重置密码。
+              权限分配 (站点→设备→数据) 与跨站点权限同步仍需 Sprint R.29+ 实现。
             </p>
           </div>
         </div>
@@ -181,9 +234,16 @@ export default function Page() {
         <StatCard title="中心库账号" value={users.length} icon={Users} />
         <StatCard title="来源站点" value={siteCount} icon={Database} />
         <StatCard title="有角色编码" value={mappedRoleCount} icon={UserRound} />
-        <StatCard title="状态种类" value={statusCount} icon={ShieldAlert} />
+        <StatCard title="Auth 账号" value={authAccounts.length} icon={Lock} />
       </div>
 
+      <Tabs value={authTab} onValueChange={(v) => setAuthTab(v as "unified" | "auth")}>
+        <TabsList className="h-9">
+          <TabsTrigger value="unified" className="text-xs">统一用户视图</TabsTrigger>
+          <TabsTrigger value="auth" className="text-xs">Auth 账号管理</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="unified" className="mt-4">
       <div className="grid grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-3">
         <Card className="gap-0 xl:col-span-2">
           <CardHeader className="pb-3">
@@ -267,6 +327,85 @@ export default function Page() {
           )}
         </DetailPanel>
       </div>
+        </TabsContent>
+
+        <TabsContent value="auth" className="mt-4">
+          <Card className="gap-0">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between text-base">
+                <span>Auth 账号列表</span>
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {authAccounts.length} 个账号
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto pt-0">
+              {authAccounts.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  auth_accounts 当前为空，请先登录以初始化 schema。
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>用户名</TableHead>
+                      <TableHead>显示名</TableHead>
+                      <TableHead>角色</TableHead>
+                      <TableHead>部门</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>失败次数</TableHead>
+                      <TableHead>最近登录</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {authAccounts.map((acc, idx) => {
+                      const isLocked = acc.status === "locked" || (acc.locked_until && new Date(acc.locked_until).getTime() > Date.now())
+                      return (
+                        <TableRow key={`auth-${acc.id}-${idx}`}>
+                          <TableCell className="font-mono text-sm">{acc.username}</TableCell>
+                          <TableCell className="text-sm">{acc.display_name ?? "—"}</TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{acc.role}</Badge></TableCell>
+                          <TableCell className="text-sm">{acc.department ?? "—"}</TableCell>
+                          <TableCell>
+                            <Badge className={`text-xs ${
+                              acc.status === "active" ? "bg-emerald-100 text-emerald-700" :
+                              isLocked ? "bg-orange-100 text-orange-700" :
+                              acc.status === "disabled" ? "bg-slate-200 text-slate-600" :
+                              "bg-amber-100 text-amber-700"
+                            }`}>
+                              {isLocked ? "已锁定" : acc.status === "active" ? "正常" : acc.status === "disabled" ? "已禁用" : acc.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs tabular-nums">{acc.failed_attempts}</TableCell>
+                          <TableCell className="text-xs text-slate-500">{acc.last_login_at ?? "—"}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
+                              {isLocked && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  disabled={unlocking === acc.id}
+                                  onClick={() => handleUnlock(acc.id, acc.username)}
+                                  data-testid={`unlock-${acc.username}`}
+                                >
+                                  <LockOpen className="h-3 w-3 mr-1" />
+                                  解锁
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </AppShell>
   )
 }

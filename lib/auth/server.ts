@@ -4,8 +4,26 @@ import { createJwt, getSessionTtlSeconds, verifyJwt, type AuthJwtPayload } from 
 import { verifyPassword } from "./password"
 
 export const AUTH_COOKIE = "odp_session"
-export const LOCK_THRESHOLD = 5
-export const LOCK_MINUTES = 30
+export let LOCK_THRESHOLD = 5
+export let LOCK_MINUTES = 30
+
+/** Sprint R.27: 从 auth_system_config 读取可配置锁定阈值 */
+async function loadLockConfig(): Promise<void> {
+  try {
+    const rows = await query<{ key: string; value: string }>(
+      `SELECT key, value FROM auth_system_config WHERE key IN ('login.lock_threshold', 'login.lock_minutes')`,
+    )
+    for (const row of rows.rows) {
+      const v = Number.parseInt(row.value, 10)
+      if (Number.isFinite(v) && v > 0) {
+        if (row.key === "login.lock_threshold") LOCK_THRESHOLD = v
+        if (row.key === "login.lock_minutes") LOCK_MINUTES = v
+      }
+    }
+  } catch {
+    // Table may not exist yet, use defaults
+  }
+}
 
 export type AuthRole = "group_admin" | "site_admin" | "auditor" | "operator" | "viewer"
 
@@ -101,6 +119,19 @@ INSERT INTO auth_accounts (
   ARRAY['*']::TEXT[],
   'active'
 ) ON CONFLICT (username) DO NOTHING;
+CREATE TABLE IF NOT EXISTS auth_system_config (
+  key VARCHAR(100) PRIMARY KEY,
+  value TEXT NOT NULL,
+  description TEXT,
+  updated_by VARCHAR(100),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO auth_system_config(key, value, description)
+VALUES ('login.lock_threshold', '5', '连续失败登录锁定阈值')
+ON CONFLICT (key) DO NOTHING;
+INSERT INTO auth_system_config(key, value, description)
+VALUES ('login.lock_minutes', '30', '锁定持续时间（分钟）')
+ON CONFLICT (key) DO NOTHING;
 `
 
 let schemaReady: Promise<void> | null = null
@@ -196,6 +227,7 @@ export async function loginWithPassword(input: {
   request: NextRequest
 }): Promise<{ ok: true; user: AuthUser; token: string } | { ok: false; status: number; code: string; message: string }> {
   await ensureAuthSchema()
+  await loadLockConfig()
   const username = normalizeUsername(input.username)
 
   if (!username || !input.password || !input.siteCode) {

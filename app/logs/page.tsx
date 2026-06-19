@@ -48,7 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileText, Download, ShieldCheck, AlertTriangle, RefreshCw, Loader2, ExternalLink, Database, Layers } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
-type LogType = "sync_package" | "sync_table" | "sync_scheduler" | "sync_consistency" | "control" | "audit"
+type LogType = "sync_package" | "sync_table" | "sync_scheduler" | "sync_consistency" | "control" | "audit" | "login_audit"
 type DataSource = "database" | "empty" | "error" | "loading"
 
 const LOG_TABS: { value: LogType; label: string; description: string }[] = [
@@ -58,6 +58,7 @@ const LOG_TABS: { value: LogType; label: string; description: string }[] = [
   { value: "sync_consistency", label: "一致性日志", description: "sync_consistency_log (R.7)" },
   { value: "control", label: "控制命令", description: "control_command (R.4)" },
   { value: "audit", label: "审计日志", description: "audit_log" },
+  { value: "login_audit", label: "登录审计", description: "auth_login_audit (R.27)" },
 ]
 
 interface LogRow {
@@ -95,6 +96,12 @@ function statusBadgeColor(status: string | null): string {
   }
   if (s === "pending" || s === "running" || s === "syncing" || s === "warning") {
     return "bg-amber-100 text-amber-700"
+  }
+  if (s === "locked") {
+    return "bg-orange-100 text-orange-700"
+  }
+  if (s === "logout") {
+    return "bg-slate-200 text-slate-600"
   }
   if (s === "dry_run_success" || s === "unsupported") {
     return "bg-blue-100 text-blue-700"
@@ -152,6 +159,41 @@ export default function Page() {
     setLoading(true)
     setLoadError(null)
     try {
+      // Sprint R.27: 登录审计走独立 API
+      if (activeType === "login_audit") {
+        const sp = new URLSearchParams()
+        sp.set("limit", "200")
+        if (keyword) sp.set("username", keyword)
+        if (status) sp.set("result", status)
+        if (siteCode) sp.set("siteCode", siteCode)
+        if (dateFrom) sp.set("from", dateFrom)
+        if (dateTo) sp.set("to", dateTo)
+        const res = await fetch(`/api/auth/audit?${sp.toString()}`, { cache: "no-store" })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const json = await res.json()
+        setDataSource(json.dataSource ?? "database")
+        setSources(["auth_login_audit"])
+        setMeta(undefined)
+        // Normalize login audit rows to LogRow shape
+        const auditItems: LogRow[] = (json.data?.items ?? []).map((r: any) => ({
+          log_type: "login_audit" as LogType,
+          log_id: r.id,
+          site_code: r.site_code,
+          status: r.result,
+          summary: `${r.username} - ${r.result}${r.failure_reason ? ` (${r.failure_reason})` : ""}`,
+          detail: { ip_address: r.ip_address, user_agent: r.user_agent, provider: r.provider, failure_reason: r.failure_reason },
+          occurred_at: r.created_at,
+          operator: r.username,
+          ref_batch_id: null,
+          ref_table_name: null,
+          error_code: r.failure_reason,
+        }))
+        setItems(auditItems)
+        setTotal(json.data?.total ?? 0)
+        setSelected(auditItems[0] ?? null)
+        return
+      }
+
       const res = await fetch(`/api/logs?${queryString}`, { cache: "no-store" })
       if (!res.ok) {
         const txt = await res.text().catch(() => "")
@@ -194,7 +236,7 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteCode, status, keyword, errorCode, deviceId, taskType, dateFrom, dateTo])
 
-  // 真实导出 (走 /api/logs/export)
+  // 真实导出 (走 /api/logs/export 或 /api/auth/audit/export)
   const handleExport = async (format: "csv" | "json" | "xlsx") => {
     if (items.length === 0) {
       toast({ title: "无数据可导出", description: "请先调整检索条件获取日志", variant: "destructive" })
@@ -202,6 +244,36 @@ export default function Page() {
     }
     setExporting(true)
     try {
+      // Sprint R.27: 登录审计走独立导出 API
+      if (activeType === "login_audit") {
+        const sp = new URLSearchParams()
+        sp.set("format", format === "xlsx" ? "csv" : format)
+        if (keyword) sp.set("username", keyword)
+        if (status) sp.set("result", status)
+        if (siteCode) sp.set("siteCode", siteCode)
+        if (dateFrom) sp.set("from", dateFrom)
+        if (dateTo) sp.set("to", dateTo)
+        const res = await fetch(`/api/auth/audit/export?${sp.toString()}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const blob = await res.blob()
+        const recordCount = res.headers.get("x-record-count") ?? "?"
+        const sha256 = res.headers.get("x-sha256") ?? ""
+        const cd = res.headers.get("content-disposition") ?? ""
+        const m = /filename="([^"]+)"/.exec(cd)
+        const filename = m?.[1] ?? `login-audit.${format === "xlsx" ? "csv" : format}`
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+        toast({
+          title: "导出完成",
+          description: `${recordCount} 条登录审计记录 SHA-256=${sha256.slice(0, 12)}...`,
+        })
+        return
+      }
+
       const sp = new URLSearchParams()
       sp.set("type", activeType)
       sp.set("format", format)
@@ -298,7 +370,7 @@ export default function Page() {
     <AppShell>
       <PageHeader
         title="日志检索"
-        description="同步包/表/调度/一致性/控制/审计 6 类日志统一查询与导出"
+        description="同步包/表/调度/一致性/控制/审计/登录审计 7 类日志统一查询与导出"
         badge="LOGS"
         actions={
           <div className="flex items-center gap-2">
@@ -355,14 +427,14 @@ export default function Page() {
         )}
       </div>
 
-      {/* blocked banner: login 审计 (REQ-2.2.x blocked_by_auth) */}
+      {/* Sprint R.27: 登录审计已接入, 仅数字签名仍 blocked */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-700 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800">
-          <p className="font-medium">登录审计 / 数字签名 暂未接入</p>
+          <p className="font-medium">数字签名暂未接入</p>
           <p className="mt-1">
-            登录流水依赖 ADFS (REQ-2.2.1, <code className="text-[10px] bg-amber-100 px-1 rounded">blocked_by_auth</code>); 数字签名需证书/私钥托管 (R.1 §7 禁止伪造签名)。
-            当前可检索 6 类日志: sync_package / sync_table / sync_scheduler / sync_consistency / control / audit。
+            数字签名需证书/私钥托管 (R.1 §7 禁止伪造签名)。
+            当前可检索 7 类日志: sync_package / sync_table / sync_scheduler / sync_consistency / control / audit / <strong>登录审计</strong>。
           </p>
         </div>
       </div>
@@ -384,6 +456,7 @@ export default function Page() {
               <TabsTrigger value="sync_consistency" className="text-xs">一致性</TabsTrigger>
               <TabsTrigger value="control" className="text-xs">控制命令</TabsTrigger>
               <TabsTrigger value="audit" className="text-xs">审计</TabsTrigger>
+              <TabsTrigger value="login_audit" className="text-xs">登录审计</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardHeader>
@@ -464,7 +537,7 @@ export default function Page() {
                     <>
                       <Layers className="h-10 w-10 mx-auto mb-2 text-slate-300" />
                       <p>无匹配日志</p>
-                      <p className="text-xs mt-1">当前筛选条件下 6 类日志源均无数据</p>
+                      <p className="text-xs mt-1">当前筛选条件下 7 类日志源均无数据</p>
                     </>
                   ) : (
                     <p>未找到匹配的日志记录</p>
