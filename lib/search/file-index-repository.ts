@@ -13,6 +13,11 @@
  */
 
 import { searchFileIndex as searchRestoreBounded } from "@/lib/source/file-index-source"
+import {
+  isEsConfigured,
+  searchFilesInEs,
+  type EsFileDocument,
+} from "@/lib/search/es-client"
 
 export type FileIndexSource = "es" | "unified_file_index" | "blocked_by_external_system"
 
@@ -21,6 +26,8 @@ export interface FileIndexQuery {
   keyword?: string
   suffix?: string
   limit?: number
+  siteCodes?: string[]
+  offset?: number
 }
 
 export interface FileIndexItem {
@@ -44,46 +51,40 @@ export interface FileIndexResult {
   blocker: string | null
 }
 
-const isEsConfigured = (): boolean =>
-  Boolean(process.env.SEARCH_ES_URL && process.env.SEARCH_ES_INDEX)
+function esItemToFileIndexItem(doc: EsFileDocument): FileIndexItem {
+  return {
+    siteCode: doc.siteCode,
+    fileName: doc.fileName,
+    filePath: doc.filePath,
+    extension: doc.extension,
+    hash: doc.hash,
+    volume: doc.volume,
+    disc: doc.disc,
+    department: doc.department,
+    source: "es",
+  }
+}
 
 export async function searchFileIndex(
   query: FileIndexQuery
 ): Promise<FileIndexResult> {
   const keyword = query.q ?? query.keyword
   const limit = Math.min(query.limit ?? 50, 200)
+  const offset = query.offset ?? 0
 
   if (isEsConfigured()) {
     try {
-      const url = process.env.SEARCH_ES_URL!.replace(/\/$/, "")
-      const index = process.env.SEARCH_ES_INDEX
-      const body = {
-        size: limit,
-        query: {
-          bool: {
-            must: keyword
-              ? [{ multi_match: { query: keyword, fields: ["fileName^2", "filePath", "hash"] } }]
-              : [{ match_all: {} }],
-            filter: query.suffix
-              ? [{ term: { extension: query.suffix.toLowerCase() } }]
-              : [],
-          },
-        },
-      }
-      const res = await fetch(`${url}/${index}/_search`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(5000),
+      const esResult = await searchFilesInEs({
+        q: keyword ?? "",
+        siteCodes: query.siteCodes ?? [],
+        limit,
+        offset,
       })
-      if (res.ok) {
-        const json = (await res.json()) as {
-          hits?: { total?: { value?: number }; hits?: Array<{ _source: FileIndexItem }> }
-        }
+      if (esResult.items.length > 0 || keyword) {
         return {
           source: "es",
-          items: (json.hits?.hits ?? []).map((h) => h._source),
-          total: json.hits?.total?.value ?? 0,
+          items: esResult.items.map(esItemToFileIndexItem),
+          total: esResult.total,
           missingDimensions: [],
           requirements: ["REQ-4.1.1", "REQ-4.1.2", "REQ-5.2.1"],
           blocker: null,
@@ -94,11 +95,6 @@ export async function searchFileIndex(
     }
   }
 
-  // Center unified_file_index is the preferred fallback.
-  // When center ingest has not populated it, return explicit blocked state
-  // rather than reading from source.
-  // The bounded restore reader is retained as a last-resort, audit-only
-  // capability that logs source=blocked_by_external_system in the response.
   const centerResult = await searchCenterUnifiedFileIndex(keyword, query.suffix, limit)
   if (centerResult.items.length > 0) {
     return centerResult

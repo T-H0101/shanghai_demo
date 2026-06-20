@@ -49,6 +49,7 @@
     "e2e:control": "tsx scripts/e2e/test-control.ts",
     "e2e:sites": "tsx scripts/e2e/test-sites.ts",
     "e2e:search": "tsx scripts/e2e/test-search.ts",
+    "e2e:search-es": "tsx scripts/e2e/test-search-es.ts",
     "e2e:settings": "tsx scripts/e2e/test-settings.ts",
     "e2e:auth": "tsx scripts/e2e/test-auth.ts",
     "e2e:auth-audit": "tsx scripts/e2e/test-auth-audit.ts",
