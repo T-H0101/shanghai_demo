@@ -66,7 +66,7 @@ export class ControlCoordinator {
     for (const command of commands) {
       await this.options.transport.ack(command.id)
       const storedExecution = await this.options.store.loadExecution(command.id)
-      let result = storedExecution?.result ?? null
+      let result: SiteActionResult | null = storedExecution?.result ?? null
 
       if (!result) {
         if (command.commandType === "sync_full" || command.commandType === "sync_incremental") {
@@ -96,7 +96,11 @@ export class ControlCoordinator {
         } else if (
           command.commandType !== "task_pause" &&
           command.commandType !== "task_resume" &&
-          command.commandType !== "task_create"
+          command.commandType !== "task_create" &&
+          command.commandType !== "task_reset" &&
+          command.commandType !== "task_priority_restore" &&
+          command.commandType !== "inspect_start" &&
+          command.commandType !== "recovery_start"
         ) {
           result = {
             status: "unsupported",
@@ -104,6 +108,28 @@ export class ControlCoordinator {
             after: null,
             blocker: "unsupported_command_type",
             reason: `Site Agent does not implement ${command.commandType}`,
+          }
+        } else if (
+          command.commandType === "task_reset" ||
+          command.commandType === "task_priority_restore" ||
+          command.commandType === "inspect_start" ||
+          command.commandType === "recovery_start"
+        ) {
+          // R.63: route additional atoms through executeAtom
+          const adapter = this.options.adapter as unknown as {
+            executeAtom?: (cmd: typeof command) => Promise<typeof result>
+          }
+          if (typeof adapter.executeAtom !== "function") {
+            result = {
+              status: "unsupported",
+              before: null,
+              after: null,
+              blocker: "atom_adapter_missing",
+            }
+          } else {
+            const r = await adapter.executeAtom(command)
+            result = r ?? { status: "failed", before: null, after: null, reason: "atom_returned_null" }
+            if (result.status === "success") executed++
           }
         } else if (command.commandType === "task_create") {
           // R.58/R.62: route task_create through task-create-adapter
@@ -178,6 +204,15 @@ export class ControlCoordinator {
             pauseState ?? undefined
           )
           executed++
+        }
+
+        if (result == null) {
+          result = {
+            status: "failed",
+            before: null,
+            after: null,
+            reason: "no_result_produced",
+          }
         }
 
         await this.options.store.saveExecution(command.id, {
