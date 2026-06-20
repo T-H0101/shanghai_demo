@@ -35,10 +35,12 @@ export const COMMAND_TYPES = [
   "sync_incremental",
   // Sprint R.58: 总控创建站点任务
   "task_create",
+  // Sprint R.64: 笼位移动注册
+  "cage_move_register",
 ] as const
 export type CommandType = (typeof COMMAND_TYPES)[number]
 
-export const TARGET_TYPES = ["task", "device", "volume", "media", "site"] as const
+export const TARGET_TYPES = ["task", "device", "volume", "media", "site", "cage"] as const
 export type TargetType = (typeof TARGET_TYPES)[number]
 
 export const COMMAND_STATUSES = [
