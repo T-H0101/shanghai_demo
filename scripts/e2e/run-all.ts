@@ -40,6 +40,7 @@ const scripts = [
   "e2e:task-monitor",
   "e2e:roadmap-25",
   "e2e:route-page-integration",
+  "e2e:security-boundaries",
 ]
 
 function loadEnvLocal() {
