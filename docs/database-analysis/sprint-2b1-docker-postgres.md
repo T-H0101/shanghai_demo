@@ -70,7 +70,7 @@ unified_disc_postgres   running (healthy)
 ```bash
 # 项目根目录创建 .env.local
 cat > .env.local << EOF
-DATABASE_URL=postgresql://unified:unified123@localhost:5432/unified_disc_platform
+DATABASE_URL=postgresql://<center_user>:<center_password>@localhost:5432/unified_disc_platform
 EOF
 ```
 
@@ -303,7 +303,7 @@ pnpm db:health
 pnpm db:init
 
 # 4. 配置环境变量
-echo "DATABASE_URL=postgresql://unified:unified123@localhost:5432/unified_disc_platform" > .env.local
+echo "DATABASE_URL=postgresql://<center_user>:<center_password>@localhost:5432/unified_disc_platform" > .env.local
 
 # 5. 启动开发服务器
 pnpm dev

@@ -8,6 +8,7 @@
  */
 
 import { execFileSync } from "node:child_process"
+import { writeFileSync } from "node:fs"
 import { DUMP_ALLOWED_TABLES } from "../../lib/sync/dump/manifest"
 
 const args = Object.fromEntries(
@@ -33,20 +34,78 @@ const tableArgs = DUMP_ALLOWED_TABLES.flatMap((table) => [
   `public.${table}`,
 ])
 
-execFileSync(
-  "pg_dump",
-  [
-    "--data-only",
-    "--no-owner",
-    "--no-privileges",
-    "--column-inserts=false",
-    ...tableArgs,
-    "--file",
-    out,
-    sourceUrl,
-  ],
-  { stdio: "inherit" }
-)
+const dumpArgs = [
+  "--data-only",
+  "--no-owner",
+  "--no-privileges",
+  ...tableArgs,
+]
+
+function commandExists(command: string): boolean {
+  try {
+    execFileSync("sh", ["-lc", `command -v ${command}`], { stdio: "ignore" })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function dockerDumpArgs(url: string): string[] | null {
+  try {
+    const parsed = new URL(url)
+    const db = parsed.pathname.replace(/^\//, "")
+    const user = decodeURIComponent(parsed.username)
+    if (db === "star_storage_db") {
+      return [
+        "exec",
+        "-i",
+        "site_restore_full_postgres",
+        "pg_dump",
+        "-U",
+        user || "starxdb",
+        "-d",
+        db,
+        ...dumpArgs,
+      ]
+    }
+    if (db === "source_restore") {
+      return [
+        "exec",
+        "-i",
+        "unified_disc_postgres",
+        "pg_dump",
+        "-U",
+        user || "unified",
+        "-d",
+        db,
+        ...dumpArgs,
+      ]
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+if (commandExists("pg_dump")) {
+  execFileSync(
+    "pg_dump",
+    [
+      ...dumpArgs,
+      "--file",
+      out,
+      sourceUrl,
+    ],
+    { stdio: "inherit" }
+  )
+} else {
+  const dockerArgs = dockerDumpArgs(sourceUrl)
+  if (!dockerArgs) {
+    throw new Error("pg_dump not found and Docker fallback could not infer source container")
+  }
+  const stdout = execFileSync("docker", dockerArgs)
+  writeFileSync(out, stdout)
+}
 
 console.log(
   `exported ${DUMP_ALLOWED_TABLES.length} tables to ${out}`

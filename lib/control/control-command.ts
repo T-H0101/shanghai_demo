@@ -97,6 +97,29 @@ export interface ListControlCommandFilter {
   offset?: number
 }
 
+let constraintsReady: Promise<void> | null = null
+
+function sqlTextArray(values: readonly string[]): string {
+  return values.map((value) => `'${value.replace(/'/g, "''")}'`).join(", ")
+}
+
+function ensureControlCommandConstraints(): Promise<void> {
+  if (!constraintsReady) {
+    constraintsReady = query(`
+      ALTER TABLE control_command DROP CONSTRAINT IF EXISTS control_command_command_type_check;
+      ALTER TABLE control_command ADD CONSTRAINT control_command_command_type_check
+        CHECK (command_type = ANY (ARRAY[${sqlTextArray(COMMAND_TYPES)}]::text[]));
+      ALTER TABLE control_command DROP CONSTRAINT IF EXISTS control_command_target_type_check;
+      ALTER TABLE control_command ADD CONSTRAINT control_command_target_type_check
+        CHECK (target_type = ANY (ARRAY[${sqlTextArray(TARGET_TYPES)}]::text[]));
+      ALTER TABLE control_command DROP CONSTRAINT IF EXISTS control_command_status_check;
+      ALTER TABLE control_command ADD CONSTRAINT control_command_status_check
+        CHECK (status = ANY (ARRAY[${sqlTextArray(COMMAND_STATUSES)}]::text[]));
+    `).then(() => undefined)
+  }
+  return constraintsReady
+}
+
 // ============================================================
 // 工具
 // ============================================================
@@ -145,6 +168,8 @@ function rowToCommand(r: any): ControlCommandRow {
 export async function createControlCommand(
   input: CreateControlCommandInput
 ): Promise<ControlCommandRow> {
+  await ensureControlCommandConstraints()
+
   if (!COMMAND_TYPES.includes(input.commandType)) {
     throw new Error(`invalid command_type: ${input.commandType}`)
   }

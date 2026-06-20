@@ -30,7 +30,7 @@ function loadEnvLocal(): void {
 }
 loadEnvLocal()
 
-const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://user:password@localhost:5432/source_restore'
+const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://localhost:5432/source_restore'
 
 const TABLES = ['tbl_task', 'tbl_lib_task', 'tbl_user_task']
 

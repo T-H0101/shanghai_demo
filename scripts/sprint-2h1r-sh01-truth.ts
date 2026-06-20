@@ -17,7 +17,7 @@ function loadEnvLocal(): void {
 }
 loadEnvLocal()
 
-const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://unified:password@localhost:5432/unified_disc_platform'
+const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/unified_disc_platform'
 
 async function main() {
   const c = new Client({ connectionString: CENTER_URL })

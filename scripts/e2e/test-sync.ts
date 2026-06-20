@@ -126,8 +126,9 @@ async function main() {
   const sh01 = await sh01Res.json()
   check(
     "siteCode=SH01 过滤生效",
-    sh01.data?.items?.length !== all.data?.items?.length,
-    `sh01=${sh01.data?.items?.length} all=${all.data?.items?.length}`
+    sh01.data?.total !== all.data?.total &&
+      sh01.data?.items?.every((item: { siteCode?: string }) => item.siteCode === "SH01"),
+    `sh01=${sh01.data?.total} all=${all.data?.total}`
   )
 
   // 6. 失败包真实存在 (R.3 验证 11 failed in DB, API limit=20 hardcoded 锁住)

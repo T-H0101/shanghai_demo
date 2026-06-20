@@ -13,13 +13,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TaskFileIndexPanel } from "@/components/tasks/task-file-index-panel"
 import { ControlCommandPanel } from "@/components/tasks/control-command-panel"
 import { AppTooltip } from "@/components/shared/tooltip"
-import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import {
   taskProvider,
   isApiMode,
@@ -163,13 +163,10 @@ function TasksPageContent() {
   const [selected, setSelected] = useState<TaskItem | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [tab, setTab] = useState<string>("all")
-  const [taskCreateNavigation, setTaskCreateNavigation] = useState<{
-    configured: boolean
-    url: string | null
-    reason: string | null
-  } | null>(null)
-  const [taskCreateNavigationLoading, setTaskCreateNavigationLoading] =
-    useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createName, setCreateName] = useState("")
+  const [createType, setCreateType] = useState<"backup" | "restore">("backup")
+  const [createSubmitting, setCreateSubmitting] = useState(false)
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -197,36 +194,6 @@ function TasksPageContent() {
   useEffect(() => {
     if (siteReady) loadTasks()
   }, [loadTasks, siteReady])
-
-  useEffect(() => {
-    if (!siteReady || isAllSites || !siteCode) {
-      setTaskCreateNavigation(null)
-      return
-    }
-    const controller = new AbortController()
-    setTaskCreateNavigationLoading(true)
-    fetch(
-      `/api/site-navigation/task-create?siteCode=${encodeURIComponent(siteCode)}`,
-      { signal: controller.signal, cache: "no-store" }
-    )
-      .then(async (response) => {
-        const body = await response.json()
-        if (!response.ok || !body.data) {
-          throw new Error(body.message ?? "节点任务创建地址读取失败")
-        }
-        setTaskCreateNavigation(body.data)
-      })
-      .catch((error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return
-        setTaskCreateNavigation({
-          configured: false,
-          url: null,
-          reason: "node_task_create_url_load_failed",
-        })
-      })
-      .finally(() => setTaskCreateNavigationLoading(false))
-    return () => controller.abort()
-  }, [siteReady, isAllSites, siteCode])
 
   const openDetail = (task: TaskItem) => { setSelected(task); setDrawerOpen(true) }
 
@@ -342,24 +309,67 @@ function TasksPageContent() {
     }
   }
 
-  const handleOpenNodeTaskCreate = () => {
+  const handleOpenCreateTask = () => {
     if (!siteReady || isAllSites || !siteCode) {
       toast({
         title: "请先选择站点",
-        description: "节点任务创建需要明确站点",
+        description: "总控新建任务需要明确目标站点",
         variant: "destructive",
       })
       return
     }
-    if (!taskCreateNavigation?.configured || !taskCreateNavigation.url) {
+    setCreateOpen(true)
+  }
+
+  const handleSubmitCreateTask = async () => {
+    if (!siteCode || isAllSites) {
       toast({
-        title: "节点任务创建地址未配置",
-        description: `请配置 SITE_NODE_TASK_CREATE_URL_${siteCode.toUpperCase()}`,
+        title: "请先选择站点",
+        description: "总控新建任务需要明确目标站点",
         variant: "destructive",
       })
       return
     }
-    window.open(taskCreateNavigation.url, "_blank", "noopener,noreferrer")
+    if (!createName.trim()) {
+      toast({
+        title: "任务名称不能为空",
+        description: "请输入备份或恢复任务名称",
+        variant: "destructive",
+      })
+      return
+    }
+    setCreateSubmitting(true)
+    try {
+      const res = await fetch("/api/tasks/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          siteCode,
+          taskName: createName.trim(),
+          taskType: createType,
+          source: "center_ui",
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.code !== 0) {
+        throw new Error(data.error || data.message || "提交失败")
+      }
+      toast({
+        title: "任务创建命令已提交",
+        description: `已提交到控制队列 ${data.commandNo ?? ""}，等待站点 Agent 执行`,
+      })
+      setCreateOpen(false)
+      setCreateName("")
+      setView("commands")
+    } catch (err) {
+      toast({
+        title: "任务创建命令提交失败",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      })
+    } finally {
+      setCreateSubmitting(false)
+    }
   }
 
   const handleResetFilters = () => {
@@ -431,24 +441,17 @@ function TasksPageContent() {
             <Button
               size="sm"
               className="bg-blue-600"
-              data-testid="task-create-at-node"
-              disabled={
-                taskCreateNavigationLoading ||
-                !siteReady ||
-                isAllSites ||
-                !taskCreateNavigation?.configured
-              }
+              data-testid="task-create-open"
+              disabled={!siteReady || isAllSites}
               title={
                 isAllSites
                   ? "请先选择站点"
-                  : taskCreateNavigation?.configured
-                    ? "前往站点节点创建任务"
-                    : "节点任务创建地址未配置"
+                  : "在总控创建任务并提交到控制队列"
               }
-              onClick={handleOpenNodeTaskCreate}
+              onClick={handleOpenCreateTask}
             >
               <ClipboardList className="h-4 w-4 mr-1" />
-              {taskCreateNavigation?.configured ? "节点新建任务" : "节点新建任务未配置"}
+              总控新建任务
             </Button>
           </div>
         }
@@ -910,15 +913,52 @@ function TasksPageContent() {
         </DrawerContent>
       </Drawer>
 
-      <FirstRunCoach
-        pageKey="tasks"
-        steps={[
-          { selector: '[data-testid="task-row-pause"]', message: "点击暂停图标可提交暂停命令, 站点 Agent 收到后会异步暂停任务" },
-          { selector: '[data-testid="tasks-search-input"]', message: "按名称/编号快速筛选任务" },
-          { selector: '[data-testid="tasks-phase-filter"]', message: "按阶段筛选 (暂停/失败/运行中)" },
-          { selector: '[data-testid="tasks-reset-filters"]', message: "一键清除全部筛选, 显示全部任务" },
-        ]}
-      />
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent data-testid="task-create-dialog">
+          <DialogHeader>
+            <DialogTitle>总控新建任务</DialogTitle>
+            <DialogDescription>
+              新建命令会写入控制队列，由站点 Agent 拉取后在站点库创建真实任务；总控不直接写 unified_tasks。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="task-create-name">任务名称</Label>
+              <Input
+                id="task-create-name"
+                value={createName}
+                onChange={(event) => setCreateName(event.target.value)}
+                placeholder="例如: SH01 档案备份任务"
+                data-testid="task-create-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>任务类型</Label>
+              <Select value={createType} onValueChange={(value) => setCreateType(value as "backup" | "restore")}>
+                <SelectTrigger data-testid="task-create-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="backup">备份任务</SelectItem>
+                  <SelectItem value="restore">恢复任务</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              提交后显示为“等待站点 Agent 执行”。只有 Agent 回写成功并完成同步后，才算站点真实创建完成。
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createSubmitting}>
+              取消
+            </Button>
+            <Button onClick={handleSubmitCreateTask} disabled={createSubmitting} data-testid="task-create-submit">
+              {createSubmitting ? "提交中..." : "提交到控制队列"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </AppShell>
   )
 }

@@ -48,7 +48,7 @@ const SPRINT_2H1_TABLES = [
 
 const FORBIDDEN = ['tbl_file', 'tbl_folder']
 
-const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://user:password@localhost:5432/source_restore'
+const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://localhost:5432/source_restore'
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg)

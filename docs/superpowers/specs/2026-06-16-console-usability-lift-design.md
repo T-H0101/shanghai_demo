@@ -12,9 +12,9 @@
 
 ### 1.2 根因
 
-`.env.local` 中 `DATABASE_URL=postgresql://unified:XZTY_intern\$123@...` 用了反斜杠转义美元符, 但 Next.js 的 dotenv 不识别这种转义, 导致:
-- `\$1` 在 Next.js 解析中被当作未定义变量替换为**空字符串**, 结果 dev server 拿到密码 `XZTY_intern`
-- 同时 `set -a; source .env.local` 的 shell 测试脚本会先解析 `\$` 为 `$`, 拿到正确密码 `XZTY_intern$123`
+`.env.local` 中曾出现形如 `DATABASE_URL=postgresql://user:<password-with-dollar>@...` 的密码转义问题。Next.js 的 dotenv 与 shell 对 `$` 的解析不同, 导致:
+- `$1` 这类片段在 Next.js 解析中可能被当作未定义变量替换为**空字符串**, 结果 dev server 拿到错误密码。
+- 同时 `set -a; source .env.local` 的 shell 测试脚本可能拿到另一个解析结果。
 - 因此 dev server HTTP API 全部失败 (500), 但 e2e 脚本通过 psql 直连仍能验证数据库 — 形成"dev 服务挂而脚本通过"的迷惑现象
 
 ### 1.3 UI 现状
@@ -181,4 +181,3 @@ Dashboard 的:
 | R.5 §事件测试 | 10 项完整 |
 | 现有页面功能 | 100% 保留 |
 | Sprint review | 输出 `docs/database-analysis/sprint-UI-2026-06-requirements-review.md` |
-

@@ -10,6 +10,8 @@
  */
 
 import { readFileSync } from "node:fs"
+import { closePool } from "../../lib/db/postgres"
+import { closeSourcePool } from "../../lib/db/source-pool"
 import { ingestPgDump } from "../../lib/sync/dump/ingest"
 
 const args = Object.fromEntries(
@@ -34,4 +36,8 @@ ingestPgDump({
   .catch((err) => {
     console.error("ingest failed:", err)
     process.exit(1)
+  })
+  .finally(async () => {
+    await closeSourcePool().catch(() => {})
+    await closePool()
   })

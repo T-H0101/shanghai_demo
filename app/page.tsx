@@ -6,7 +6,6 @@ import { SyncTrendChart } from "@/components/dashboard/sync-trend-chart"
 import { TaskTable } from "@/components/dashboard/task-table"
 import { AlertCenter } from "@/components/dashboard/alert-center"
 import { DashboardRecentSyncs } from "@/components/dashboard/dashboard-recent-syncs"
-import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import { Database } from "lucide-react"
 
 export default function Page() {
@@ -35,16 +34,6 @@ export default function Page() {
           <AlertCenter />
         </div>
       </div>
-      <FirstRunCoach
-        pageKey="dashboard"
-        steps={[
-          { selector: '[data-testid="command-palette-trigger"]', message: "按 ⌘K 快速跳转到任意页面 / 切换站点" },
-          { selector: '[data-testid="dashboard-stat-tasks"]', message: "点击 KPI 卡片跳转到任务详情" },
-          { selector: '[data-testid="dashboard-stat-devices"]', message: "查看设备在线状态, 跳转到盘架管理" },
-          { selector: '[data-testid="dashboard-recent-syncs"]', message: "查看最近的同步记录, 失败包会红色高亮" },
-          { selector: '[data-testid="dashboard-task-table"]', message: "鼠标悬停任务行可暂停/恢复, 不会立即执行" },
-        ]}
-      />
     </AppShell>
   )
 }

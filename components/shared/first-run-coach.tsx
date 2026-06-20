@@ -42,6 +42,7 @@ interface FirstRunCoachProps {
 }
 
 const STORAGE_PREFIX = "unified.firstRun."
+const DISABLED_KEY = "unified.firstRun.disabled"
 const SHOW_DELAY_MS = 1500
 const AUTO_NEXT_MS = 8000
 
@@ -54,12 +55,15 @@ export function FirstRunCoach({ pageKey, steps }: FirstRunCoachProps) {
   const targetRef = useRef<HTMLElement | null>(null)
   const advanceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const positionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 决定是否启用 + 启动延迟
   useEffect(() => {
     if (typeof window === "undefined") return
     const storageKey = STORAGE_PREFIX + pageKey
     try {
+      if (window.localStorage.getItem(DISABLED_KEY)) return
       if (window.localStorage.getItem(storageKey)) return
     } catch {
       return
@@ -76,6 +80,18 @@ export function FirstRunCoach({ pageKey, steps }: FirstRunCoachProps) {
     setActive(false)
     if (typeof window !== "undefined") {
       try {
+        window.localStorage.setItem(STORAGE_PREFIX + pageKey, new Date().toISOString())
+      } catch {
+        // ignore
+      }
+    }
+  }, [pageKey])
+
+  const dismissAll = useCallback(() => {
+    setActive(false)
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(DISABLED_KEY, new Date().toISOString())
         window.localStorage.setItem(STORAGE_PREFIX + pageKey, new Date().toISOString())
       } catch {
         // ignore
@@ -128,51 +144,66 @@ export function FirstRunCoach({ pageKey, steps }: FirstRunCoachProps) {
     if (!step) return
 
     let cancelled = false
+    let retryCount = 0
+
+    const updatePosition = () => {
+      const el = targetRef.current
+      if (!el || cancelled) return
+      const rect = el.getBoundingClientRect()
+      const coachWidth = 320
+      const coachHeight = 130
+      let top = rect.bottom + 16
+      let left = rect.left + rect.width / 2 - coachWidth / 2
+      let arrow: "top" | "bottom" = "top"
+
+      // Fixed-position elements use viewport coordinates. Do not add scrollY/scrollX.
+      if (top + coachHeight > window.innerHeight - 8) {
+        top = rect.top - coachHeight - 16
+        arrow = "bottom"
+      }
+      if (top < 8) {
+        top = Math.min(window.innerHeight - coachHeight - 8, rect.bottom + 16)
+        arrow = "top"
+      }
+      if (left + coachWidth > window.innerWidth - 8) {
+        left = window.innerWidth - coachWidth - 8
+      }
+      if (left < 8) left = 8
+      setPos({ top, left, arrow })
+    }
+
     const findAndPosition = () => {
       const el = document.querySelector(step.selector) as HTMLElement | null
       if (!el) {
-        const t = setTimeout(findAndPosition, 800)
-        return () => clearTimeout(t)
+        retryCount += 1
+        if (retryCount >= 6) {
+          goTo(stepIdx + 1)
+          return
+        }
+        retryTimerRef.current = setTimeout(findAndPosition, 300)
+        return
       }
       if (cancelled) return
       targetRef.current = el
 
-      // 滚动到目标 (确保用户能看到)
+      // Only scroll once when the step changes. Scroll events must only recalculate position.
       el.scrollIntoView({ behavior: "smooth", block: "center" })
 
-      // 等滚动完成后定位 (300ms)
-      setTimeout(() => {
-        if (cancelled || !el) return
-        const rect = el.getBoundingClientRect()
-        const coachWidth = 320
-        const coachHeight = 130
-        let top = rect.bottom + 16 + window.scrollY
-        let left = rect.left + rect.width / 2 - coachWidth / 2 + window.scrollX
-        let arrow: "top" | "bottom" = "top"
-        // 防止溢出底部
-        if (top + coachHeight > window.scrollY + window.innerHeight - 8) {
-          top = rect.top - coachHeight - 16 + window.scrollY
-          arrow = "bottom"
-        }
-        // 防止溢出右侧
-        if (left + coachWidth > window.scrollX + window.innerWidth - 8) {
-          left = window.scrollX + window.innerWidth - coachWidth - 8
-        }
-        if (left < 8) left = 8 + window.scrollX
-        setPos({ top, left, arrow })
-      }, 320)
+      positionTimerRef.current = setTimeout(updatePosition, 320)
     }
 
     findAndPosition()
-    window.addEventListener("resize", findAndPosition)
-    window.addEventListener("scroll", findAndPosition, true)
+    window.addEventListener("resize", updatePosition)
+    window.addEventListener("scroll", updatePosition, true)
 
     return () => {
       cancelled = true
-      window.removeEventListener("resize", findAndPosition)
-      window.removeEventListener("scroll", findAndPosition, true)
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+      if (positionTimerRef.current) clearTimeout(positionTimerRef.current)
+      window.removeEventListener("resize", updatePosition)
+      window.removeEventListener("scroll", updatePosition, true)
     }
-  }, [active, stepIdx, steps])
+  }, [active, stepIdx, steps, goTo])
 
   // ESC 关闭
   useEffect(() => {
@@ -199,8 +230,8 @@ export function FirstRunCoach({ pageKey, steps }: FirstRunCoachProps) {
         <div
           className="fixed pointer-events-none z-40 rounded-lg ring-4 ring-blue-500 ring-offset-2 ring-offset-white"
           style={{
-            top: targetRef.current.getBoundingClientRect().top - 6 + window.scrollY,
-            left: targetRef.current.getBoundingClientRect().left - 6 + window.scrollX,
+            top: targetRef.current.getBoundingClientRect().top - 6,
+            left: targetRef.current.getBoundingClientRect().left - 6,
             width: targetRef.current.getBoundingClientRect().width + 12,
             height: targetRef.current.getBoundingClientRect().height + 12,
           }}
@@ -287,6 +318,15 @@ export function FirstRunCoach({ pageKey, steps }: FirstRunCoachProps) {
               {paused ? "已暂停" : `第 ${stepIdx + 1}/${steps.length} 步 · 8s 后自动下一步`}
             </span>
             <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={dismissAll}
+                className="h-7 px-2 text-[11px] text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer"
+                data-testid={`first-run-coach-dismiss-all-${pageKey}`}
+              >
+                不再显示
+              </Button>
               {!isFirst && (
                 <Button
                   variant="ghost"

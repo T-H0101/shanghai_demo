@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { AppTooltip } from "@/components/shared/tooltip"
 import { TimeDisplay } from "@/components/shared/time-format"
-import { FirstRunCoach } from "@/components/shared/first-run-coach"
 import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -573,13 +572,6 @@ export default function Page() {
         </DialogContent>
       </Dialog>
 
-      <FirstRunCoach
-        pageKey="sites"
-        steps={[
-          { selector: '[data-testid="sites-refresh"]', message: "刷新站点列表, 获取最新在线状态" },
-          { selector: '[data-testid="sites-consistency"]', message: "校验中心库与源站点数据一致性" },
-        ]}
-      />
     </AppShell>
   )
 }

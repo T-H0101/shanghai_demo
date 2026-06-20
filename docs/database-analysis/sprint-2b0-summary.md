@@ -36,7 +36,7 @@ closePool()         // 关闭连接
 文件: `.env.example`
 
 ```bash
-DATABASE_URL=postgresql://user:password@localhost:5432/optical_disc_central
+DATABASE_URL=postgresql://<db_user>:<db_password>@localhost:5432/optical_disc_central
 DB_POOL_MIN=2
 DB_POOL_MAX=10
 DB_IDLE_TIMEOUT_MS=30000
@@ -113,7 +113,7 @@ CREATE TRIGGER update_*_updated_at BEFORE UPDATE ON *
 
 ```bash
 # 使用
-./init.sh -d 'postgresql://user:pass@localhost:5432/db'
+./init.sh -d 'postgresql://<db_user>:<db_password>@localhost:5432/db'
 
 # 验证连接
 ./init.sh --dry-run -d 'postgresql://...'

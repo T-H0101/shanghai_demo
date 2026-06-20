@@ -5,10 +5,12 @@
  */
 
 import assert from "node:assert/strict"
+import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
 async function main() {
+  await installAuthenticatedFetch(BASE)
   const res = await fetch(`${BASE}/api/logs?limit=1`, {
     signal: AbortSignal.timeout(8000),
   })

@@ -136,25 +136,37 @@ async function main() {
     "控制仅提交队列"
   )
   check(
-    "新建任务读取节点跳转配置",
-    tasksPage.includes("/api/site-navigation/task-create"),
-    "使用站点节点地址"
+    "总控新建任务按钮接入任务创建 API",
+    tasksPage.includes('data-testid="task-create-open"') &&
+      tasksPage.includes("/api/tasks/create"),
+    "总控提交到控制队列"
   )
   check(
-    "未配置节点地址时明确禁用",
-    tasksPage.includes("节点任务创建地址未配置") &&
-      tasksPage.includes("节点新建任务未配置"),
-    "fail closed"
+    "总控新建任务文案不冒充站点已创建",
+    tasksPage.includes("任务创建命令已提交") &&
+      tasksPage.includes("等待站点 Agent 执行"),
+    "提交队列，不宣称创建成功"
   )
   check(
     "控制文案明确等待 Agent",
     tasksPage.includes("等待站点 Agent 执行"),
     "不冒充执行成功"
   )
+  const createRes = await fetch(`${BASE}/api/tasks/create`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      siteCode: "SH01",
+      taskName: `E2E-CENTER-CREATE-${Date.now()}`,
+      taskType: "backup",
+      source: "api",
+    }),
+  })
+  const createJson = await createRes.json()
   check(
-    "不再打开本地创建任务弹窗",
-    !tasksPage.includes("setShowCreate(true)"),
-    "总控不重复创建任务"
+    "总控新建任务 → /api/tasks/create 返回 202",
+    createRes.status === 202 && createJson.code === 0 && !!createJson.commandId,
+    `HTTP ${createRes.status} commandNo=${createJson.commandNo ?? "—"}`
   )
 
   // 8. control_command 状态机 (R.4 验证 6 状态)

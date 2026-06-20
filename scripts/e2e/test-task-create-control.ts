@@ -60,11 +60,17 @@ async function main() {
   )
 
   // Run agent once to consume
-  try {
-    execFileSync("pnpm", ["agent:site", "--", "--once"], { stdio: "inherit" })
-  } catch (err) {
-    console.warn("agent run failed (continuing):", (err as Error).message)
-  }
+  execFileSync("pnpm", ["agent:site", "--", "--once"], {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      SITE_CODE: process.env.SITE_CODE ?? "SH01",
+      SITE_AGENT_ID: process.env.SITE_AGENT_ID ?? "e2e-agent-sh01",
+      SITE_AGENT_VERSION: process.env.SITE_AGENT_VERSION ?? "e2e",
+      PLATFORM_URL: process.env.PLATFORM_URL ?? BASE,
+      SITE_DATABASE_URL: siteUrl,
+    },
+  })
 
   // Verify station DB has the row
   const site = new Client({ connectionString: siteUrl })
@@ -80,13 +86,12 @@ async function main() {
     await site.end()
   }
 
-  if (stationCount === 0) {
-    console.warn(
-      `task_create station insert: skipped (no row found for ${marker}; this may be due to agent not being runnable in this env)`
-    )
-  } else {
-    console.log(`task_create station insert: ${stationCount} row(s) for ${marker}`)
-  }
+  assert.equal(
+    stationCount,
+    1,
+    `center-created task must be inserted into station tbl_task (${marker})`
+  )
+  console.log(`task_create station insert: ${stationCount} row(s) for ${marker}`)
 
   console.log("center task create control: PASS")
 }

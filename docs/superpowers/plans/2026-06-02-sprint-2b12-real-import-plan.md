@@ -47,7 +47,7 @@
 |------|---------|---------|
 | `lib/sync/types.ts` | UnifiedDeviceRecord 新增可选字段：model?, manufacturer?, serial_no?, slot_count?, cage_count?, use_status?, site_code? | 新字段全部 optional，不破坏现有代码 |
 | `lib/sync/upsert.ts` | upsertDevicesInTransaction SQL 增加 model, manufacturer, serial_no, slot_count, cage_count, use_status, site_code 列（INSERT + ON CONFLICT UPDATE） | 新增列使用 COALESCE(EXCLUDED.col, old.col) 或直接 EXCLUDED，确保旧调用方传 null 时不覆盖已有值 |
-| `.env.example` | 新增 `SOURCE_DATABASE_URL=postgresql://user:password@localhost:5432/source_restore` | 仅占位 |
+| `.env.example` | 新增 `SOURCE_DATABASE_URL=postgresql://<source_user>:<source_password>@localhost:5432/source_restore` | 仅占位 |
 | `package.json` | 新增 scripts（取决于 tsx 方案，见 Task 0） | 仅新增，不改现有 |
 
 ### 不修改的文件
@@ -70,14 +70,14 @@
 
 ```bash
 # .env.local（用户自行配置，不提交）
-SOURCE_DATABASE_URL=postgresql://unified:unified123@localhost:5432/source_restore
+SOURCE_DATABASE_URL=postgresql://<source_user>:<source_password>@localhost:5432/source_restore
 ```
 
 ### .env.example 占位
 
 ```bash
 # source_restore 数据库连接（用于真实数据导入）
-SOURCE_DATABASE_URL=postgresql://user:password@localhost:5432/source_restore
+SOURCE_DATABASE_URL=postgresql://<source_user>:<source_password>@localhost:5432/source_restore
 ```
 
 ### 新增 lib/db/source-pool.ts
@@ -474,14 +474,14 @@ Expected: 通过
 新增：
 ```
 # source_restore 数据库连接（用于真实数据导入）
-SOURCE_DATABASE_URL=postgresql://user:password@localhost:5432/source_restore
+SOURCE_DATABASE_URL=postgresql://<source_user>:<source_password>@localhost:5432/source_restore
 ```
 
 - [ ] **Step 3: 更新 .env.local**
 
 用户自行新增：
 ```
-SOURCE_DATABASE_URL=postgresql://unified:unified123@localhost:5432/source_restore
+SOURCE_DATABASE_URL=postgresql://<source_user>:<source_password>@localhost:5432/source_restore
 ```
 
 - [ ] **Step 4: 验证 TypeScript 编译**

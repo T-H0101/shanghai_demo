@@ -66,7 +66,7 @@ docker exec unified_disc_postgres psql -U unified -d unified_disc_platform \
 ### 4.1 第一次成功执行
 
 ```bash
-SOURCE_DATABASE_URL="postgresql://unified:unified123@localhost:5432/source_restore_file_test" \
+SOURCE_DATABASE_URL="postgresql://<source_user>:<source_password>@localhost:5432/source_restore_file_test" \
   pnpm import:file-index -- TEST_CLEAN 1 --from-id 0 --limit 1000 --batch-id FILEIDX-TEST_CLEAN-1-E2E
 ```
 

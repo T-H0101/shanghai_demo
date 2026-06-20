@@ -141,10 +141,10 @@ cp .env.example .env.local
 NEXT_PUBLIC_API_MODE=api
 
 # 中心库 (Docker 默认就行)
-DATABASE_URL=postgresql://unified:unified123@localhost:5432/unified_disc_platform
+DATABASE_URL=postgresql://<center_user>:<center_password>@localhost:5432/unified_disc_platform
 
 # 源端 (本地开发用)
-SOURCE_DATABASE_URL=postgresql://user:password@localhost:5432/source_restore
+SOURCE_DATABASE_URL=postgresql://<source_user>:<source_password>@localhost:5432/source_restore
 
 # HMAC 必填 (Sprint 2G.1, strict 模式)
 SYNC_PACKAGE_AUTH_MODE=strict
@@ -571,7 +571,7 @@ sed -i '' 's/SYNC_PACKAGE_AUTH_MODE=dev/SYNC_PACKAGE_AUTH_MODE=strict/' .env.loc
 
 ```bash
 # 1. 站点侧准备 (一次性)
-export SOURCE_DATABASE_URL=postgresql://site-user:pwd@host:5432/site_db
+export SOURCE_DATABASE_URL=postgresql://<site_user>:<site_password>@host:5432/site_db
 export SYNC_PACKAGE_SECRET=<与总控一致>
 
 # 2. 导出 7 张白名单小表

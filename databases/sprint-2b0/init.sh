@@ -47,7 +47,7 @@ show_help() {
   echo "  --dry-run              仅验证连接，不执行 DDL"
   echo ""
   echo "示例:"
-  echo "  $0 -d 'postgresql://user:pass@localhost:5432/optical_disc_central'"
+  echo "  $0 -d 'postgresql://<db_user>:<db_password>@localhost:5432/optical_disc_central'"
   echo "  $0 --dry-run"
   echo ""
   echo "环境变量:"
@@ -89,7 +89,7 @@ done
 if [[ -z "$CONN_STRING" ]]; then
   if [[ -z "$DATABASE_URL" ]]; then
     log_warn "请输入 PostgreSQL 连接字符串:"
-    log_info "格式: postgresql://user:password@host:port/database"
+    log_info "格式: postgresql://<db_user>:<db_password>@host:port/database"
     read -r CONN_STRING
   else
     CONN_STRING="$DATABASE_URL"

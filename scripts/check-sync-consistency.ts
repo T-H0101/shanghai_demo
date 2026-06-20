@@ -195,8 +195,8 @@ async function main() {
   const source = await pickSourceDb()
   if (!source) {
     console.error("❌ Neither SITE_DATABASE_URL nor SOURCE_DATABASE_URL configured/reachable")
-    console.error("   Hint: SITE_DATABASE_URL=postgresql://postgres:@localhost:5434/star_storage_db")
-    console.error("   Hint: SOURCE_DATABASE_URL=postgresql://unified:...@localhost:5432/source_restore")
+    console.error("   Hint: SITE_DATABASE_URL=postgresql://<site_user>:<site_password>@localhost:5434/star_storage_db")
+    console.error("   Hint: SOURCE_DATABASE_URL=postgresql://<source_user>:<source_password>@localhost:5432/source_restore")
     await central.end()
     process.exit(2)
   }

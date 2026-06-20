@@ -17,7 +17,7 @@ function loadEnvLocal(): void {
 }
 loadEnvLocal()
 
-const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://user:password@localhost:5432/source_restore'
+const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://localhost:5432/source_restore'
 
 async function main() {
   const c = new Client({ connectionString: SOURCE_URL })

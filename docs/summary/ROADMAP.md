@@ -411,7 +411,7 @@
 > **核心**: 修正 R.3 审计误判，executor 从假执行改为真连接站点库。
 
 ### 修复
-- `.env.local` 加 `SITE_DATABASE_URL=postgresql://starxdb:starxdb@localhost:5434/star_storage_db`
+- `.env.local` 加 `SITE_DATABASE_URL=postgresql://<site_user>:<site_password>@localhost:5434/star_storage_db`
 - executor 改为 `status=20` (paused) / `status=0` (恢复) / `status=1` (重置)
 - `selectTaskSnapshot` 连站点库读 before/after 快照
 

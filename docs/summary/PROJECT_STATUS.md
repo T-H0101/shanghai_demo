@@ -211,7 +211,7 @@
 
 ### Secret Sanitize (双层)
 - 字段名黑名单: password/secret/token/api_key/database_url 等 15 类 (子串)
-- 值 regex 黑名单: postgres://user:pwd@ / Bearer / sk- / xoxb- 等 5 类
+- 值 regex 黑名单: PostgreSQL 账号密码 URL / Bearer token / OpenAI token / Slack token 等 5 类
 - e2e 实测: 7 端点 × CSV+JSON = 14 项检查全 0 命中
 
 ### 头部兼容 (R.13 同时输出新旧两套)

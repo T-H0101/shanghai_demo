@@ -6,8 +6,8 @@
  *   2. FirstRunCoach 组件 + localStorage 记忆
  *   3. EmptyState / ErrorState 共享组件
  *   4. Header 改造: 元素精简 + Tooltip 包裹
- *   5. Tasks 页面: Tooltip 包裹暂停按钮 + FirstRunCoach 挂载
- *   6. Dashboard: FirstRunCoach 挂载
+ *   5. Tasks 页面: Tooltip 包裹暂停按钮 + AppShell 全局 FirstRunCoach 覆盖
+ *   6. Dashboard: AppShell 全局 FirstRunCoach 覆盖
  *   7. e2e 兼容: global-search-entry 仍存在
  *   8. 运行时 HTTP 200 / API 仍可用
  */
@@ -46,6 +46,7 @@ async function main() {
   // ============================================================
   console.log("\n=== 2. FirstRunCoach 组件 ===")
   const coachSource = readFileSync("components/shared/first-run-coach.tsx", "utf8")
+  const appShellSource = readFileSync("components/layout/app-shell.tsx", "utf8")
   check("FirstRunCoach 组件存在", coachSource.includes("export function FirstRunCoach"))
   check("接受 pageKey 参数", coachSource.includes("pageKey"))
   check("接受 steps 数组", coachSource.includes("steps"))
@@ -90,11 +91,11 @@ async function main() {
   // ============================================================
   // 5. Tasks 页面改造
   // ============================================================
-  console.log("\n=== 5. Tasks 页面 Tooltip + FirstRunCoach ===")
+  console.log("\n=== 5. Tasks 页面 Tooltip + AppShell FirstRunCoach ===")
   const tasksSource = readFileSync("app/tasks/page.tsx", "utf8")
   check("Tasks 导入 AppTooltip", tasksSource.includes("AppTooltip"))
-  check("Tasks 导入 FirstRunCoach", tasksSource.includes("FirstRunCoach"))
-  check("Tasks 挂载 <FirstRunCoach pageKey=\"tasks\">", tasksSource.includes('pageKey="tasks"'))
+  check("Tasks 不再局部重复挂载 FirstRunCoach", !tasksSource.includes("FirstRunCoach"))
+  check("AppShell 覆盖 /tasks 指引", appShellSource.includes('pathname.startsWith("/tasks")'))
   check("Tasks 暂停按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-pause[\s\S]*?<\/AppTooltip>/.test(tasksSource))
   check("Tasks 恢复按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-resume[\s\S]*?<\/AppTooltip>/.test(tasksSource))
   check("Tasks 暂停按钮保留 data-testid=task-row-pause", tasksSource.includes('data-testid="task-row-pause"'))
@@ -113,17 +114,22 @@ async function main() {
   // ============================================================
   // 6. Dashboard 改造
   // ============================================================
-  console.log("\n=== 6. Dashboard 挂载 FirstRunCoach ===")
+  console.log("\n=== 6. Dashboard AppShell FirstRunCoach 覆盖 ===")
   const dashSource = readFileSync("app/page.tsx", "utf8")
-  check("Dashboard 导入 FirstRunCoach", dashSource.includes("FirstRunCoach"))
-  check("Dashboard 挂载 <FirstRunCoach pageKey=\"dashboard\">", dashSource.includes('pageKey="dashboard"'))
-  check("Dashboard FirstRunCoach 引导 ⌘K", dashSource.includes("command-palette-trigger"))
-  check("Dashboard FirstRunCoach 引导 KPI 卡片", dashSource.includes("dashboard-stat-tasks"))
-  // UI-2026-06-C 扩充: 引导步骤 ≥ 5
-  const dashStepsCount = (dashSource.match(/selector:/g) ?? []).length
-  check(`Dashboard FirstRunCoach 步骤 ≥ 5 (实际 ${dashStepsCount})`, dashStepsCount >= 5)
-  check("Dashboard 引导包含同步趋势 (recent-syncs)", dashSource.includes("dashboard-recent-syncs"))
-  check("Dashboard 引导包含任务表格 (task-table)", dashSource.includes("dashboard-task-table"))
+  check("Dashboard 不再局部重复挂载 FirstRunCoach", !dashSource.includes("FirstRunCoach"))
+  check("AppShell 覆盖首页指引", appShellSource.includes('pathname === "/"'))
+  check("AppShell 首页指引包含 ⌘K", appShellSource.includes("command-palette-trigger"))
+  check("AppShell 首页指引包含 KPI 卡片", appShellSource.includes("dashboard-stat-tasks"))
+  const dashboardGuideSelectors = [
+    "command-center-panel",
+    "dashboard-stat-tasks",
+    "dashboard-recent-syncs",
+    "dashboard-task-table",
+  ]
+  const dashStepsCount = dashboardGuideSelectors.filter((selector) => appShellSource.includes(selector)).length
+  check(`AppShell Dashboard 指引步骤足够 (实际 ${dashStepsCount})`, dashStepsCount >= 4)
+  check("AppShell 引导包含最近同步", appShellSource.includes("dashboard-recent-syncs"))
+  check("AppShell 引导包含任务表格", appShellSource.includes("dashboard-task-table"))
 
   // ============================================================
   // 7. 运行时端到端
@@ -157,11 +163,11 @@ async function main() {
   // ============================================================
   // 7b. Sites 页面 Tooltip + FirstRunCoach
   // ============================================================
-  console.log("\n=== 7b. Sites 页面 Tooltip + FirstRunCoach ===")
+  console.log("\n=== 7b. Sites 页面 Tooltip + AppShell FirstRunCoach ===")
   const sitesPageSource = readFileSync("app/sites/page.tsx", "utf8")
   check("Sites 导入 AppTooltip", sitesPageSource.includes("AppTooltip"))
-  check("Sites 导入 FirstRunCoach", sitesPageSource.includes("FirstRunCoach"))
-  check("Sites 挂载 <FirstRunCoach pageKey=\"sites\">", sitesPageSource.includes('pageKey="sites"'))
+  check("Sites 不再局部重复挂载 FirstRunCoach", !sitesPageSource.includes("FirstRunCoach"))
+  check("AppShell 覆盖 /sites 指引", appShellSource.includes('pathname.startsWith("/sites")'))
   check("Sites 刷新按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-refresh[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
   check("Sites 一致性按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-consistency[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
   check("Sites 注册按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-register[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
@@ -169,11 +175,11 @@ async function main() {
   check(`Sites 含 ≥ 3 个 AppTooltip (实际 ${sitesTooltipCount})`, sitesTooltipCount >= 3)
 
   // FirstRunCoach 步骤分布
-  const totalCoachSteps =
-    (dashSource.match(/selector:/g) ?? []).length +
-    (tasksSource.match(/selector:/g) ?? []).length +
-    (sitesPageSource.match(/selector:/g) ?? []).length
-  check(`FirstRunCoach 总步骤 ≥ 11 (D 5 + T 4 + S 2, 实际 ${totalCoachSteps})`, totalCoachSteps >= 11)
+  const totalCoachSteps = (appShellSource.match(/selector:/g) ?? []).length
+  check(`FirstRunCoach 全局步骤覆盖 ≥ 24 (实际 ${totalCoachSteps})`, totalCoachSteps >= 24)
+  for (const route of ["/", "/sync", "/tasks", "/racks", "/search", "/logs", "/sites", "/settings", "/users", "/volumes"]) {
+    check(`AppShell 首访指引覆盖 ${route}`, appShellSource.includes(route === "/" ? 'pathname === "/"' : `pathname.startsWith("${route}")`))
+  }
 
   // ============================================================
   // 7c. Hover 反馈覆盖率
@@ -328,8 +334,20 @@ async function main() {
     coachSource.includes("prev") && coachSource.includes("ChevronLeft"),
   )
   check(
+    "FirstRunCoach 支持一键不再显示全部引导",
+    coachSource.includes("unified.firstRun.disabled") && coachSource.includes("dismissAll"),
+  )
+  check(
     "FirstRunCoach 含 scrollIntoView (自动滚动到目标)",
     coachSource.includes("scrollIntoView"),
+  )
+  check(
+    "FirstRunCoach fixed 定位不叠加 window.scrollY/scrollX",
+    !coachSource.includes("window.scrollY") && !coachSource.includes("window.scrollX"),
+  )
+  check(
+    "FirstRunCoach 滚动监听只重算位置, 不重复 scrollIntoView",
+    coachSource.includes('window.addEventListener("scroll", updatePosition'),
   )
   check(
     "FirstRunCoach 含进度点 (dots)",
@@ -407,7 +425,8 @@ async function main() {
     "所有 testid 唯一可识别",
     headerSource.includes("header-health-badge") &&
       headerSource.includes("header-user-avatar") &&
-      tasksSource.includes("task-row-pause"),
+      tasksSource.includes("task-row-pause") &&
+      appShellSource.includes("route-"),
   )
 
   console.log(`\nHeader UX Lift e2e: ${passed} passed, ${failed} failed`)

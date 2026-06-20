@@ -114,6 +114,28 @@ async function main() {
       pageSource.includes("URL.createObjectURL") &&
       !pageSource.includes("设备数据导出功能开发中")
   )
+  check(
+    "设备总览 Tab 有真实概览内容",
+    pageSource.includes('data-testid="racks-storage-overview-content"') &&
+      pageSource.includes("设备在线概况") &&
+      pageSource.includes("盘位汇总") &&
+      pageSource.includes("当前数据口径")
+  )
+  check(
+    "存储浏览/数据恢复 Tab 可切换且不 disabled",
+    pageSource.includes('data-testid="racks-storage-tab-browse"') &&
+      pageSource.includes('data-testid="racks-storage-tab-restore"') &&
+      !/TabsTrigger[\s\S]{0,160}value="browse"[\s\S]{0,160}disabled=/.test(pageSource) &&
+      !/TabsTrigger[\s\S]{0,160}value="restore"[\s\S]{0,160}disabled=/.test(pageSource)
+  )
+  check(
+    "API 模式存储浏览/数据恢复显示 blocked 而非 mock 内容",
+      pageSource.includes('testid="racks-storage-browse-blocked"') &&
+      pageSource.includes('testid="racks-storage-restore-blocked"') &&
+      pageSource.includes("不能用 mock 目录冒充真实文件树") &&
+      pageSource.includes("总控必须保留完整控制能力") &&
+      pageSource.includes("Site Agent 恢复协议")
+  )
 
   console.log("\n--- R.17 盘位明细 (Racks/Slots closure) ---")
   // R.17: 选第一个 SH01 设备, 验证 /api/racks/[id] + /api/racks/[id]/slots

@@ -30,8 +30,8 @@ function loadEnvLocal(): void {
 }
 loadEnvLocal()
 
-const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://user:password@localhost:5432/source_restore'
-const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://unified:password@localhost:5432/unified_disc_platform'
+const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://localhost:5432/source_restore'
+const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/unified_disc_platform'
 
 const TABLES: { src: string; target: string | null }[] = [
   { src: 'tbl_task',           target: 'unified_tasks' },

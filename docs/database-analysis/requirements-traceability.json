@@ -130,8 +130,8 @@
       "req_id": "REQ-4.2.1",
       "title": "任务管理 (新建)",
       "status": "partial",
-      "decision_point": "总控跳转节点已确定；缺真实节点创建 URL",
-      "effort_days": "site URL configuration and acceptance",
+      "decision_point": "总控创建任务走 control_command；strict complete 需生产 Site Agent 执行和站点库回写验收",
+      "effort_days": "production Site Agent deployment and acceptance",
       "category": "业务 API"
     },
     {
@@ -961,7 +961,7 @@
         "Dashboard"
       ],
       "backend_reality": "R.37/R.38: /api/tasks 响应 <1s；/api/alerts 可访问；control_command 面板 5 秒刷新；任务类型、状态、告警源真实。",
-      "ui_reality": "Tasks 页面支持任务状态筛选、控制命令视图、pause/resume 队列状态；节点新建任务未配置时明确 fail-closed。",
+      "ui_reality": "Tasks 页面支持任务状态筛选、控制命令视图、pause/resume 队列状态；总控新建任务通过 /api/tasks/create 写入控制队列，等待 Site Agent 执行。",
       "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
       "blocker_type": null,
       "missing_parts": [],

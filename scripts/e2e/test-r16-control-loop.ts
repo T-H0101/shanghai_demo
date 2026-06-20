@@ -138,10 +138,12 @@ async function main() {
       shell: "/bin/bash",
       timeout: 60000,
     })
-    const tasksAfter = await fetch(`${BASE}/api/tasks?pageSize=10`)
+    const tasksAfter = await fetch(`${BASE}/api/tasks?siteCode=${SITE}&pageSize=500`)
     const tasksAfterJson = await tasksAfter.json()
-    const updatedTask = (tasksAfterJson?.data?.items ?? []).find((t: any) => t.id === targetTask.id)
-    check("[6] import:tasks 后 /api/tasks 仍返回该 task", !!updatedTask, `id=${targetTask.id}`)
+    const updatedTask = (tasksAfterJson?.data?.items ?? []).find((t: any) =>
+      String(t.sourceId) === String(targetId)
+    )
+    check("[6] import:tasks 后 /api/tasks 按 sourceId 返回该 task", !!updatedTask, `sourceId=${targetId}`)
     if (isRealWrite) {
       check("[6] status=paused 真回读到中心库", updatedTask?.status === "paused", `status=${updatedTask?.status}`)
     } else {

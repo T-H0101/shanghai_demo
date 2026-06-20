@@ -38,8 +38,8 @@ if (!SECRET) {
   process.exit(1)
 }
 const URL = process.env.SYNC_CONTROL_URL ?? 'http://localhost:3000'
-const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://user:password@localhost:5432/source_restore'
-const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://unified:password@localhost:5432/unified_disc_platform'
+const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://localhost:5432/source_restore'
+const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/unified_disc_platform'
 
 async function signAndPost(payload: unknown, label: string): Promise<{ status: number; body: any }> {
   const rawBody = JSON.stringify(payload)

@@ -28,7 +28,6 @@ const scripts = [
   "e2e:site-agent-sync",
   "e2e:site-agent-control-core",
   "e2e:site-agent-control",
-  "e2e:task-navigation",
   "e2e:frontend-integration",
   "e2e:floating-assistant",
   "e2e:full-audit",

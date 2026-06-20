@@ -18,6 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { EmptyState } from "@/components/shared/empty-state"
 import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
@@ -1287,26 +1288,24 @@ export default function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    {/* ── 存储浏览 / 数据恢复 Tab ───────────────────────────── */}
+      {/* ── 存储浏览 / 数据恢复 Tab ───────────────────────────── */}
       <div className="border border-slate-200 rounded-lg overflow-hidden">
         {/* Tab 切换区 */}
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
           <Tabs value={storageTab} onValueChange={v => setStorageTab(v as any)} className="w-auto">
-            <TabsList className="h-8 bg-slate-100">
-              <TabsTrigger value="overview" className="h-7 text-xs data-[state=active]:bg-white">设备总览</TabsTrigger>
+            <TabsList className="h-8 bg-slate-100" data-testid="racks-storage-tabs">
+              <TabsTrigger value="overview" className="h-7 text-xs data-[state=active]:bg-white" data-testid="racks-storage-tab-overview">设备总览</TabsTrigger>
               <TabsTrigger
                 value="browse"
-                disabled={isApiMode}
-                title={isApiMode ? "文件浏览接口未接入" : undefined}
                 className="h-7 text-xs data-[state=active]:bg-white"
+                data-testid="racks-storage-tab-browse"
               >
                 <FolderTree className="h-3.5 w-3.5 mr-1" />存储浏览
               </TabsTrigger>
               <TabsTrigger
                 value="restore"
-                disabled={isApiMode}
-                title={isApiMode ? "数据恢复接口未接入" : undefined}
                 className="h-7 text-xs data-[state=active]:bg-white"
+                data-testid="racks-storage-tab-restore"
               >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />数据恢复
               </TabsTrigger>
@@ -1337,7 +1336,16 @@ export default function Page() {
         <div className="p-4 bg-slate-50">
           {/* 存储浏览 */}
           {storageTab === "browse" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            isApiMode ? (
+              <EmptyState
+                icon={FolderTree}
+                title="存储浏览暂未接入真实源端目录树"
+                description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要站点文件索引服务或 ES/ClickHouse 查询通道，不能用 mock 目录冒充真实文件树。"
+                className="bg-amber-50/60 border-amber-200"
+                testid="racks-storage-browse-blocked"
+              />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="racks-storage-browse-content">
               {/* 左侧目录树 */}
               <div className="bg-white rounded-lg p-3">
                 <div className="flex items-center justify-between mb-3">
@@ -1385,12 +1393,23 @@ export default function Page() {
                   </div>
                 )}
               </div>
-            </div>
+              </div>
+            )
           )}
 
           {/* 数据恢复 */}
           {storageTab === "restore" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            isApiMode ? (
+              <EmptyState
+                icon={RotateCcw}
+                title="数据恢复任务等待 Site Agent 闭环"
+                description="总控必须保留完整控制能力。当前页面不使用 mock 文件树冒充恢复任务，后续需通过总控任务创建接口、文件索引和 Site Agent 恢复协议完成真实站点库写入。"
+                className="bg-amber-50/60 border-amber-200"
+                testid="racks-storage-restore-blocked"
+                action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}
+              />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-restore-content">
               {/* 左侧目录树 */}
               <div className="bg-white rounded-lg p-3">
                 <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
@@ -1494,15 +1513,64 @@ export default function Page() {
                   </Button>
                 </div>
               </div>
-            </div>
+              </div>
+            )
           )}
 
           {/* 设备总览（默认） */}
           {storageTab === "overview" && (
-            <div className="text-sm text-slate-500 text-center py-8">
-              <HardDrive className="h-12 w-12 mx-auto mb-2 opacity-20" />
-              <p>当前 {filtered.filter(r => r.deviceStatus === "online").length} 台设备在线</p>
-              <p className="text-xs mt-1">点击上方 Tab 切换到"存储浏览"或"数据恢复"</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-overview-content">
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                  <HardDrive className="h-4 w-4 text-blue-600" />
+                  设备在线概况
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                  <div className="rounded-lg bg-emerald-50 p-3">
+                    <p className="text-2xl font-semibold text-emerald-700">{filtered.filter(r => r.deviceStatus === "online").length}</p>
+                    <p className="mt-1 text-xs text-emerald-700/70">在线</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-2xl font-semibold text-slate-700">{filtered.filter(r => r.deviceStatus === "offline").length}</p>
+                    <p className="mt-1 text-xs text-slate-500">离线</p>
+                  </div>
+                  <div className="rounded-lg bg-red-50 p-3">
+                    <p className="text-2xl font-semibold text-red-700">{filtered.filter(r => r.deviceStatus === "error" || r.status === "fault").length}</p>
+                    <p className="mt-1 text-xs text-red-700/70">异常</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                  <Grid3X3 className="h-4 w-4 text-violet-600" />
+                  盘位汇总
+                </div>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">已用盘位</span>
+                    <span className="font-semibold text-slate-900">{stats.usedSlots} / {stats.totalSlotsAll || "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">平均使用率</span>
+                    <span className="font-semibold text-slate-900">{stats.avgUsage}%</span>
+                  </div>
+                  <Progress value={stats.avgUsage} className="h-2" />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                  <Database className="h-4 w-4 text-blue-600" />
+                  当前数据口径
+                </div>
+                <div className="mt-4 space-y-2 text-xs text-slate-600">
+                  <p>来源: {isApiMode ? "中心库 unified_devices / unified_slots" : "本地 mock 演示数据"}</p>
+                  <p>设备数量: {filtered.length} 台</p>
+                  <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
+                  <p className="text-amber-700">存储浏览/数据恢复未接入时显示 blocked，不使用模拟目录冒充真实能力。</p>
+                </div>
+              </div>
             </div>
           )}
         </div>

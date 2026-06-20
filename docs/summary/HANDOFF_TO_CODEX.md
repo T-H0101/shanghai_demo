@@ -232,9 +232,9 @@ pnpm check:sync-consistency -- --siteCode=SH01   # 7/7 matched
 
 | 库 | 端口 | 凭据 |
 |---|---|---|
-| `unified_disc_postgres` | 5432 | `unified / XZTY_intern$123` |
+| `unified_disc_postgres` | 5432 | `unified / <center_password>` |
 | `site_restore_full_postgres` (star_storage_db) | 5434 | `starxdb / starxdb` |
-| `source_restore` | 5432 | `unified / XZTY_intern$123` (13 表) |
+| `source_restore` | 5432 | `unified / <source_password>` (13 表) |
 
 ---
 

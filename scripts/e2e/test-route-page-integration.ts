@@ -175,7 +175,7 @@ async function main() {
   }
 
   for (const path of ["/api/search?q=x", "/api/logs?limit=1"]) {
-    const r = await fetch(`${BASE}${path}`)
+    const r = await apiFetch(path)
     check(
       `R.55 ${path} reachable`,
       r.status === 200,

@@ -29,7 +29,7 @@ function loadEnvLocal(): void {
 loadEnvLocal()
 
 // 直接连 source_restore (用于盘点, 不写入)
-const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://user:password@localhost:5432/source_restore'
+const SOURCE_URL = process.env.SOURCE_DATABASE_URL ?? 'postgresql://localhost:5432/source_restore'
 
 const KEYWORDS = ['task', 'job', 'backup', 'certif', 'progress']
 
@@ -77,7 +77,7 @@ async function main() {
     }
 
     // 4. 顺便列出 unified_* 已有表 (中心库) - 改连中心库
-    const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://unified:password@localhost:5432/unified_disc_platform'
+    const CENTER_URL = process.env.DATABASE_URL ?? 'postgresql://localhost:5432/unified_disc_platform'
     const center = new Client({ connectionString: CENTER_URL })
     await center.connect()
     try {
