@@ -1,58 +1,60 @@
 /**
  * GET /api/search
- * 跨维度检索 API — R.48 重写
+ * Cross-dimension file search — R.55 center-owned read path
  *
- * 数据来源: star_storage_db tbl_file_* 分区表 (直接查询, 不全量导入 PG17)
- * 限制: LIMIT 200, 不支持千万级全文检索 (需 ES/ClickHouse)
+ * Selection:
+ *   1. ES/OpenSearch configured -> query ES
+ *   2. otherwise                -> unified_file_index
+ *   3. otherwise                -> blocked_by_external_system
  *
- * REQ-4.1.1: 跨维度检索 (名称/后缀/部门/卷/盘) — partial
- * REQ-4.1.2: 检索性能 ≤3 秒 (千万级) — blocked_by_external_system
+ * NEVER reads site_restore_db directly. The bounded restore reader is
+ * retained only for audit tooling.
+ *
+ * REQ-4.1.1: cross-dimension search — partial (ES preferred for full perf)
+ * REQ-4.1.2: search performance <=3s for 千万级 — blocked_by_external_system
+ * REQ-5.2.1: index export — partial
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { searchFileIndex } from "@/lib/source/file-index-source"
+import { searchFileIndex } from "@/lib/search/file-index-repository"
 
 export async function GET(request: NextRequest) {
   try {
-    const keyword = request.nextUrl.searchParams.get("q") ?? request.nextUrl.searchParams.get("keyword") ?? undefined
+    const keyword =
+      request.nextUrl.searchParams.get("q") ??
+      request.nextUrl.searchParams.get("keyword") ??
+      undefined
     const suffix = request.nextUrl.searchParams.get("suffix") ?? undefined
-    const limit = Math.min(Number(request.nextUrl.searchParams.get("limit") ?? "50"), 200)
+    const limit = Math.min(
+      Number(request.nextUrl.searchParams.get("limit") ?? "50"),
+      200
+    )
 
-    const result = await searchFileIndex({
-      keyword,
-      suffix,
-      limit,
-    })
+    const result = await searchFileIndex({ q: keyword, suffix, limit })
 
     return NextResponse.json({
       code: 0,
       data: {
         items: result.items,
-        total: result.items.length,
+        total: result.total,
         source: result.source,
-        limitations: result.limitations,
         missingDimensions: result.missingDimensions,
+        requirements: result.requirements,
+        blocker: result.blocker,
       },
-      meta: {
-        keyword: keyword ?? null,
-        suffix: suffix ?? null,
-        limit,
-        source: result.source,
-        blocker: result.source === "blocked_by_external_system" ? "blocked_by_external_system" : null,
-        note: result.source === "site_restore_db"
-          ? "直接查询 star_storage_db tbl_file_* 分区, LIMIT 保护. 千万级检索需 ES."
-          : "数据源不可用",
-        requirements: {
-          "REQ-4.1.1": result.items.length > 0 ? "partial" : result.source,
-          "REQ-4.1.2": "blocked_by_external_system (需 ES/ClickHouse)",
-        },
-      },
+      message:
+        result.source === "blocked_by_external_system"
+          ? "中心 unified_file_index 为空且未配置 ES, 检索被阻塞"
+          : `数据源：总控库 ${result.source}`,
     })
   } catch (error) {
-    console.error("[API Error] /api/search:", error)
     return NextResponse.json(
-      { code: -1, message: (error as Error).message },
-      { status: 500 },
+      {
+        code: 1,
+        data: { items: [], total: 0, source: "blocked_by_external_system" },
+        error: error instanceof Error ? error.message : "search_failed",
+      },
+      { status: 500 }
     )
   }
 }
