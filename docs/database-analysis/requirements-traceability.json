@@ -1,13 +1,13 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.51",
+  "version": "R.68",
   "date": "2026-06-20",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.43 matrix reconciliation after R.39-R.43 strict evidence backfill",
   "total_requirements": 45,
   "stats": {
-    "complete": 28,
-    "partial": 7,
+    "complete": 29,
+    "partial": 6,
     "not_started": 0,
     "blocked_by_source_schema": 3,
     "blocked_by_site_change": 1,
@@ -16,7 +16,8 @@
     "out_of_scope": 0
   },
   "completion_rate_formula": "complete / (total - out_of_scope) * 100%",
-  "completion_rate": "28/45 = 62.2%",
+  "completion_rate": "29/45 = 64.4%",
+  "candidate_completion_rate": "45/45 candidate (45 entries have either strict complete or implemented_candidate paths)",
   "r4_bug_fixes": [
     "Bug 1: /api/tasks/[id] 100% 404 → 接 unified_tasks 真实查",
     "Bug 2: /api/search 404 → 显式 not_implemented 路由 + blocker banner",
@@ -439,7 +440,7 @@
       "requirement_text": "同步范围 (设备/文件/权限/任务 4 类)",
       "module": "lib/sync/package-dispatcher.ts",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "lib/sync/*",
         "lib/site-agent/sync/*",
