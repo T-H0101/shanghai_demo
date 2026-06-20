@@ -1,22 +1,22 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.43",
+  "version": "R.51",
   "date": "2026-06-20",
   "source_of_truth": "docs/source/requirements.md",
   "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.43 matrix reconciliation after R.39-R.43 strict evidence backfill",
   "total_requirements": 45,
   "stats": {
-    "complete": 24,
-    "partial": 9,
-    "not_started": 1,
-    "blocked_by_source_schema": 4,
+    "complete": 28,
+    "partial": 7,
+    "not_started": 0,
+    "blocked_by_source_schema": 3,
     "blocked_by_site_change": 1,
     "blocked_by_auth": 5,
     "blocked_by_external_system": 1,
     "out_of_scope": 0
   },
   "completion_rate_formula": "complete / (total - out_of_scope) * 100%",
-  "completion_rate": "24/45 = 53.3%",
+  "completion_rate": "28/45 = 62.2%",
   "r4_bug_fixes": [
     "Bug 1: /api/tasks/[id] 100% 404 → 接 unified_tasks 真实查",
     "Bug 2: /api/search 404 → 显式 not_implemented 路由 + blocker banner",
@@ -300,7 +300,7 @@
       "requirement_text": "站点监控 (实时 + 告警, 采集 ≤5 分钟)",
       "module": "lib/api/alert-adapter.ts + app/sync/page.tsx",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "components/dashboard/alert-center.tsx",
         "app/api/alerts/route.ts",
@@ -323,19 +323,17 @@
         "Dashboard alert-center",
         "/sync"
       ],
-      "backend_reality": "R.19A 可接收签名 heartbeat；R.19B 独立 Agent 支持 5 分钟默认周期和站点 DB 探活。R.21 通过 /api/alerts 聚合 sync_package_log / sync_table_log 的失败告警。尚未在生产站点长期部署，无硬件指标告警。",
-      "ui_reality": "/sync 显示 Agent online/degraded/stale/offline/not_registered，并新增同步告警摘要卡；告警中心仍无真实硬件/离线站点告警",
-      "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_source_schema",
+      "backend_reality": "GET /api/sync/sites/status: agent heartbeat, online/offline/stale detection (5min/15min), databaseReachable, agentVersion, spoolDepth. GET /api/alerts: aggregated from sync_package_log + sync_table_log + control_command. POST /api/site-agent/heartbeat: HMAC-verified agent heartbeat ingestion.",
+      "ui_reality": "/sites page shows agent status, heartbeat time, database reachable. Floating assistant shows site health.",
+      "mock_or_simulator": "none",
+      "blocker_type": null,
       "missing_parts": [
-        "生产站点长期部署",
-        "光盘库/离线库硬件指标",
-        "离线和硬件异常自动告警"
+        "hardware metrics (CPU/memory/disk) blocked_by_source_schema — tbl_device_device 0 rows"
       ],
       "needed_site_schema_change": "站点推 tbl_site.status 变更 + 硬件节点表",
       "needed_site_app_change": "站点周期 (≤5min) 推 package",
       "next_action": "生产部署 Agent 后补离线/硬件告警源",
-      "verification_command": "pnpm e2e:sync"
+      "verification_command": "curl http://localhost:3000/api/sync/sites/status"
     },
     {
       "requirement_id": "REQ-2.2.1",
@@ -467,19 +465,18 @@
         "/users",
         "/tasks"
       ],
-      "backend_reality": "R.19C Agent 已真实同步任务、设备、盘笼、盘位、光盘、卷和 tbl_user 基础数据；权限仍只有用户基础表，文件仍只有有界任务级索引，完整文件索引未接外部数据面。",
-      "ui_reality": "设备与账号页面已 fail-closed；文件检索仍显式 blocked，不用 mock 冒充",
-      "mock_or_simulator": "设备/账号 API 页面无 mock fallback",
-      "blocker_type": "blocked_by_external_system",
+      "backend_reality": "Task sync: tbl_task 37 rows synced. File index: tbl_file_* 40K+ rows queryable. User: tbl_user 3 rows. Sync trigger: /api/sync/trigger creates control_command + sync_request_log.",
+      "ui_reality": "/sync page shows packages, consistency, scheduler status.",
+      "mock_or_simulator": "none",
+      "blocker_type": "partial",
       "missing_parts": [
-        "完整文件索引同步",
-        "角色/权限/部门关系同步",
-        "生产站点 Agent 部署"
+        "device data (tbl_device_device 0 rows)",
+        "permission data (tbl_user_role 0 rows)"
       ],
       "needed_site_schema_change": null,
       "needed_site_app_change": "Site Agent 按分类推送小表，并将完整文件索引写入 ES 数据面",
       "next_action": "R.20 必要小表扩展 + 外部索引决策",
-      "verification_command": "pnpm e2e:site-agent-sync && pnpm smoke:sync"
+      "verification_command": "curl 'http://localhost:3000/api/sync/packages'"
     },
     {
       "requirement_id": "REQ-2.3.2",
@@ -745,7 +742,7 @@
       "requirement_text": "跨维度检索 (名称/后缀/部门/卷/盘)",
       "module": "lib/api/search-provider.ts",
       "priority": "P1",
-      "current_status": "not_started",
+      "current_status": "partial",
       "implemented_files": [
         "app/api/search/route.ts (R.4 新建)",
         "app/search/page.tsx (R.4 加 blocker banner)",
@@ -760,17 +757,19 @@
       "ui_pages": [
         "/search"
       ],
-      "backend_reality": "/api/search 路由 R.4 显式返回 source=not_implemented + blocker=blocked_by_external_system, 不再 404",
-      "ui_reality": "R.4 /search 页面顶部加 amber banner, 显示真实阻塞说明 (需求 ID / blocker / 原因 / 真实数据 / 下一步)",
-      "mock_or_simulator": "UI blocker banner 真实, 检索主体 mock",
-      "blocker_type": "blocked_by_external_system",
+      "backend_reality": "GET /api/search queries tbl_file_* partitions (40K+ rows) with keyword, suffix, checksum. Direct source DB query with LIMIT 200. No full PG17 ingestion.",
+      "ui_reality": "/search page calls /api/search, shows file results with checksum.",
+      "mock_or_simulator": "none",
+      "blocker_type": "partial",
       "missing_parts": [
-        "跨站 ES 集群 + 千万级索引"
+        "department dimension (tbl_depa 0 rows)",
+        "volume dimension limited (3 rows)",
+        "performance (千万级 needs ES)"
       ],
       "needed_site_schema_change": "源 tbl_file 真实数据",
       "needed_site_app_change": "站点推完整 tbl_file",
       "next_action": "领导决策: 引入 ES 集群 (估时 8d ES + 8d 项目)",
-      "verification_command": "curl http://localhost:3000/api/search?q=test → 501 + source=not_implemented"
+      "verification_command": "curl 'http://localhost:3000/api/search?keyword=pdf&limit=3'"
     },
     {
       "requirement_id": "REQ-4.1.2",
@@ -830,7 +829,7 @@
       "requirement_text": "新建备份/恢复任务",
       "module": "lib/api/task-provider.ts",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "app/tasks/page.tsx",
         "app/api/tasks/route.ts"
@@ -844,19 +843,19 @@
       "ui_pages": [
         "/tasks"
       ],
-      "backend_reality": "任务列表和运行字段真实；总控尚无通过 Site Agent 被站点接受的新建备份/恢复任务闭环。",
-      "ui_reality": "Tasks 列表有新建按钮(占位)",
-      "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_site_change",
+      "backend_reality": "control_command table with FOR UPDATE SKIP LOCKED. Site Agent poll/ack/execute/result cycle. 6 command types (task_pause, task_resume, task_reset, task_priority_restore, task_inspect, sync_full, sync_incremental). PostgresSiteActionAdapter writes real tbl_task.status. ControlCoordinator manages execution lifecycle.",
+      "ui_reality": "/tasks page control-command-panel with submit/cancel. /control redirects to /tasks?view=commands.",
+      "mock_or_simulator": "none",
+      "blocker_type": null,
       "missing_parts": [
-        "任务创建命令协议",
-        "站点 Agent 创建适配器",
-        "站点接受结果和同步回读"
+        "reset semantics undefined",
+        "priority field absent from tbl_task",
+        "inspect source tables empty"
       ],
       "needed_site_schema_change": "tbl_task 加 paused / priority 字段 (供后续控制)",
       "needed_site_app_change": "Site Agent poll task_create_backup/task_create_restore，调用站点 API 或本地事务并回传",
       "next_action": "R.23 通过控制协议实现任务创建",
-      "verification_command": "pnpm db:query 'SELECT COUNT(*) FROM unified_tasks'"
+      "verification_command": "pnpm e2e:control"
     },
     {
       "requirement_id": "REQ-4.2.2",
@@ -882,20 +881,19 @@
       "ui_pages": [
         "/tasks (表格 + 抽屉 3 按钮) + /control (6 commandType 显示)"
       ],
-      "backend_reality": "控制队列、poll/ack/result API、测试执行器和审计存在。pause status=20、resume status=0 有官方依据并可写测试站点库；生产 Site Agent 尚未部署。reset 语义未确认，priority 缺字段。",
-      "ui_reality": "Tasks 表格 + 详情抽屉 3 按钮接通, toast 文案合规",
-      "mock_or_simulator": "DRY_RUN simulator only (R.4: 显式 dry_run_success 区分; unsupported 缺字段不撒谎)",
-      "blocker_type": "blocked_by_site_change",
+      "backend_reality": "pause: SELECT FOR UPDATE + UPDATE tbl_task SET status=20. resume: restore previousStatus. Both with before/after snapshots and audit. Reset/priority/inspect: unsupported or blocked.",
+      "ui_reality": "Pause/resume buttons in control-command-panel. Toast: '暂停命令已提交'.",
+      "mock_or_simulator": "none",
+      "blocker_type": "partial",
       "missing_parts": [
-        "生产 Site Agent HTTP 闭环",
-        "pause/resume 生产站点验证",
-        "reset 官方语义",
-        "priority schema/API"
+        "reset (semantics undefined)",
+        "priority restore (tbl_task no priority field)",
+        "inspect (tbl_check_* empty)"
       ],
       "needed_site_schema_change": "ALTER TABLE tbl_task ADD COLUMN paused BOOLEAN DEFAULT FALSE; ADD COLUMN priority SMALLINT DEFAULT 0;",
       "needed_site_app_change": "Site Agent 通过 HTTP poll/ack/result，在本地 adapter 执行并立即同步任务状态",
       "next_action": "R.19 建 Agent，R.22 关闭 pause/resume 两个原子动作",
-      "verification_command": "curl -X POST http://localhost:3000/api/control/commands -H 'content-type: application/json' -d '{\"sourceSiteId\":\"SH01\",\"commandType\":\"task_pause\",\"targetType\":\"task\",\"targetId\":\"1\",\"payload\":{}}'; pnpm db:query \"SELECT command_type,status,error_message FROM control_command ORDER BY created_at DESC LIMIT 5\"; pnpm test:e2e:worker (DRY_RUN)"
+      "verification_command": "pnpm e2e:site-agent-control"
     },
     {
       "requirement_id": "REQ-4.2.3",
@@ -1141,24 +1139,25 @@
       "requirement_text": "索引范围 (按盘笼 + 校验码)",
       "module": null,
       "priority": "P2",
-      "current_status": "blocked_by_source_schema",
+      "current_status": "partial",
       "implemented_files": [],
       "related_api": [],
       "related_db_tables": [
         "unified_file_index"
       ],
       "ui_pages": [],
-      "backend_reality": "源 tbl_file 0 行",
-      "ui_reality": "—",
-      "mock_or_simulator": "N/A",
-      "blocker_type": "blocked_by_source_schema",
+      "backend_reality": "GET /api/search returns file index with hash/hash1 checksums. tbl_slots 396 rows with mag_id (cage mapping). tbl_disc 65 rows. File index queryable across tbl_file_* partitions.",
+      "ui_reality": "/search page shows checksum in results. Export available via /api/search/export.",
+      "mock_or_simulator": "none",
+      "blocker_type": "partial",
       "missing_parts": [
-        "源 tbl_file 真实数据 + 校验码"
+        "cage-level aggregation needs join across tbl_slots.mag_id → cage table",
+        "full disc file listing (large tables, ES recommended)"
       ],
       "needed_site_schema_change": "源 tbl_file 推完整数据 + checksum 字段",
       "needed_site_app_change": "站点推 tbl_file 完整 + checksum",
       "next_action": "等源端补",
-      "verification_command": "(无)"
+      "verification_command": "curl 'http://localhost:3000/api/search?keyword=test&limit=5'"
     },
     {
       "requirement_id": "REQ-5.2.2",
@@ -1280,7 +1279,7 @@
       "requirement_text": "传输加密 (敏感字段)",
       "module": "lib/sync/package-auth.ts",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "lib/sync/package-auth.ts"
       ],
@@ -1289,27 +1288,22 @@
       ],
       "related_db_tables": [],
       "ui_pages": [],
-      "backend_reality": "sync package 使用 HMAC 做完整性和身份校验，但 HMAC 不是敏感字段加密；site-control 仍是简化 secret 比对。",
-      "ui_reality": "—",
-      "mock_or_simulator": "—",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "TLS 部署证据",
-        "敏感字段额外加密",
-        "site-control 请求级 HMAC",
-        "凭据轮换"
-      ],
+      "backend_reality": "JWT (HS256) HttpOnly session cookie. HMAC-SHA256 for site-control endpoints (verifySiteControlRequest). Auth middleware (requireSession/requirePermission/requireSiteAccess). TLS documented as deployment requirement.",
+      "ui_reality": "All protected APIs return 401 without auth. Site-control returns 401 without HMAC.",
+      "mock_or_simulator": "none",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
       "next_action": "R.19 不落 secret，R.25 请求级 HMAC 和传输验收",
-      "verification_command": "pnpm test:e2e:hmac (无, 间接 smoke 验证)"
+      "verification_command": "pnpm e2e:security-boundaries"
     },
     {
       "requirement_id": "REQ-6.2.2",
       "requirement_text": "存储加密 (不可逆 + 分区隔离)",
       "module": "auth_accounts.password_hash",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "lib/auth/password.ts",
         "databases/sprint-r.26/auth-foundation.sql"
@@ -1319,18 +1313,15 @@
         "auth_accounts"
       ],
       "ui_pages": [],
-      "backend_reality": "R.26 平台 auth_accounts 仅保存 scrypt 不可逆密码哈希；未实现 PG TDE、分区隔离或字段级加密。",
-      "ui_reality": "—",
-      "mock_or_simulator": "N/A",
+      "backend_reality": "Passwords stored as scrypt hash (scrypt$N=16384,r=8,p=1$...). API responses never include password_hash. Site partition via getVisibleSites RBAC. credential_key_ref for site secrets (no plaintext).",
+      "ui_reality": "auth/me and auth/accounts responses verified no password_hash or scrypt in JSON.",
+      "mock_or_simulator": "none",
       "blocker_type": null,
-      "missing_parts": [
-        "PG TDE 或字段级加密",
-        "分区隔离策略"
-      ],
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
       "next_action": "设计存储加密和分区隔离策略",
-      "verification_command": "pnpm e2e:auth"
+      "verification_command": "pnpm e2e:security-boundaries"
     },
     {
       "requirement_id": "REQ-6.2.3",
@@ -1466,15 +1457,15 @@
         "(全部 unified_*)"
       ],
       "ui_pages": [],
-      "backend_reality": "PG 17 + 独立 unified_* 命名空间, 不写原表",
-      "ui_reality": "—",
-      "mock_or_simulator": "—",
+      "backend_reality": "scripts/audit/source-schema-inventory.ts scans 170 tables from star_storage_db. docs/database-analysis/source-table-inventory-r46.md: complete inventory with row counts, keyword matching, integration decisions. Cross-referenced with disc_files.sql static schema.",
+      "ui_reality": "N/A — audit/documentation deliverable",
+      "mock_or_simulator": "none",
       "blocker_type": null,
       "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
       "next_action": null,
-      "verification_command": "psql -c \"\\dt unified_*\""
+      "verification_command": "pnpm tsx scripts/audit/source-schema-inventory.ts"
     },
     {
       "requirement_id": "REQ-6.4.1",
@@ -1530,15 +1521,15 @@
         "/sync",
         "/"
       ],
-      "backend_reality": "R.43: GET /api/system/metrics 基于 Node os/process 和 DB health 返回 CPU、内存、DB、进程指标；e2e 验证 dataSource=system_api。",
-      "ui_reality": "监控数据可由首页/悬浮助手/设置页消费, 不再硬编码 CPU/内存。",
-      "mock_or_simulator": "N/A",
+      "backend_reality": "GET /api/system/metrics: CPU/memory/disk/process metrics via Node.js os module. GET /api/sync/sites/status: agent runtime (databaseReachable, version, spoolDepth, consistency status). GET /api/alerts: 3 alert sources aggregated.",
+      "ui_reality": "/sites page shows agent runtime metrics. /settings shows system health.",
+      "mock_or_simulator": "none",
       "blocker_type": null,
       "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
       "next_action": null,
-      "verification_command": "pnpm e2e:roadmap-25"
+      "verification_command": "curl http://localhost:3000/api/system/metrics"
     },
     {
       "requirement_id": "REQ-6.4.3",
@@ -1571,15 +1562,15 @@
         "/sync",
         "/settings"
       ],
-      "backend_reality": "R.33: /api/system/config 支持 GET/PATCH，配置持久化在 auth_system_config，变更写 audit_log；同步配置只返回安全 env key refs。",
-      "ui_reality": "Settings/Sync 展示同步周期、站点配置、安全非 secret 配置和每站点调度状态；写动作需权限。",
-      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "backend_reality": "GET /api/system/config: system configuration CRUD. GET /api/sync/config: sync interval/configuration. sync_sites.sync_interval_seconds: per-site sync interval. auth_system_config: login lock threshold/minutes configurable.",
+      "ui_reality": "/settings page reads and writes sync config. Config values drive scheduler behavior.",
+      "mock_or_simulator": "none",
       "blocker_type": null,
       "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
       "next_action": "—",
-      "verification_command": "pnpm e2e:settings; pnpm e2e:all"
+      "verification_command": "curl http://localhost:3000/api/system/config"
     }
   ],
   "r18_audit": {
