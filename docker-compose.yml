@@ -43,6 +43,43 @@ services:
     networks:
       - unified_disc_network
 
+  opensearch:
+    image: opensearchproject/opensearch:2
+    container_name: unified_disc_opensearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=local-dev-only
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    networks:
+      - unified_disc_network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24
+    container_name: unified_disc_clickhouse
+    restart: unless-stopped
+    environment:
+      - CLICKHOUSE_DB=unified_logs
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=local-dev-only
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    networks:
+      - unified_disc_network
+
 volumes:
   postgres_data:
     driver: local
