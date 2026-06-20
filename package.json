@@ -79,6 +79,10 @@
     "e2e:roadmap-25": "tsx scripts/e2e/test-roadmap-25.ts",
     "e2e:route-page-integration": "tsx scripts/e2e/test-route-page-integration.ts",
     "e2e:security-boundaries": "tsx scripts/e2e/test-security-boundaries.ts",
+    "e2e:sync-dump": "tsx scripts/e2e/test-sync-dump-flow.ts",
+    "e2e:sync-dump-parser": "tsx scripts/e2e/test-sync-dump-parser.ts",
+    "sync:dump:export": "tsx scripts/sync/export-restore-dump.ts",
+    "sync:dump:ingest": "tsx scripts/sync/ingest-dump.ts",
     "e2e:all": "tsx scripts/e2e/run-all.ts"
   },
   "dependencies": {
