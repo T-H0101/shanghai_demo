@@ -160,6 +160,33 @@ async function main() {
   const failed = checks.filter((c) => !c.pass).length
   console.log(`\n=== R.44 Summary: ${passed} passed, ${failed} failed, ${checks.length} total ===`)
 
+  // ===== Sprint R.55/R.58: new API surface present =====
+  for (const path of ["/api/tasks/create"]) {
+    const r = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    })
+    check(
+      `R.58 ${path} reachable`,
+      r.status === 400 || r.status === 401 || r.status === 405,
+      `HTTP ${r.status} (expected 400/401/405 for unauthenticated POST)`,
+    )
+  }
+
+  for (const path of ["/api/search?q=x", "/api/logs?limit=1"]) {
+    const r = await fetch(`${BASE}${path}`)
+    check(
+      `R.55 ${path} reachable`,
+      r.status === 200,
+      `HTTP ${r.status}`,
+    )
+  }
+
+  const finalPassed = checks.filter((c) => c.pass).length
+  const finalFailed = checks.filter((c) => !c.pass).length
+  console.log(`\n=== Final: ${finalPassed} passed, ${finalFailed} failed, ${checks.length} total ===`)
+
   if (exitCode !== 0) process.exit(exitCode)
 }
 
