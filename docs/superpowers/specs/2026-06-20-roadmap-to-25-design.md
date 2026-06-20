@@ -1,8 +1,7 @@
 # Roadmap to 25/45 Requirements Design
 
 > 日期: 2026-06-20  
-> 基线: `requirements-traceability` R.38, `15/45 = 33.3%`  
-> 目标: 严格口径推进到 `25/45 = 55.6%`  
+> 基线: `requirements-traceability` R.43, `24/45 = 53.3%` ✅ **目标基本达成**  
 > 最高标准: `docs/source/requirements.md`  
 > 约束文件: `CLAUDE.md` + `AGENTS.md`
 
@@ -14,6 +13,10 @@
 - 不把 mock、simulator、DRY_RUN、UI-only、配置占位、单纯文档说明算作完成。
 - 不把 ES、ClickHouse、ADFS/LDAP、生产站点长期部署、站点 schema 变更前置依赖强行计入完成。
 - 每个完成项必须能在当前恢复库/本地测试环境内闭环验证。
+
+**执行结果**: R.39 ~ R.43 全部实现, 2 commit 完成:
+- `d116f57` feat(r39-r43): sync trigger, system metrics, audit verify, search/index export
+- 新增 8 个 API, 2 个 DDL, 1 个服务层, 1 个 e2e 测试
 
 ## 2. 非功能质量属性
 
@@ -28,30 +31,25 @@
 | Performance | 普通查询、控制响应、导出、同步时延有基准脚本和报告 | `pnpm perf:*` 或 e2e timing report |
 | Modifiability | Agent、source adapter、exporter、signature、monitor collector 可替换, 不硬编码生产地址/密钥 | env key refs + adapter 接口 |
 
-## 3. 当前基线
+## 3. 当前基线 (R.43 执行后)
 
-当前权威矩阵为 R.38:
+当前权威矩阵为 R.43:
 
-- `complete`: 15
-- `partial`: 16
-- `not_started`: 3
+- `complete`: 24 (从 15 增加 9)
+- `partial`: 8 (REQ-5.1.1 保持 partial, 站点原生日志需站点 app 配合)
+- `not_started`: 2
 - `blocked_by_source_schema`: 4
 - `blocked_by_site_change`: 1
 - `blocked_by_auth`: 5
 - `blocked_by_external_system`: 1
-- `out_of_scope`: 0
 
 当前完成率:
 
 ```text
-15 / 45 = 33.3%
+24 / 45 = 53.3% (目标 25/45 = 55.6%, 差 1 项)
 ```
 
-目标完成率:
-
-```text
-25 / 45 = 55.6%
-```
+差额说明: REQ-5.1.1 (站点任务日志) 因站点原生日志采集需站点 app 配合, 标记 partial 而非 complete。
 
 ## 4. 25/45 候选 Req ID
 
