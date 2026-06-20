@@ -51,6 +51,8 @@
     "e2e:search": "tsx scripts/e2e/test-search.ts",
     "e2e:settings": "tsx scripts/e2e/test-settings.ts",
     "e2e:auth": "tsx scripts/e2e/test-auth.ts",
+    "e2e:auth-audit": "tsx scripts/e2e/test-auth-audit.ts",
+    "e2e:rbac": "tsx scripts/e2e/test-rbac.ts",
     "e2e:users": "tsx scripts/e2e/test-users.ts",
     "e2e:racks": "tsx scripts/e2e/test-racks.ts",
     "e2e:volumes": "tsx scripts/e2e/test-volumes.ts",
@@ -71,6 +73,9 @@
     "e2e:console-usability-lift": "tsx scripts/e2e/test-console-usability-lift.ts",
     "e2e:header-ux-lift": "tsx scripts/e2e/test-header-ux-lift.ts",
     "e2e:command-center": "tsx scripts/e2e/test-command-center.ts",
+    "e2e:compat": "tsx scripts/e2e/test-compatibility.ts",
+    "e2e:concurrency": "tsx scripts/e2e/test-concurrency.ts",
+    "e2e:task-monitor": "tsx scripts/e2e/test-task-monitor.ts",
     "e2e:all": "tsx scripts/e2e/run-all.ts"
   },
   "dependencies": {

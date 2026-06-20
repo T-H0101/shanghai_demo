@@ -31,6 +31,10 @@ export interface AuditEntry {
 
 export async function writeAudit(entry: AuditEntry): Promise<void> {
   try {
+    const commandNo =
+      entry.commandNo ??
+      `AUDIT-${entry.action.toUpperCase().replace(/[^A-Z0-9]+/g, '-')}-${Date.now()}`
+
     await query(
       `INSERT INTO audit_log
          (command_no, action, target_table, target_id,
@@ -38,7 +42,7 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
           site_code, dry_run, result, error_message)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12)`,
       [
-        entry.commandNo ?? null,
+        commandNo,
         entry.action,
         entry.targetTable,
         entry.targetId,

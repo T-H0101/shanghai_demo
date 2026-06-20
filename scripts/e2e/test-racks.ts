@@ -4,6 +4,7 @@
 
 import { readFile } from "node:fs/promises"
 import { createHash } from "node:crypto"
+import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -22,6 +23,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== Racks 事件 e2e (R.10D) ===\n")
+  await installAuthenticatedFetch(BASE)
 
   const pageRes = await fetch(`${BASE}/racks`)
   check("页面 /racks 200", pageRes.status === 200, `HTTP ${pageRes.status}`)

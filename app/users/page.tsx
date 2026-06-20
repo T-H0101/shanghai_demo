@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
+import { formatBeijingTime } from "@/components/shared/time-format"
 
 interface UserRecord {
   id: string
@@ -411,6 +412,5 @@ export default function Page() {
 }
 
 function formatTime(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN")
+  return formatBeijingTime(value) || value
 }

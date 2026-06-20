@@ -14,6 +14,7 @@ import { AppTooltip } from "@/components/shared/tooltip"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+import { formatBeijingTime } from "@/components/shared/time-format"
 
 interface SearchBlkInfo {
   blocker: string
@@ -315,7 +316,7 @@ export default function Page() {
                   <TableCell className="text-sm">{f.rackSlot}</TableCell>
                   <TableCell>{f.department}</TableCell>
                   <TableCell className="text-xs font-mono text-slate-500">{f.checksum || "—"}</TableCell>
-                  <TableCell className="text-slate-500 text-sm">{f.createdAt}</TableCell>
+                  <TableCell className="text-slate-500 text-sm">{formatBeijingTime(f.createdAt) || "—"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <AppTooltip content="发起回迁请求 (依赖 ES 检索定位)">

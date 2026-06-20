@@ -11,6 +11,7 @@
  */
 
 import { readFile } from "node:fs/promises"
+import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -24,6 +25,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== Volumes 事件 e2e (R.17) ===\n")
+  await installAuthenticatedFetch(BASE)
 
   // 1. 页面 200
   const pageRes = await fetch(`${BASE}/volumes`)

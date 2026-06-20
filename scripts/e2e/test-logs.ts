@@ -16,6 +16,8 @@
  * 不实施: 真实浏览器 (R.6 占位说明)
  */
 
+import { installAuthenticatedFetch } from "./auth-helper"
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
 let pass = 0, fail = 0
@@ -32,6 +34,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== Logs 事件 e2e (R.12) ===\n")
+  await installAuthenticatedFetch(BASE)
 
   // 1. 页面能打开
   const pageRes = await fetch(`${BASE}/logs`)

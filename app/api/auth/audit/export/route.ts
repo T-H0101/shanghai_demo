@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   if (username) { conditions.push(`username ILIKE $${idx}`); params.push(`%${username}%`); idx++ }
   if (result) { conditions.push(`result = $${idx}`); params.push(result); idx++ }
-  if (siteCode) { conditions.push(`site_code = $${idx}`); params.push(siteCode); idx++ }
+  if (siteCode) { conditions.push(`site_code ILIKE $${idx}`); params.push(`%${siteCode}%`); idx++ }
   if (from) { conditions.push(`created_at >= $${idx}`); params.push(from); idx++ }
   if (to) { conditions.push(`created_at <= $${idx}`); params.push(to); idx++ }
 

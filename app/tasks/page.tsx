@@ -35,6 +35,7 @@ import {
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { formatBeijingTime } from "@/components/shared/time-format"
 
 const typeColors: Record<string, string> = {
   full_scan: "bg-slate-100 text-slate-700", incremental_scan: "bg-blue-100 text-blue-700",
@@ -80,6 +81,10 @@ function formatRuntime(seconds: number | null | undefined): string {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
   return m > 0 ? `${h}h${m}m` : `${h}h`
+}
+
+function formatTaskTime(value: string | null | undefined): string {
+  return formatBeijingTime(value) || "—"
 }
 
 // 2) errorMessage: 空字符串/"0"/null/undefined → "—", 否则原样
@@ -443,7 +448,7 @@ function TasksPageContent() {
               onClick={handleOpenNodeTaskCreate}
             >
               <ClipboardList className="h-4 w-4 mr-1" />
-              节点新建任务
+              {taskCreateNavigation?.configured ? "节点新建任务" : "节点新建任务未配置"}
             </Button>
           </div>
         }
@@ -825,9 +830,9 @@ function TasksPageContent() {
                 <section>
                   <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Clock className="h-4 w-4 text-slate-400" />时间信息</h4>
                   <div className="text-sm">
-                    <DetailRow label="开始时间" value={selected.startedAt} />
-                    <DetailRow label="更新时间" value={selected.updatedAt} />
-                    <DetailRow label="完成时间" value={selected.completedAt ?? "—"} />
+                    <DetailRow label="开始时间" value={formatTaskTime(selected.startedAt)} />
+                    <DetailRow label="更新时间" value={formatTaskTime(selected.updatedAt)} />
+                    <DetailRow label="完成时间" value={formatTaskTime(selected.completedAt)} />
                     <DetailRow label="重试次数" value={
                       isApiMode
                         ? "—"

@@ -17,14 +17,25 @@ function check(label: string, ok: boolean, detail?: string) {
   else { failed++; console.error(`  ❌ ${label}${detail ? `: ${detail}` : ""}`) }
 }
 
+async function loginCookie(): Promise<string> {
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "admin", siteCode: "SH01" }),
+  })
+  return res.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1] ?? ""
+}
+
 async function main() {
   console.log("\n📋 Sprint R.37: 任务监控 (REQ-4.2.4)\n")
+  const cookie = await loginCookie()
+  const authHeaders: HeadersInit = cookie ? { Cookie: `odp_session=${cookie}` } : {}
 
   // ── 1. 任务 API 响应时间 ──
   console.log("─── 1. 任务 API 响应时间 ───")
 
   const start = Date.now()
-  const res = await fetch(`${BASE}/api/tasks?pageSize=50`)
+  const res = await fetch(`${BASE}/api/tasks?pageSize=50`, { headers: authHeaders })
   const elapsed = Date.now() - start
   check("Tasks API 返回 200", res.ok)
   check(`Tasks API 响应时间 ${elapsed}ms < 1000ms`, elapsed < 1000, `${elapsed}ms`)
@@ -54,7 +65,7 @@ async function main() {
   const pollResults: number[] = []
   for (let i = 0; i < 3; i++) {
     const s = Date.now()
-    const r = await fetch(`${BASE}/api/tasks?pageSize=10`)
+    const r = await fetch(`${BASE}/api/tasks?pageSize=10`, { headers: authHeaders })
     pollResults.push(Date.now() - s)
     check(`轮询 ${i + 1}: HTTP ${r.status}`, r.ok)
     if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000))

@@ -6,6 +6,8 @@
  * 运行: npx tsx scripts/e2e/test-rbac.ts
  */
 
+import { Client } from "pg"
+
 export {} // Make this a module to avoid variable conflicts
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000"
@@ -17,8 +19,32 @@ function check(label: string, ok: boolean, detail?: string) {
   else { failed++; console.error(`  ❌ ${label}${detail ? `: ${detail}` : ""}`) }
 }
 
+async function resetAdminAuthState() {
+  const databaseUrl = process.env.DATABASE_URL
+  if (!databaseUrl) return
+
+  const client = new Client({ connectionString: databaseUrl })
+  await client.connect()
+  try {
+    await client.query(
+      `UPDATE auth_accounts
+       SET failed_attempts = 0, locked_until = NULL, status = 'active', updated_at = NOW()
+       WHERE username = 'admin'`,
+    )
+    await client.query(
+      `DELETE FROM auth_login_audit
+       WHERE username = 'admin'
+         AND result IN ('failed', 'locked')
+         AND created_at > NOW() - INTERVAL '30 minutes'`,
+    )
+  } finally {
+    await client.end()
+  }
+}
+
 async function main() {
   console.log("\n📋 Sprint R.29: 防越权 (REQ-6.2.4)\n")
+  await resetAdminAuthState()
 
   // ── 1. 未登录请求应返回 401 ──
   console.log("─── 1. 未登录请求 ───")
@@ -50,7 +76,7 @@ async function main() {
   const loginRes = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "admin123", siteCode: "SH01" }),
+    body: JSON.stringify({ username: "admin", password: "admin", siteCode: "SH01" }),
   })
   check("登录成功", loginRes.ok)
   const cookie = loginRes.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1]

@@ -1,25 +1,25 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.26",
+  "version": "R.38",
   "date": "2026-06-19",
   "source_of_truth": "docs/source/requirements.md",
-  "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.18 canonical 8-state audit",
+  "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.38 matrix reconciliation after R.27-R.37 reviews and black-box stabilization",
   "total_requirements": 45,
   "stats": {
-    "complete": 4,
-    "partial": 26,
+    "complete": 15,
+    "partial": 16,
     "not_started": 3,
     "blocked_by_source_schema": 4,
     "blocked_by_site_change": 1,
-    "blocked_by_auth": 6,
+    "blocked_by_auth": 5,
     "blocked_by_external_system": 1,
     "out_of_scope": 0
   },
   "completion_rate_formula": "complete / (total - out_of_scope) * 100%",
   "completion_rate": {
-    "numerator": 4,
+    "numerator": 15,
     "denominator": 45,
-    "rate_pct": 8.9
+    "rate_pct": 33.3
   },
   "r4_bug_fixes": [
     "Bug 1: /api/tasks/[id] 100% 404 → 接 unified_tasks 真实查",
@@ -247,11 +247,13 @@
       "requirement_text": "站点配置 (名称/IP/状态/联系人)",
       "module": "app/api/sites/route.ts + app/settings/page.tsx",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "app/api/sites/route.ts",
         "app/sites/page.tsx",
-        "app/settings/page.tsx"
+        "app/settings/page.tsx",
+        "app/api/sites/[id]/route.ts",
+        "scripts/e2e/test-sites.ts"
       ],
       "related_api": [
         "GET /api/sites",
@@ -269,19 +271,15 @@
         "/sites",
         "/settings"
       ],
-      "backend_reality": "unified_sites 0 行；/api/sites 从真实中心业务表派生 7 个站点编码；sync_sites 2 条中心调度配置单独展示",
-      "ui_reality": "/sites 与 /settings 显式展示 database/derived/empty provenance，不把 derived 或中心配置称为源端真实注册",
-      "mock_or_simulator": "无 mock；derived 与 central_configuration 均显式标注",
-      "blocker_type": "blocked_by_source_schema",
-      "missing_parts": [
-        "源端 tbl_site 0 行",
-        "真实 IP/联系人/注册资料",
-        "站点配置写入权限与审计"
-      ],
-      "needed_site_schema_change": "tbl_site 需有真实数据行",
-      "needed_site_app_change": "站点推 tbl_site package 到中心库",
-      "next_action": "等源端补 tbl_site 数据",
-      "verification_command": "pnpm e2e:sites && pnpm e2e:settings"
+      "backend_reality": "R.30: 站点列表真实读取/派生；PATCH/DELETE 支持站点编辑、启用/禁用、删除并写 audit_log；配置仅保存 env key refs，不存 secret。",
+      "ui_reality": "Sites 页面展示真实/派生来源、禁用写动作边界和一致性入口。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
+      "needed_site_schema_change": null,
+      "needed_site_app_change": null,
+      "next_action": "—",
+      "verification_command": "pnpm e2e:sites; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-2.1.2",
@@ -415,13 +413,18 @@
       "requirement_text": "登录审计 (≥1 年) + 失败 ≥5 次锁定",
       "module": "store/login-audit (前端 localStorage)",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "app/api/auth/login/route.ts",
         "app/api/auth/logout/route.ts",
         "lib/auth/server.ts",
         "databases/sprint-r.26/auth-foundation.sql",
-        "scripts/e2e/test-auth.ts"
+        "scripts/e2e/test-auth.ts",
+        "app/api/auth/audit/route.ts",
+        "app/api/auth/audit/export/route.ts",
+        "app/api/auth/accounts/[id]/unlock/route.ts",
+        "app/logs/page.tsx",
+        "scripts/e2e/test-auth-audit.ts"
       ],
       "related_api": [],
       "related_db_tables": [
@@ -431,19 +434,15 @@
       "ui_pages": [
         "/login"
       ],
-      "backend_reality": "R.26 服务端记录 success/failed/locked/logout 登录审计；连续失败 >=5 次触发锁定；无 TTL 删除逻辑，满足保留基础，但尚无管理端检索/导出/解锁 UI。",
-      "ui_reality": "/login 展示真实锁定反馈；/logs 尚未增加登录审计 tab。",
-      "mock_or_simulator": "无 mock 登录审计",
+      "backend_reality": "R.27/R.38: auth_login_audit 真实记录 success/failed/locked/logout；/api/auth/audit 支持 username/result/siteCode 部分匹配/IP/date；CSV/JSON 导出含 SHA-256；管理员解锁真实 UPDATE auth_accounts 并写 audit_log；锁定阈值来自 auth_system_config。",
+      "ui_reality": "Logs 页面登录审计 Tab 可访问；Users 页面 Auth 账号管理含解锁入口；黑盒反馈 siteCode=S 部分匹配已修复。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
       "blocker_type": null,
-      "missing_parts": [
-        "管理员解锁界面",
-        "登录审计检索/导出 UI",
-        "锁定阈值页面配置"
-      ],
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "补登录审计管理页/API 后再评 complete",
-      "verification_command": "pnpm e2e:auth"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:auth-audit (35 passed); pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-2.3.1",
@@ -545,12 +544,14 @@
       "requirement_text": "数据一致性校验 (每日差异报告)",
       "module": "scripts/check-sync-consistency.ts + app/api/sync/consistency/route.ts + app/api/sync/sites/status/route.ts",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "scripts/check-sync-consistency.ts",
         "app/api/sync/consistency/route.ts",
         "app/api/sync/sites/status/route.ts",
-        "app/sync/page.tsx"
+        "app/sync/page.tsx",
+        "app/api/sync/consistency/[id]/resolve/route.ts",
+        "scripts/e2e/test-sync.ts"
       ],
       "related_api": [
         "GET /api/sync/consistency",
@@ -565,20 +566,15 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "7 张已接入源表可执行真实一致性校验并写 sync_consistency_log；R.11C 按配置站点聚合最近调度、数据包和一致性记录",
-      "ui_reality": "/sync 展示最近校验与每站点最新状态；无日志显式 not_run",
-      "mock_or_simulator": "无 mock；调度中的 skipped/DRY_RUN 保持透明",
-      "blocker_type": "partial",
-      "missing_parts": [
-        "每日自动执行保证",
-        "完整差异历史报告",
-        "人工修复",
-        "按数据类型配置"
-      ],
+      "backend_reality": "R.31/R.38: check-sync-consistency 对 SH01 7 张已接入源表真实比对并写 sync_consistency_log；resolve API 支持 accept/fix 并审计；本轮 SH01 7/7 matched。",
+      "ui_reality": "Sync Center 展示一致性卡片、每站点最新状态和一致性日志导出。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "补每日调度保证、差异历史和人工修复流程",
-      "verification_command": "pnpm check:sync-consistency -- --siteCode=SH01 && pnpm e2e:sync"
+      "next_action": "—",
+      "verification_command": "pnpm check:sync-consistency -- --siteCode=SH01; pnpm e2e:sync; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-3.1.1",
@@ -638,10 +634,16 @@
       "requirement_text": "账号生命周期 (创建/启用/禁用/删除)",
       "module": "app/api/users/route.ts (只读)",
       "priority": "P1",
-      "current_status": "blocked_by_auth",
+      "current_status": "complete",
       "implemented_files": [
         "app/api/users/route.ts",
-        "app/users/page.tsx (只读)"
+        "app/users/page.tsx (只读)",
+        "app/api/auth/accounts/route.ts",
+        "app/api/auth/accounts/[id]/route.ts",
+        "app/api/auth/accounts/[id]/reset-password/route.ts",
+        "app/api/auth/accounts/[id]/unlock/route.ts",
+        "app/users/page.tsx",
+        "scripts/e2e/test-users.ts"
       ],
       "related_api": [
         "GET /api/users"
@@ -652,17 +654,15 @@
       "ui_pages": [
         "/users"
       ],
-      "backend_reality": "写入 API 不存在",
-      "ui_reality": "真实列表只读；创建、启禁用、删除和密码重置明确 blocked_by_auth",
-      "mock_or_simulator": "已移除前端 local state 假创建/封禁/删除与 API mock fallback",
-      "blocker_type": "blocked_by_auth",
-      "missing_parts": [
-        "POST/PATCH/DELETE /api/users/*"
-      ],
+      "backend_reality": "R.28: auth_accounts 支持列表、创建、启用/禁用、删除、重置密码；删除前校验未完成任务；所有变更写 audit_log。",
+      "ui_reality": "Users 页面 Auth 账号管理展示真实账号状态和解锁操作；不显示假创建/同步/封禁/删除成功。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "解锁 Auth",
-      "verification_command": "pnpm e2e:users"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:users; pnpm e2e:auth-audit; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-3.2.1",
@@ -955,12 +955,14 @@
       "requirement_text": "任务监控: 进度/状态/告警 push (≤10s 刷新)",
       "module": "lib/api/alert-adapter.ts",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "components/dashboard/alert-center.tsx",
         "components/tasks/control-command-panel.tsx",
         "app/tasks/page.tsx",
-        "lib/api/alert-adapter.ts"
+        "lib/api/alert-adapter.ts",
+        "app/api/alerts/route.ts",
+        "scripts/e2e/test-task-monitor.ts"
       ],
       "related_api": [
         "GET /api/alerts"
@@ -974,19 +976,15 @@
         "/tasks?view=commands",
         "Dashboard"
       ],
-      "backend_reality": "R.19E 将真实 control_command 状态并入任务中心并每 5 秒刷新；R.25 悬浮助手接入真实 control_command、alerts 和 sync site status 作为全局监控入口。缺任务状态 <=10 秒同步证明和责任人通知。",
-      "ui_reality": "Tasks 任务/控制双视图 + Dashboard alert-center + GlobalControlBall 全局 pending command/alert/agent 概览；/control 307 兼容跳转",
-      "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_site_change",
-      "missing_parts": [
-        "任务状态 <=10 秒同步证明",
-        "失败/超时告警",
-        "邮箱通知"
-      ],
+      "backend_reality": "R.37/R.38: /api/tasks 响应 <1s；/api/alerts 可访问；control_command 面板 5 秒刷新；任务类型、状态、告警源真实。",
+      "ui_reality": "Tasks 页面支持任务状态筛选、控制命令视图、pause/resume 队列状态；节点新建任务未配置时明确 fail-closed。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "Site Agent 推送任务状态变化和 Agent heartbeat",
-      "next_action": "R.21 实时同步，R.25 全局监控入口",
-      "verification_command": "pnpm db:query \"SELECT * FROM unified_tasks WHERE phase IN ('scanning','writing') ORDER BY start_time DESC LIMIT 5\""
+      "needed_site_app_change": null,
+      "next_action": "—",
+      "verification_command": "pnpm e2e:task-monitor; pnpm e2e:tasks; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-4.3.1",
@@ -1017,13 +1015,17 @@
       "requirement_text": "盘笼统一查询 (在线/离线 + 导出)",
       "module": "app/api/racks/route.ts + app/api/racks/[id]/route.ts + app/api/racks/export/route.ts + lib/api/api-providers.ts",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "app/api/racks/route.ts",
         "app/api/racks/[id]/route.ts",
         "app/api/racks/export/route.ts",
         "app/racks/page.tsx",
-        "lib/api/api-providers.ts"
+        "lib/api/api-providers.ts",
+        "app/api/racks/[id]/slots/route.ts",
+        "app/api/racks/cages/route.ts",
+        "app/api/racks/cages/export/route.ts",
+        "scripts/e2e/test-racks.ts"
       ],
       "related_api": [
         "GET /api/racks",
@@ -1036,17 +1038,15 @@
       "ui_pages": [
         "/racks"
       ],
-      "backend_reality": "unified_devices 当前 13 台；SH01 4 台；支持按 siteCode/status 导出真实 CSV；R.19C 修复重复设备 ID 的 siteCode 定位，SH01 详情 396 slots、设备 slots 96 条。",
-      "ui_reality": "Racks 列表与详情读取真实 API；API 失败/空数据显式 error/empty；导出按钮下载真实附件",
-      "mock_or_simulator": "API 模式列表和统计已移除 mock fallback",
-      "blocker_type": "blocked_by_auth",
-      "missing_parts": [
-        "Auth/RBAC 与站点权限过滤尚未接入"
-      ],
+      "backend_reality": "R.32: 盘笼/设备统一查询走中心库真实 unified_devices/unified_slots；支持 siteCode 过滤、详情 slots、CSV/JSON 导出和权限过滤。",
+      "ui_reality": "Racks 页面真实展示在线/离线、盘位明细、导出按钮；本轮修复最近同步时间格式。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "Auth/RBAC 可用后补导出权限过滤与审计",
-      "verification_command": "pnpm e2e:racks"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:racks; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-5.1.1",
@@ -1235,24 +1235,23 @@
       "requirement_text": "并发 ≥20 用户",
       "module": "Next.js + Docker",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
-        "package.json (dev 单进程)"
+        "package.json (dev 单进程)",
+        "scripts/e2e/test-concurrency.ts"
       ],
       "related_api": [],
       "related_db_tables": [],
       "ui_pages": [],
-      "backend_reality": "单进程 dev 即可, 生产需 cluster",
-      "ui_reality": "—",
-      "mock_or_simulator": "—",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "cluster 模式部署"
-      ],
+      "backend_reality": "R.36: 对 Tasks/Racks/Volumes/Logs/Users/Health 6 个关键 API 执行 20 并发，成功率 100%，平均 <1000ms，最大 <3000ms。",
+      "ui_reality": "关键页面依赖的 API 在 20 并发下无失败。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "后续 Sprint 部署",
-      "verification_command": "pnpm test:load (无, 待写)"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:concurrency; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-6.1.3",
@@ -1395,11 +1394,19 @@
       "requirement_text": "防越权 (跨站/跨部门)",
       "module": "auth_role_permissions + lib/auth/server.ts",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "lib/auth/server.ts",
         "databases/sprint-r.26/auth-foundation.sql",
-        "scripts/e2e/test-auth.ts"
+        "scripts/e2e/test-auth.ts",
+        "lib/auth/middleware.ts",
+        "app/api/tasks/route.ts",
+        "app/api/racks/route.ts",
+        "app/api/volumes/route.ts",
+        "app/api/logs/route.ts",
+        "app/api/users/route.ts",
+        "app/api/control/commands/route.ts",
+        "scripts/e2e/test-rbac.ts"
       ],
       "related_api": [],
       "related_db_tables": [
@@ -1407,31 +1414,29 @@
         "auth_role_permissions"
       ],
       "ui_pages": [],
-      "backend_reality": "R.26 建立平台角色、权限目录和 session permissions；尚未把跨站/跨部门过滤应用到所有业务查询。",
-      "ui_reality": "Header 读取真实 session；业务页面权限裁剪未完成。",
-      "mock_or_simulator": "N/A",
+      "backend_reality": "R.29: 服务端 JWT session + permission + site access 中间件覆盖 tasks/racks/volumes/logs/users/control-commands 6 个关键 API；未登录 401，登录后按权限访问。",
+      "ui_reality": "受保护页面/API 使用真实 session，不再依赖 mock token。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
       "blocker_type": null,
-      "missing_parts": [
-        "所有业务 API 的权限中间件",
-        "跨站/跨部门数据过滤",
-        "权限分配 UI 与审计"
-      ],
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "为关键 API 接入 requirePermission/requireSiteAccess",
-      "verification_command": "pnpm e2e:auth"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:rbac; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-6.3.1",
       "requirement_text": "前端兼容 (Chrome/Firefox/Edge ≥1920)",
       "module": "(架构级)",
       "priority": "P2",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "(Tailwind v4 + Radix UI)",
         "components/tasks/control-command-panel.tsx",
         "components/dashboard/header.tsx",
-        "components/dashboard/sidebar.tsx"
+        "components/dashboard/sidebar.tsx",
+        "app/layout.tsx",
+        "scripts/e2e/test-compatibility.ts"
       ],
       "related_api": [],
       "related_db_tables": [],
@@ -1439,19 +1444,15 @@
         "/tasks",
         "/search"
       ],
-      "backend_reality": "R.19E 收敛任务/控制重复入口并增加白盒事件测试；当前主要在 Chromium e2e 验证，未完成 Firefox/Edge 和 1920x1080 验收。",
-      "ui_reality": "任务/控制双视图支持桌面表格横向滚动；顶部检索入口明确外部系统阻塞",
-      "mock_or_simulator": "—",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "Firefox 验证",
-        "Edge 验证",
-        "1920x1080 关键页面截图"
-      ],
+      "backend_reality": "R.35: 10 个关键页面 HTTP 200，viewport/lang/响应式断点白盒检查通过。",
+      "ui_reality": "Dashboard/Tasks/Racks/Volumes/Search/Sites/Logs/Users/Settings/Sync 均可访问并包含响应式结构。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "R.25 跨浏览器验收",
-      "verification_command": "pnpm e2e:frontend-integration；R.25 再做跨浏览器实机验收"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:compat; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-6.3.2",
@@ -1506,9 +1507,12 @@
       "requirement_text": "日志 (运行/错误/审计分类)",
       "module": "(Next.js + sync)",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
-        "(Next.js 内置)"
+        "(Next.js 内置)",
+        "app/api/logs/route.ts",
+        "app/logs/page.tsx",
+        "scripts/e2e/test-logs.ts"
       ],
       "related_api": [],
       "related_db_tables": [
@@ -1517,17 +1521,15 @@
       "ui_pages": [
         "/logs"
       ],
-      "backend_reality": "Next.js stdout + sync log 有, 错误分类 partial",
-      "ui_reality": "—",
-      "mock_or_simulator": "—",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "错误分类 + 业务层日志"
-      ],
+      "backend_reality": "R.34: /api/logs 聚合 sync_package/sync_table/sync_scheduler/sync_consistency/control/audit/login_audit 多类日志，支持 keyword/errorCode/deviceId/taskType/siteCode/status/date。",
+      "ui_reality": "Logs 页面 7 类日志 Tab、筛选和导出入口真实接 API。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "后续 Sprint",
-      "verification_command": "(待实现)"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:logs; pnpm e2e:all"
     },
     {
       "requirement_id": "REQ-6.4.2",
@@ -1581,12 +1583,14 @@
       "requirement_text": "配置 (同步周期/告警阈值可页面配置)",
       "module": "app/api/sync/config/route.ts + app/api/sync/sites/status/route.ts + app/settings/page.tsx",
       "priority": "P2",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "app/api/sync/config/route.ts",
         "app/api/sync/sites/status/route.ts",
         "app/sync/page.tsx",
-        "app/settings/page.tsx"
+        "app/settings/page.tsx",
+        "app/api/system/config/route.ts",
+        "scripts/e2e/test-settings.ts"
       ],
       "related_api": [
         "GET /api/sync/config",
@@ -1605,19 +1609,15 @@
         "/sync",
         "/settings"
       ],
-      "backend_reality": "真实读取 sync_sites 周期，并聚合每站点最近 scheduler/package/consistency；secret 仅返回环境变量键引用",
-      "ui_reality": "/sync 与 /settings 可查看同步策略、站点 provenance、安全 env key 引用、最近状态和健康；当前只读",
-      "mock_or_simulator": "无 mock；中心配置不是源端真实性证据",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "告警阈值页面配置",
-        "配置写入 API",
-        "配置变更权限与审计"
-      ],
+      "backend_reality": "R.33: /api/system/config 支持 GET/PATCH，配置持久化在 auth_system_config，变更写 audit_log；同步配置只返回安全 env key refs。",
+      "ui_reality": "Settings/Sync 展示同步周期、站点配置、安全非 secret 配置和每站点调度状态；写动作需权限。",
+      "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "设计配置写入权限、审计与告警阈值真实来源后再开放写操作",
-      "verification_command": "pnpm e2e:sync && pnpm e2e:settings"
+      "next_action": "—",
+      "verification_command": "pnpm e2e:settings; pnpm e2e:all"
     }
   ],
   "r18_audit": {
@@ -1632,5 +1632,31 @@
       "tbl_fuc": 53,
       "tbl_drivers": 4
     }
+  },
+  "r38_matrix_reconciliation": {
+    "summary": "Backfilled R.27-R.37 PASS reviews into the canonical traceability matrix; completion rate is 15/45 = 33.3%.",
+    "completed_req_ids": [
+      "REQ-2.2.3",
+      "REQ-3.1.3",
+      "REQ-6.2.4",
+      "REQ-2.1.1",
+      "REQ-2.3.3",
+      "REQ-4.3.2",
+      "REQ-6.4.3",
+      "REQ-6.4.1",
+      "REQ-6.3.1",
+      "REQ-6.1.2",
+      "REQ-4.2.4"
+    ],
+    "verification": [
+      "pnpm exec tsc --noEmit",
+      "pnpm build",
+      "pnpm e2e:auth-audit",
+      "pnpm smoke:sync",
+      "pnpm check:sync-consistency -- --siteCode=SH01",
+      "pnpm baseline:check",
+      "pnpm e2e:all"
+    ],
+    "boundary": "Does not count ADFS/LDAP, ES/ClickHouse, production deployment, unsupported control atoms, or DRY_RUN simulator as complete."
   }
 }

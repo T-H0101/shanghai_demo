@@ -28,6 +28,7 @@
 import { execSync } from "node:child_process"
 import { readFileSync, existsSync } from "node:fs"
 import { setTimeout as sleep } from "node:timers/promises"
+import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 const SITE = process.env.SITE_CODE ?? "SH01"
@@ -40,6 +41,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== R.16-Review — Control execution truth audit e2e ===\n")
+  await installAuthenticatedFetch(BASE)
   const traceability = JSON.parse(
     readFileSync("docs/database-analysis/requirements-traceability.json", "utf8")
   ) as {

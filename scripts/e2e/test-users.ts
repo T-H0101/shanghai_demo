@@ -22,10 +22,19 @@ function check(name: string, ok: boolean, detail?: string) {
 async function main() {
   console.log("=== Users 事件 e2e (R.10C) ===\n")
 
+  const loginRes = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "admin", siteCode: "SH01" }),
+  })
+  const cookie = loginRes.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1] ?? ""
+  const authHeaders: HeadersInit = cookie ? { Cookie: `odp_session=${cookie}` } : {}
+  check("测试账号登录成功", loginRes.ok && Boolean(cookie), `HTTP ${loginRes.status}`)
+
   const pageRes = await fetch(`${BASE}/users`)
   check("页面 /users 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
 
-  const usersRes = await fetch(`${BASE}/api/users?pageSize=100`)
+  const usersRes = await fetch(`${BASE}/api/users?pageSize=100`, { headers: authHeaders })
   const users = await usersRes.json()
   check(
     "用户 API 只返回中心库来源",
@@ -42,7 +51,7 @@ async function main() {
     !JSON.stringify(users).toLowerCase().includes('"source":"mock"')
   )
 
-  const siteRes = await fetch(`${BASE}/api/users?pageSize=100&siteCode=SH01`)
+  const siteRes = await fetch(`${BASE}/api/users?pageSize=100&siteCode=SH01`, { headers: authHeaders })
   const siteUsers = await siteRes.json()
   check(
     "siteCode=SH01 过滤生效",
@@ -71,10 +80,10 @@ async function main() {
     pageSource.includes("/api/users") && pageSource.includes("fetch")
   )
   check(
-    "账号生命周期与 RBAC 显式阻塞",
-    pageSource.includes("blocked_by_auth") &&
-      pageSource.includes("账号创建") &&
-      pageSource.includes("权限分配")
+    "账号生命周期与 Auth 管理入口已接入",
+    pageSource.includes("Auth 账号管理") &&
+      pageSource.includes("handleUnlock") &&
+      pageSource.includes("/api/auth/accounts")
   )
   check(
     "页面无假创建/同步/封禁/删除成功",

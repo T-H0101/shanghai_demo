@@ -40,6 +40,7 @@ import { isApiMode } from "@/lib/api"
 import { fetchVolumes } from "@/lib/api/api-providers"
 import type { VolumeDTO } from "@/lib/api/dto"
 import { cn } from "@/lib/utils"
+import { formatBeijingTime } from "@/components/shared/time-format"
 
 const typeBadge: Record<string, { label: string; color: string; icon: typeof Disc }> = {
   optical: { label: "光盘卷", color: "bg-violet-100 text-violet-700", icon: Disc },
@@ -78,6 +79,11 @@ function formatBytesAuto(bytes: number | null | undefined): string {
     i++
   }
   return `${n.toFixed(1)} ${units[i]}`
+}
+
+function formatVolumeSyncTime(info: string): string {
+  const raw = info.includes("同步") ? info.split("同步")[1]?.trim().split("·")[0] : ""
+  return formatBeijingTime(raw) || raw || "—"
 }
 
 export default function VolumesPage() {
@@ -348,7 +354,7 @@ function VolumesContent() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {v.info.includes("同步") ? v.info.split("同步")[1]?.trim().split("·")[0] : "—"}
+                          {formatVolumeSyncTime(v.info)}
                         </TableCell>
                         <TableCell>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -430,7 +436,7 @@ function VolumesContent() {
                             <div className="text-xs text-muted-foreground">
                               <div>来源: <span className="font-mono">{selected.aggregate.source_table}</span></div>
                               {selected.aggregate.aggregated_at && (
-                                <div>聚合时间: <span className="font-mono">{selected.aggregate.aggregated_at}</span></div>
+                                <div>聚合时间: <span className="font-mono">{formatBeijingTime(selected.aggregate.aggregated_at) || "—"}</span></div>
                               )}
                             </div>
                           </div>

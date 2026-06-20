@@ -36,6 +36,7 @@ import {
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { formatBeijingTime } from "@/components/shared/time-format"
 
 type DeviceCategory = "all" | "hdd" | "optical" | "offline" | "nas" | "abnormal"
 type ApiRacksDataSource = "database" | "empty" | "error"
@@ -865,7 +866,7 @@ export default function Page() {
                         </TableCell>
                         <TableCell className="text-xs">{r.totalSlots > 0 ? `${r.usedSlots ?? "—"}/${r.totalSlots}` : "—"}</TableCell>
                         <TableCell className="text-xs tabular-nums">{r.currentTaskCount ?? 0}</TableCell>
-                        <TableCell className="text-[10px] text-slate-400 whitespace-nowrap">{r.lastSyncAt}</TableCell>
+                        <TableCell className="text-[10px] text-slate-400 whitespace-nowrap">{formatBeijingTime(r.lastSyncAt) || "—"}</TableCell>
                         <TableCell>
                           <Badge className={cn("text-[10px]", ds.color)}>
                             <DsIcon className="h-3 w-3 mr-1" />{ds.label}
@@ -920,7 +921,7 @@ export default function Page() {
                         ? <div className="flex items-center gap-2"><Progress value={selected.usagePercent} className="h-1.5 w-20" /><span>{selected.usagePercent}%</span></div>
                         : "—"
                     } />
-                    <DetailRow label="最近同步" value={selected.lastSyncAt} />
+                    <DetailRow label="最近同步" value={formatBeijingTime(selected.lastSyncAt) || "—"} />
                     <DetailRow label="当前任务数" value={(selected.currentTaskCount ?? 0).toString()} />
                   </div>
                 </section>
@@ -1074,7 +1075,7 @@ export default function Page() {
                               <p className="text-sm font-medium truncate">{task.name}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="outline" className="text-[10px]">{task.type}</Badge>
-                                <span className="text-[10px] text-slate-400">{task.startedAt}</span>
+                                <span className="text-[10px] text-slate-400">{formatBeijingTime(task.startedAt) || "—"}</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 ml-3 shrink-0">

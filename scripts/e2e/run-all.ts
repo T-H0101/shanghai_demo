@@ -13,6 +13,8 @@ const scripts = [
   "e2e:search",
   "e2e:settings",
   "e2e:auth",
+  "e2e:auth-audit",
+  "e2e:rbac",
   "e2e:users",
   "e2e:racks",
   "e2e:volumes",
@@ -33,6 +35,9 @@ const scripts = [
   "e2e:console-usability-lift",
   "e2e:header-ux-lift",
   "e2e:command-center",
+  "e2e:compat",
+  "e2e:concurrency",
+  "e2e:task-monitor",
 ]
 
 function loadEnvLocal() {

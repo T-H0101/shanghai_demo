@@ -13,6 +13,8 @@
  * 不实施: 真实浏览器 (R.6 占位说明)
  */
 
+import { installAuthenticatedFetch } from "./auth-helper"
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
 let pass = 0, fail = 0
@@ -29,6 +31,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== Control 事件 e2e ===\n")
+  await installAuthenticatedFetch(BASE)
 
   // 1. 旧入口兼容跳转到任务中心控制视图
   const pageRes = await fetch(`${BASE}/control`, { redirect: "manual" })

@@ -1,3 +1,5 @@
+import { installAuthenticatedFetch } from "./auth-helper"
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
 let pass = 0
@@ -14,6 +16,7 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 async function main() {
+  await installAuthenticatedFetch(BASE)
   const { readFile } = await import("node:fs/promises")
   const src = await readFile("components/ui/global-control-ball.tsx", "utf8")
 

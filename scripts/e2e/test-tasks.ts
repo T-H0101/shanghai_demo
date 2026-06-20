@@ -14,6 +14,8 @@
  * 不实施: 真实浏览器 (R.6 占位说明, R.7+ Playwright)
  */
 
+import { installAuthenticatedFetch } from "./auth-helper"
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 const DB_USER = "unified"
 const DB_NAME = "unified_disc_platform"
@@ -33,6 +35,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== Tasks 事件 e2e ===\n")
+  await installAuthenticatedFetch(BASE)
 
   // 1. 页面能打开
   const pageRes = await fetch(`${BASE}/tasks`)
@@ -139,7 +142,8 @@ async function main() {
   )
   check(
     "未配置节点地址时明确禁用",
-    tasksPage.includes("节点任务创建地址未配置"),
+    tasksPage.includes("节点任务创建地址未配置") &&
+      tasksPage.includes("节点新建任务未配置"),
     "fail closed"
   )
   check(

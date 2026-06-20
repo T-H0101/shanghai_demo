@@ -24,6 +24,7 @@
  */
 
 import { createHash } from "node:crypto"
+import { installAuthenticatedFetch } from "./auth-helper"
 import { Client } from "pg"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
@@ -322,6 +323,7 @@ async function testWording() {
 
 async function main() {
   console.log("=== Exports 统一框架 e2e (R.13) ===")
+  await installAuthenticatedFetch(BASE)
   for (const ep of ENDPOINTS) {
     await testEndpoint(ep)
   }

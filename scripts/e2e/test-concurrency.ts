@@ -25,7 +25,7 @@ async function concurrentFetch(path: string, count: number): Promise<{ successes
   const loginRes = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "admin123", siteCode: "SH01" }),
+    body: JSON.stringify({ username: "admin", password: "admin", siteCode: "SH01" }),
   })
   const cookie = loginRes.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1] ?? ""
 

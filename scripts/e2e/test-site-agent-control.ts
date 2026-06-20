@@ -6,6 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Client } from "pg"
 import { signSiteAgentRequest } from "../../lib/site-agent/hmac"
+import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000"
 const SITE_CODE = "SH01"
@@ -47,6 +48,7 @@ async function main() {
   const siteDatabaseUrl = process.env.SITE_DATABASE_URL
   assert(databaseUrl, "DATABASE_URL is required")
   assert(siteDatabaseUrl, "SITE_DATABASE_URL is required")
+  await installAuthenticatedFetch(BASE_URL)
   const client = new Client({ connectionString: databaseUrl })
   const siteClient = new Client({ connectionString: siteDatabaseUrl })
   await client.connect()

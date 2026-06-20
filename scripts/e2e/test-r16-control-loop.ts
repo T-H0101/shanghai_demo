@@ -21,6 +21,7 @@
 
 import { setTimeout as sleep } from "node:timers/promises"
 import { execSync } from "node:child_process"
+import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 const SITE = process.env.SITE_CODE ?? "SH01"
@@ -33,6 +34,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== R.16 Task control execution loop e2e ===")
+  await installAuthenticatedFetch(BASE)
 
   // 0. 准备: 查 source_id 在 1-100 范围 (tbl_task 真实存在) 的 task
   const tasksRes = await fetch(`${BASE}/api/tasks?pageSize=50`)

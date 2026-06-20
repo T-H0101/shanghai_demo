@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { RefreshCw, Search, Package, AlertCircle, ShieldCheck, Download } from 'lucide-react'
 import { useSite } from '@/lib/site/site-context'
 import { toast } from '@/hooks/use-toast'
+import { formatBeijingTime } from '@/components/shared/time-format'
 
 interface PackageItem {
   id: string
@@ -144,12 +145,7 @@ function alertSeverityColor(severity: string): string {
 }
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleString('zh-CN')
-  } catch {
-    return iso
-  }
+  return formatBeijingTime(iso) || '—'
 }
 
 export default function SyncCenterPage() {
@@ -491,6 +487,18 @@ export default function SyncCenterPage() {
               网页触发 Agent 全量/增量同步尚未开放；当前 <code className="text-xs">/api/sync/trigger</code> 显式返回
               501，不写入同步日志，不伪造完成态。
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 h-8"
+              disabled
+              data-testid="manual-sync-trigger-blocked"
+              title="blocked_by_site_change: Site Agent manual-sync command 通道未开放"
+            >
+              <RefreshCw className="mr-1 h-4 w-4" />
+              手动同步未开放
+            </Button>
             <p className="mt-2 text-xs text-amber-700">
               现阶段可由运维在受控环境执行 <code>pnpm scheduler:sync:once -- --siteCode=SH01</code>；要开放网页触发，需要 Site Agent
               增加可审计的 manual-sync command 通道。
@@ -605,9 +613,7 @@ export default function SyncCenterPage() {
                   <div>
                     <div className="text-slate-500">最近校验</div>
                     <div className="font-mono text-xs">
-                      {consistency.checkedAt
-                        ? new Date(consistency.checkedAt).toLocaleString()
-                        : "—"}
+                      {formatDateTime(consistency.checkedAt ?? null)}
                     </div>
                   </div>
                   <div>
@@ -795,7 +801,7 @@ export default function SyncCenterPage() {
                   {schedulerLogs.map((log) => (
                     <TableRow key={log.runId}>
                       <TableCell className="font-mono text-xs">
-                        {new Date(log.startedAt).toLocaleString()}
+                        {formatDateTime(log.startedAt)}
                       </TableCell>
                       <TableCell>
                         {log.status === 'success' && <Badge className="bg-emerald-100 text-emerald-700">成功</Badge>}

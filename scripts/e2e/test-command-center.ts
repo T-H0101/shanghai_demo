@@ -8,6 +8,8 @@
  * - It does not import mock data.
  */
 
+import { installAuthenticatedFetch } from "./auth-helper"
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
 let pass = 0
@@ -25,6 +27,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 async function main() {
   console.log("=== Command Center UI e2e ===\n")
+  await installAuthenticatedFetch(BASE)
 
   const pageRes = await fetch(`${BASE}/`)
   const html = await pageRes.text()

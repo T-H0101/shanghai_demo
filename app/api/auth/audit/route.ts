@@ -51,8 +51,8 @@ export async function GET(req: NextRequest) {
     idx++
   }
   if (siteCode) {
-    conditions.push(`site_code = $${idx}`)
-    params.push(siteCode)
+    conditions.push(`site_code ILIKE $${idx}`)
+    params.push(`%${siteCode}%`)
     idx++
   }
   if (ip) {

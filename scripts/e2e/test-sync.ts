@@ -181,6 +181,25 @@ async function main() {
   // 读源文件验证前端代码含一致性卡 (client component, curl HTML 不含)
   const { readFile } = await import("node:fs/promises")
   const syncPageSrc = await readFile("app/sync/page.tsx", "utf8")
+  const sidebarSrc = await readFile("components/dashboard/sidebar.tsx", "utf8")
+  const commandPaletteSrc = await readFile("components/shared/command-palette.tsx", "utf8")
+  check(
+    "同步中心已加入主导航",
+    sidebarSrc.includes('href: "/sync"') && sidebarSrc.includes("同步中心"),
+    "sidebar /sync"
+  )
+  check(
+    "同步中心已加入命令面板",
+    commandPaletteSrc.includes('router.push("/sync")') && commandPaletteSrc.includes("同步中心"),
+    "command palette /sync"
+  )
+  check(
+    "手动同步按钮显式 blocked",
+    syncPageSrc.includes("manual-sync-trigger-blocked") &&
+      syncPageSrc.includes("手动同步未开放") &&
+      syncPageSrc.includes("blocked_by_site_change"),
+    "不隐藏按钮，不伪造同步成功"
+  )
   check(
     "R.7 前端 /sync 代码含 consistency-card 元素",
     syncPageSrc.includes("consistency-card") && syncPageSrc.includes("数据一致性校验"),

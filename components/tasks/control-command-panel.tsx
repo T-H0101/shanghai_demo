@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { formatBeijingTime } from "@/components/shared/time-format"
 
 interface ControlCommand {
   id: string
@@ -204,12 +205,10 @@ export function ControlCommandPanel() {
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-slate-500">
-                          {new Date(command.requestedAt).toLocaleString("zh-CN")}
+                          {formatBeijingTime(command.requestedAt) || "—"}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-slate-500">
-                          {command.completedAt
-                            ? new Date(command.completedAt).toLocaleString("zh-CN")
-                            : "—"}
+                          {formatBeijingTime(command.completedAt) || "—"}
                         </TableCell>
                         <TableCell className="max-w-56 truncate text-xs text-red-600" title={command.errorMessage ?? ""}>
                           {command.errorMessage ?? "—"}
