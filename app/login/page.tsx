@@ -367,12 +367,14 @@ export default function LoginPage() {
             </form>
 
             <p className="mt-6 text-center text-xs text-slate-500 leading-relaxed">
-              当前使用中心平台账号认证，企业 ADFS / LDAP 作为可插拔边界预留。
+              当前认证：本地 JWT
               <br />
-              本地开发账号：admin / admin
+              企业 ADFS/LDAP：待接入，缺少 provider metadata 与测试账号
+              <br />
+              站点 SSO：待 ADFS/LDAP 与站点 token 接收端点确认
               <br />
               <span className="text-slate-400">
-                登录行为写入 auth_login_audit，连续失败触发锁定。
+                本地开发账号：admin / admin — 登录行为写入 auth_login_audit, 连续失败触发锁定
               </span>
             </p>
 
