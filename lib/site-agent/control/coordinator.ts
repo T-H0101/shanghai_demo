@@ -95,7 +95,8 @@ export class ControlCoordinator {
           executed++
         } else if (
           command.commandType !== "task_pause" &&
-          command.commandType !== "task_resume"
+          command.commandType !== "task_resume" &&
+          command.commandType !== "task_create"
         ) {
           result = {
             status: "unsupported",
@@ -103,6 +104,55 @@ export class ControlCoordinator {
             after: null,
             blocker: "unsupported_command_type",
             reason: `Site Agent does not implement ${command.commandType}`,
+          }
+        } else if (command.commandType === "task_create") {
+          // R.58: route task_create through task-create-adapter
+          const pl = command.payload as {
+            taskName?: string
+            taskType?: number
+            taskMode?: number
+            priority?: number
+          } | null
+          if (!pl?.taskName || typeof pl.taskType !== "number") {
+            result = {
+              status: "failed",
+              before: null,
+              after: null,
+              blocker: "task_create_payload_invalid",
+            }
+          } else {
+            const { executeTaskCreate } = await import(
+              "./task-create-adapter"
+            )
+            const createResult = await executeTaskCreate({
+              taskName: pl.taskName,
+              taskType: pl.taskType,
+              taskMode: pl.taskMode,
+              priority: pl.priority,
+              siteCode: command.sourceSiteId,
+            })
+            if (createResult.status === "success") {
+              result = {
+                status: "success",
+                before: null,
+                after: {
+                  id: createResult.taskId ?? "",
+                  taskId: createResult.taskId ?? null,
+                  taskName: pl.taskName,
+                  taskType: pl.taskType,
+                  status: 0,
+                  updateDt: new Date().toISOString(),
+                },
+              }
+              executed++
+            } else {
+              result = {
+                status: "failed",
+                before: null,
+                after: null,
+                blocker: createResult.blocker ?? createResult.reason ?? "task_create_failed",
+              }
+            }
           }
         } else {
           const pauseState =

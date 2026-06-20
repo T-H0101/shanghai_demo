@@ -33,6 +33,8 @@ export const COMMAND_TYPES = [
   // Sprint R.39: 同步策略闭环
   "sync_full",
   "sync_incremental",
+  // Sprint R.58: 总控创建站点任务
+  "task_create",
 ] as const
 export type CommandType = (typeof COMMAND_TYPES)[number]
 

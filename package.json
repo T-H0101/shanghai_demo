@@ -45,6 +45,7 @@
     "test:e2e:worker": "bash scripts/sprint-4.8-e2e.sh",
     "e2e:dashboard": "tsx scripts/e2e/test-dashboard.ts",
     "e2e:tasks": "tsx scripts/e2e/test-tasks.ts",
+    "e2e:task-create-control": "tsx scripts/e2e/test-task-create-control.ts",
     "e2e:sync": "tsx scripts/e2e/test-sync.ts",
     "e2e:control": "tsx scripts/e2e/test-control.ts",
     "e2e:sites": "tsx scripts/e2e/test-sites.ts",

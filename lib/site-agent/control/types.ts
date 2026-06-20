@@ -19,6 +19,8 @@ export interface TaskSnapshot {
   taskType: number | null
   status: number | null
   updateDt: string | null
+  taskName?: string | null
+  taskId?: string | null
 }
 
 export interface PauseState {
