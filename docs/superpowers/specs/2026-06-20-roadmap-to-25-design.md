@@ -36,8 +36,8 @@
 当前权威矩阵为 R.43:
 
 - `complete`: 24 (从 15 增加 9)
-- `partial`: 8 (REQ-5.1.1 保持 partial, 站点原生日志需站点 app 配合)
-- `not_started`: 2
+- `partial`: 9 (REQ-5.1.1 保持 partial, 站点原生日志需站点 app 配合)
+- `not_started`: 1
 - `blocked_by_source_schema`: 4
 - `blocked_by_site_change`: 1
 - `blocked_by_auth`: 5

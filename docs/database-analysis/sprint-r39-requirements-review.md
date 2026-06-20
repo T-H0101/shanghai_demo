@@ -35,7 +35,14 @@
 
 ## D. Mock/DRY_RUN 标记
 
-全部 **真实**: control_command 写入, sync_request_log 跟踪, 审计写入。
+全部 **真实**: control_command 写入, sync_request_log 跟踪, Agent poll/ack/result, 审计写入。
+
+## D2. 补强验证 (2026-06-20)
+
+- `scripts/e2e/test-roadmap-25.ts` 已补 Agent `--once` 执行。
+- 验证管理员触发后 `sync_request_log.status` 从 `command_sent` 进入 `completed` / `failed` 最终态。
+- 验证 `agent_polled_at` 和 `sync_completed_at` 非空。
+- 不再只以 POST 201 作为同步闭环完成证据。
 
 ## E. Verdict
 

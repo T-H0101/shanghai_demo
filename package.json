@@ -76,6 +76,7 @@
     "e2e:compat": "tsx scripts/e2e/test-compatibility.ts",
     "e2e:concurrency": "tsx scripts/e2e/test-concurrency.ts",
     "e2e:task-monitor": "tsx scripts/e2e/test-task-monitor.ts",
+    "e2e:roadmap-25": "tsx scripts/e2e/test-roadmap-25.ts",
     "e2e:all": "tsx scripts/e2e/run-all.ts"
   },
   "dependencies": {

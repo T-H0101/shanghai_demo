@@ -1,4 +1,8 @@
-export type SupportedControlType = "task_pause" | "task_resume"
+export type SupportedControlType =
+  | "task_pause"
+  | "task_resume"
+  | "sync_full"
+  | "sync_incremental"
 
 export interface AgentControlCommand {
   id: string
@@ -30,6 +34,13 @@ export interface SiteActionResult {
   previousStatus?: number
   blocker?: string
   reason?: string
+  sync?: {
+    type: "full" | "incremental"
+    replayed: number
+    tableCount: number
+    recordCount: number
+    lastSyncAt: string | null
+  }
 }
 
 export interface ControlExecution {

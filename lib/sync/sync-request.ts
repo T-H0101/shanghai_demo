@@ -121,6 +121,46 @@ export async function updateSyncRequestStatus(
   )
 }
 
+export async function updateSyncRequestStatusByCommandId(
+  commandId: string,
+  status: SyncRequestStatus,
+  extra?: { packageLogId?: string; errorMessage?: string; timing?: Record<string, unknown> },
+): Promise<void> {
+  const timestampField =
+    status === "agent_polled" ? "agent_polled_at"
+    : status === "sync_running" ? "sync_started_at"
+    : status === "completed" || status === "failed" ? "sync_completed_at"
+    : null
+
+  const updates: string[] = ["status = $2"]
+  const values: unknown[] = [commandId, status]
+  let idx = 3
+
+  if (timestampField) {
+    updates.push(`${timestampField} = NOW()`)
+  }
+  if (extra?.packageLogId) {
+    updates.push(`package_log_id = $${idx}`)
+    values.push(extra.packageLogId)
+    idx++
+  }
+  if (extra?.errorMessage) {
+    updates.push(`error_message = $${idx}`)
+    values.push(extra.errorMessage)
+    idx++
+  }
+  if (extra?.timing) {
+    updates.push(`timing_json = $${idx}::jsonb`)
+    values.push(JSON.stringify(extra.timing))
+    idx++
+  }
+
+  await query(
+    `UPDATE sync_request_log SET ${updates.join(", ")} WHERE command_id = $1::uuid`,
+    values,
+  )
+}
+
 /**
  * 查询同步请求列表
  */

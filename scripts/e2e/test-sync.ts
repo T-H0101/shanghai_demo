@@ -14,6 +14,7 @@
  */
 
 import { createHash } from "node:crypto"
+import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -194,11 +195,12 @@ async function main() {
     "command palette /sync"
   )
   check(
-    "手动同步按钮显式 blocked",
-    syncPageSrc.includes("manual-sync-trigger-blocked") &&
-      syncPageSrc.includes("手动同步未开放") &&
-      syncPageSrc.includes("blocked_by_site_change"),
-    "不隐藏按钮，不伪造同步成功"
+    "手动同步按钮真实提交到 Agent 队列",
+    syncPageSrc.includes("manual-sync-trigger-card") &&
+      syncPageSrc.includes("manual-sync-trigger-incremental") &&
+      syncPageSrc.includes("manual-sync-trigger-full") &&
+      syncPageSrc.includes("已提交到控制队列"),
+    "不隐藏按钮，不伪造同步完成"
   )
   check(
     "R.7 前端 /sync 代码含 consistency-card 元素",
@@ -358,29 +360,32 @@ async function main() {
     "前端需展示真实聚合来源"
   )
 
-  // ===== Sprint R.22: 手动同步触发 fail-closed =====
+  // ===== Sprint R.39: 手动同步触发真实提交到 Agent 队列 =====
+  await installAuthenticatedFetch(BASE)
   const triggerRes = await fetch(`${BASE}/api/sync/trigger`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ siteCode: "SH01", mode: "incremental" }),
+    body: JSON.stringify({ siteCode: "SH01", syncType: "incremental" }),
   })
   const triggerJson = await triggerRes.json().catch(() => ({}))
   check(
-    "R.22 /api/sync/trigger 显式 fail-closed",
-    triggerRes.status === 501 &&
-      triggerJson.code === 501 &&
-      triggerJson.source === "not_implemented" &&
-      triggerJson.blocker === "blocked_by_site_change" &&
-      triggerJson.reqId === "REQ-2.3.2",
-    `HTTP ${triggerRes.status} blocker=${triggerJson.blocker}`
+    "R.39 /api/sync/trigger 真实提交同步命令",
+    triggerRes.status === 201 &&
+      triggerJson.ok === true &&
+      triggerJson.request?.requestNo &&
+      triggerJson.request?.commandNo &&
+      triggerJson.request?.status === "command_sent",
+    `HTTP ${triggerRes.status} status=${triggerJson.request?.status}`
   )
   check(
-    "R.22 /sync 页面展示手动同步阻塞态",
-    syncPageSrc.includes("manual-sync-blocked-card") &&
+    "R.39 /sync 页面展示真实手动同步触发态",
+    syncPageSrc.includes("manual-sync-trigger-card") &&
       syncPageSrc.includes("/api/sync/trigger") &&
-      syncPageSrc.includes("blocked_by_site_change") &&
+      syncPageSrc.includes("manual-sync-trigger-incremental") &&
+      syncPageSrc.includes("manual-sync-trigger-full") &&
+      syncPageSrc.includes("已提交到控制队列") &&
       !syncPageSrc.includes("手动同步成功"),
-    "不提供假手动同步成功"
+    "提交到 Agent 队列, 不提供假同步成功"
   )
 
   console.log(`\n=== Sync: ${pass} pass, ${fail} fail ===`)

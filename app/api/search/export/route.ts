@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     let idx = 1
 
     if (keyword) {
-      conditions.push(`(disc_no ILIKE $${idx} OR volume_id ILIKE $${idx})`)
+      conditions.push(`(disc_num ILIKE $${idx} OR task_no ILIKE $${idx} OR device_name ILIKE $${idx})`)
       params.push(`%${keyword}%`)
       idx++
     }
@@ -48,23 +48,24 @@ export async function GET(req: NextRequest) {
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
 
     const result = await query(
-      `SELECT id::text, source_site_id, disc_no, media_type, capacity,
-              volume_id, slot_index, status, created_at::text
+      `SELECT id::text, source_site_id, disc_num, disc_label, task_no,
+              device_id, device_name, slot_id, used_size, iso_status, stage,
+              COALESCE(create_dt, created_at)::text AS created_at
        FROM unified_disc_media ${where}
-       ORDER BY created_at DESC
+       ORDER BY COALESCE(create_dt, created_at) DESC
        LIMIT $${idx}`,
       [...params, limit],
     )
 
     const rows = result.rows.map((r: any) => ({
-      filePath: r.disc_no ?? "—",
-      size: r.capacity ?? "—",
+      filePath: r.disc_num ?? r.disc_label ?? r.task_no ?? "—",
+      size: r.used_size ?? "—",
       createdAt: r.created_at ?? "—",
-      storageLocation: `${r.source_site_id}/${r.volume_id ?? "—"}/${r.slot_index ?? "—"}`,
+      storageLocation: `${r.source_site_id}/${r.device_id ?? r.device_name ?? "—"}/${r.slot_id ?? "—"}`,
       department: "—", // Not available in current schema
       siteCode: r.source_site_id,
-      mediaType: r.media_type ?? "—",
-      status: r.status ?? "—",
+      mediaType: "disc",
+      status: r.iso_status ?? r.stage ?? "—",
     }))
 
     const sha256 = createHash("sha256").update(JSON.stringify(rows)).digest("hex")

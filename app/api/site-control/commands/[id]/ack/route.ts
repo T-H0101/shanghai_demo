@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { markCommandRunning } from "@/lib/control/control-command"
 import { verifySiteControlRequest } from "@/lib/auth/site-control-auth"
+import { updateSyncRequestStatusByCommandId } from "@/lib/sync/sync-request"
 
 export async function POST(
   req: NextRequest,
@@ -37,6 +38,9 @@ export async function POST(
         { error: "command not found or not in pulled state" },
         { status: 404 }
       )
+    }
+    if (row.commandType === "sync_full" || row.commandType === "sync_incremental") {
+      await updateSyncRequestStatusByCommandId(id, "sync_running")
     }
     return NextResponse.json({ ok: true, command: row })
   } catch (e) {

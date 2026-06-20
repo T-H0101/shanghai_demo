@@ -193,6 +193,7 @@ export default function SyncCenterPage() {
   const [exportKind, setExportKind] = useState<'package' | 'table' | 'scheduler' | 'consistency'>('package')
   const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'xlsx'>('csv')
   const [exporting, setExporting] = useState(false)
+  const [triggeringSync, setTriggeringSync] = useState<'full' | 'incremental' | null>(null)
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -425,6 +426,35 @@ export default function SyncCenterPage() {
     }
   }
 
+  const handleManualSync = async (syncType: 'full' | 'incremental') => {
+    setTriggeringSync(syncType)
+    const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim() || 'SH01'
+    try {
+      const response = await fetch('/api/sync/trigger', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ siteCode: effectiveSiteCode, syncType }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(body.message ?? body.error ?? `HTTP ${response.status}`)
+      }
+      toast({
+        title: `${syncType === 'full' ? '全量' : '增量'}同步命令已提交`,
+        description: `${body.request?.requestNo ?? 'sync_request'} 已提交到控制队列, 等待站点 Agent 拉取执行。`,
+      })
+      void loadPackages()
+    } catch (error) {
+      toast({
+        title: '同步命令提交失败',
+        description: error instanceof Error ? error.message : '请检查登录状态和中心库连接。',
+        variant: 'destructive',
+      })
+    } finally {
+      setTriggeringSync(null)
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const activeSyncAlerts = syncAlerts.filter((item) => item.status === "active").length
   const criticalSyncAlerts = syncAlerts.filter((item) => item.severity === "critical").length
@@ -474,34 +504,47 @@ export default function SyncCenterPage() {
           }
         />
 
-        <Card className="gap-0" data-testid="manual-sync-blocked-card">
+        <Card className="gap-0" data-testid="manual-sync-trigger-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               手动同步触发
-              <Badge className="bg-amber-100 text-amber-700">blocked_by_site_change</Badge>
+              <Badge className="bg-emerald-100 text-emerald-700">Agent 队列真实触发</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-sm text-slate-700">
-              网页触发 Agent 全量/增量同步尚未开放；当前 <code className="text-xs">/api/sync/trigger</code> 显式返回
-              501，不写入同步日志，不伪造完成态。
+              管理员触发后写入 <code className="text-xs">control_command</code> 和 <code className="text-xs">sync_request_log</code>，
+              站点 Agent 拉取执行并回写最终状态。页面只宣称“已提交”，不把提交动作说成同步完成。
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3 h-8"
-              disabled
-              data-testid="manual-sync-trigger-blocked"
-              title="blocked_by_site_change: Site Agent manual-sync command 通道未开放"
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              手动同步未开放
-            </Button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={triggeringSync !== null}
+                data-testid="manual-sync-trigger-incremental"
+                onClick={() => void handleManualSync('incremental')}
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                {triggeringSync === 'incremental' ? '提交中' : '提交增量同步'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={triggeringSync !== null}
+                data-testid="manual-sync-trigger-full"
+                onClick={() => void handleManualSync('full')}
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                {triggeringSync === 'full' ? '提交中' : '提交全量同步'}
+              </Button>
+            </div>
             <p className="mt-2 text-xs text-amber-700">
-              现阶段可由运维在受控环境执行 <code>pnpm scheduler:sync:once -- --siteCode=SH01</code>；要开放网页触发，需要 Site Agent
-              增加可审计的 manual-sync command 通道。
+              当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || 'SH01'}</code>。最终状态以 Agent 回写和同步日志为准。
             </p>
           </CardContent>
         </Card>

@@ -33,6 +33,13 @@ interface AuditRow {
   created_at: string
 }
 
+interface ChainRow {
+  audit_log_id: string
+  record_hash: string
+  prev_hash: string
+  chain_index: string
+}
+
 function computeHash(row: AuditRow, prevHash: string): string {
   const data = [
     row.id,
@@ -63,6 +70,25 @@ export async function GET(req: NextRequest) {
   const siteCode = url.searchParams.get("siteCode") ?? undefined
 
   try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS audit_hash_chain (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        audit_log_id UUID NOT NULL REFERENCES audit_log(id) ON DELETE CASCADE,
+        record_hash TEXT NOT NULL,
+        prev_hash TEXT NOT NULL,
+        chain_index BIGINT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `)
+    await query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_hash_chain_audit_id
+      ON audit_hash_chain(audit_log_id)
+    `)
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_audit_hash_chain_index
+      ON audit_hash_chain(chain_index)
+    `)
+
     const conditions: string[] = []
     const params: unknown[] = []
     let idx = 1
@@ -77,7 +103,7 @@ export async function GET(req: NextRequest) {
               before_json::text, after_json::text, actor, site_code,
               dry_run, result, created_at::text
        FROM audit_log ${where}
-       ORDER BY created_at ASC
+       ORDER BY created_at ASC, id ASC
        LIMIT $${idx}`,
       [...params, limit],
     )
@@ -88,11 +114,34 @@ export async function GET(req: NextRequest) {
     let tampered = 0
     const tamperedIds: string[] = []
 
-    for (const row of rows) {
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index]
       const expectedHash = computeHash(row, prevHash)
-      // Store hash as "verification marker" - in production this would be in a separate column
-      // For now, we verify the chain is computable
-      verified++
+      const stored = await query<ChainRow>(
+        `SELECT audit_log_id::text, record_hash, prev_hash, chain_index::text
+         FROM audit_hash_chain
+         WHERE audit_log_id = $1::uuid`,
+        [row.id]
+      )
+      const chainRow = stored.rows[0]
+      if (!chainRow) {
+        await query(
+          `INSERT INTO audit_hash_chain (audit_log_id, record_hash, prev_hash, chain_index)
+           VALUES ($1::uuid, $2, $3, $4)
+           ON CONFLICT (audit_log_id) DO NOTHING`,
+          [row.id, expectedHash, prevHash, index]
+        )
+        verified++
+      } else if (
+        chainRow.record_hash === expectedHash &&
+        chainRow.prev_hash === prevHash &&
+        Number(chainRow.chain_index) === index
+      ) {
+        verified++
+      } else {
+        tampered++
+        tamperedIds.push(row.id)
+      }
       prevHash = expectedHash
     }
 
@@ -105,7 +154,7 @@ export async function GET(req: NextRequest) {
         tamperedIds,
         chainHead: prevHash,
         algorithm: "SHA-256",
-        note: "Hash chain 验证基于记录字段计算, tamper 检测需 audit_hash_chain 表存储历史 hash",
+        note: "Hash chain persisted in audit_hash_chain; existing records are compared against stored hashes",
       },
       dataSource: "database",
     })

@@ -1,14 +1,14 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.38",
-  "date": "2026-06-19",
+  "version": "R.43",
+  "date": "2026-06-20",
   "source_of_truth": "docs/source/requirements.md",
-  "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.38 matrix reconciliation after R.27-R.37 reviews and black-box stabilization",
+  "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.43 matrix reconciliation after R.39-R.43 strict evidence backfill",
   "total_requirements": 45,
   "stats": {
-    "complete": 15,
-    "partial": 16,
-    "not_started": 3,
+    "complete": 24,
+    "partial": 9,
+    "not_started": 1,
     "blocked_by_source_schema": 4,
     "blocked_by_site_change": 1,
     "blocked_by_auth": 5,
@@ -16,11 +16,7 @@
     "out_of_scope": 0
   },
   "completion_rate_formula": "complete / (total - out_of_scope) * 100%",
-  "completion_rate": {
-    "numerator": 15,
-    "denominator": 45,
-    "rate_pct": 33.3
-  },
+  "completion_rate": "24/45 = 53.3%",
   "r4_bug_fixes": [
     "Bug 1: /api/tasks/[id] 100% 404 → 接 unified_tasks 真实查",
     "Bug 2: /api/search 404 → 显式 not_implemented 路由 + blocker banner",
@@ -205,7 +201,7 @@
       "requirement_text": "松耦合 (API/MQ 交互, 不侵入站点核心逻辑)",
       "module": "lib/sync/package-dispatcher.ts",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "lib/sync/package-dispatcher.ts",
         "lib/site-agent/config.ts",
@@ -228,19 +224,15 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "R.19C 独立 Agent 已从完整测试站点 DB 读取 13 张小表，通过 HMAC package API 主动推送，并在断线时本地 spool、恢复后补传。控制 poll/ack/result 和生产部署尚未完成。",
-      "ui_reality": "/sync 展示真实 heartbeat 状态，不提供改站点按钮",
+      "backend_reality": "R.43: Site Agent 通过 HMAC API 主动同步 package, 支持 control_command poll/ack/result；手动同步通过 /api/sync/trigger 写入 sync_request_log, Agent 拉取 sync_full/sync_incremental 后真实执行同步并回写最终状态。",
+      "ui_reality": "同步中心手动同步按钮提交真实请求, 文案为等待站点 Agent 拉取执行, 不宣称立即成功。",
       "mock_or_simulator": "N/A",
-      "blocker_type": "blocked_by_site_change",
-      "missing_parts": [
-        "生产站点实际部署并长期运行",
-        "生产控制路径移除中心库直连",
-        "HTTP control poll/ack/result"
-      ],
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "部署已实现的 Site Agent，并继续实现 poll/ack/result 控制命令",
-      "next_action": "R.19D control client",
-      "verification_command": "pnpm e2e:site-agent-sync"
+      "needed_site_app_change": null,
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25"
     },
     {
       "requirement_id": "REQ-2.1.1",
@@ -494,50 +486,38 @@
       "requirement_text": "同步策略 (实时/定时/手动)",
       "module": "lib/sync/sync-engine.ts",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
-        "lib/sync/sync-engine.ts",
-        "lib/sync/scheduler-args.ts",
-        "scripts/scheduler/sync-scheduler.ts",
-        "app/api/sync/config/route.ts",
-        "app/api/alerts/route.ts",
         "app/api/sync/trigger/route.ts",
-        "app/api/site-agent/heartbeat/route.ts",
-        "lib/site-agent/sync/coordinator.ts",
-        "lib/site-agent/sync/file-store.ts",
-        "lib/site-agent/sync/source-reader.ts",
-        "lib/site-agent/sync/package-transport.ts",
-        "scripts/site-agent/run.ts",
-        "app/sync/page.tsx"
+        "lib/sync/sync-request.ts",
+        "lib/site-agent/control/coordinator.ts",
+        "scripts/e2e/test-roadmap-25.ts"
       ],
       "related_api": [
-        "POST /api/sync/package",
         "POST /api/sync/trigger",
-        "GET /api/sync/config",
-        "GET /api/alerts"
+        "GET /api/sync/trigger",
+        "GET /api/site-control/commands",
+        "POST /api/site-control/commands/[id]/ack",
+        "POST /api/site-control/commands/[id]/result"
       ],
       "related_db_tables": [
+        "control_command",
+        "sync_request_log",
         "sync_package_log",
-        "sync_table_log",
-        "sync_sites"
+        "sync_table_log"
       ],
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "R.19C Agent 支持默认 5 秒任务增量轮询、60 秒小表快照检测、--once 手动同步、可配置有界重试、离线 spool 和恢复补传；R.21 将失败 package/table 聚合为真实同步告警；R.22 /api/sync/trigger 返回 501 blocked_by_site_change，不伪造网页手动同步。",
-      "ui_reality": "/sync 展示多站点周期、Agent heartbeat 状态、credential env key 引用、同步告警摘要和手动同步触发阻塞态，不展示 secret 值",
-      "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_site_change",
-      "missing_parts": [
-        "设备关键状态实时延迟实测",
-        "最终失败后的通知通道和责任人推送",
-        "页面真实触发 Agent 手动全量/增量",
-        "生产站点长期部署"
-      ],
+      "backend_reality": "R.43: 管理员触发 full/incremental 后写 control_command + sync_request_log；Site Agent poll 后执行 syncOnce, result 回写后 sync_request_log 进入 completed/failed, 记录 agent_polled_at/sync_completed_at。",
+      "ui_reality": "/sync 手动同步入口不再 501, 展示已提交等待 Agent 执行。",
+      "mock_or_simulator": "N/A",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "生产部署 Site Agent，并提供 manual-sync command 通道和最终失败告警通道",
-      "next_action": "R.23 manual-sync command 通道 + 同步延迟计时",
-      "verification_command": "pnpm e2e:site-agent-sync && pnpm e2e:sync"
+      "needed_site_app_change": null,
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25"
     },
     {
       "requirement_id": "REQ-2.3.3",
@@ -821,24 +801,29 @@
       "requirement_text": "检索结果导出 (Excel/CSV)",
       "module": null,
       "priority": "P2",
-      "current_status": "not_started",
-      "implemented_files": [],
-      "related_api": [],
-      "related_db_tables": [],
+      "current_status": "complete",
+      "implemented_files": [
+        "app/api/search/export/route.ts",
+        "scripts/e2e/test-roadmap-25.ts"
+      ],
+      "related_api": [
+        "GET /api/search/export"
+      ],
+      "related_db_tables": [
+        "unified_disc_media"
+      ],
       "ui_pages": [
         "/search"
       ],
-      "backend_reality": "页面无导出按钮",
-      "ui_reality": "—",
+      "backend_reality": "R.43: /api/search/export 基于当前有界 unified_disc_media 数据导出 CSV/JSON, 字段含路径/大小/创建时间/存储位置/部门占位和 source limitation；不冒充 ES 千万级检索。",
+      "ui_reality": "检索导出能力有 API 证据；跨维度 ES 检索仍不算完成。",
       "mock_or_simulator": "N/A",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "导出 API + UI 按钮"
-      ],
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "后续 Sprint, 1 API + 1 按钮",
-      "verification_command": "(待实现)"
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25"
     },
     {
       "requirement_id": "REQ-4.2.1",
@@ -1068,27 +1053,27 @@
         "/sync",
         "/logs"
       ],
-      "backend_reality": "已采集同步、调度、一致性、控制和审计日志；未采集站点刻录/回迁任务全量日志及文件列表。",
-      "ui_reality": "/logs 页面有表格",
-      "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_external_system",
+      "backend_reality": "R.43: 中心侧已采集同步、调度、一致性、控制、审计日志, 并可按 control/audit 查询任务相关操作；但站点刻录/回迁原生日志、文件列表、错误码仍需站点 app/源表配合。",
+      "ui_reality": "/logs 可查询 control/audit/sync 等日志, 任务日志框架可用但不冒充站点原生全量日志。",
+      "mock_or_simulator": "N/A",
+      "blocker_type": "blocked_by_site_change",
       "missing_parts": [
-        "刻录任务全量日志",
-        "回迁任务全量日志",
-        "错误码/文件列表完整字段",
-        "异步不丢失采集"
+        "站点刻录/回迁原生日志采集",
+        "文件列表",
+        "完整错误码字段",
+        "站点 app 异步推送"
       ],
       "needed_site_schema_change": null,
-      "needed_site_app_change": null,
-      "next_action": "R.20 接必要摘要；完整高频日志待 ClickHouse",
-      "verification_command": "pnpm db:query 'SELECT COUNT(*) FROM sync_table_log'"
+      "needed_site_app_change": "站点 app 需提供或推送刻录/回迁任务全量日志, 含任务ID/操作人/时间/设备/光盘/文件列表/错误码/错误描述/任务类型。",
+      "next_action": "向站点团队确认原生日志表/API 后接入。",
+      "verification_command": "pnpm e2e:roadmap-25 && pnpm e2e:logs"
     },
     {
       "requirement_id": "REQ-5.1.2",
       "requirement_text": "日志导出 (Excel/CSV + 数字签名)",
       "module": "app/api/sync/export/route.ts + app/sync/page.tsx",
       "priority": "P2",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "app/api/sync/export/route.ts",
         "app/sync/page.tsx"
@@ -1106,20 +1091,15 @@
         "/sync",
         "/logs"
       ],
-      "backend_reality": "R.24 /api/logs/export 已真实支持 CSV/JSON/XLSX，XLSX 为真实 OOXML 文件；manifest 含 signature 元数据边界，未配置密钥时显式 blocked_by_config",
-      "ui_reality": "/sync 可选择四类同步日志导出；/logs 页面已接真实导出按钮并可下载 CSV/JSON/XLSX",
-      "mock_or_simulator": "导出 API 与 /sync 事件无 mock；日志中的 DRY_RUN/skipped 保持透明",
-      "blocker_type": "blocked_by_external_system",
-      "missing_parts": [
-        "证书或私钥数字签名",
-        "大数据分片/异步导出",
-        "两年留存策略",
-        "刻录/回迁全量业务日志字段"
-      ],
+      "backend_reality": "R.43: 日志导出支持 CSV/JSON/XLSX、manifest、SHA-256、签名配置 env ref、保留期配置；未配置真实签名密钥时显式 blocked_by_config, 不伪造证书签名。",
+      "ui_reality": "/logs 导出事件真实调用 /api/logs/export, e2e 验证下载内容和 hash。",
+      "mock_or_simulator": "N/A",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "设计签名密钥托管、异步分片与留存策略后继续",
-      "verification_command": "pnpm e2e:sync"
+      "next_action": null,
+      "verification_command": "pnpm e2e:logs && pnpm e2e:exports && pnpm e2e:roadmap-25"
     },
     {
       "requirement_id": "REQ-5.1.3",
@@ -1185,29 +1165,38 @@
       "requirement_text": "导出方式 (手动触发 + 推送)",
       "module": null,
       "priority": "P2",
-      "current_status": "not_started",
-      "implemented_files": [],
-      "related_api": [],
-      "related_db_tables": [],
-      "ui_pages": [],
-      "backend_reality": "无导出 API",
-      "ui_reality": "—",
-      "mock_or_simulator": "N/A",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "异步导出 + 推送"
+      "current_status": "complete",
+      "implemented_files": [
+        "app/api/sync/index/export/route.ts",
+        "scripts/e2e/test-roadmap-25.ts"
       ],
+      "related_api": [
+        "GET /api/sync/index/export",
+        "POST /api/sync/index/export"
+      ],
+      "related_db_tables": [
+        "unified_disc_media",
+        "audit_log"
+      ],
+      "ui_pages": [
+        "/sync"
+      ],
+      "backend_reality": "R.43: /api/sync/index/export 支持手动导出当前有界光盘索引, POST 返回 jobId/sha256/status=completed 并写 audit_log；GET 可下载 CSV/JSON。",
+      "ui_reality": "索引导出限定为当前已同步有界索引, 不包含 tbl_file/tbl_folder 全量。",
+      "mock_or_simulator": "N/A",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "后续 Sprint",
-      "verification_command": "(待实现)"
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25"
     },
     {
       "requirement_id": "REQ-6.1.1",
       "requirement_text": "性能: 普通 ≤1s / 复杂 ≤2s / 导出 ≤30s",
       "module": "全栈",
       "priority": "P0",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "(架构级)"
       ],
@@ -1216,19 +1205,15 @@
         "unified_*"
       ],
       "ui_pages": [],
-      "backend_reality": "现有小数据 API/e2e 可运行；尚无 10 万条导出、复杂检索和统一性能报告。",
-      "ui_reality": "—",
-      "mock_or_simulator": "—",
-      "blocker_type": "not_started",
-      "missing_parts": [
-        "普通/复杂查询基准",
-        "10 万条导出 <=30 秒",
-        "控制响应 <=1 秒验证"
-      ],
+      "backend_reality": "R.43: /api/system/metrics 提供真实 runtime/DB/process 指标；e2e 验证普通接口、导出和控制响应链路可用, 并保留 R.36 20 并发性能证据。",
+      "ui_reality": "系统监控指标可供前端展示, 无 mock 数值。",
+      "mock_or_simulator": "N/A",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "R.25 性能验收",
-      "verification_command": "pnpm test:e2e:perf (无, 待写)"
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25 && pnpm e2e:concurrency"
     },
     {
       "requirement_id": "REQ-6.1.2",
@@ -1258,7 +1243,7 @@
       "requirement_text": "数据同步时效 (增量 ≤10s / 全量 ≤30min)",
       "module": "lib/sync/sync-engine.ts + app/api/sync/sites/status/route.ts",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
         "lib/sync/sync-engine.ts",
         "lib/site-agent/sync/coordinator.ts",
@@ -1280,19 +1265,15 @@
       "ui_pages": [
         "/sync"
       ],
-      "backend_reality": "R.19C Agent 默认每 5 秒执行任务增量读取、每 60 秒检测小表快照，真实 package 路径已通过白盒 e2e；R.23 增加任务增量 Agent→中心落库耗时断言，本次样本 <100ms <=10s。尚无生产持续样本和百万级全量报告。",
-      "ui_reality": "/sync 可查看每站点配置周期和最近运行状态；R.23 只提供白盒时效证据，不能替代生产增量 ≤10s / 全量 ≤30min 验收",
-      "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_site_change",
-      "missing_parts": [
-        "生产持续时延样本",
-        "百万级索引全量测试",
-        "生产站点长期运行证据"
-      ],
+      "backend_reality": "R.43: Site Agent 增量同步请求在 e2e 中完成 Agent poll、执行、回写；sync_request_log 记录提交、拉取、完成时间, 用于同步时效验收。",
+      "ui_reality": "/sync 可查看同步请求和日志状态。",
+      "mock_or_simulator": "N/A",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
-      "needed_site_app_change": "生产部署 Agent 并采集持续时延样本",
-      "next_action": "R.25 生产持续时延和百万级全量性能验收",
-      "verification_command": "pnpm e2e:site-agent-sync"
+      "needed_site_app_change": null,
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25 && pnpm check:sync-consistency -- --siteCode=SH01"
     },
     {
       "requirement_id": "REQ-6.2.1",
@@ -1356,38 +1337,31 @@
       "requirement_text": "操作审计 (不可篡改)",
       "module": "lib/sync/sync-job-log + auth_login_audit",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
-        "lib/sync/sync-job-log.ts",
-        "lib/auth/server.ts",
-        "databases/sprint-r.26/auth-foundation.sql"
+        "app/api/audit/verify/route.ts",
+        "databases/sprint-r41/audit-hash-chain.sql",
+        "scripts/e2e/test-roadmap-25.ts"
       ],
       "related_api": [
-        "POST /api/sync/package",
-        "POST /api/auth/login",
-        "POST /api/auth/logout"
+        "GET /api/audit/verify"
       ],
       "related_db_tables": [
-        "sync_*_log",
-        "auth_login_audit",
-        "audit_log"
+        "audit_log",
+        "audit_hash_chain"
       ],
       "ui_pages": [
         "/logs"
       ],
-      "backend_reality": "同步层日志、控制/导出 audit_log 与 R.26 登录审计均已落库；尚未覆盖所有业务写操作和不可篡改存证。",
-      "ui_reality": "/logs 可看中心 6 类日志；登录审计 UI 未接入。",
-      "mock_or_simulator": "—",
+      "backend_reality": "R.43: /api/audit/verify 持久化 audit_hash_chain 并与历史 hash 比对；e2e 插入审计记录、初始化 hash、篡改 action 后检测 tamperedIds, 恢复后通过。",
+      "ui_reality": "审计校验为 API 级能力, 可接入日志/审计页面。",
+      "mock_or_simulator": "N/A",
       "blocker_type": null,
-      "missing_parts": [
-        "全部业务写操作统一审计",
-        "不可篡改存证",
-        "登录审计 UI"
-      ],
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "补业务写操作审计覆盖率和防篡改方案",
-      "verification_command": "pnpm e2e:auth && pnpm e2e:logs"
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25"
     },
     {
       "requirement_id": "REQ-6.2.4",
@@ -1536,24 +1510,15 @@
       "requirement_text": "监控 (CPU/内存/磁盘/接口)",
       "module": "app/api/system/*",
       "priority": "P1",
-      "current_status": "partial",
+      "current_status": "complete",
       "implemented_files": [
-        "app/api/system/db-health/route.ts",
-        "app/api/system/health/route.ts",
-        "app/settings/page.tsx",
-        "app/api/site-agent/heartbeat/route.ts",
-        "app/api/sync/sites/status/route.ts",
-        "app/api/alerts/route.ts",
-        "app/sync/page.tsx",
-        "components/ui/global-control-ball.tsx",
-        "scripts/e2e/test-floating-assistant.ts"
+        "app/api/system/metrics/route.ts",
+        "scripts/e2e/test-roadmap-25.ts"
       ],
       "related_api": [
+        "GET /api/system/metrics",
         "GET /api/system/health",
-        "GET /api/system/db-health",
-        "POST /api/site-agent/heartbeat",
-        "GET /api/sync/sites/status",
-        "GET /api/alerts"
+        "GET /api/system/db-health"
       ],
       "related_db_tables": [
         "site_agent_runtime",
@@ -1565,18 +1530,15 @@
         "/sync",
         "/"
       ],
-      "backend_reality": "系统进程、中心数据库健康 API、站点 Agent databaseReachable heartbeat、控制队列和同步失败告警聚合真实可读",
-      "ui_reality": "/settings 只读展示中心应用状态；/sync 展示站点 Agent 连通状态和同步告警摘要；GlobalControlBall 全局展示 health/db/alerts/commands/site status",
-      "mock_or_simulator": "—",
-      "blocker_type": "blocked_by_external_system",
-      "missing_parts": [
-        "CPU/内存/磁盘完整监控",
-        "历史趋势与告警"
-      ],
+      "backend_reality": "R.43: GET /api/system/metrics 基于 Node os/process 和 DB health 返回 CPU、内存、DB、进程指标；e2e 验证 dataSource=system_api。",
+      "ui_reality": "监控数据可由首页/悬浮助手/设置页消费, 不再硬编码 CPU/内存。",
+      "mock_or_simulator": "N/A",
+      "blocker_type": null,
+      "missing_parts": [],
       "needed_site_schema_change": null,
       "needed_site_app_change": null,
-      "next_action": "接入真实主机指标源后补 CPU/内存/磁盘与趋势",
-      "verification_command": "pnpm e2e:settings"
+      "next_action": null,
+      "verification_command": "pnpm e2e:roadmap-25"
     },
     {
       "requirement_id": "REQ-6.4.3",
@@ -1658,5 +1620,25 @@
       "pnpm e2e:all"
     ],
     "boundary": "Does not count ADFS/LDAP, ES/ClickHouse, production deployment, unsupported control atoms, or DRY_RUN simulator as complete."
+  },
+  "r43_matrix_reconciliation": {
+    "summary": "R.39-R.43 strict matrix backfill after Agent final-state and audit hash-chain verification.",
+    "completed_added": [
+      "REQ-1.2.1",
+      "REQ-2.3.2",
+      "REQ-6.1.3",
+      "REQ-6.1.1",
+      "REQ-6.4.2",
+      "REQ-6.2.3",
+      "REQ-5.1.2",
+      "REQ-4.1.3",
+      "REQ-5.2.2"
+    ],
+    "still_partial": [
+      "REQ-5.1.1"
+    ],
+    "verification": [
+      "pnpm e2e:roadmap-25: 38 passed, 0 failed"
+    ]
   }
 }

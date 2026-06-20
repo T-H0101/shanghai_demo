@@ -38,6 +38,7 @@ const scripts = [
   "e2e:compat",
   "e2e:concurrency",
   "e2e:task-monitor",
+  "e2e:roadmap-25",
 ]
 
 function loadEnvLocal() {

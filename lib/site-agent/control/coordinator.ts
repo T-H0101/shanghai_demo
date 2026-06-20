@@ -34,7 +34,12 @@ export interface ControlCoordinatorOptions {
   store: AgentControlStore
   transport: ControlTransport
   adapter: SiteActionAdapter
-  resync: () => Promise<void>
+  resync: (input?: { includeSnapshots?: boolean }) => Promise<{
+    replayed: number
+    tableCount: number
+    recordCount: number
+    lastSyncAt: string | null
+  }>
   now?: () => Date
 }
 
@@ -64,7 +69,25 @@ export class ControlCoordinator {
       let result = storedExecution?.result ?? null
 
       if (!result) {
-        if (
+        if (command.commandType === "sync_full" || command.commandType === "sync_incremental") {
+          const syncType = command.commandType === "sync_full" ? "full" : "incremental"
+          const syncResult = await this.options.resync({
+            includeSnapshots: syncType === "full",
+          })
+          result = {
+            status: "success",
+            before: null,
+            after: null,
+            sync: {
+              type: syncType,
+              replayed: syncResult.replayed,
+              tableCount: syncResult.tableCount,
+              recordCount: syncResult.recordCount,
+              lastSyncAt: syncResult.lastSyncAt,
+            },
+          }
+          executed++
+        } else if (
           command.commandType !== "task_pause" &&
           command.commandType !== "task_resume"
         ) {
@@ -107,8 +130,11 @@ export class ControlCoordinator {
       }
 
       await this.options.store.enqueueResult(command.id, result)
-      if (result.status === "success") {
-        await this.options.resync()
+      if (
+        result.status === "success" &&
+        (command.commandType === "task_pause" || command.commandType === "task_resume")
+      ) {
+        await this.options.resync({ includeSnapshots: false })
       }
       await this.options.transport.result(command.id, result)
       await this.options.store.removePendingResult(command.id)
@@ -132,8 +158,11 @@ export class ControlCoordinator {
   private async replayPending(): Promise<number> {
     const pending = await this.options.store.listPendingResults()
     for (const entry of pending) {
-      if (entry.result.status === "success") {
-        await this.options.resync()
+      if (
+        entry.result.status === "success" &&
+        !entry.result.sync
+      ) {
+        await this.options.resync({ includeSnapshots: false })
       }
       await this.options.transport.result(entry.commandId, entry.result)
       await this.options.store.removePendingResult(entry.commandId)

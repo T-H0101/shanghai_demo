@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { markCommandResult } from "@/lib/control/control-command"
 import { verifySiteControlRequest } from "@/lib/auth/site-control-auth"
+import { updateSyncRequestStatusByCommandId } from "@/lib/sync/sync-request"
 
 export async function POST(
   req: NextRequest,
@@ -77,6 +78,36 @@ export async function POST(
       return NextResponse.json(
         { error: "conflicting final result" },
         { status: 409 }
+      )
+    }
+    if (
+      outcome.row.commandType === "sync_full" ||
+      outcome.row.commandType === "sync_incremental"
+    ) {
+      const syncPayload =
+        typeof result === "object" && result
+          ? (result as Record<string, unknown>)
+          : {}
+      const syncResult =
+        typeof syncPayload.sync === "object" && syncPayload.sync
+          ? (syncPayload.sync as Record<string, unknown>)
+          : {}
+      await updateSyncRequestStatusByCommandId(
+        id,
+        status === "success" ? "completed" : "failed",
+        {
+          errorMessage:
+            status === "success"
+              ? undefined
+              : typeof errorMessage === "string"
+                ? errorMessage
+                : String(status),
+          timing: {
+            commandStatus: status,
+            sync: syncResult,
+            completedAt: new Date().toISOString(),
+          },
+        }
       )
     }
     return NextResponse.json({

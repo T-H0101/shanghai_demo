@@ -86,8 +86,10 @@ async function main() {
       config.secret
     ),
     adapter: new PostgresSiteActionAdapter(config.siteDatabaseUrl),
-    resync: async () => {
-      await syncCoordinator.syncOnce({ includeSnapshots: false })
+    resync: async (input) => {
+      return syncCoordinator.syncOnce({
+        includeSnapshots: input?.includeSnapshots ?? false,
+      })
     },
   })
   let stopping = false

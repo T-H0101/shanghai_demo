@@ -230,6 +230,12 @@ async function main() {
         adapter: actionAdapter,
         resync: async () => {
           events.push("resync")
+          return {
+            replayed: 0,
+            tableCount: 0,
+            recordCount: 0,
+            lastSyncAt: null,
+          }
         },
       })
 
@@ -276,7 +282,12 @@ async function main() {
             throw new Error("must not execute")
           },
         },
-        resync: async () => undefined,
+        resync: async () => ({
+          replayed: 0,
+          tableCount: 0,
+          recordCount: 0,
+          lastSyncAt: null,
+        }),
       })
       await coordinator.runOnce(20)
       assert.equal(adapterExecutionCount, 0)

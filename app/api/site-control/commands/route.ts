@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { claimControlCommands } from "@/lib/control/control-command"
 import { verifySiteControlRequest } from "@/lib/auth/site-control-auth"
+import { updateSyncRequestStatusByCommandId } from "@/lib/sync/sync-request"
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
@@ -43,6 +44,11 @@ export async function GET(req: NextRequest) {
           ? configuredLeaseMs
           : 30_000,
     })
+    await Promise.all(
+      pulled
+        .filter((command) => command.commandType === "sync_full" || command.commandType === "sync_incremental")
+        .map((command) => updateSyncRequestStatusByCommandId(command.id, "agent_polled"))
+    )
 
     return NextResponse.json({
       ok: true,

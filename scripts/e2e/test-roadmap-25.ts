@@ -4,6 +4,13 @@
  * 运行: npx tsx scripts/e2e/test-roadmap-25.ts
  */
 
+import { spawnSync } from "node:child_process"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { closePool, query } from "../../lib/db/postgres"
+import { installAuthenticatedFetch } from "./auth-helper"
+
 export {}
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000"
@@ -15,20 +22,40 @@ function check(label: string, ok: boolean, detail?: string) {
   else { failed++; console.error(`  ❌ ${label}${detail ? `: ${detail}` : ""}`) }
 }
 
+async function getSyncRequest(
+  requestNo: string,
+  headers: HeadersInit,
+): Promise<Record<string, any> | null> {
+  const res = await fetch(`${BASE}/api/sync/trigger?siteCode=SH01&limit=50`, { headers })
+  if (!res.ok) return null
+  const body = await res.json()
+  return (body?.data?.items ?? []).find((item: any) => item.request_no === requestNo) ?? null
+}
+
+async function waitForFinalSyncRequest(
+  requestNo: string,
+  headers: HeadersInit,
+): Promise<Record<string, any> | null> {
+  const finalStatuses = new Set(["completed", "failed"])
+  for (let i = 0; i < 12; i++) {
+    const row = await getSyncRequest(requestNo, headers)
+    if (row && finalStatuses.has(row.status)) return row
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  return getSyncRequest(requestNo, headers)
+}
+
 async function main() {
   console.log("\n📋 Sprint R.39-R.43: Roadmap to 25/45\n")
 
-  // Login
-  const loginRes = await fetch(`${BASE}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "admin123", siteCode: "SH01" }),
-  })
-  const cookie = loginRes.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1] ?? ""
-  const authHeaders = cookie ? { Cookie: `odp_session=${cookie}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" }
+  const cookie = await installAuthenticatedFetch(BASE)
+  const authHeaders: Record<string, string> = { "Content-Type": "application/json" }
+  if (cookie) authHeaders.Cookie = `odp_session=${cookie}`
+  const stateDir = await mkdtemp(join(tmpdir(), "roadmap-25-agent-"))
 
-  // ── R.39: 同步策略闭环 ──
-  console.log("─── R.39: 同步策略闭环 (REQ-2.3.2, REQ-1.2.1, REQ-6.1.3) ───")
+  try {
+    // ── R.39: 同步策略闭环 ──
+    console.log("─── R.39: 同步策略闭环 (REQ-2.3.2, REQ-1.2.1, REQ-6.1.3) ───")
 
   const triggerRes = await fetch(`${BASE}/api/sync/trigger`, {
     method: "POST",
@@ -57,6 +84,33 @@ async function main() {
   const reqListBody = await reqListRes.json()
   check("有同步请求记录", reqListBody?.data?.items?.length > 0)
 
+  const agentRun = spawnSync("pnpm", ["agent:site", "--", "--once"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      SITE_CODE: "SH01",
+      SITE_AGENT_ID: "roadmap-25-e2e",
+      SITE_AGENT_VERSION: "roadmap-25-e2e",
+      PLATFORM_URL: BASE,
+      SITE_AGENT_STATE_DIR: stateDir,
+      SITE_AGENT_CONTROL_BATCH_SIZE: "20",
+      SITE_AGENT_TASK_SYNC_INTERVAL_MS: "1000",
+      SITE_AGENT_SNAPSHOT_SYNC_INTERVAL_MS: "5000",
+    },
+    timeout: 60_000,
+  })
+  check("Site Agent --once 执行成功", agentRun.status === 0, agentRun.stderr || agentRun.stdout)
+  check("Agent 输出 control_cycle_completed", /control_cycle_completed/.test(agentRun.stdout), agentRun.stdout.slice(0, 300))
+
+  const finalIncremental = await waitForFinalSyncRequest(triggerBody.request.requestNo, authHeaders)
+  check(
+    "增量同步请求进入最终状态",
+    finalIncremental?.status === "completed" || finalIncremental?.status === "failed",
+    `status=${finalIncremental?.status ?? "missing"}`,
+  )
+  check("增量同步请求记录 agent_polled_at", Boolean(finalIncremental?.agent_polled_at))
+  check("增量同步请求记录 sync_completed_at", Boolean(finalIncremental?.sync_completed_at))
+
   // ── R.40: 系统监控 ──
   console.log("\n─── R.40: 系统监控 (REQ-6.4.2) ───")
 
@@ -79,6 +133,29 @@ async function main() {
   check("返回 verified 数字", typeof verifyBody?.data?.verified === "number")
   check("返回 chainHead", Boolean(verifyBody?.data?.chainHead))
   check("算法为 SHA-256", verifyBody?.data?.algorithm === "SHA-256")
+
+  const tamperNo = `E2E-TAMPER-${Date.now()}`
+  const inserted = await query<{ id: string }>(
+    `INSERT INTO audit_log (command_no, action, target_table, target_id, actor, site_code, result)
+     VALUES ($1, 'roadmap_hash_probe', 'audit_log', $1, 'e2e', 'SH01', 'success')
+     RETURNING id::text`,
+    [tamperNo],
+  )
+  const auditId = inserted.rows[0].id
+  const beforeTamper = await fetch(`${BASE}/api/audit/verify?limit=10000`, { headers: authHeaders })
+  const beforeTamperBody = await beforeTamper.json()
+  check("审计 hash 初始化后无篡改", beforeTamperBody?.data?.tampered === 0, `tampered=${beforeTamperBody?.data?.tampered}`)
+
+  await query(`UPDATE audit_log SET action = 'roadmap_hash_tampered' WHERE id = $1::uuid`, [auditId])
+  const tamperedRes = await fetch(`${BASE}/api/audit/verify?limit=10000`, { headers: authHeaders })
+  const tamperedBody = await tamperedRes.json()
+  check("审计 hash chain 能检测篡改", tamperedBody?.data?.tampered > 0, `tampered=${tamperedBody?.data?.tampered}`)
+  check("篡改记录 ID 被返回", (tamperedBody?.data?.tamperedIds ?? []).includes(auditId))
+
+  await query(`UPDATE audit_log SET action = 'roadmap_hash_probe' WHERE id = $1::uuid`, [auditId])
+  const repairedRes = await fetch(`${BASE}/api/audit/verify?limit=10000`, { headers: authHeaders })
+  const repairedBody = await repairedRes.json()
+  check("恢复审计记录后 hash chain 通过", repairedBody?.data?.tampered === 0, `tampered=${repairedBody?.data?.tampered}`)
 
   // ── R.42: 检索导出 ──
   console.log("\n─── R.42: 检索导出 (REQ-4.1.3, REQ-5.2.2) ───")
@@ -114,6 +191,10 @@ async function main() {
   console.log(`📊 R.39-R.43 测试结果: ${passed} passed, ${failed} failed, ${passed + failed} total`)
   if (failed > 0) { console.log("❌ 有测试失败"); process.exitCode = 1 }
   else { console.log("✅ 全部通过") }
+  } finally {
+    await rm(stateDir, { recursive: true, force: true })
+    await closePool()
+  }
 }
 
 main().catch((e) => { console.error("测试运行失败:", e); process.exitCode = 1 })

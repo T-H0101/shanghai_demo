@@ -16,12 +16,14 @@
 | 2 | GET/POST /api/sync/index/export | app/api/sync/index/export/route.ts |
 | 3 | CSV/JSON 格式 | 含 SHA-256 + record count header |
 | 4 | 缺失字段说明 | department=—, 附 source limitation |
+| 5 | 真实字段映射 | unified_disc_media.disc_num / used_size / device_id / slot_id / create_dt |
 
 ## C. 限制说明
 
 - 仅包含已同步的光盘介质数据 (unified_disc_media)
 - tbl_file/tbl_folder 不在当前导出范围 (REQ-4.1.1/4.1.2 仍 blocked)
 - 所属部门字段当前不可用
+- 已按当前真实 schema 使用 `disc_num`, `used_size`, `device_id`, `slot_id`, `create_dt`; 不再引用不存在的 `disc_no` / `volume_id` / `capacity`
 
 ## D. Verdict
 

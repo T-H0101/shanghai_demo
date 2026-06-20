@@ -43,8 +43,12 @@ export async function POST(req: NextRequest) {
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
 
     const result = await query(
-      `SELECT id::text, source_site_id, disc_no, media_type, capacity, volume_id, status, created_at::text
-       FROM unified_disc_media ${where} ORDER BY created_at DESC LIMIT 50000`,
+      `SELECT id::text, source_site_id, disc_num, disc_label, task_no,
+              device_id, device_name, slot_id, used_size, iso_status, stage,
+              COALESCE(create_dt, created_at)::text AS created_at
+       FROM unified_disc_media ${where}
+       ORDER BY COALESCE(create_dt, created_at) DESC
+       LIMIT 50000`,
       params,
     )
 
@@ -58,6 +62,7 @@ export async function POST(req: NextRequest) {
       targetId: jobId,
       after: { jobId, filename, recordCount: rows.length, format, siteCode },
       actor: "admin",
+      siteCode: siteCode ?? "__ALL__",
       result: "success",
     })
 
@@ -104,8 +109,12 @@ export async function GET(req: NextRequest) {
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
 
     const result = await query(
-      `SELECT id::text, source_site_id, disc_no, media_type, capacity, volume_id, status, created_at::text
-       FROM unified_disc_media ${where} ORDER BY created_at DESC LIMIT 50000`,
+      `SELECT id::text, source_site_id, disc_num, disc_label, task_no,
+              device_id, device_name, slot_id, used_size, iso_status, stage,
+              COALESCE(create_dt, created_at)::text AS created_at
+       FROM unified_disc_media ${where}
+       ORDER BY COALESCE(create_dt, created_at) DESC
+       LIMIT 50000`,
       params,
     )
 
@@ -126,9 +135,21 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const header = "id,site_code,disc_no,media_type,capacity,volume_id,status,created_at"
+    const header = "id,site_code,disc_num,disc_label,task_no,device_id,device_name,slot_id,used_size,status,created_at"
     const csvRows = result.rows.map((r: any) =>
-      [r.id, r.source_site_id, r.disc_no ?? "", r.media_type ?? "", r.capacity ?? "", r.volume_id ?? "", r.status ?? "", r.created_at].join(",")
+      [
+        r.id,
+        r.source_site_id,
+        r.disc_num ?? "",
+        r.disc_label ?? "",
+        r.task_no ?? "",
+        r.device_id ?? "",
+        r.device_name ?? "",
+        r.slot_id ?? "",
+        r.used_size ?? "",
+        r.iso_status ?? r.stage ?? "",
+        r.created_at,
+      ].join(",")
     )
     const csv = [header, ...csvRows].join("\n")
     return new NextResponse(csv, {
