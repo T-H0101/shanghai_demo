@@ -30,10 +30,13 @@ export const COMMAND_TYPES = [
   // Sprint R.4 Bug 5: 新增 task_priority_restore (优先恢复)
   // 真执行需 tbl_task.priority 字段, R.4 已加 schema 检测, 缺字段返回 unsupported + blocked_by_source_schema
   "task_priority_restore",
+  // Sprint R.39: 同步策略闭环
+  "sync_full",
+  "sync_incremental",
 ] as const
 export type CommandType = (typeof COMMAND_TYPES)[number]
 
-export const TARGET_TYPES = ["task", "device", "volume", "media"] as const
+export const TARGET_TYPES = ["task", "device", "volume", "media", "site"] as const
 export type TargetType = (typeof TARGET_TYPES)[number]
 
 export const COMMAND_STATUSES = [

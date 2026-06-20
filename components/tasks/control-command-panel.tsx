@@ -43,6 +43,8 @@ const COMMAND_LABELS: Record<string, string> = {
   inspect_start: "启动巡检",
   recovery_start: "启动恢复",
   task_priority_restore: "优先恢复",
+  sync_full: "全量同步",
+  sync_incremental: "增量同步",
 }
 
 export function ControlCommandPanel() {
