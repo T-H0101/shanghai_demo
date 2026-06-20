@@ -183,7 +183,7 @@ function VolumesContent() {
 
   return (
     <AppShell>
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div data-testid="volumes-page" className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <PageHeader
           title="存储卷管理"
           description={`Sprint 2H.3: unified_volumes 真实数据 (${stats.total} 卷${stats.withAggregate > 0 ? `, ${stats.withAggregate} 个有盘位聚合` : ""}) · ${siteCode ?? "All Sites"}`}
