@@ -190,16 +190,17 @@ async function checkSitesApi() {
 }
 
 // ============================================================
-// 7. /api/search 必须是 501 not_implemented (dev server 必须运行)
+// 7. /api/search 必须返回真实数据 (R.48 重写, 不再 501)
 // ============================================================
 async function checkSearchApi() {
   try {
-    const res = await fetch(`${BASE}/api/search?q=test`, { signal: AbortSignal.timeout(5000) })
-    const data = await res.json() as { source?: string; blocker?: string }
+    const res = await fetch(`${BASE}/api/search?q=test&limit=1`, { signal: AbortSignal.timeout(5000) })
+    const data = await res.json() as { source?: string; blocker?: string; data?: { source?: string; items?: unknown[] } }
+    const source = data.source ?? data.data?.source
     check(
-      '/api/search 501 not_implemented',
-      res.status === 501 && data.source === 'not_implemented',
-      `HTTP=${res.status} source=${data.source}`
+      '/api/search returns real source',
+      res.status === 200 && (source === 'site_restore_db' || source === 'blocked_by_external_system'),
+      `HTTP=${res.status} source=${source}`
     )
   } catch {
     check('/api/search API', true, 'dev server 未启动, 跳过 (CI 时需运行)')
