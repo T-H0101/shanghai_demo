@@ -25,6 +25,12 @@ export interface CenterTaskCreateInput {
   taskMode?: number
   actor?: string
   ip?: string
+  fileRefs?: Array<{
+    rootPath: string
+    originalPath?: string
+    itemName: string
+    isFolder?: number
+  }>
 }
 
 export interface CenterTaskCreateResult {
@@ -61,6 +67,7 @@ export async function createCenterTaskCommand(
       taskMode: input.taskMode ?? (input.taskType === "restore" ? 0 : 0),
       priority: input.priority ?? 0,
       source: input.source ?? "center_ui",
+      fileRefs: input.fileRefs ?? [],
     },
     requestedBy: input.actor ?? null,
     requestedIp: input.ip ?? "unknown",

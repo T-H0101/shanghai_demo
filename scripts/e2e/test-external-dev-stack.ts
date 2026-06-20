@@ -57,7 +57,7 @@ async function checkCh(): Promise<boolean> {
   }
 }
 
-async function main() {
+async function checkDevStack(): Promise<void> {
   const es = await checkEs()
   const ch = await checkCh()
   if (es) {
@@ -73,7 +73,7 @@ async function main() {
   console.log("dev stack: PASS")
 }
 
-main().catch((err) => {
+checkDevStack().catch((err) => {
   console.error(err)
   process.exit(1)
 })

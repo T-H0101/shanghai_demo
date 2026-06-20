@@ -38,6 +38,12 @@ export async function POST(req: NextRequest) {
     priority?: number
     source?: string
     taskMode?: number
+    fileRefs?: Array<{
+      rootPath: string
+      originalPath?: string
+      itemName: string
+      isFolder?: number
+    }>
   }
   try {
     body = (await req.json()) as typeof body
@@ -74,6 +80,7 @@ export async function POST(req: NextRequest) {
       priority: body.priority,
       source,
       taskMode: body.taskMode,
+      fileRefs: body.fileRefs,
       actor: "admin",
       ip,
     })

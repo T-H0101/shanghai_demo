@@ -106,12 +106,18 @@ export class ControlCoordinator {
             reason: `Site Agent does not implement ${command.commandType}`,
           }
         } else if (command.commandType === "task_create") {
-          // R.58: route task_create through task-create-adapter
+          // R.58/R.62: route task_create through task-create-adapter
           const pl = command.payload as {
             taskName?: string
             taskType?: number
             taskMode?: number
             priority?: number
+            fileRefs?: Array<{
+              rootPath: string
+              originalPath?: string
+              itemName: string
+              isFolder?: number
+            }>
           } | null
           if (!pl?.taskName || typeof pl.taskType !== "number") {
             result = {
@@ -130,6 +136,7 @@ export class ControlCoordinator {
               taskMode: pl.taskMode,
               priority: pl.priority,
               siteCode: command.sourceSiteId,
+              fileRefs: pl.fileRefs,
             })
             if (createResult.status === "success") {
               result = {
@@ -145,12 +152,19 @@ export class ControlCoordinator {
                 },
               }
               executed++
+            } else if (createResult.status === "blocked_by_source_schema") {
+              result = {
+                status: "failed",
+                before: null,
+                after: null,
+                blocker: createResult.blocker ?? "task_create_blocked",
+              }
             } else {
               result = {
                 status: "failed",
                 before: null,
                 after: null,
-                blocker: createResult.blocker ?? createResult.reason ?? "task_create_failed",
+                blocker: createResult.reason ?? "task_create_failed",
               }
             }
           }
