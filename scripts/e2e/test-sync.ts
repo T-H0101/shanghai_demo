@@ -15,6 +15,7 @@
 
 import { createHash } from "node:crypto"
 import { installAuthenticatedFetch } from "./auth-helper"
+import { query } from "@/lib/db/postgres"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -376,6 +377,29 @@ async function main() {
       triggerJson.request?.commandNo &&
       triggerJson.request?.status === "command_sent",
     `HTTP ${triggerRes.status} status=${triggerJson.request?.status}`
+  )
+  // R.55: Verify the command payload carries the pg_dump protocol metadata
+  const commandNo = triggerJson.request?.commandNo
+  let protocol = ""
+  let forbiddenOk = false
+  if (commandNo) {
+    const cmdRows = await query<{ payload: unknown }>(
+      `SELECT payload FROM control_command WHERE command_no = $1`,
+      [commandNo]
+    )
+    const pl = cmdRows.rows[0]?.payload as
+      | { protocol?: string; forbiddenTables?: string[] }
+      | null
+    protocol = pl?.protocol ?? ""
+    forbiddenOk =
+      Array.isArray(pl?.forbiddenTables) &&
+      pl!.forbiddenTables.includes("tbl_file") &&
+      pl!.forbiddenTables.includes("tbl_folder")
+  }
+  check(
+    "R.55 /api/sync/trigger 命令 payload 含 pg_dump_table_backup 协议",
+    protocol === "pg_dump_table_backup" && forbiddenOk,
+    `protocol=${protocol} forbiddenOk=${forbiddenOk}`
   )
   check(
     "R.39 /sync 页面展示真实手动同步触发态",

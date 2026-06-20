@@ -84,6 +84,12 @@ export class ControlCoordinator {
               tableCount: syncResult.tableCount,
               recordCount: syncResult.recordCount,
               lastSyncAt: syncResult.lastSyncAt,
+              protocol:
+                (command.payload as { protocol?: string } | null)?.protocol ??
+                "json_package",
+              transport:
+                (command.payload as { transport?: string } | null)?.transport ??
+                "agent_poll",
             },
           }
           executed++

@@ -97,20 +97,36 @@ async function runOnce(siteCode: string): Promise<RunResult> {
     pushStatus = 'skipped'
     log('  skip push (export failed)')
   } else {
-    const pkgPath = `exports/${siteCode}/package.json`
-    const pushOut = runScript(`npx tsx scripts/push-package.ts ${pkgPath}`)
-    if (pushOut.ok && pushOut.output.includes('HTTP 200')) {
-      if (pushOut.output.includes('duplicated')) {
-        pushStatus = 'skipped'
-        log('  push skipped (batch duplicated)')
-      } else {
+    const protocol = process.env.SYNC_PROTOCOL ?? 'json_package'
+    if (protocol === 'pg_dump_table_backup') {
+      log('  R.55: using pg_dump table_backup.sql protocol')
+      const dumpOut = runScript(
+        `npx tsx scripts/sync/ingest-dump.ts --siteCode=${siteCode} --file=exports/${siteCode}/table_backup.sql --mode=full`
+      )
+      if (dumpOut.ok) {
         pushStatus = 'success'
-        log('  push ok')
+        log('  pg_dump ingest ok')
+      } else {
+        pushStatus = 'failed'
+        errors.push(`pg_dump: ${dumpOut.output.slice(0, 200)}`)
+        log(`  pg_dump ingest failed: ${dumpOut.output.slice(0, 100)}`)
       }
     } else {
-      pushStatus = 'failed'
-      errors.push(`push: ${pushOut.output.slice(0, 200)}`)
-      log(`  push failed: ${pushOut.output.slice(0, 100)}`)
+      const pkgPath = `exports/${siteCode}/package.json`
+      const pushOut = runScript(`npx tsx scripts/push-package.ts ${pkgPath}`)
+      if (pushOut.ok && pushOut.output.includes('HTTP 200')) {
+        if (pushOut.output.includes('duplicated')) {
+          pushStatus = 'skipped'
+          log('  push skipped (batch duplicated)')
+        } else {
+          pushStatus = 'success'
+          log('  push ok')
+        }
+      } else {
+        pushStatus = 'failed'
+        errors.push(`push: ${pushOut.output.slice(0, 200)}`)
+        log(`  push failed: ${pushOut.output.slice(0, 100)}`)
+      }
     }
   }
 

@@ -40,6 +40,8 @@ export interface SiteActionResult {
     tableCount: number
     recordCount: number
     lastSyncAt: string | null
+    protocol?: string
+    transport?: string
   }
 }
 

@@ -7,7 +7,7 @@
  * the center has one ingestion audit trail regardless of transport.
  */
 
-import { parsePgDumpCopyTables, type ParsedDumpTable } from "./parser"
+import { parsePgDumpCopyTables } from "./parser"
 import {
   DUMP_ALLOWED_TABLES,
   type DumpAllowedTable,
@@ -20,7 +20,7 @@ import {
   markTableSuccess,
   markTableFailed,
 } from "@/lib/sync/package-log"
-import { dispatchTable, type AllowedPackageTable } from "@/lib/sync/package-dispatcher"
+import { dispatchTable } from "@/lib/sync/package-dispatcher"
 
 export interface IngestPgDumpInput {
   siteCode: string
@@ -37,7 +37,7 @@ export interface IngestPgDumpResult {
   rejected: { tableName: string; reason: string }[]
 }
 
-const TABLE_MAPPING: Record<DumpAllowedTable, AllowedPackageTable | null> = {
+const TABLE_MAPPING: Record<DumpAllowedTable, string | null> = {
   tbl_task: "tbl_task",
   tbl_disc_lib: "tbl_disc_lib",
   tbl_magzines: "tbl_magzines",
@@ -75,8 +75,9 @@ export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDu
     const log = await createTableLog({
       packageLogId: pkg.id,
       siteCode: input.siteCode,
+      batchId: input.batchId,
       tableName: target,
-      mode: input.mode,
+      syncMode: input.mode,
     })
     try {
       const records: Record<string, unknown>[] = tbl.rows.map((row) => {
@@ -85,35 +86,39 @@ export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDu
         return out
       })
       const result = await dispatchTable({
-        tableName: target,
+        tableName: target as never,
         siteCode: input.siteCode,
         records,
       })
       if (result.status === "success" || result.status === "partial" || result.status === "skipped") {
         await markTableSuccess(log.id, {
-          received: result.received,
-          upserted: result.upserted,
-          inserted: result.inserted,
-          updated: result.updated,
-          skipped: result.skipped,
+          processedRecordCount: result.received,
+          insertedCount: result.inserted,
+          updatedCount: result.updated,
+          skippedCount: result.skipped,
         })
         accepted.push({ tableName: tbl.tableName, rows: tbl.rows.length })
       } else {
-        await markTableFailed(log.id, `dispatch ${result.status}`)
+        await markTableFailed(log.id, { errorMessage: `dispatch ${result.status}` })
         rejected.push({ tableName: tbl.tableName, reason: `dispatch_${result.status}` })
         allOk = false
       }
     } catch (err) {
-      await markTableFailed(log.id, err instanceof Error ? err.message : "unknown")
+      await markTableFailed(log.id, {
+        errorMessage: err instanceof Error ? err.message : "unknown",
+      })
       rejected.push({ tableName: tbl.tableName, reason: "exception" })
       allOk = false
     }
   }
 
   if (allOk) {
-    await markPackageSuccess(pkg.id, { accepted: accepted.length })
+    await markPackageSuccess(pkg.id, { successTableCount: accepted.length })
   } else {
-    await markPackageFailed(pkg.id, "one_or_more_tables_failed")
+    await markPackageFailed(pkg.id, {
+      errorMessage: "one_or_more_tables_failed",
+      failedTableCount: rejected.length,
+    })
   }
 
   return {
@@ -124,3 +129,6 @@ export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDu
     rejected,
   }
 }
+
+// Suppress unused warning
+void DUMP_ALLOWED_TABLES
