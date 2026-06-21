@@ -26,14 +26,17 @@
 5. [日常开发常用命令](#5-日常开发常用命令)
 6. [怎么验证修改是好的](#6-怎么验证修改是好的)
 7. [部署到测试或生产环境](#7-部署到测试或生产环境)
+   - 7.6 [各种部署方式](#76-各种部署方式按场景选)（PM2 / Docker / k8s / Vercel / Windows / nginx）
+   - 7.7 [部署出错速查](#77-部署出错速查)
 8. [需要外部提供的依赖](#8-需要外部提供的依赖)
 9. [需求完成度怎么看](#9-需求完成度怎么看)
 10. [禁止事项](#10-禁止事项)
-11. [附录 A：常用 SQL 查询](#附录-a常用-sql-查询)
-12. [附录 B：端口占用参考](#附录-b端口占用参考)
-13. [附录 C：常见问题](#附录-c常见问题)
-14. [附录 D：贡献者必读](#附录-d贡献者必读)
-15. [附录 E：文档索引](#附录-e文档索引)
+11. [附录 A：Dockerfile + Compose 模板](#附录-adockerfile--compose-模板)
+12. [附录 B：常用 SQL 查询](#附录-b常用-sql-查询)
+13. [附录 C：端口占用参考](#附录-c端口占用参考)
+14. [附录 D：常见问题](#附录-d常见问题)
+15. [附录 E：贡献者必读](#附录-e贡献者必读)
+16. [附录 F：文档索引](#附录-f文档索引)
 
 ---
 
@@ -588,6 +591,318 @@ pnpm start
 
 部署完，浏览器访问 `/api/system/health`，应该返回 200。看到 `{"status":"ok"}` 就对了。
 
+### 7.6 各种部署方式（按场景选）
+
+> 上面的 §7.3 是最简流程。下面按"你的环境是什么样"分类，每种都给完整步骤。
+> 不知道选哪个？**先用方案 A（PM2 + 本机）**，企业生产用方案 C（Docker）或方案 D（k8s）。
+
+#### 方案 A：单机 + PM2 守护（最简单，1 台服务器搞定）
+
+适用:1 台 Linux 服务器,没有 Docker 或不想用 Docker。
+
+```bash
+# 1. 服务器准备
+ssh user@server
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo npm install -g pnpm pm2
+git clone <仓库> && cd 上海
+
+# 2. 装依赖 + 编译
+pnpm install --frozen-lockfile
+pnpm build
+
+# 3. 注入环境变量（推荐用 .env.production 或 systemd EnvironmentFile）
+cp .env.example .env.production
+# 编辑 .env.production 填入真实 DATABASE_URL / JWT_SECRET 等
+
+# 4. 用 PM2 守护进程（开机自启 + 崩溃重启）
+pm2 start "pnpm start" --name unified-disc-platform
+pm2 save
+pm2 startup   # 把提示的 sudo 命令复制粘贴执行
+pm2 logs unified-disc-platform   # 看日志
+```
+
+更新代码:
+```bash
+cd /path/to/上海
+git pull
+pnpm install --frozen-lockfile
+pnpm build
+pm2 restart unified-disc-platform
+```
+
+#### 方案 B：单机 + Docker Compose（一条命令起全栈）
+
+适用:服务器装了 Docker,想把数据库 + 应用一起管。
+
+```bash
+# 1. 服务器装 Docker（Ubuntu 示例）
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER   # 重新登录生效
+
+# 2. 拉代码
+git clone <仓库> && cd 上海
+
+# 3. 准备环境变量
+cp .env.example .env.production
+# 编辑填入 JWT_SECRET / SITE_AGENT_SECRET 等
+
+# 4. 启动全栈（postgres + 应用,数据库初始化在容器内做）
+docker compose -f docker-compose.yml up -d
+# 首次启动会建表 + 灌种子数据（依赖 docker-compose.yml 里的 init 任务）
+
+# 5. 看日志
+docker compose logs -f app
+docker compose logs -f postgres
+
+# 6. 健康检查
+curl http://localhost:3000/api/system/health
+```
+
+更新代码:
+```bash
+cd /path/to/上海
+git pull
+docker compose -f docker-compose.yml up -d --build
+```
+
+> 注意:当前 `docker-compose.yml` 只定义了 `postgres` 服务(数据库)。方案 B 需要补一个 `app` service,见附录 A.2。
+
+#### 方案 C：纯 Docker 镜像（自包含,可推到镜像仓库）
+
+适用:多环境部署,或推到 Harbor / Docker Hub / GHCR。
+
+```bash
+# 1. 在仓库根目录创建 Dockerfile（项目当前没自带,见附录 A.1）
+
+# 2. 本地构建
+docker build -t unified-disc-platform:latest .
+
+# 3. 推到镜像仓库
+docker tag unified-disc-platform:latest registry.example.com/unified-disc-platform:v1.0.0
+docker push registry.example.com/unified-disc-platform:v1.0.0
+
+# 4. 在目标服务器拉取并运行
+docker run -d \
+  --name unified-disc-platform \
+  -p 3000:3000 \
+  --env-file .env.production \
+  --restart unless-stopped \
+  registry.example.com/unified-disc-platform:v1.0.0
+
+# 5. 健康检查
+docker ps        # 看状态
+docker logs -f unified-disc-platform
+curl http://localhost:3000/api/system/health
+```
+
+#### 方案 D：Kubernetes（生产高可用）
+
+适用:多副本 + 滚动更新 + 自动伸缩。
+
+最小 `deployment.yaml` 模板:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unified-disc-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: unified-disc-platform
+  template:
+    metadata:
+      labels:
+        app: unified-disc-platform
+    spec:
+      containers:
+        - name: app
+          image: registry.example.com/unified-disc-platform:v1.0.0
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: unified-disc-platform-secrets   # kubectl create secret generic ...
+          readinessProbe:
+            httpGet:
+              path: /api/system/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/system/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unified-disc-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: unified-disc-platform
+  ports:
+    - port: 80
+      targetPort: 3000
+```
+
+应用:
+```bash
+kubectl apply -f deployment.yaml
+kubectl get pods -l app=unified-disc-platform
+kubectl logs -f -l app=unified-disc-platform
+```
+
+#### 方案 E：Vercel / Netlify（Next.js 原生托管）
+
+适用:不需要连本机 PG,接受托管 Postgres (Neon / Supabase / Vercel Postgres)。
+
+```bash
+# 1. 安装 Vercel CLI
+npm i -g vercel
+
+# 2. 在仓库根目录
+vercel link          # 连接 GitHub repo
+vercel env add DATABASE_URL production       # 按提示粘贴
+vercel env add JWT_SECRET production
+# ... 其他 env
+
+# 3. 部署
+vercel --prod
+# 或:git push origin main 自动部署
+```
+
+> 注意:Vercel 部署后,数据库需要是云端可达的(不能连 localhost 的 postgres)。当前 docker-compose.yml 的 PG 不能用,需改 Neon / Supabase 连接串。
+
+#### 方案 F：Windows 本地（开发者用,不上生产）
+
+```powershell
+# 1. 装 Node 20 (用 nvm-windows 推荐)
+nvm install 20
+nvm use 20
+
+# 2. 装 pnpm
+npm install -g pnpm
+
+# 3. 装 Docker Desktop
+# 下载: https://www.docker.com/products/docker-desktop/
+
+# 4. 拉代码
+git clone <仓库>
+cd 上海
+
+# 5. 装依赖 + 起 PG + 初始化 + 跑
+pnpm install
+pnpm db:up
+pnpm db:init
+pnpm db:seed
+pnpm dev
+# 浏览器打开 http://localhost:3000
+```
+
+#### 方案 G：纯静态导出（如果不需要数据库,纯演示）
+
+> ⚠️ 本项目因为 Next.js API 路由强依赖 PG,**不能纯静态导出**。这个方案仅作为概念说明。
+
+```bash
+# 假设所有 API 改成 mock,可在 next.config.js 里加:
+# output: 'export'
+pnpm build
+# 产物在 .next/ 下,丢到任何静态服务器 (nginx / CDN / GitHub Pages)
+```
+
+---
+
+#### 反向代理（生产必备,放公网前）
+
+**nginx** (`/etc/nginx/sites-available/unified-disc-platform`):
+```nginx
+server {
+  listen 80;
+  server_name platform.example.com;
+  return 301 https://$server_name$request_uri;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name platform.example.com;
+
+  ssl_certificate     /etc/letsencrypt/live/platform.example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/platform.example.com/privkey.pem;
+
+  # TLS 1.2+ (站点 Agent HMAC 验签需要)
+  ssl_protocols TLSv1.2 TLSv1.3;
+
+  client_max_body_size 100m;
+
+  location / {
+    proxy_pass         http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Real-IP         $remote_addr;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_read_timeout 300s;
+  }
+}
+```
+
+激活:
+```bash
+sudo ln -s /etc/nginx/sites-available/unified-disc-platform /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d platform.example.com   # 自动配 HTTPS
+```
+
+### 7.7 部署出错速查
+
+> 90% 的部署问题落在下面 5 类。先看这里,5 分钟内搞定。
+
+| 报错 / 现象 | 原因 | 解决 |
+|---|---|---|
+| `Error: connect ECONNREFUSED 127.0.0.1:5432` | postgres 没起 / 端口没监听 | `pnpm db:up` 或 `docker compose ps` 看 postgres 状态;等 healthy |
+| `Error: password authentication failed for user "unified"` | DATABASE_URL 密码与实际不符 | 看 `.env.local` 里 `DATABASE_URL` 和 docker-compose.yml 里 `POSTGRES_PASSWORD` 是否一致 |
+| `Error: listen EADDRINUSE :::3000` | 3000 端口被占 | `lsof -i :3000` 找到占用进程 kill;或改 `PORT=3001 pnpm dev` |
+| `Error: Cannot find module 'next/dist/...'` | node_modules 损坏 | `rm -rf node_modules pnpm-lock.yaml && pnpm install` |
+| `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 20 LTS (项目用 next-themes + React 19 需要) |
+| `pnpm install` 卡死 / 超时 | 镜像源问题 | `pnpm config set registry https://registry.npmmirror.com` 后重试 |
+| `prisma generate` / `drizzle-kit` 报错 | 缺数据库 schema 迁移 | 首次启动必须先跑 `pnpm db:init` |
+| 浏览器访问 `/login` 显示 "认证服务暂不可用" | `/api/auth/login` 路由找不到 PG | 检查 `pnpm db:up` 状态 + 看 dev server stderr |
+| 部署到生产后 502 Bad Gateway | 反向代理没指向 app 端口 | nginx `proxy_pass http://127.0.0.1:3000` 确认应用在监听 3000 |
+| `permission denied` 写文件 | 用了 root 起应用 | 用方案 A 的非 root user (nextjs uid 1001),或在 Dockerfile 加 `USER nodejs` |
+| `TLS handshake failed` | cert 过期或不匹配 | `sudo certbot renew`;检查 `server_name` 与证书域名一致 |
+| 内存爆掉 (OOM) | Node 默认堆太大,容器内存限制 | 启动加 `NODE_OPTIONS="--max-old-space-size=512"` |
+| `pnpm build` OOM | next build 大项目吃内存 | 同上加 `--max-old-space-size=2048` |
+| docker 容器启动后立刻退出 | 缺 .env 或 DATABASE_URL | `docker compose logs app` 看 stderr,通常是 env 没注入 |
+| `pnpm db:init` 卡住 / 报 "already exists" | 数据库已初始化过 | 想重置:`pnpm db:down:volumes && pnpm db:up && pnpm db:init` |
+
+**通用排查套路**:
+```bash
+# 1. 看容器/进程状态
+docker compose ps                 # docker 用户
+pm2 status                       # pm2 用户
+ps aux | grep -E "next|node"     # 直接跑的用户
+
+# 2. 看日志（最近 50 行）
+docker compose logs --tail=50 app
+pm2 logs unified-disc-platform --lines 50
+
+# 3. 看端口监听
+ss -tlnp | grep 3000
+
+# 4. 连数据库确认
+docker exec -it unified_disc_postgres psql -U unified -d unified_disc_platform
+
+# 5. 调 API 健康检查
+curl -i http://localhost:3000/api/system/health
+```
+
 ---
 
 ## 8. 需要外部提供的依赖
@@ -760,7 +1075,126 @@ CLICKHOUSE_PASSWORD_KEY_REF=...
 
 ---
 
-## 附录 A：常用 SQL 查询
+## 附录 A：常用 Dockerfile + Compose 模板
+
+> 项目仓库当前**没有自带 Dockerfile**(避免增加维护负担),下面给你可以直接用的最小模板。
+> 复制到仓库根目录就能 `docker build`。
+
+### A.1 多阶段 Dockerfile（Next.js 16 + Node 20）
+
+```dockerfile
+# syntax=docker/dockerfile:1.7
+# ---- 依赖阶段 ----
+FROM node:20-alpine AS deps
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@10 --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# ---- 构建阶段 ----
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@10 --activate
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN pnpm build
+
+# ---- 运行阶段 ----
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+# 非 root 运行（安全建议）
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser  --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+USER nextjs
+EXPOSE 3000
+
+CMD ["node", "server.js"]
+```
+
+**配套 `next.config.js`**(必须加,否则 standalone 模式不工作):
+```js
+module.exports = {
+  output: 'standalone',
+}
+```
+
+构建:
+```bash
+docker build -t unified-disc-platform:latest .
+```
+
+### A.2 全栈 docker-compose.yml（postgres + app 一条命令起）
+
+> 替换现有 `docker-compose.yml` 内容（或备份后改名 `docker-compose.fullstack.yml`）。
+
+```yaml
+name: unified-disc-platform
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: unified_disc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: unified
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unified123}
+      POSTGRES_DB: unified_disc_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./databases/sprint-2b0/unified_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unified -d unified_disc_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: unified_disc_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://unified:${POSTGRES_PASSWORD:-unified123}@postgres:5432/unified_disc_platform
+      JWT_SECRET: ${JWT_SECRET:-please-change-me-in-production-32-chars-min}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/system/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  postgres_data:
+```
+
+启动:
+```bash
+cp .env.example .env.production
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" >> .env.production
+echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env.production
+docker compose up -d
+# 等 ~30 秒数据库初始化完成
+docker compose logs -f app
+```
+
+---
+
+## 附录 B：常用 SQL 查询
 
 ### A.1 看当前站点的同步状态
 
@@ -818,7 +1252,7 @@ LIMIT 20;
 
 ---
 
-## 附录 B：端口占用参考
+## 附录 C：端口占用参考
 
 | 端口 | 用途 | 默认在哪 |
 |---|---|---|
@@ -832,7 +1266,7 @@ LIMIT 20;
 
 ---
 
-## 附录 C：常见问题
+## 附录 D：常见问题
 
 **Q：本地起项目，登录失败？**
 A：检查 `.env.local` 是否存在，是否跑了 `pnpm db:init` + `pnpm db:seed`。默认账号 `admin / admin`。
@@ -857,7 +1291,7 @@ A：看 `docs/database-analysis/requirements-traceability.json` 里那一条的 
 
 ---
 
-## 附录 D：贡献者必读
+## 附录 E：贡献者必读
 
 1. 改任何代码前，**先看** `docs/source/requirements.md` 对应章节。
 2. 改完代码**必须**产出 `sprint-<编号>-requirements-review.md`。
@@ -872,7 +1306,7 @@ A：看 `docs/database-analysis/requirements-traceability.json` 里那一条的 
 
 ---
 
-## 附录 E：文档索引
+## 附录 F：文档索引
 
 | 想知道什么 | 看哪里 |
 |---|---|

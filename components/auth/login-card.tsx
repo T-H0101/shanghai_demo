@@ -133,7 +133,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-invalid={!!accountError}
               aria-describedby={accountError ? "account-error" : undefined}
               className={cn(
-                "h-11 border-slate-700/70 bg-slate-950/40 backdrop-blur-sm pl-10 text-white placeholder:text-slate-600",
+                "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white placeholder:text-slate-600",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 accountError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -192,7 +192,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-invalid={!!passwordError}
               aria-describedby={passwordError ? "password-error" : undefined}
               className={cn(
-                "h-11 border-slate-700/70 bg-slate-950/40 backdrop-blur-sm pl-10 text-white placeholder:text-slate-600",
+                "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white placeholder:text-slate-600",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 passwordError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -219,7 +219,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
             >
               <SelectTrigger
                 className={cn(
-                  "h-11 border-slate-700/70 bg-slate-950/40 backdrop-blur-sm pl-10 text-white",
+                  "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white",
                   "focus:ring-blue-500/40",
                 )}
               >
