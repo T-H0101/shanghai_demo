@@ -58,10 +58,10 @@ async function main() {
     !/<ScrollArea/.test(detailPanelSrc),
   )
 
-  // ── 3. Card 暗色背景 ────────────────────────────────────
+  // ── 3. Card 暗色背景 (R.79 统一为 dark:bg-slate-800) ────
   check(
-    "DetailPanel: Card 含 bg-white dark:bg-slate-900",
-    /bg-white\s+dark:bg-slate-900/.test(detailPanelSrc),
+    "DetailPanel: Card 含 bg-white dark:bg-slate-800",
+    /bg-white\s+dark:bg-slate-800/.test(detailPanelSrc),
   )
   check(
     "DetailPanel: Card 含 border-slate-200 dark:border-slate-700",
@@ -71,7 +71,7 @@ async function main() {
   // ── 4. CardHeader 分隔线 ────────────────────────────────
   check(
     "DetailPanel: CardHeader 含 border-b + 暗色",
-    /CardHeader[^>]*className[^>]*border-b[^>]*dark:border-slate-800/.test(detailPanelSrc),
+    /CardHeader[^>]*className[^>]*border-b[^>]*dark:border-slate-700/.test(detailPanelSrc),
   )
   check(
     "DetailPanel: CardTitle 含 dark:text-slate-50",
