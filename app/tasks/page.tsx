@@ -947,6 +947,10 @@ function TasksPageContent() {
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
               提交后显示为“等待站点 Agent 执行”。只有 Agent 回写成功并完成同步后，才算站点真实创建完成。
             </div>
+            <div data-testid="task-create-target-site" className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+              目标站点: <code className="font-mono">{siteCode}</code>
+              <span className="ml-2 text-blue-600/80">任务不会写入 unified_tasks；只有站点 Agent 执行并同步回中心后才出现在任务列表。</span>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createSubmitting}>

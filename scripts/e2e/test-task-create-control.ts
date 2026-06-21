@@ -17,11 +17,24 @@
 
 import { randomUUID } from "node:crypto"
 import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { Client } from "pg"
 import assert from "node:assert/strict"
 import { installAuthenticatedFetch } from "./auth-helper"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
+
+// R.70 Task 2: soft checks (do not hard-fail main flow)
+let softPass = 0, softFail = 0
+function check(name: string, ok: boolean, detail?: string) {
+  if (ok) {
+    softPass++
+    console.log(`  ✅ ${name}${detail ? ": " + detail : ""}`)
+  } else {
+    softFail++
+    console.log(`  ❌ ${name}${detail ? ": " + detail : ""}`)
+  }
+}
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL
@@ -31,6 +44,43 @@ async function main() {
 
   const marker = `CENTER-CREATE-${randomUUID().slice(0, 8)}`
   await installAuthenticatedFetch(BASE)
+
+  // R.70 Task 2: assert the API source no longer has the hidden SH01 default
+  const apiSource = readFileSync("app/api/tasks/create/route.ts", "utf8")
+  check(
+    "task create API has no default SH01",
+    !apiSource.includes('?? "SH01"'),
+    apiSource.includes('?? "SH01"') ? "default SH01 still present" : "ok"
+  )
+
+  // R.70 Task 2: assert no siteCode → 400 siteCode_required
+  const noSiteRes = await fetch(`${BASE}/api/tasks/create`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ taskName: `no-site-${marker}`, taskType: "backup" }),
+  })
+  const noSiteJson = await noSiteRes.json().catch(() => null)
+  check(
+    "task create without siteCode returns 400 siteCode_required",
+    noSiteRes.status === 400 && String(noSiteJson?.error ?? "").includes("siteCode"),
+    `status=${noSiteRes.status} error=${noSiteJson?.error ?? "—"}`
+  )
+
+  // R.70 Task 2: assert bogus siteCode → 400 not_registered
+  const bogusRes = await fetch(`${BASE}/api/tasks/create`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ siteCode: "ZZ99_BOGUS", taskName: `bogus-${marker}`, taskType: "backup" }),
+  })
+  const bogusJson = await bogusRes.json().catch(() => null)
+  check(
+    "task create with unregistered siteCode returns 400 not_registered",
+    bogusRes.status === 400 && (String(bogusJson?.error ?? "").includes("not registered") || String(bogusJson?.error ?? "").includes("disabled")),
+    `status=${bogusRes.status} error=${bogusJson?.error ?? "—"}`
+  )
+
+  console.log(`R.70 soft checks: ${softPass} passed, ${softFail} failed`)
+  console.log("")
 
   const res = await fetch(`${BASE}/api/tasks/create`, {
     method: "POST",

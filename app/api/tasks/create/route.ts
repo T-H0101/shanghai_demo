@@ -17,6 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { query } from "@/lib/db"
 import {
   createCenterTaskCommand,
   type CenterTaskType,
@@ -54,7 +55,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const siteCode = (body.siteCode ?? "SH01").trim()
+  const siteCode = (body.siteCode ?? "").trim()
+  if (!siteCode) {
+    return NextResponse.json(
+      { code: 400, error: "siteCode is required" },
+      { status: 400 }
+    )
+  }
   const taskName = (body.taskName ?? "").trim()
   if (!taskName) {
     return NextResponse.json(
@@ -66,6 +73,18 @@ export async function POST(req: NextRequest) {
   if (taskType !== "backup" && taskType !== "restore") {
     return NextResponse.json(
       { code: 400, error: "taskType must be 'backup' or 'restore'" },
+      { status: 400 }
+    )
+  }
+
+  // R.70 Task 2: validate siteCode against the sync_sites registry
+  const siteResult = await query<{ site_code: string; enabled: boolean }>(
+    "SELECT site_code, enabled FROM sync_sites WHERE site_code = $1 LIMIT 1",
+    [siteCode]
+  )
+  if (siteResult.rows.length === 0 || siteResult.rows[0].enabled === false) {
+    return NextResponse.json(
+      { code: 400, error: "siteCode is not registered or disabled" },
       { status: 400 }
     )
   }
