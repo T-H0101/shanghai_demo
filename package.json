@@ -78,6 +78,8 @@
     "e2e:full-audit": "tsx scripts/e2e/test-full-audit.ts",
     "e2e:console-usability-lift": "tsx scripts/e2e/test-console-usability-lift.ts",
     "e2e:header-ux-lift": "tsx scripts/e2e/test-header-ux-lift.ts",
+    "e2e:theme-background": "tsx scripts/e2e/test-theme-background.ts",
+    "e2e:dark-mode": "tsx scripts/e2e/test-dark-mode.ts",
     "e2e:command-center": "tsx scripts/e2e/test-command-center.ts",
     "e2e:compat": "tsx scripts/e2e/test-compatibility.ts",
     "e2e:concurrency": "tsx scripts/e2e/test-concurrency.ts",
