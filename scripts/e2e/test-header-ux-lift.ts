@@ -199,6 +199,19 @@ async function main() {
   for (const route of ["/", "/sync", "/tasks", "/racks", "/search", "/logs", "/sites", "/settings", "/users", "/volumes"]) {
     check(`AppShell 首访指引覆盖 ${route}`, appShellSource.includes(route === "/" ? 'pathname === "/"' : `pathname.startsWith("${route}")`))
   }
+  // R.UI-CmdCenter: 跨页面覆盖 + 文案不含 mock 数据承诺
+  check(
+    "AppShell 引导文案不含 'mock 数据将' / '将显示模拟' 等假话",
+    !appShellSource.includes("mock 数据将") &&
+      !appShellSource.includes("将显示模拟") &&
+      !appShellSource.includes("会自动填充"),
+    "no fake mock promise",
+  )
+  check(
+    "FirstRunCoach 仅一份全局实例 (AppShell 渲染, 不重复挂载)",
+    (appShellSource.match(/<FirstRunCoach/g) ?? []).length === 1,
+    "single FirstRunCoach instance",
+  )
 
   // ============================================================
   // 7c. Hover 反馈覆盖率
