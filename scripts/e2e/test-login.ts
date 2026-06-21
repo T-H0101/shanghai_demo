@@ -54,6 +54,34 @@ async function main() {
     "CSS radial-gradient present in SSR HTML",
   )
 
+  // ── 2c. r4 glass card enhancement ──────────────────────
+  const cardMatch = html.match(/data-testid="login-card"[\s\S]{0,1500}?<\/div>\s*<\/div>/)
+  if (cardMatch) {
+    const card = cardMatch[0]
+    check(
+      "r4: LoginCard uses backdrop-saturate-180",
+      card.includes("backdrop-saturate-180"),
+      "色彩饱和度滤镜",
+    )
+    check(
+      "r4: LoginCard uses backdrop-blur-2xl",
+      card.includes("backdrop-blur-2xl"),
+      "更强背景模糊",
+    )
+    check(
+      "r4: LoginCard has bg-white/[0.12] (12% opacity)",
+      card.includes("bg-white/[0.12]"),
+      "透明度从 8% 提到 12%",
+    )
+    check(
+      "r4: LoginCard has inner highlight gradient",
+      card.includes("via-white/30") && card.includes("bg-gradient-to-r"),
+      "顶部 1px 高光线",
+    )
+  } else {
+    check("r4: LoginCard markup found", false, "无法匹配 LoginCard")
+  }
+
   // ── 3. SSO dead button removed ─────────────────────────────
   check(
     "SSO disabled button REMOVED",

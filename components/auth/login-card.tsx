@@ -85,11 +85,21 @@ export function LoginCard({ availableSites }: LoginCardProps) {
     <div
       data-testid="login-card"
       className={cn(
-        "w-full max-w-md rounded-2xl border border-white/15 bg-white/[0.08] p-8 shadow-2xl shadow-black/40 backdrop-blur-xl",
+        "relative w-full max-w-md rounded-2xl border border-white/15 p-8 shadow-2xl shadow-black/40",
+        "bg-white/[0.12] backdrop-blur-2xl backdrop-saturate-180",
         "animate-in fade-in slide-in-from-bottom-3 duration-300",
       )}
     >
-      <div className="mb-8">
+      {/* inner highlight: top 1px bright line + soft gradient overlay */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden"
+      >
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent" />
+      </div>
+
+      <div className="relative z-10 mb-8">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-2.5 py-1 text-[10px] uppercase tracking-widest text-blue-300">
           <ShieldCheck className="h-3 w-3" aria-hidden="true" />
           Enterprise Auth
@@ -98,7 +108,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         <p className="mt-1 text-sm text-slate-400">平台认证基座 · 单点登录与会话统一</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} className="relative z-10 space-y-5" noValidate>
         <div className="space-y-2">
           <Label
             htmlFor="account"
@@ -123,7 +133,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-invalid={!!accountError}
               aria-describedby={accountError ? "account-error" : undefined}
               className={cn(
-                "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white placeholder:text-slate-600",
+                "h-11 border-slate-700/70 bg-slate-950/40 backdrop-blur-sm pl-10 text-white placeholder:text-slate-600",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 accountError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -182,7 +192,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-invalid={!!passwordError}
               aria-describedby={passwordError ? "password-error" : undefined}
               className={cn(
-                "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white placeholder:text-slate-600",
+                "h-11 border-slate-700/70 bg-slate-950/40 backdrop-blur-sm pl-10 text-white placeholder:text-slate-600",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 passwordError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -209,7 +219,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
             >
               <SelectTrigger
                 className={cn(
-                  "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white",
+                  "h-11 border-slate-700/70 bg-slate-950/40 backdrop-blur-sm pl-10 text-white",
                   "focus:ring-blue-500/40",
                 )}
               >
@@ -262,7 +272,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-xs leading-relaxed text-slate-500">
+      <p className="relative z-10 mt-6 text-center text-xs leading-relaxed text-slate-500">
         当前认证：本地 JWT
         <br />
         企业 ADFS/LDAP：待接入，缺少 provider metadata 与测试账号
@@ -271,7 +281,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
       </p>
 
       <div
-        className="mt-6 flex flex-wrap justify-center gap-4 border-t border-white/10 pt-6"
+        className="relative z-10 mt-6 flex flex-wrap justify-center gap-4 border-t border-white/10 pt-6"
         data-testid="login-federation-status"
       >
         <div className="flex items-center gap-2 text-xs text-slate-400">
