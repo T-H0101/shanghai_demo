@@ -211,7 +211,7 @@ export function DashboardSummaryBar() {
                   {tile.label}
                 </span>
               </div>
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+              <div className="text-xl font-bold tabular-nums break-words text-slate-900 dark:text-slate-100 leading-tight">
                 {tile.value}
               </div>
               {tile.hint && (

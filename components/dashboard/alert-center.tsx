@@ -158,7 +158,7 @@ export function AlertCenter() {
                 >
                   <Icon className={cn("h-4 w-4 shrink-0 mt-0.5", getLevelColor(alert.level))} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate text-slate-900 dark:text-slate-100">{alert.message}</p>
+                    <p className="text-sm break-words line-clamp-2 text-slate-900 dark:text-slate-100">{alert.message}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] text-slate-400 dark:text-slate-500">{alert.detail}</span>
                       <span className="text-[10px] text-slate-300 dark:text-slate-600">·</span>
