@@ -1,8 +1,21 @@
 # Project Status
 
-> **截至**: 2026-06-20
-> **Sprint**: Sprint R.23 同步时效白盒证据
-> **当前主线**: 同步与控制可视化；随后继续 manual-sync command 通道、生产持续时延和百万级全量验收
+> **截至**: 2026-06-22
+> **Sprint**: Sprint dark-theme-overhaul (R.77)
+> **当前主线**: 全平台暗色主题修复,浅色模式不动,暗色下字体清晰 / 卡片无过曝 / 边框可见 / Recharts 图表正常
+
+---
+
+## Sprint dark-theme-overhaul (R.77) — 全平台暗色主题整体重做 (2026-06-22)
+
+- 11 个 page.tsx + 30+ 组件 + Recharts + 状态映射函数 全部加 `dark:` 前缀变体
+- `app/globals.css` 新增 12 个 CSS 变量(`--app-surface-2/3` / `--app-text-1/2/3/4` / `--app-info/warn/error/success` 系列)
+- `styles/dark.css` 扩展 12 个色族覆盖(blue/amber/red/emerald/orange/indigo + purple/pink/sky/rose/violet/teal/cyan/fuchsia/lime/yellow)
+- `lib/chart-theme.ts` 新文件: Recharts 动态 palette(lightPalette / darkPalette)
+- `app/login/page.tsx` 用 `useTheme()` + mounted guard 动态背景,LoginCard 浅色玻璃/暗色玻璃双主题
+- `e2e:dark-mode` 新增 44 项断言,100% 通过
+- login (27) + theme-background (10) e2e 无回归
+- `REQ-§6.2` 视觉合规 — 暗色主题从 `partial` → `complete`
 
 ---
 
