@@ -45,6 +45,7 @@ export async function queryClickHouseLogs(
   }
   const url = process.env.CLICKHOUSE_URL!.replace(/\/$/, "")
   const database = process.env.CLICKHOUSE_DATABASE!
+  const table = process.env.CLICKHOUSE_LOG_TABLE ?? "task_logs"
   const conditions: string[] = ["1=1"]
   const params: Record<string, string | number> = {}
   if (query.keyword) {
@@ -59,7 +60,7 @@ export async function queryClickHouseLogs(
   }
   const sql = `SELECT log_id, site_code, task_id, operator, device_id, disc_no,
                       error_code, error_message, occurred_at, level, message
-               FROM ${database}.task_logs
+               FROM ${database}.${table}
                WHERE ${conditions.join(" AND ")}
                ORDER BY occurred_at DESC
                LIMIT {lim:UInt32} OFFSET {off:UInt32}`

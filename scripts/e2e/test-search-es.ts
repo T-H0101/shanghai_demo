@@ -3,6 +3,12 @@
  * Sprint R.56 — verify /api/search uses center-owned read path
  * and never falls back to direct site_restore_db reads.
  *
+ * R.79 boundary contract additions:
+ *   - Verify the route source code references SEARCH_ES_URL env
+ *   - Verify the route returns blocked_by_external_system when ES is absent
+ *   - Verify the route NEVER contains INSERT INTO unified_tbl_file (full ingest
+ *     into PG17 center is forbidden — file/folder go to ES/OpenSearch only)
+ *
  * Behavior:
  *   - Without SEARCH_ES_URL: /api/search returns source="blocked_by_external_system"
  *     or "unified_file_index" (whichever applies), never "site_restore_db".
@@ -10,6 +16,7 @@
  */
 
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -43,6 +50,26 @@ async function main() {
   } else {
     console.log("SEARCH_ES_URL not configured; configured-path test skipped with blocked_by_external_system evidence")
   }
+
+  // R.79: boundary contract checks against source code
+  const routeSource = await readFile("app/api/search/route.ts", "utf8")
+  const repoSource = await readFile("lib/search/file-index-repository.ts", "utf8")
+  const esClientSource = await readFile("lib/search/es-client.ts", "utf8")
+  const combined = `${routeSource}\n${repoSource}\n${esClientSource}`
+
+  assert.ok(
+    combined.includes("SEARCH_ES_URL"),
+    "R.79: search boundary must read SEARCH_ES_URL env"
+  )
+  assert.ok(
+    combined.includes("blocked_by_external_system"),
+    "R.79: search boundary must expose blocked_by_external_system state"
+  )
+  assert.ok(
+    !combined.includes("INSERT INTO unified_tbl_file") &&
+      !combined.includes("INSERT INTO unified_tbl_folder"),
+    "R.79: full tbl_file/tbl_folder must NEVER be ingested into PG17 center"
+  )
 
   console.log("search es boundary: PASS")
 }
