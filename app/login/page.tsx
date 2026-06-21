@@ -27,10 +27,16 @@ export default function LoginPage() {
       style={{
         backgroundColor: "#020617",
         backgroundImage: [
-          // 单色斑: 蓝紫 (品牌冷色系, opacity 0.18) — 填补中间空白
-          "radial-gradient(ellipse 80% 60% at 65% 75%, rgba(91, 33, 182, 0.18) 0%, transparent 60%)",
+          // 主品牌色: 深蓝(左上) — 主色不变
+          "radial-gradient(ellipse 60% 50% at 15% 25%, rgba(30, 58, 138, 0.32) 0%, transparent 55%)",
+          // 蓝紫(右上)
+          "radial-gradient(ellipse 50% 45% at 85% 20%, rgba(91, 33, 182, 0.22) 0%, transparent 55%)",
+          // 青绿(中下偏右) — 跟流星色系呼应
+          "radial-gradient(ellipse 55% 45% at 65% 80%, rgba(14, 116, 144, 0.22) 0%, transparent 55%)",
+          // 蓝紫(中下偏左) — 多色交织
+          "radial-gradient(ellipse 45% 40% at 25% 75%, rgba(67, 56, 202, 0.18) 0%, transparent 55%)",
           // vignette: 边缘暗化, 收焦点
-          "radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4) 100%)",
+          "radial-gradient(ellipse at center, transparent 35%, rgba(0, 0, 0, 0.45) 100%)",
         ].join(", "),
       }}
     >

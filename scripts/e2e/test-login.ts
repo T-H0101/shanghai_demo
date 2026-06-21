@@ -54,6 +54,40 @@ async function main() {
     "CSS radial-gradient present in SSR HTML",
   )
 
+  // ── 2d. r5: more dense gradient mesh (4 色斑) ────────
+  const radialCount = (html.match(/radial-gradient/g) ?? []).length
+  check(
+    "r5: page background has 4+ radial-gradient layers (mesh)",
+    radialCount >= 4,
+    `radial-gradient 出现 ${radialCount} 次`,
+  )
+
+  // ── 2e. r5: 节点加密 + 枢纽节点 ─────────────────────
+  const bgSrc = readFileSync("components/auth/login-background.tsx", "utf8")
+  check(
+    "r5: buildGraph 节点数 25-35 (r3 是 12-20)",
+    /Math\.max\(14, Math\.min\(35/.test(bgSrc),
+    "节点密度提升",
+  )
+  check(
+    "r5: 3 个枢纽节点 (HUB_LABELS)",
+    /HUB_LABELS/.test(bgSrc) && /SH01.*BJ02.*GZ03/s.test(bgSrc),
+    "SH01/BJ02/GZ03 枢纽",
+  )
+  check(
+    "r5: hub 节点特殊渲染 (label + 外圈大光晕)",
+    /outerHalo/.test(bgSrc) && /hubLabel/.test(bgSrc),
+    "枢纽节点视觉差异化",
+  )
+
+  // ── 2f. r5: 输入框回滚到实色 (不再 backdrop-blur-sm) ─
+  const cardSrc2 = readFileSync("components/auth/login-card.tsx", "utf8")
+  check(
+    "r5: 输入框回滚到 bg-slate-950/60 (实色蒙层)",
+    cardSrc2.includes("h-11 border-slate-700 bg-slate-950/60"),
+    "不再用 backdrop-blur-sm",
+  )
+
   // ── 2c. r4 glass card enhancement ──────────────────────
   const cardMatch = html.match(/data-testid="login-card"[\s\S]{0,1500}?<\/div>\s*<\/div>/)
   if (cardMatch) {
