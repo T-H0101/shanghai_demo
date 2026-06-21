@@ -365,19 +365,83 @@ export default function Page() {
               </CardContent>
             </Card>
 
-            <Card className="gap-0">
+            <Card className="gap-0" data-testid="settings-sync-config">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <RefreshCw className="h-5 w-5" />
-                  同步策略 (只读)
+                  同步配置 (只读)
                 </CardTitle>
-                <CardDescription>写配置接口为 not_implemented，UI 不会修改</CardDescription>
+                <CardDescription>
+                  来源：中心配置 /api/sync/config，密钥仅显示 env key ref，不返回任何连接值
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <WriteRow label="编辑同步周期" reason="not_implemented" />
-                <WriteRow label="启用/禁用单站点" reason="not_implemented" />
-                <WriteRow label="立即触发同步包" reason="not_implemented" />
-                <WriteRow label="查看同步包原始数据" reason="blocked_by_external_system" />
+              <CardContent className="space-y-3">
+                <p className="text-xs text-slate-500">
+                  当前默认调度：每{" "}
+                  <span className="font-mono font-medium text-slate-700">60</span>{" "}
+                  分钟执行一次站点同步；个别站点按中心库 sync_sites.sync_interval_seconds 覆写。
+                </p>
+                {snapshot.sites.length === 0 && !loading ? (
+                  <p className="text-sm text-slate-500">暂无可读取的同步配置。</p>
+                ) : (
+                  snapshot.sites.map((site) => (
+                    <div
+                      key={site.siteCode}
+                      className="rounded-lg border bg-slate-50 p-3 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{site.siteName}</span>
+                        <span className="font-mono text-slate-500">{site.siteCode}</span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-slate-500">连接字符串</p>
+                          <p className="mt-1 font-mono">
+                            {site.credentialKeyRef ? "env ref: " + site.credentialKeyRef : "未配置"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">周期</p>
+                          <p className="mt-1 font-mono">{site.intervalSeconds} 秒</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="gap-0" data-testid="settings-scheduler-config">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <RefreshCw className="h-5 w-5" />
+                  调度配置
+                </CardTitle>
+                <CardDescription>
+                  默认每 60 分钟执行一次站点同步；中心库为唯一来源
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+                  <span>默认调度周期</span>
+                  <Badge variant="outline" className="font-mono">
+                    60 分钟
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+                  <span>来源</span>
+                  <Badge variant="outline" className="font-mono">
+                    center_config
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+                  <span>调度进程</span>
+                  <Badge variant="outline" className="font-mono">
+                    external_process
+                  </Badge>
+                </div>
+                <WriteRow label="调整默认周期" reason="not_implemented" />
+                <WriteRow label="覆盖单站点周期" reason="not_implemented" />
               </CardContent>
             </Card>
           </div>
@@ -422,21 +486,22 @@ export default function Page() {
               </CardContent>
             </Card>
 
-            <Card className="gap-0">
+            <Card className="gap-0" data-testid="settings-auth-boundary">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <ShieldAlert className="h-5 w-5" />
-                  接入路线 (blocked_by_auth)
+                  认证边界
                 </CardTitle>
                 <CardDescription>
-                  企业身份联邦与 RBAC 依赖站点 / 上游系统提供 metadata 与测试账号
+                  local JWT 已启用；ADFS / OIDC / LDAP 当前 blocked_by_auth
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
+                <BlockedItem label="local JWT 已启用" status="enabled" />
                 <BlockedItem label="ADFS / OIDC 联邦登录" status="blocked_by_auth" />
                 <BlockedItem label="LDAP 账号同步" status="blocked_by_auth" />
                 <BlockedItem label="RBAC 角色与权限矩阵" status="blocked_by_auth" />
-                <BlockedItem label="本地 JWT 过期/续签策略" status="blocked_by_auth" />
+                <BlockedItem label="JWT 过期 / 续签策略" status="blocked_by_auth" />
               </CardContent>
             </Card>
           </div>
@@ -448,13 +513,15 @@ export default function Page() {
         icon: <Database className="h-3.5 w-3.5" />,
         content: (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-            <Card className="gap-0">
+            <Card className="gap-0" data-testid="settings-external-boundary">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Database className="h-5 w-5" />
-                  搜索 / 索引
+                  外部存储边界
                 </CardTitle>
-                <CardDescription>来源：实时 system health API</CardDescription>
+                <CardDescription>
+                  ES / OpenSearch 与 ClickHouse 按运行时配置显示 running 或 blocked_by_external_system
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <BlockedItem
@@ -465,8 +532,12 @@ export default function Page() {
                   label="ClickHouse 检索聚合"
                   status={snapshot.databaseConnected ? "configured" : "blocked_by_external_system"}
                 />
+                <BlockedItem
+                  label="邮件 / Webhook 投递"
+                  status="blocked_by_external_system"
+                />
                 <p className="text-xs text-slate-500">
-                  配置基于真实 API 状态，不在 UI 中手填, 避免与后端不同步。
+                  配置基于真实 API 状态，不在 UI 中手填，避免与后端不同步。
                 </p>
               </CardContent>
             </Card>

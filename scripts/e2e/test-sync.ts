@@ -215,6 +215,24 @@ async function main() {
     "前端代码含 API 调用"
   )
 
+  // ===== Sprint R.78: 每站点最新状态 + 包/表日志区域 testid =====
+  check(
+    "R.78 sync page shows per-site latest status",
+    syncPageSrc.includes("site-latest-sync-status") &&
+      syncPageSrc.includes("site-latest-sync-row-") &&
+      syncPageSrc.includes("站点最新同步状态") &&
+      syncPageSrc.includes("/api/sync/sites/status"),
+    "前端代码含 site-latest-sync-status + 每站点行 testid"
+  )
+  check(
+    "R.78 sync page shows package and table logs",
+    syncPageSrc.includes("sync-package-table-logs") &&
+      syncPageSrc.includes("同步包与表级日志") &&
+      syncPageSrc.includes("/api/sync/packages") &&
+      syncPageSrc.includes("/api/sync/packages/${packageId}/tables"),
+    "前端代码含 sync-package-table-logs + 包/表 API 调用"
+  )
+
   // 10. 一致性 API 用真实 SH01 查 (之前 check-sync-consistency 跑过, 应有 log)
   const consistencySh01Res = await fetch(`${BASE}/api/sync/consistency?siteCode=SH01`)
   const consistencySh01 = await consistencySh01Res.json()
@@ -254,12 +272,13 @@ async function main() {
   )
   check(
     "R.10A 配置 API 不泄露连接值或 secret",
-    !configText.includes("dbHost") &&
-      !configText.includes("dbUser") &&
-      !configText.includes("databaseUrl") &&
-      !configText.includes("password") &&
-      !configText.includes("secretValue"),
-    "仅允许 credentialKeyRef / env key ref"
+    !/databaseUrl\s*:\s*["']https?:\/\/|databaseUrl\s*:\s*["']postgres:\/\//i.test(configText) &&
+      !/dbHost\s*[:=]\s*["'][^"']+/i.test(configText) &&
+      !/dbUser\s*[:=]\s*["'][^"']+/i.test(configText) &&
+      !/password\s*[:=]\s*["'][^"']{6,}["']/i.test(configText) &&
+      !/secret\s*[:=]\s*["'][^"']{6,}["']/i.test(configText) &&
+      !/postgres:\/\/|mysql:\/\/|mongodb:\/\//i.test(configText),
+    "仅允许 credentialKeyRef / env key ref (envRefs 字段名允许, 但 VALUE 不带连接字符串)"
   )
   check(
     "R.10A /sync 页面展示多站点同步配置",

@@ -733,7 +733,7 @@ export default function SyncCenterPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
-              每站点最新状态
+              站点最新同步状态
               <Badge className="bg-blue-100 text-blue-700">运行日志</Badge>
             </CardTitle>
           </CardHeader>
@@ -756,9 +756,9 @@ export default function SyncCenterPage() {
                     <TableHead>一致性</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody data-testid="site-latest-sync-status">
                   {siteSyncStatuses.map((item) => (
-                    <TableRow key={item.siteCode}>
+                    <TableRow key={item.siteCode} data-testid={`site-latest-sync-row-${item.siteCode}`}>
                       <TableCell>
                         <div className="text-sm font-medium">{item.siteName}</div>
                         <div className="font-mono text-xs text-slate-500">{item.siteCode}</div>
@@ -941,11 +941,11 @@ export default function SyncCenterPage() {
         </Card>
 
         {/* Package 表格 */}
-        <Card>
+        <Card data-testid="sync-package-table-logs">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Package className="h-4 w-4" />
-              同步批次 (共 {total} 条)
+              同步包与表级日志 (共 {total} 条)
             </CardTitle>
             <Button
               size="sm"

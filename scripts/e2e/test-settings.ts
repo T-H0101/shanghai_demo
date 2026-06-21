@@ -66,6 +66,81 @@ async function main() {
     !/from\s+["']@\/lib\/mock\/settings["']/.test(source)
   )
   check(
+    "settings shows sync config source",
+    source.includes("settings-sync-config") &&
+      source.includes("同步配置 (只读)") &&
+      source.includes("center_config") &&
+      source.includes("env ref:"),
+    "settings-sync-config 卡片存在且显示 env ref"
+  )
+  check(
+    "settings shows site registry",
+    source.includes("settings-site-registry") &&
+      source.includes("站点注册/派生来源") &&
+      source.includes("registrySites"),
+    "settings-site-registry 卡片存在"
+  )
+  check(
+    "settings shows scheduler config",
+    source.includes("settings-scheduler-config") &&
+      source.includes("调度配置") &&
+      source.includes("60") &&
+      source.includes("center_config"),
+    "settings-scheduler-config 卡片存在且标注 60 分钟 + center_config"
+  )
+  check(
+    "settings shows auth boundary",
+    source.includes("settings-auth-boundary") &&
+      source.includes("认证边界") &&
+      source.includes("local JWT 已启用") &&
+      source.includes("blocked_by_auth"),
+    "settings-auth-boundary 卡片存在"
+  )
+  check(
+    "settings shows external boundary",
+    source.includes("settings-external-boundary") &&
+      source.includes("外部存储边界") &&
+      source.includes("blocked_by_external_system"),
+    "settings-external-boundary 卡片存在"
+  )
+  check(
+    "settings does not display secret values in source",
+    !/postgres:\/\/[^"'\s]+/.test(source) &&
+      !/mysql:\/\/[^"'\s]+/.test(source) &&
+      !/password\s*[:=]\s*[^"'\s]+/i.test(source),
+    "源代码不含真实连接字符串或 password= 赋值"
+  )
+
+  // 拉取 /settings HTML 并验证同样无 secret 泄露 (防御性)
+  const settingsPageRes2 = await fetch(`${BASE}/settings`)
+  const settingsHtml = await settingsPageRes2.text()
+  const configText = JSON.stringify(sync.data ?? {})
+  const configTextLower = configText.toLowerCase()
+  check(
+    "settings does not display secret values in /api/sync/config response",
+    !/postgres:\/\/[^<\s]+/.test(configText) &&
+      !/mysql:\/\/[^<\s]+/.test(configText) &&
+      !/dbpassword=[^<\s]+/i.test(configText) &&
+      !/password\s*[:=]\s*[^<\s"]+/i.test(configText),
+    "API 不返回连接字符串或 password= 形式"
+  )
+  check(
+    "settings API exposes envRefs grouped names only",
+    sync.data?.envRefs?.databaseUrl === "DATABASE_URL" &&
+      sync.data?.envRefs?.siteDatabaseUrl === "SITE_DATABASE_URL" &&
+      sync.data?.envRefs?.siteAgentSecret === "SITE_AGENT_SECRET" &&
+      !/siteagentsecret\s*[:=]\s*["']?[a-z0-9_-]{8,}/i.test(configText) &&
+      !/siteagents?secret\s*[:=]\s*[^"'\s<]+/i.test(configText.replace(/"siteAgentSecret"\s*:\s*"SITE_AGENT_SECRET"/g, "")),
+    "envRefs 只返回 key 名, 不返回 secret 值 (移除自身 key 名后扫描)"
+  )
+  check(
+    "settings HTML payload does not embed secret connection strings",
+    !/postgres:\/\/[^<\s]+/.test(settingsHtml) &&
+      !/mysql:\/\/[^<\s]+/.test(settingsHtml) &&
+      !/password\s*[:=]\s*[^<\s]+/i.test(settingsHtml),
+    "/settings 页面 HTML 不含 secret 值"
+  )
+  check(
     "页面读取 5 个真实接口",
     source.includes("/api/sync/config") &&
       source.includes("/api/system/health") &&

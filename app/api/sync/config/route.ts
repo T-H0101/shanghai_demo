@@ -12,6 +12,12 @@ interface SyncSiteRow {
   status: string
   credential_ref: string | null
   last_connected_at: string | null
+  agent_id: string | null
+  agent_version: string | null
+  agent_reported_at: string | null
+  agent_database_reachable: boolean | null
+  scheduler_status: string | null
+  scheduler_started_at: string | null
 }
 
 const SAFE_ENV_KEY_REFS = [
@@ -23,32 +29,93 @@ const SAFE_ENV_KEY_REFS = [
   "SITE_WORKER_SITE_CODE",
   "SITE_WORKER_POLL_INTERVAL_MS",
   "SITE_WORKER_DRY_RUN",
+  "SITE_AGENT_SECRET",
 ] as const
+
+const ENV_REF_GROUP = {
+  databaseUrl: "DATABASE_URL",
+  sourceDatabaseUrl: "SOURCE_DATABASE_URL",
+  siteDatabaseUrl: "SITE_DATABASE_URL",
+  siteAgentSecret: "SITE_AGENT_SECRET",
+  syncPackageSecret: "SYNC_PACKAGE_SECRET",
+} as const
+
+function agentStatusFromRow(row: Pick<SyncSiteRow, "agent_reported_at" | "agent_database_reachable">): string {
+  if (!row.agent_reported_at) return "not_registered"
+  const ageMs = Date.now() - Date.parse(row.agent_reported_at)
+  if (ageMs <= 5 * 60 * 1000) {
+    return row.agent_database_reachable ? "online" : "degraded"
+  }
+  if (ageMs <= 15 * 60 * 1000) return "stale"
+  return "offline"
+}
+
+function schedulerEnabledFromRow(row: Pick<SyncSiteRow, "enabled" | "scheduler_status">): boolean {
+  if (!row.enabled) return false
+  if (!row.scheduler_status) return false
+  return row.scheduler_status !== "disabled"
+}
 
 export async function GET() {
   try {
     const result = await query<SyncSiteRow>(
-      `SELECT site_code, site_name, enabled, sync_interval_seconds, status,
-              credential_ref, last_connected_at::text
-       FROM sync_sites
-       ORDER BY site_code`
+      `SELECT
+         s.site_code,
+         s.site_name,
+         s.enabled,
+         s.sync_interval_seconds,
+         s.status,
+         s.credential_ref,
+         s.last_connected_at::text,
+         agent.agent_id,
+         agent.agent_version,
+         agent.reported_at::text AS agent_reported_at,
+         agent.database_reachable AS agent_database_reachable,
+         scheduler.status AS scheduler_status,
+         scheduler.started_at::text AS scheduler_started_at
+       FROM sync_sites s
+       LEFT JOIN site_agent_runtime agent ON agent.site_code = s.site_code
+       LEFT JOIN LATERAL (
+         SELECT status, started_at
+         FROM sync_scheduler_log
+         WHERE site_code = s.site_code
+         ORDER BY started_at DESC
+         LIMIT 1
+       ) scheduler ON TRUE
+       ORDER BY s.site_code`
     )
+
+    const sites = result.rows.map((row) => ({
+      siteCode: row.site_code,
+      siteName: row.site_name,
+      enabled: row.enabled,
+      intervalSeconds: row.sync_interval_seconds,
+      status: row.status,
+      credentialKeyRef: row.credential_ref,
+      lastConnectedAt: row.last_connected_at,
+      schedulerEnabled: schedulerEnabledFromRow(row),
+      agentStatus: agentStatusFromRow(row),
+      agentVersion: row.agent_version,
+      agentReportedAt: row.agent_reported_at,
+      provenance: "central_configuration_with_latest_runtime_logs",
+    }))
 
     return NextResponse.json({
       code: 0,
       message: "ok",
       source: "sync_sites",
       data: {
-        sites: result.rows.map((row) => ({
-          siteCode: row.site_code,
-          siteName: row.site_name,
-          enabled: row.enabled,
-          intervalSeconds: row.sync_interval_seconds,
-          status: row.status,
-          credentialKeyRef: row.credential_ref,
-          lastConnectedAt: row.last_connected_at,
-          provenance: "central_configuration",
+        sites,
+        scheduler: {
+          intervalMinutes: 60,
+          source: "center_config",
+          note: "每 60 分钟触发一次全量同步；个别站点按 sync_sites.sync_interval_seconds 覆写",
+        },
+        envKeyRefs: SAFE_ENV_KEY_REFS.map((key) => ({
+          key,
+          configured: Boolean(process.env[key]),
         })),
+        envRefs: ENV_REF_GROUP,
         runtime: {
           schedulerMode: "external_process",
           defaultIntervalSeconds: 3600,
