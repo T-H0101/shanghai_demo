@@ -52,7 +52,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen w-60 bg-slate-900 text-white flex flex-col transition-transform duration-300",
+          "fixed left-0 top-0 z-50 h-screen w-60 bg-[radial-gradient(circle_at_20%_0%,rgba(99,102,241,0.34),transparent_18rem),linear-gradient(180deg,#0f172a_0%,#111827_52%,#020617_100%)] text-white flex flex-col transition-transform duration-300 shadow-2xl shadow-slate-950/25",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
@@ -66,8 +66,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <X className="h-5 w-5" />
         </Button>
 
-        <div className="flex items-center gap-3 px-5 py-6 border-b border-slate-700">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 shadow-lg shadow-blue-950/30 backdrop-blur">
             <Disc className="h-6 w-6 text-white" />
           </div>
           <div>
@@ -87,8 +87,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                   active
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? "bg-white/14 text-white shadow-sm ring-1 ring-white/12"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -98,7 +98,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           })}
         </nav>
 
-        <div className="border-t border-slate-700 p-4">
+        <div className="border-t border-white/10 p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600">
               <Disc className="h-5 w-5" />

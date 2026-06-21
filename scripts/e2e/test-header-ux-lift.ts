@@ -453,6 +453,71 @@ async function main() {
   check("settings 页面使用 CapsuleTabs 分段", settingsProdSource.includes("CapsuleTabs"))
 
   // ============================================================
+  // 8b. R.77 GAP — GlassPanel/CapsuleTabs 真实接入
+  // ============================================================
+  console.log("\n=== 8b. R.77 GAP — GlassPanel/CapsuleTabs 真实接入 ===")
+
+  // 1. GlassPanel 至少在 4 个产品页面被实际 import（不止是定义文件）
+  const settingsSrc = readFileSync("app/settings/page.tsx", "utf8")
+  const tasksSrcR77 = readFileSync("app/tasks/page.tsx", "utf8")
+  const syncSrcR77 = readFileSync("app/sync/page.tsx", "utf8")
+  const racksSrcR77 = readFileSync("app/racks/page.tsx", "utf8")
+  const loginSrcR77 = readFileSync("app/login/page.tsx", "utf8")
+
+  check("settings imports GlassPanel", settingsSrc.includes("GlassPanel"))
+  check("tasks imports GlassPanel", tasksSrcR77.includes("GlassPanel"))
+  check("sync imports GlassPanel", syncSrcR77.includes("GlassPanel"))
+  check("racks imports GlassPanel", racksSrcR77.includes("GlassPanel"))
+  check("login imports GlassPanel", loginSrcR77.includes("GlassPanel"))
+
+  // 2. login 接入 (capability 卡片改用 GlassPanel)
+  check(
+    "login capabilities use GlassPanel testid",
+    loginSrcR77.includes("login-capability-"),
+  )
+
+  // 3. CapsuleTabs 键盘契约 (ArrowLeft/Right/Home/End)
+  const capsuleSrcR77 = readFileSync("components/platform/capsule-tabs.tsx", "utf8")
+  check("CapsuleTabs handles ArrowRight", capsuleSrcR77.includes("ArrowRight"))
+  check("CapsuleTabs handles ArrowLeft", capsuleSrcR77.includes("ArrowLeft"))
+  check("CapsuleTabs handles Home", capsuleSrcR77.includes('"Home"') || capsuleSrcR77.includes("Home"))
+  check("CapsuleTabs handles End", capsuleSrcR77.includes('"End"') || capsuleSrcR77.includes("End"))
+  check(
+    "CapsuleTabs skips disabled tabs during keyboard navigation",
+    capsuleSrcR77.includes("for (let i = 0; i < items.length") && capsuleSrcR77.includes("!target.disabled"),
+  )
+  check(
+    "CapsuleTabs sets tabIndex=-1 on inactive",
+    /tabIndex=\{active \? 0 : -1\}/.test(capsuleSrcR77),
+  )
+
+  // 4. 全局产品化骨架: 背景、顶栏、侧栏、页头必须明显升级
+  const appShellR77 = readFileSync("components/layout/app-shell.tsx", "utf8")
+  const headerR77 = readFileSync("components/dashboard/header.tsx", "utf8")
+  const sidebarR77 = readFileSync("components/dashboard/sidebar.tsx", "utf8")
+  const pageHeaderR77 = readFileSync("components/platform/page-header.tsx", "utf8")
+  check("AppShell uses ambient enterprise background", appShellR77.includes("app-ambient-shell"))
+  check("Header uses glass sticky surface", headerR77.includes("app-header-glass"))
+  check("Sidebar uses enterprise gradient surface", sidebarR77.includes("bg-[radial-gradient"))
+  check("PageHeader uses productized glass heading surface", pageHeaderR77.includes("page-header-glass"))
+
+  // 5. 实际渲染验证 — dev server 必须返 200
+  const settingsRes = await fetch(`${BASE}/settings`)
+  check("/settings returns 200", settingsRes.status === 200, `HTTP ${settingsRes.status}`)
+
+  const tasksResR77 = await fetch(`${BASE}/tasks`)
+  check("/tasks returns 200", tasksResR77.status === 200, `HTTP ${tasksResR77.status}`)
+
+  const syncResR77 = await fetch(`${BASE}/sync`)
+  check("/sync returns 200", syncResR77.status === 200, `HTTP ${syncResR77.status}`)
+
+  const racksResR77 = await fetch(`${BASE}/racks`)
+  check("/racks returns 200", racksResR77.status === 200, `HTTP ${racksResR77.status}`)
+
+  const loginResR77 = await fetch(`${BASE}/login`)
+  check("/login returns 200", loginResR77.status === 200, `HTTP ${loginResR77.status}`)
+
+  // ============================================================
   // 9. requirements 对照
   // ============================================================
   console.log("\n=== 9. requirements 对照 (R.1) ===")

@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertTriangle, Database, KeyRound, RefreshCw, Server, ShieldAlert } from "lucide-react"
 import { AppShell } from "@/components/layout/app-shell"
 import { CapsuleTabs, type CapsuleTabItem } from "@/components/platform/capsule-tabs"
+import { GlassPanel } from "@/components/platform/glass-panel"
 import { PageHeader } from "@/components/platform/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface SyncSiteConfig {
   siteCode: string
@@ -171,15 +171,19 @@ export default function Page() {
         icon: <Database className="h-3.5 w-3.5" />,
         content: (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-            <Card className="gap-0">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Database className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-overview-health"
+              title={
+                <>
+                  <Database className="mr-1 inline h-4 w-4" />
                   运行健康
-                </CardTitle>
-                <CardDescription>来源：实时 system health 与 database health API</CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                </>
+              }
+              description="实时展示平台服务与数据连接状态"
+              shine
+              intensity="default"
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border bg-slate-50 p-4">
                   <p className="text-xs text-slate-500">应用服务</p>
                   <p className="mt-2 text-lg font-semibold">{snapshot.systemStatus}</p>
@@ -195,24 +199,28 @@ export default function Page() {
                     {snapshot.databaseLatencyMs === null ? "—" : `${snapshot.databaseLatencyMs} ms`}
                   </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
 
-            <Card className="gap-0">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ShieldAlert className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-overview-blocked"
+              title={
+                <>
+                  <ShieldAlert className="mr-1 inline h-4 w-4" />
                   未接入能力
-                </CardTitle>
-                <CardDescription>不使用 mock 或本地状态冒充配置完成</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+                </>
+              }
+              description="未完成能力保持明确标记，不展示为已完成"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-2 text-sm">
                 <BlockedItem label="配置写入、重置、导出" status="not_implemented" />
                 <BlockedItem label="邮件、Webhook 测试发送" status="not_implemented" />
-                <BlockedItem label="JWT、RBAC、ADFS 安全策略" status="blocked_by_auth" />
+                <BlockedItem label="企业认证与权限策略" status="blocked_by_auth" />
                 <BlockedItem label="真实告警阈值与任务策略" status="blocked_by_external_system" />
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
           </div>
         ),
       },
@@ -223,19 +231,21 @@ export default function Page() {
         badge: snapshot.sites.length || undefined,
         content: (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-            <Card className="gap-0" data-testid="settings-site-registry">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Server className="h-5 w-5" />
-                  站点注册/派生来源
-                </CardTitle>
-                <CardDescription>
-                  来源：{snapshot.registrySource}，dataSource={snapshot.registryDataSource}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <GlassPanel
+              data-testid="settings-site-registry"
+              title={
+                <>
+                  <Server className="mr-1 inline h-4 w-4" />
+                  站点注册状态
+                </>
+              }
+              description={snapshot.registryDataSource === "database" ? "站点来自注册配置" : "站点来自已同步业务记录"}
+              shine
+              intensity="default"
+            >
+              <div className="space-y-3">
                 <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  derived 仅表示从中心业务表发现站点编码，不等同于源端 `tbl_site` 真实注册。
+                  自动发现的站点可用于查看与筛选；正式纳管仍需补齐站点注册配置。
                 </div>
                 {snapshot.registrySites.length === 0 && !loading ? (
                   <p className="text-sm text-slate-500">暂无可验证的站点注册或派生记录。</p>
@@ -245,30 +255,32 @@ export default function Page() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium">{site.name}</p>
-                          <p className="font-mono text-xs text-slate-500">
-                            {site.code} · sourceSiteId={site.sourceSiteId ?? "—"}
-                          </p>
+                          <p className="font-mono text-xs text-slate-500">{site.code}</p>
                         </div>
                         <Badge variant="outline">{site.status}</Badge>
                       </div>
                       <p className="mt-2 text-xs text-slate-500">
-                        设备 {site.deviceCount ?? 0} · sourceTable={site.sourceTable ?? "—"}
+                        设备 {site.deviceCount ?? 0}
                       </p>
                     </div>
                   ))
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
 
-            <Card className="gap-0" data-testid="settings-site-runtime">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Server className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-site-runtime"
+              title={
+                <>
+                  <Server className="mr-1 inline h-4 w-4" />
                   中心调度配置
-                </CardTitle>
-                <CardDescription>来源：中心库 sync_sites，仅展示安全字段</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+                </>
+              }
+              description="展示每个站点的同步周期与最近运行状态"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-3">
                 {snapshot.sites.length === 0 && !loading ? (
                   <p className="text-sm text-slate-500">暂无可读取的站点同步配置。</p>
                 ) : (
@@ -286,7 +298,7 @@ export default function Page() {
                                 <p className="font-mono text-xs text-slate-500">{site.siteCode}</p>
                               </div>
                               <Badge variant={site.enabled ? "default" : "secondary"}>
-                                {site.enabled ? site.status : "disabled"}
+                                {site.enabled ? displayStatus(site.status) : "已停用"}
                               </Badge>
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
@@ -295,7 +307,7 @@ export default function Page() {
                                 <p className="mt-1 font-medium">{site.intervalSeconds} 秒</p>
                               </div>
                               <div>
-                                <p className="text-slate-500">凭据键引用</p>
+                                <p className="text-slate-500">凭据引用</p>
                                 <p className="mt-1 break-all font-mono font-medium">
                                   {site.credentialKeyRef ?? "未配置"}
                                 </p>
@@ -303,13 +315,13 @@ export default function Page() {
                               <div>
                                 <p className="text-slate-500">最近调度</p>
                                 <p className="mt-1 font-medium">
-                                  {runtime?.schedulerStatus ?? "not_run"}
+                                  {displayStatus(runtime?.schedulerStatus ?? "not_run")}
                                 </p>
                               </div>
                               <div>
                                 <p className="text-slate-500">最近一致性</p>
                                 <p className="mt-1 font-medium">
-                                  {runtime?.consistencyStatus ?? "not_run"} ·{" "}
+                                  {displayStatus(runtime?.consistencyStatus ?? "not_run")} ·{" "}
                                   {runtime?.matchedTableCount ?? "—"} /{" "}
                                   {runtime?.mismatchedTableCount ?? "—"}
                                 </p>
@@ -324,8 +336,8 @@ export default function Page() {
                 {snapshot.realityNote && (
                   <p className="text-xs text-amber-700">{snapshot.realityNote}</p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
           </div>
         ),
       },
@@ -336,50 +348,54 @@ export default function Page() {
         badge: snapshot.envKeyRefs.length || undefined,
         content: (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-            <Card className="gap-0" data-testid="settings-env-keys">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <KeyRound className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-env-keys"
+              title={
+                <>
+                  <KeyRound className="mr-1 inline h-4 w-4" />
                   运行时配置引用
-                </CardTitle>
-                <CardDescription>仅显示环境变量键名和是否配置，不返回 secret 值</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {snapshot.envKeyRefs.length === 0 && !loading ? (
-                    <p className="text-sm text-slate-500">暂无环境变量键引用。</p>
-                  ) : (
-                    snapshot.envKeyRefs.map((item) => (
-                      <div
-                        key={item.key}
-                        className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2"
-                      >
-                        <span className="break-all font-mono text-xs">{item.key}</span>
-                        <Badge variant={item.configured ? "default" : "outline"}>
-                          {item.configured ? "已配置" : "未配置"}
-                        </Badge>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                </>
+              }
+              description="仅显示配置引用和是否已配置，不展示敏感值"
+              shine
+              intensity="default"
+            >
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {snapshot.envKeyRefs.length === 0 && !loading ? (
+                  <p className="text-sm text-slate-500">暂无配置引用。</p>
+                ) : (
+                  snapshot.envKeyRefs.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2"
+                    >
+                      <span className="break-all font-mono text-xs">{item.key}</span>
+                      <Badge variant={item.configured ? "default" : "outline"}>
+                        {item.configured ? "已配置" : "未配置"}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </GlassPanel>
 
-            <Card className="gap-0" data-testid="settings-sync-config">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <RefreshCw className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-sync-config"
+              title={
+                <>
+                  <RefreshCw className="mr-1 inline h-4 w-4" />
                   同步配置 (只读)
-                </CardTitle>
-                <CardDescription>
-                  来源：中心配置 /api/sync/config，密钥仅显示 env key ref，不返回任何连接值
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+                </>
+              }
+              description="展示站点同步周期、凭据引用和只读运行配置"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-3">
                 <p className="text-xs text-slate-500">
                   当前默认调度：每{" "}
                   <span className="font-mono font-medium text-slate-700">60</span>{" "}
-                  分钟执行一次站点同步；个别站点按中心库 sync_sites.sync_interval_seconds 覆写。
+                  分钟执行一次站点同步；个别站点可使用独立周期。
                 </p>
                 {snapshot.sites.length === 0 && !loading ? (
                   <p className="text-sm text-slate-500">暂无可读取的同步配置。</p>
@@ -395,9 +411,9 @@ export default function Page() {
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <div>
-                          <p className="text-slate-500">连接字符串</p>
+                          <p className="text-slate-500">凭据引用</p>
                           <p className="mt-1 font-mono">
-                            {site.credentialKeyRef ? "env ref: " + site.credentialKeyRef : "未配置"}
+                            {site.credentialKeyRef ?? "未配置"}
                           </p>
                         </div>
                         <div>
@@ -408,20 +424,22 @@ export default function Page() {
                     </div>
                   ))
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
 
-            <Card className="gap-0" data-testid="settings-scheduler-config">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <RefreshCw className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-scheduler-config"
+              title={
+                <>
+                  <RefreshCw className="mr-1 inline h-4 w-4" />
                   调度配置
-                </CardTitle>
-                <CardDescription>
-                  默认每 60 分钟执行一次站点同步；中心库为唯一来源
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
+                </>
+              }
+              description="默认每 60 分钟执行一次站点同步"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
                   <span>默认调度周期</span>
                   <Badge variant="outline" className="font-mono">
@@ -429,21 +447,21 @@ export default function Page() {
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
-                  <span>来源</span>
+                  <span>配置来源</span>
                   <Badge variant="outline" className="font-mono">
-                    center_config
+                    平台配置
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
                   <span>调度进程</span>
                   <Badge variant="outline" className="font-mono">
-                    external_process
+                    独立运行
                   </Badge>
                 </div>
                 <WriteRow label="调整默认周期" reason="not_implemented" />
                 <WriteRow label="覆盖单站点周期" reason="not_implemented" />
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
           </div>
         ),
       },
@@ -453,17 +471,19 @@ export default function Page() {
         icon: <ShieldAlert className="h-3.5 w-3.5" />,
         content: (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-            <Card className="gap-0" data-testid="settings-auth-config">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ShieldAlert className="h-5 w-5" />
-                  Auth 配置边界
-                </CardTitle>
-                <CardDescription>
-                  仅显示配置状态和 secret 键引用，不返回 URL、密码或 token
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <GlassPanel
+              data-testid="settings-auth-config"
+              title={
+                <>
+                  <ShieldAlert className="mr-1 inline h-4 w-4" />
+                  认证配置边界
+                </>
+              }
+              description="仅显示配置状态和安全引用，不展示 URL、密码或 token"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-3">
                 <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
                   <span className="text-sm">当前模式</span>
                   <Badge variant="outline" className="font-mono">
@@ -471,39 +491,41 @@ export default function Page() {
                   </Badge>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <ConfigFlag label="OIDC issuer" configured={snapshot.auth.issuerUrlConfigured} />
-                  <ConfigFlag label="OIDC client ID" configured={snapshot.auth.clientIdConfigured} />
-                  <ConfigFlag label="JWKS" configured={snapshot.auth.jwksUrlConfigured} />
-                  <ConfigFlag label="LDAP URL" configured={snapshot.auth.ldapUrlConfigured} />
-                  <ConfigFlag label="LDAP base DN" configured={snapshot.auth.ldapBaseDnConfigured} />
+                  <ConfigFlag label="单点登录服务" configured={snapshot.auth.issuerUrlConfigured} />
+                  <ConfigFlag label="客户端标识" configured={snapshot.auth.clientIdConfigured} />
+                  <ConfigFlag label="公钥配置" configured={snapshot.auth.jwksUrlConfigured} />
+                  <ConfigFlag label="目录服务地址" configured={snapshot.auth.ldapUrlConfigured} />
+                  <ConfigFlag label="目录同步范围" configured={snapshot.auth.ldapBaseDnConfigured} />
                   <div className="rounded border bg-slate-50 px-3 py-2">
-                    <p className="text-xs text-slate-500">Client secret 键引用</p>
+                    <p className="text-xs text-slate-500">客户端密钥引用</p>
                     <p className="mt-1 break-all font-mono text-xs font-medium">
                       {snapshot.auth.clientSecretKeyRef}
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
 
-            <Card className="gap-0" data-testid="settings-auth-boundary">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ShieldAlert className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-auth-boundary"
+              title={
+                <>
+                  <ShieldAlert className="mr-1 inline h-4 w-4" />
                   认证边界
-                </CardTitle>
-                <CardDescription>
-                  local JWT 已启用；ADFS / OIDC / LDAP 当前 blocked_by_auth
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <BlockedItem label="local JWT 已启用" status="enabled" />
+                </>
+              }
+              description="本地登录已启用；企业单点登录等待接入"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-2 text-sm">
+                <BlockedItem label="本地登录已启用" status="enabled" />
                 <BlockedItem label="ADFS / OIDC 联邦登录" status="blocked_by_auth" />
                 <BlockedItem label="LDAP 账号同步" status="blocked_by_auth" />
-                <BlockedItem label="RBAC 角色与权限矩阵" status="blocked_by_auth" />
-                <BlockedItem label="JWT 过期 / 续签策略" status="blocked_by_auth" />
-              </CardContent>
-            </Card>
+                <BlockedItem label="角色与权限矩阵" status="blocked_by_auth" />
+                <BlockedItem label="登录续签策略" status="blocked_by_auth" />
+              </div>
+            </GlassPanel>
           </div>
         ),
       },
@@ -513,23 +535,25 @@ export default function Page() {
         icon: <Database className="h-3.5 w-3.5" />,
         content: (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-            <Card className="gap-0" data-testid="settings-external-boundary">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Database className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-external-boundary"
+              title={
+                <>
+                  <Database className="mr-1 inline h-4 w-4" />
                   外部存储边界
-                </CardTitle>
-                <CardDescription>
-                  ES / OpenSearch 与 ClickHouse 按运行时配置显示 running 或 blocked_by_external_system
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+                </>
+              }
+              description="高吞吐检索与日志分析服务按接入状态展示"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-2 text-sm">
                 <BlockedItem
-                  label="ES / OpenSearch 索引"
+                  label="全文检索索引"
                   status={snapshot.databaseConnected ? "configured" : "blocked_by_external_system"}
                 />
                 <BlockedItem
-                  label="ClickHouse 检索聚合"
+                  label="日志分析服务"
                   status={snapshot.databaseConnected ? "configured" : "blocked_by_external_system"}
                 />
                 <BlockedItem
@@ -537,20 +561,24 @@ export default function Page() {
                   status="blocked_by_external_system"
                 />
                 <p className="text-xs text-slate-500">
-                  配置基于真实 API 状态，不在 UI 中手填，避免与后端不同步。
+                  配置由运行环境统一管理，页面仅展示状态，不直接填写敏感连接信息。
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
 
-            <Card className="gap-0">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Server className="h-5 w-5" />
+            <GlassPanel
+              data-testid="settings-external-agent"
+              title={
+                <>
+                  <Server className="mr-1 inline h-4 w-4" />
                   站点端 Agent
-                </CardTitle>
-                <CardDescription>来源：sync_sites.schedulerStatus</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+                </>
+              }
+              description="展示站点同步代理的最近运行状态"
+              shine
+              intensity="default"
+            >
+              <div className="space-y-2 text-sm">
                 {snapshot.siteStatuses.length === 0 ? (
                   <p className="text-xs text-slate-500">无站点调度器状态。</p>
                 ) : (
@@ -560,12 +588,12 @@ export default function Page() {
                       className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2 text-xs"
                     >
                       <span className="font-mono">{item.siteCode}</span>
-                      <Badge variant="outline">{item.schedulerStatus}</Badge>
+                      <Badge variant="outline">{displayStatus(item.schedulerStatus)}</Badge>
                     </div>
                   ))
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </GlassPanel>
           </div>
         ),
       },
@@ -599,8 +627,7 @@ export default function Page() {
           <div>
             <p className="font-medium">当前页面只读</p>
             <p className="mt-1 text-xs">
-              写配置接口为 not_implemented；JWT、RBAC、ADFS 与敏感安全策略为 blocked_by_auth。
-              页面不会保存、导出或测试发送任何配置。
+              写入配置、企业认证和敏感安全策略尚未解锁。页面不会保存、导出或测试发送任何配置。
             </p>
           </div>
         </div>
@@ -628,7 +655,7 @@ function WriteRow({ label, reason }: { label: string; reason: string }) {
       <span className="text-sm">{label}</span>
       <div className="flex items-center gap-2">
         <Badge variant="outline" className="font-mono text-[10px]">
-          {reason}
+          {reason === "not_implemented" ? "待接入" : reason}
         </Badge>
         <Button variant="outline" size="sm" disabled className="h-7 px-2 text-[11px]">
           不可写
@@ -660,8 +687,27 @@ function BlockedItem({ label, status }: { label: string; status: string }) {
     <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
       <span>{label}</span>
       <Badge variant="outline" className="font-mono text-[10px]">
-        {status}
+        {displayStatus(status)}
       </Badge>
     </div>
   )
+}
+
+function displayStatus(status: string): string {
+  const map: Record<string, string> = {
+    enabled: "已启用",
+    configured: "已配置",
+    disabled: "已停用",
+    not_implemented: "待接入",
+    blocked_by_auth: "待认证接入",
+    blocked_by_external_system: "待外部服务",
+    blocked_by_source_schema: "待站点字段",
+    blocked_by_site_change: "待站点配合",
+    not_run: "未运行",
+    success: "成功",
+    failed: "失败",
+    running: "运行中",
+    pending: "等待中",
+  }
+  return map[status] ?? status
 }

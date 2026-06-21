@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { EmptyState } from "@/components/shared/empty-state"
+import { GlassPanel } from "@/components/platform/glass-panel"
 import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
@@ -136,8 +137,8 @@ export default function Page() {
 
   const showApiWriteUnavailable = (action: string) => {
     toast({
-      title: "操作接口未接入",
-      description: `当前 API 模式仅支持数据展示，暂不能${action}`,
+      title: "操作未接入",
+      description: `当前仅支持数据展示，暂不能${action}`,
     })
   }
 
@@ -742,21 +743,27 @@ export default function Page() {
       {isApiMode && racksDataSource === "empty" && (
         <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
           <Info className="h-4 w-4 shrink-0" />
-          <span>中心库暂无设备数据，未使用模拟数据填充。</span>
+          <span>暂无设备数据，未使用演示数据填充。</span>
         </div>
       )}
 
       {/* ── 统计卡片 ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-        <StatCard title="设备总数" value={stats.total} unit="台" icon={Server} />
-        <StatCard title="在线" value={stats.online} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-        <StatCard title="离线" value={stats.offline} icon={WifiOff} iconBg="bg-slate-50" iconColor="text-slate-600" />
-        <StatCard title="异常" value={stats.fault + stats.maintenance} icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
-        <StatCard title="总容量" value={stats.totalCapacity} icon={Database} iconBg="bg-blue-50" iconColor="text-blue-600" />
-        <StatCard title="剩余容量" value={stats.remainingCapacity} icon={Activity} iconBg="bg-cyan-50" iconColor="text-cyan-600" />
-        <StatCard title="已用盘位" value={stats.usedSlots} unit="个" icon={Grid3X3} iconBg="bg-violet-50" iconColor="text-violet-600" />
-        <StatCard title="平均使用率" value={`${stats.avgUsage}%`} icon={Box} iconBg="bg-amber-50" iconColor="text-amber-600" />
-      </div>
+      <GlassPanel
+        testId="racks-hero-glass-panel"
+        title="设备总览"
+        description="存储设备数量、容量、盘位使用率及健康状态实时汇总"
+      >
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+          <StatCard title="设备总数" value={stats.total} unit="台" icon={Server} />
+          <StatCard title="在线" value={stats.online} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+          <StatCard title="离线" value={stats.offline} icon={WifiOff} iconBg="bg-slate-50" iconColor="text-slate-600" />
+          <StatCard title="异常" value={stats.fault + stats.maintenance} icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
+          <StatCard title="总容量" value={stats.totalCapacity} icon={Database} iconBg="bg-blue-50" iconColor="text-blue-600" />
+          <StatCard title="剩余容量" value={stats.remainingCapacity} icon={Activity} iconBg="bg-cyan-50" iconColor="text-cyan-600" />
+          <StatCard title="已用盘位" value={stats.usedSlots} unit="个" icon={Grid3X3} iconBg="bg-violet-50" iconColor="text-violet-600" />
+          <StatCard title="平均使用率" value={`${stats.avgUsage}%`} icon={Box} iconBg="bg-amber-50" iconColor="text-amber-600" />
+        </div>
+      </GlassPanel>
 
       {/* ── 主体：左侧树 + 右侧表格 ─────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-[200px_1fr] gap-4 lg:gap-6">
@@ -1183,13 +1190,13 @@ export default function Page() {
             <div className="space-y-2">
               <Label>所属站点</Label>
               <Select value={mountForm.siteName ?? ""} onValueChange={v => setMountForm(f => ({ ...f, siteName: v }))}>
-                <SelectTrigger><SelectValue placeholder={isApiMode ? "从 /api/sites 加载" : "选择站点"} /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="选择站点" /></SelectTrigger>
                 <SelectContent>
                   {(isApiMode ? siteOptions : []).map(site => (
                     <SelectItem key={site.code} value={site.name}>{site.name} ({site.code})</SelectItem>
                   ))}
                   {!isApiMode && (
-                    <SelectItem value="__demo__" disabled>非 API 模式: 此场景仅 mock 演示</SelectItem>
+                    <SelectItem value="__demo__" disabled>当前为演示模式，暂不可选择真实站点</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -1350,7 +1357,7 @@ export default function Page() {
                   severity="blocked"
                   icon={FolderTree}
                   title="存储浏览暂未接入真实源端目录树"
-                  description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要站点文件索引服务或 ES/ClickHouse 查询通道，不能用 mock 目录冒充真实文件树。"
+                  description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要接入站点文件索引服务，不能用演示目录冒充真实文件树。"
                   testid="racks-storage-browse-blocked"
                   action={{ label: "查看站点 Agent 接入文档", href: "/sites" }}
                 />
@@ -1414,7 +1421,7 @@ export default function Page() {
                   severity="blocked"
                   icon={RotateCcw}
                   title="数据恢复任务等待 Site Agent 闭环"
-                  description="总控必须保留完整控制能力。当前页面不使用 mock 文件树冒充恢复任务，后续需通过总控任务创建接口、文件索引和 Site Agent 恢复协议完成真实站点库写入。"
+                  description="总控保留完整控制能力。当前页面不使用演示文件树冒充恢复任务，后续需接入文件索引和站点代理恢复协议。"
                   testid="racks-storage-restore-blocked"
                   action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}
                 />
@@ -1575,11 +1582,11 @@ export default function Page() {
                     当前数据口径
                   </div>
                   <div className="mt-4 space-y-2 text-xs text-slate-600">
-                    <p>来源: {isApiMode ? "中心库 unified_devices / unified_slots" : "本地 mock 演示数据"}</p>
+                    <p>来源: {isApiMode ? "平台同步结果" : "本地演示数据"}</p>
                     <p>设备数量: {filtered.length} 台</p>
                     <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
                     <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>
-                    <p className="text-amber-700">存储浏览/数据恢复未接入时显示 blocked，不使用模拟目录冒充真实能力。</p>
+                    <p className="text-amber-700">存储浏览/数据恢复未接入时明确说明，不使用演示目录冒充真实能力。</p>
                   </div>
                 </div>
 

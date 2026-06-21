@@ -98,6 +98,13 @@ async function main() {
     searchPage.includes("/api/search") && searchPage.includes("body.data.items"),
     "已发现真实结果处理"
   )
+  check(
+    "前端不直接展示后端内部 blocker 原因",
+    !searchPage.includes("data.meta.reason") &&
+      !searchPage.includes("body?.meta?.reason") &&
+      searchPage.includes("SEARCH_BLOCKER_REASON"),
+    "使用产品化检索阻塞文案"
+  )
 
   // 7. 多种 siteCode 验证
   for (const sc of ["SH01", "BJ02", ""]) {

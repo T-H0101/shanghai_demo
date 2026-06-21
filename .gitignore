@@ -76,6 +76,10 @@ docs/archive/
 docs/secrets/
 docs/database-analysis/schema-inventory.json
 docs/database-analysis/schema-inventory.md
+docs/audit/consistency/consistency-*.json
+
+# Local agent runtime artifacts
+.superpowers/
 
 # Sprint 2H.1 - 站点导出器临时产物
 exports/

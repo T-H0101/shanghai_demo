@@ -2,8 +2,8 @@
  * Provider Factory - Provider 选择器
  *
  * 根据 NEXT_PUBLIC_API_MODE 选择使用 mock 或 api provider:
- * - "mock" (默认): 使用 mock provider，不发起 API 请求
- * - "api": 使用 API provider，请求 /api/* 端点，失败时 fallback 到 mock
+ * - "api" (默认): 使用 API provider，请求 /api/* 端点，失败时显式报错/阻塞
+ * - "mock": 仅限隔离前端样式调试，不可作为 requirements 完成证据
  */
 
 import type {
@@ -42,10 +42,9 @@ export type ApiMode = "mock" | "api"
 // 获取当前 API 模式
 export function getApiMode(): ApiMode {
   if (typeof window === "undefined") {
-    // Server-side，默认 mock
-    return "mock"
+    return "api"
   }
-  const mode = process.env.NEXT_PUBLIC_API_MODE || "mock"
+  const mode = process.env.NEXT_PUBLIC_API_MODE || "api"
   return mode === "api" ? "api" : "mock"
 }
 

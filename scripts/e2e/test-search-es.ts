@@ -17,6 +17,7 @@
 
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -46,7 +47,35 @@ async function main() {
   )
 
   if (process.env.SEARCH_ES_URL && process.env.SEARCH_ES_INDEX) {
-    console.log("SEARCH_ES_URL configured; ES-configured contract test would index/query a marker here.")
+    const esUrl = process.env.SEARCH_ES_URL.replace(/\/$/, "")
+    const index = process.env.SEARCH_ES_INDEX
+    const marker = `ES-E2E-${randomUUID().slice(0, 8)}`
+    await fetch(`${esUrl}/${index}`, { method: "PUT" }).catch(() => null)
+    const indexRes = await fetch(`${esUrl}/${index}/_doc?refresh=true`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        siteCode: "SH01",
+        fileName: `${marker}.pdf`,
+        filePath: `/e2e/${marker}.pdf`,
+        extension: "pdf",
+        updatedAt: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(8000),
+    })
+    assert.ok(indexRes.ok, `ES marker index failed: HTTP ${indexRes.status}`)
+    const markerRes = await fetch(`${BASE}/api/search?q=${encodeURIComponent(marker)}&limit=5`, {
+      signal: AbortSignal.timeout(8000),
+    })
+    const markerBody = await markerRes.json()
+    const markerItems = markerBody?.data?.items ?? []
+    assert.ok(
+      markerRes.ok &&
+        markerBody?.data?.source === "es" &&
+        markerItems.some((item: { fileName?: string }) => item.fileName?.includes(marker)),
+      "ES configured path must index and query a marker through /api/search"
+    )
+    console.log(`SEARCH_ES_URL configured; marker query PASS (${marker})`)
   } else {
     console.log("SEARCH_ES_URL not configured; configured-path test skipped with blocked_by_external_system evidence")
   }

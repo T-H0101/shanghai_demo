@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { GlassPanel } from "@/components/platform/glass-panel"
 import { TaskFileIndexPanel } from "@/components/tasks/task-file-index-panel"
 import { ControlCommandPanel } from "@/components/tasks/control-command-panel"
 import { AppTooltip } from "@/components/shared/tooltip"
@@ -104,6 +105,7 @@ function formatCount(n: number | null | undefined): string {
 // 4) 无源字段: 统一提示文案
 const NO_REALTIME_DATA = "暂无实时数据"
 const LOG_NOT_CONNECTED = "运行日志未接入"
+const RUNNING_PHASES = ["scanning", "preparing", "splitting", "packaging", "verifying", "writing"]
 
 // 5) 进度展示: null → "—", 否则数字
 function formatProgress(p: number | null | undefined, phase: string | null | undefined): string {
@@ -121,9 +123,9 @@ function DataSourceBadge() {
         "text-[10px] px-1.5 py-0.5 rounded font-mono",
         isApiMode ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"
       )}
-      title={isApiMode ? "API 模式 - 真实数据库" : "Mock 模式 - 演示数据"}
+      title={isApiMode ? "实时数据模式" : "演示数据模式"}
     >
-      {isApiMode ? "DB" : "MOCK"}
+      {isApiMode ? "实时" : "演示"}
     </span>
   )
 }
@@ -155,6 +157,7 @@ function TasksPageContent() {
   const deviceFilter = searchParams.get("device")
   const view = searchParams.get("view") === "commands" ? "commands" : "tasks"
   const phaseQuery = searchParams.get("phase")
+  const phaseGroupQuery = searchParams.get("phaseGroup")
   const initialPhase = phaseQuery && Object.keys(TASK_PHASE_LABELS).includes(phaseQuery) ? phaseQuery : "all"
 
   const [tasks, setTasks] = useState<TaskItem[]>([])
@@ -209,7 +212,7 @@ function TasksPageContent() {
     return {
       total: tasks.length,
       pending: tasks.filter(t => t.phase === "pending").length,
-      running: tasks.filter(t => ["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase)).length,
+      running: tasks.filter(t => RUNNING_PHASES.includes(t.phase)).length,
       completed: tasks.filter(t => t.phase === "completed").length,
       failed: tasks.filter(t => t.phase === "failed").length,
       paused: tasks.filter(t => t.phase === "paused").length,
@@ -221,15 +224,16 @@ function TasksPageContent() {
     return tasks.filter(t => {
       const matchTab = tab === "all" || t.type === tab
       const matchPhase = phaseFilter === "all" || t.phase === phaseFilter
+      const matchPhaseGroup = phaseGroupQuery === "running" ? RUNNING_PHASES.includes(t.phase) : true
       const matchScope = scopeFilter === "all" || (t.backupScope ?? "") === scopeFilter
-      return matchTab && matchPhase && matchScope
+      return matchTab && matchPhase && matchPhaseGroup && matchScope
     })
-  }, [tasks, tab, phaseFilter, scopeFilter])
+  }, [tasks, tab, phaseFilter, phaseGroupQuery, scopeFilter])
 
   const showApiWriteUnavailable = (action: string) => {
     toast({
-      title: "任务操作接口未接入",
-      description: `当前 API 模式仅支持真实数据展示，暂不能${action}`,
+      title: "任务操作未接入",
+      description: `当前仅支持任务查看，暂不能${action}`,
     })
   }
 
@@ -255,7 +259,7 @@ function TasksPageContent() {
     await taskProvider.completeTask(task.id)
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, phase: "completed", status: "completed" as const, progress: 100 } : t))
     if (selected?.id === task.id) setSelected(prev => prev ? { ...prev, phase: "completed", status: "completed" as const, progress: 100 } : null)
-    toast({ title: "任务已标记完成", description: `「${task.name}」状态已更新 (前端标记, 未提交 control_command)` })
+    toast({ title: "任务已标记完成", description: `「${task.name}」状态已在当前视图更新。` })
   }
 
   const handleFail = async (task: TaskItem, e?: React.MouseEvent) => {
@@ -282,7 +286,7 @@ function TasksPageContent() {
   ) => {
     e?.stopPropagation()
     if (!isApiMode) {
-      toast({ title: "Mock 模式不支持", description: "请切换到 API 模式提交控制命令", variant: "destructive" })
+      toast({ title: "演示模式不支持", description: "请切换到实时数据模式提交控制命令", variant: "destructive" })
       return
     }
     try {
@@ -381,9 +385,14 @@ function TasksPageContent() {
 
   const handleResetFilters = () => {
     setKeyword(""); setTypeFilter("all"); setPhaseFilter("all"); setScopeFilter("all"); setTab("all")
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("phase")
+    params.delete("phaseGroup")
+    const qs = params.toString()
+    router.replace(`/tasks${qs ? `?${qs}` : ""}`)
   }
 
-  const hasFilters = keyword || typeFilter !== "all" || phaseFilter !== "all" || scopeFilter !== "all" || tab !== "all"
+  const hasFilters = keyword || typeFilter !== "all" || phaseFilter !== "all" || phaseGroupQuery === "running" || scopeFilter !== "all" || tab !== "all"
 
   const nowTime = () => new Date().toLocaleTimeString("zh-CN", { hour12: false })
 
@@ -465,14 +474,20 @@ function TasksPageContent() {
       />
 
       {/* ── 统计卡片 ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <StatCard title="任务总数" value={allStats.total} unit="个" icon={Activity} badge={<Badge className="bg-slate-900 text-white text-[10px]">LIVE</Badge>} />
-        <StatCard title="待处理" value={allStats.pending} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
-        <StatCard title="进行中" value={allStats.running} icon={Play} iconBg="bg-blue-50" iconColor="text-blue-600" />
-        <StatCard title="已完成" value={allStats.completed} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-        <StatCard title="已失败" value={allStats.failed} icon={AlertCircle} iconBg="bg-red-50" iconColor="text-red-600" />
-        <StatCard title="已暂停" value={allStats.paused} icon={Pause} iconBg="bg-amber-50" iconColor="text-amber-600" />
-      </div>
+      <GlassPanel
+        testId="tasks-hero-glass-panel"
+        title="任务概览"
+        description="当前过滤条件下的任务运行态分布, 实时更新"
+      >
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <StatCard title="任务总数" value={allStats.total} unit="个" icon={Activity} badge={<Badge className="bg-slate-900 text-white text-[10px]">LIVE</Badge>} />
+          <StatCard title="待处理" value={allStats.pending} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
+          <StatCard title="进行中" value={allStats.running} icon={Play} iconBg="bg-blue-50" iconColor="text-blue-600" />
+          <StatCard title="已完成" value={allStats.completed} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+          <StatCard title="已失败" value={allStats.failed} icon={AlertCircle} iconBg="bg-red-50" iconColor="text-red-600" />
+          <StatCard title="已暂停" value={allStats.paused} icon={Pause} iconBg="bg-amber-50" iconColor="text-amber-600" />
+        </div>
+      </GlassPanel>
 
       {/* ── 筛选区 ───────────────────────────────────────────── */}
       <Card className="gap-0">
@@ -641,8 +656,8 @@ function TasksPageContent() {
                     <div className="flex gap-0.5 justify-end" onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
                       {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
-                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
-                      {["scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && (
+                      {RUNNING_PHASES.includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
+                      {RUNNING_PHASES.includes(t.phase) && (
                         <AppTooltip content="提交任务暂停命令, 等待站点 Agent 异步执行">
                           <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)} aria-label="暂停任务">
                             <Pause className="h-3.5 w-3.5" />
@@ -656,9 +671,9 @@ function TasksPageContent() {
                           </Button>
                         </AppTooltip>
                       )}
-                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置未接入站点 Agent" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
-                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
-                      {["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
+                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置未接入站点 Agent" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
+                      {["pending", ...RUNNING_PHASES].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
+                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="导出" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
@@ -925,7 +940,7 @@ function TasksPageContent() {
           <DialogHeader>
             <DialogTitle>总控新建任务</DialogTitle>
             <DialogDescription>
-              新建命令会写入控制队列，由站点 Agent 拉取后在站点库创建真实任务；总控不直接写 unified_tasks。
+              新建命令会提交到控制队列，由站点代理拉取后在目标站点创建真实任务。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -956,7 +971,7 @@ function TasksPageContent() {
             </div>
             <div data-testid="task-create-target-site" className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
               目标站点: <code className="font-mono">{siteCode}</code>
-              <span className="ml-2 text-blue-600/80">任务不会写入 unified_tasks；只有站点 Agent 执行并同步回中心后才出现在任务列表。</span>
+              <span className="ml-2 text-blue-600/80">只有站点代理执行并同步回总控后，任务才会出现在列表中。</span>
             </div>
           </div>
           <DialogFooter>

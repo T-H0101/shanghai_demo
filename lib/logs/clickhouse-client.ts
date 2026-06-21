@@ -37,6 +37,10 @@ function authHeader(): Record<string, string> {
   return { authorization: `Basic ${token}` }
 }
 
+function safeIdentifier(value: string, fallback: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value) ? value : fallback
+}
+
 export async function queryClickHouseLogs(
   query: ClickHouseLogQuery
 ): Promise<{ items: ClickHouseLogRecord[]; total: number }> {
@@ -44,29 +48,31 @@ export async function queryClickHouseLogs(
     return { items: [], total: 0 }
   }
   const url = process.env.CLICKHOUSE_URL!.replace(/\/$/, "")
-  const database = process.env.CLICKHOUSE_DATABASE!
-  const table = process.env.CLICKHOUSE_LOG_TABLE ?? "task_logs"
+  const database = safeIdentifier(process.env.CLICKHOUSE_DATABASE!, "unified_logs")
+  const table = safeIdentifier(process.env.CLICKHOUSE_LOG_TABLE ?? "task_logs", "task_logs")
   const conditions: string[] = ["1=1"]
-  const params: Record<string, string | number> = {}
+  const params = new URLSearchParams()
   if (query.keyword) {
     conditions.push(
       "(message ILIKE {kw:String} OR error_message ILIKE {kw:String})"
     )
-    params.kw = `%${query.keyword}%`
+    params.set("param_kw", `%${query.keyword}%`)
   }
   if (query.siteCode) {
     conditions.push("site_code = {sc:String}")
-    params.sc = query.siteCode
+    params.set("param_sc", query.siteCode)
   }
   const sql = `SELECT log_id, site_code, task_id, operator, device_id, disc_no,
                       error_code, error_message, occurred_at, level, message
                FROM ${database}.${table}
                WHERE ${conditions.join(" AND ")}
                ORDER BY occurred_at DESC
-               LIMIT {lim:UInt32} OFFSET {off:UInt32}`
-  params.lim = query.limit
-  params.off = query.offset
-  const res = await fetch(url, {
+               LIMIT {lim:UInt32} OFFSET {off:UInt32}
+               FORMAT TabSeparatedWithNames`
+  params.set("param_lim", String(query.limit))
+  params.set("param_off", String(query.offset))
+  const endpoint = `${url}/?${params.toString()}`
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: { "content-type": "text/plain", ...authHeader() },
     body: sql,

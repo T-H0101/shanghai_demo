@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { GlassPanel } from "@/components/platform/glass-panel"
 import {
   Select,
   SelectContent,
@@ -208,18 +209,25 @@ export default function LoginPage() {
 
             <div className="space-y-4">
               {capabilities.map((item) => (
-                <div
+                <GlassPanel
                   key={item.title}
-                  className="flex gap-4 p-4 rounded-xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-sm hover:border-blue-800/50 transition-colors"
+                  intensity="soft"
+                  shine
+                  testId={`login-capability-${item.title}`}
+                  className="border-slate-800/80 bg-slate-900/60 text-slate-100 hover:border-blue-800/50"
                 >
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-600/20 border border-blue-500/30">
-                    <item.icon className="h-5 w-5 text-blue-400" />
+                  <div className="flex gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-600/20 border border-blue-500/30">
+                      <item.icon className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-100">{item.title}</p>
+                      <p className="mt-1 text-sm text-slate-400 leading-relaxed">
+                        {item.desc}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-slate-100">{item.title}</p>
-                    <p className="text-sm text-slate-500 mt-0.5">{item.desc}</p>
-                  </div>
-                </div>
+                </GlassPanel>
               ))}
             </div>
           </div>
@@ -381,7 +389,7 @@ export default function LoginPage() {
                 disabled
                 data-testid="login-sso-blocked"
                 className="h-9 px-4 text-xs"
-                title="企业 SSO 待接入 (blocked_by_auth)"
+                title="企业 SSO 待接入"
               >
                 <Building2 className="mr-2 h-3.5 w-3.5" />
                 企业 SSO 待接入

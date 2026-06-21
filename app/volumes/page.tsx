@@ -186,7 +186,7 @@ function VolumesContent() {
       <div data-testid="volumes-page" className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <PageHeader
           title="存储卷管理"
-          description={`Sprint 2H.3: unified_volumes 真实数据 (${stats.total} 卷${stats.withAggregate > 0 ? `, ${stats.withAggregate} 个有盘位聚合` : ""}) · ${siteCode ?? "All Sites"}`}
+          description={`展示存储卷容量、盘位聚合和站点归属 (${stats.total} 卷${stats.withAggregate > 0 ? `, ${stats.withAggregate} 个已有盘位聚合` : ""})`}
           actions={
             <Button onClick={load} variant="outline" size="sm" disabled={loading}>
               <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
@@ -200,7 +200,7 @@ function VolumesContent() {
           <div className="flex items-center gap-2">
             <Badge variant={source === "database" ? "default" : "secondary"}>
               <Database className="mr-1 h-3 w-3" />
-              {source === "database" ? "DB" : source === "fallback" ? "FALLBACK" : "..."}
+              {source === "database" ? "实时" : source === "fallback" ? "备用" : "..."}
             </Badge>
             {error && (
               <Badge variant="destructive">
@@ -219,7 +219,7 @@ function VolumesContent() {
             icon={Database}
             iconBg="bg-blue-50"
             iconColor="text-blue-600"
-            footer={`${stats.totalSlots} 盘位 (来自 tbl_volume_slot 聚合)`}
+            footer={`${stats.totalSlots} 盘位`}
           />
           <StatCard
             title="总容量 / 已用"
@@ -243,7 +243,7 @@ function VolumesContent() {
             icon={Sparkles}
             iconBg="bg-amber-50"
             iconColor="text-amber-600"
-            footer="来自 unified_volumes.raw_data._aggregate"
+            footer="已完成盘位聚合的卷"
           />
         </div>
 
@@ -434,7 +434,7 @@ function VolumesContent() {
                             </div>
                             <Separator />
                             <div className="text-xs text-muted-foreground">
-                              <div>来源: <span className="font-mono">{selected.aggregate.source_table}</span></div>
+                              <div>来源: <span className="font-mono">平台同步结果</span></div>
                               {selected.aggregate.aggregated_at && (
                                 <div>聚合时间: <span className="font-mono">{formatBeijingTime(selected.aggregate.aggregated_at) || "—"}</span></div>
                               )}
@@ -442,7 +442,7 @@ function VolumesContent() {
                           </div>
                         ) : (
                           <div className="text-xs text-muted-foreground">
-                            该卷未参与 tbl_volume_slot 聚合 (源端无数据或未推送)
+                            该卷暂无盘位聚合信息
                           </div>
                         )}
                       </CardContent>

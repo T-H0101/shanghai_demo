@@ -259,7 +259,7 @@ export function CommandCenterPanel() {
               </Badge>
               <Badge className="border-emerald-400/40 bg-emerald-400/15 text-emerald-100">
                 <Database className="mr-1 h-3 w-3" />
-                real API only
+                实时数据
               </Badge>
               <Badge className="border-amber-300/40 bg-amber-300/15 text-amber-100">
                 {isReady ? (activeSite ?? "全部站点") : "站点加载中"}
@@ -270,7 +270,7 @@ export function CommandCenterPanel() {
               集团光盘库总控指挥台
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              同步、控制队列、站点 Agent、日志风险集中呈现；所有指标来自中心库和现有 API，不使用 mock fallback。
+              同步、控制队列、站点代理、日志风险集中呈现；所有指标实时读取，不使用演示数据替代真实状态。
             </p>
           </div>
 
@@ -359,8 +359,8 @@ export function CommandCenterPanel() {
 
         <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs text-slate-300 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Evidence icon={ShieldCheck} text="无 mock fallback" />
-            <Evidence icon={Gauge} text="同步 / 控制 / 告警真实 API" />
+            <Evidence icon={ShieldCheck} text="不使用演示数据替代真实状态" />
+            <Evidence icon={Gauge} text="同步 / 控制 / 告警实时读取" />
             <Evidence icon={Clock3} text={`刷新 ${state.updatedAt ? compactTime(state.updatedAt) : "加载中"}`} />
             {state.error && <Evidence icon={AlertTriangle} text={`error: ${state.error}`} danger />}
           </div>
@@ -383,28 +383,28 @@ export function CommandCenterPanel() {
             icon={RefreshCw}
             title="同步"
             href="/sync"
-            evidence="pg_dump 白名单 / Site Agent"
+            evidence="白名单同步 / 站点代理"
             testid="command-center-lane-sync"
           />
           <LaneCard
             icon={Command}
             title="控制"
             href="/tasks?view=commands"
-            evidence="control_command / Agent poll"
+            evidence="命令队列 / 站点代理"
             testid="command-center-lane-control"
           />
           <LaneCard
             icon={Search}
             title="检索"
             href="/search"
-            evidence="ES boundary / center index"
+            evidence="全文索引 / 待接入"
             testid="command-center-lane-search"
           />
           <LaneCard
             icon={ShieldCheck}
             title="安全"
             href="/logs"
-            evidence="JWT / RBAC / audit hash"
+            evidence="本地登录 / 审计校验"
             testid="command-center-lane-security"
           />
         </div>

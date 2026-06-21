@@ -34,7 +34,7 @@ async function main() {
   check("不再硬编码 正常运行", !src.includes("正常运行"))
   check("不再硬编码 已同步", !src.includes("已同步"))
   check("不再硬编码 已保护", !src.includes("已保护"))
-  check("存在阻塞态文案", src.includes("blocked_by_auth") && src.includes("blocked_by_external_system"))
+  check("存在待接入状态文案", src.includes("待认证接入") && src.includes("待外部服务"))
 
   const pageRes = await fetch(`${BASE}/`)
   check("首页 200", pageRes.status === 200, `HTTP ${pageRes.status}`)

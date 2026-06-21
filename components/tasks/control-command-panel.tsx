@@ -33,7 +33,7 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   failed: { label: "执行失败", className: "bg-red-100 text-red-700" },
   cancelled: { label: "已取消", className: "bg-slate-200 text-slate-600" },
   unsupported: { label: "站点不支持", className: "bg-orange-100 text-orange-700" },
-  dry_run_success: { label: "历史 DRY_RUN", className: "bg-amber-50 text-amber-700" },
+  dry_run_success: { label: "历史模拟", className: "bg-amber-50 text-amber-700" },
 }
 
 const COMMAND_LABELS: Record<string, string> = {
@@ -107,9 +107,9 @@ export function ControlCommandPanel() {
         <CardContent className="flex items-start gap-3 p-4 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
           <div>
-            <p className="font-medium text-blue-950">控制结果来自中心 control_command</p>
+            <p className="font-medium text-blue-950">控制结果来自总控命令队列</p>
             <p className="mt-1 text-blue-800">
-              pause/resume 已有 Site Agent 恢复库闭环；其他动作仍按 unsupported 或实际结果展示。
+              暂停/继续已有站点代理恢复库闭环；其他动作会按站点支持情况展示真实结果。
             </p>
           </div>
         </CardContent>

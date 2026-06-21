@@ -175,7 +175,7 @@ export default function Page() {
   const handleUnsupported = (feature: string) => {
     toast({
       title: "功能未接入",
-      description: `${feature}：站点登记功能未接入，当前 /api/sites 仅提供列表与一致性校验`,
+      description: `${feature}：站点登记功能未接入，当前仅提供列表与一致性校验。`,
       variant: "destructive",
     })
   }
@@ -215,7 +215,7 @@ export default function Page() {
   // dataSource 标识徽章
   const dataSourceBadge = (() => {
     if (dataSource === "database") {
-      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><Database className="h-3 w-3 mr-1" />unified_sites</Badge>
+      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><Database className="h-3 w-3 mr-1" />已注册</Badge>
     }
     if (dataSource === "derived") {
       return <Badge className="bg-amber-100 text-amber-700 border-amber-200" title={meta?.reason}><Layers className="h-3 w-3 mr-1" />由同步数据派生</Badge>
@@ -264,21 +264,17 @@ export default function Page() {
         }
       />
 
-      {/* R.9A: dataSource 显式标识 + 派生来源说明 */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
         {dataSourceBadge}
         {meta?.derivedFromTables && (
           <span className="text-xs text-slate-500">
-            来源: {meta.derivedFromTables.join(" / ")}
+            自动发现自已同步业务记录
           </span>
         )}
         {meta?.requirement && (
           <span className="text-xs text-slate-400">
-            REQ-{meta.requirement.id}: {meta.requirement.text} ({meta.requirement.status})
+            {meta.requirement.text}
           </span>
-        )}
-        {source && source !== "mock" && (
-          <span className="text-xs text-slate-400 font-mono">source={source}</span>
         )}
       </div>
 
@@ -304,7 +300,7 @@ export default function Page() {
           icon={RefreshCw}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
-          footer={<p className="text-xs text-slate-400">来源: /api/sites syncStatus</p>}
+          footer={<p className="text-xs text-slate-400">来自站点同步状态</p>}
         />
         <StatCard
           title="设备总数"
@@ -313,7 +309,7 @@ export default function Page() {
           icon={Server}
           iconBg="bg-orange-50"
           iconColor="text-orange-600"
-          footer={<p className="text-xs text-slate-400">来源: unified_devices 聚合</p>}
+          footer={<p className="text-xs text-slate-400">来自设备同步结果</p>}
         />
         <StatCard
           title="异常站点"
@@ -366,7 +362,7 @@ export default function Page() {
                   <>
                     <Server className="h-10 w-10 mx-auto mb-2 text-slate-300" />
                     <p>暂无站点数据</p>
-                    <p className="text-xs mt-1">unified_sites 表为空，且其他派生表也 0 行</p>
+                    <p className="text-xs mt-1">暂无注册站点，也没有可自动发现的业务记录。</p>
                   </>
                 ) : (
                   <p>未找到匹配的站点</p>
@@ -432,7 +428,7 @@ export default function Page() {
                             size="sm"
                             className="h-7 text-xs"
                             disabled
-                            title="SSO 跳转功能未接入 (REQ-2.1.2 blocked_by_auth)"
+                            title="SSO 跳转功能未接入"
                             onClick={(e) => { e.stopPropagation(); handleUnsupported("SSO 跳转") }}
                           >
                             <ExternalLink className="h-3 w-3 mr-1" />SSO
@@ -454,7 +450,7 @@ export default function Page() {
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <p className="text-xs text-amber-700 font-medium">⚠️ 派生数据</p>
                   <p className="text-xs text-amber-600 mt-1">
-                    该站点从 unified_tasks/unified_devices/unified_volumes/sync_package_log 派生，IP/联系人/数据中心等详细信息暂缺。
+                    该站点来自已同步业务记录，IP、联系人和数据中心等详细信息暂缺。
                   </p>
                 </div>
               )}
@@ -534,7 +530,7 @@ export default function Page() {
                         <div key={idx} className="flex items-center justify-between p-2 rounded border border-slate-100 text-xs">
                           <span className="font-mono">{t.tableName || t.table_name}</span>
                           <span className="text-slate-500">
-                            src={t.sourceCount ?? t.source_count ?? "—"} / unif={t.unifiedCount ?? t.unified_count ?? "—"} / diff={t.countDiff ?? t.count_diff ?? "—"}
+                            站点 {t.sourceCount ?? t.source_count ?? "—"} / 总控 {t.unifiedCount ?? t.unified_count ?? "—"} / 差异 {t.countDiff ?? t.count_diff ?? "—"}
                           </span>
                         </div>
                       ))}

@@ -71,7 +71,7 @@ async function main() {
   )
   check(
     "Command Center 明确真实数据口径",
-    componentSource.includes("real API only") && componentSource.includes("无 mock fallback"),
+    componentSource.includes("实时数据") && componentSource.includes("不使用演示数据替代真实状态"),
     "truth wording present"
   )
 
@@ -91,10 +91,10 @@ async function main() {
   )
   check(
     "Command Center 通道文案含同步/控制/检索/安全",
-    componentSource.includes("pg_dump") &&
-      componentSource.includes("control_command") &&
-      componentSource.includes("ES boundary") &&
-      componentSource.includes("JWT"),
+    componentSource.includes("白名单同步") &&
+      componentSource.includes("命令队列") &&
+      componentSource.includes("全文索引") &&
+      componentSource.includes("本地登录"),
     "lane evidence text present",
   )
 

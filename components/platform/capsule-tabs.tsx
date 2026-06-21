@@ -1,6 +1,7 @@
 "use client"
 
-import type { ReactNode } from "react"
+import type { KeyboardEvent, ReactNode } from "react"
+import { useRef } from "react"
 import { cn } from "@/lib/utils"
 
 export interface CapsuleTabItem {
@@ -86,11 +87,46 @@ export function CapsuleTabs({
   align = "start",
   testId = "settings-tabs",
 }: CapsuleTabsProps) {
+  const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const activeIndex = Math.max(0, items.findIndex((item) => item.key === value))
+
+  const focusByIndex = (next: number, direction: 1 | -1 = 1) => {
+    if (items.length === 0) return
+    let wrapped = ((next % items.length) + items.length) % items.length
+    for (let i = 0; i < items.length; i += 1) {
+      const target = items[wrapped]
+      if (target && !target.disabled) {
+        buttonRefs.current[target.key]?.focus()
+        onValueChange(target.key)
+        return
+      }
+      wrapped = ((wrapped + direction) % items.length + items.length) % items.length
+    }
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // WAI-ARIA tablist 键盘契约: ArrowLeft/ArrowRight + Home/End
+    if (event.key === "ArrowRight") {
+      event.preventDefault()
+      focusByIndex(activeIndex + 1, 1)
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault()
+      focusByIndex(activeIndex - 1, -1)
+    } else if (event.key === "Home") {
+      event.preventDefault()
+      focusByIndex(0, 1)
+    } else if (event.key === "End") {
+      event.preventDefault()
+      focusByIndex(items.length - 1, -1)
+    }
+  }
+
   return (
     <div className={cn("space-y-4", className)} data-testid={testId}>
       <div
         role="tablist"
         aria-orientation="horizontal"
+        onKeyDown={handleKeyDown}
         className={cn(
           "flex w-full overflow-x-auto rounded-full border border-slate-200 bg-slate-100/70 p-1",
           alignClass[align],
@@ -102,11 +138,15 @@ export function CapsuleTabs({
           return (
             <button
               key={item.key}
+              ref={(el) => {
+                buttonRefs.current[item.key] = el
+              }}
               type="button"
               role="tab"
               aria-selected={active}
               aria-controls={`${testId}-panel-${item.key}`}
               id={`${testId}-tab-${item.key}`}
+              tabIndex={active ? 0 : -1}
               data-testid={`${testId}-${item.key}`}
               disabled={item.disabled}
               onClick={() => {

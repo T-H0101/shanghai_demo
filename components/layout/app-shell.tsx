@@ -19,7 +19,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <RouteGuard>
-      <div className="min-h-screen bg-slate-100">
+      <div className="app-ambient-shell">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="lg:ml-60">
           <Header onMenuClick={() => setSidebarOpen(true)} />
@@ -43,7 +43,7 @@ function getGuideSteps(pathname: string) {
       ...common,
       { selector: '[data-testid="command-center-panel"]', message: "这里是总控首页，集中展示同步、任务、告警和控制队列的真实状态。" },
       { selector: '[data-testid="dashboard-stat-tasks"]', message: "KPI 卡片可跳转到对应业务页面，用于快速定位问题。" },
-      { selector: '[data-testid="dashboard-recent-syncs"]', message: "这里查看最近同步结果，失败包会明确标红，不用 mock 掩盖。" },
+      { selector: '[data-testid="dashboard-recent-syncs"]', message: "这里查看最近同步结果，失败记录会明确标红，不用演示数据掩盖。" },
       { selector: '[data-testid="dashboard-task-table"]', message: "这里展示任务状态；控制类操作只提交队列，等待站点 Agent 执行。" },
     ]
   }
@@ -51,7 +51,7 @@ function getGuideSteps(pathname: string) {
   if (pathname.startsWith("/sync")) {
     return [
       ...common,
-      { selector: '[data-testid="sync-config-card"]', message: "这里展示同步策略和安全配置引用，只显示 env key，不泄露 secret。" },
+      { selector: '[data-testid="sync-config-card"]', message: "这里展示同步策略和安全配置引用，只显示键名，不展示敏感值。" },
       { selector: '[data-testid="sync-alert-summary-card"]', message: "同步告警来自真实日志聚合，失败与阻塞会明确展示。" },
       { selector: '[data-testid="sync-export"]', message: "这里可以导出同步日志，导出内容带记录数和摘要校验。" },
     ]
@@ -71,7 +71,7 @@ function getGuideSteps(pathname: string) {
     return [
       ...common,
       { selector: '[data-testid="racks-export"]', message: "这里导出真实设备数据；没有真实数据时不会生成模拟导出。" },
-      { selector: '[data-testid="racks-storage-tabs"]', message: "这里切换设备总览、存储浏览和数据恢复；未接入能力会显示 blocked 原因。" },
+      { selector: '[data-testid="racks-storage-tabs"]', message: "这里切换设备总览、存储浏览和数据恢复；未接入能力会说明原因。" },
       { selector: '[data-testid="racks-storage-overview-content"]', message: "设备总览展示当前站点真实设备、盘位和数据来源口径。" },
     ]
   }
@@ -80,7 +80,7 @@ function getGuideSteps(pathname: string) {
     return [
       ...common,
       { selector: '[data-testid="search-keyword"]', message: "这里做跨维度检索；当前只展示真实接入维度，不宣称千万级能力。" },
-      { selector: '[data-testid="search-submit"]', message: "点击后调用真实搜索 API；缺少 ES/ClickHouse 时会显示限制说明。" },
+      { selector: '[data-testid="search-submit"]', message: "点击后执行真实检索；检索服务未接入时会显示限制说明。" },
       { selector: '[data-testid="search-export"]', message: "检索结果可导出，导出遵循当前真实查询结果。" },
     ]
   }
@@ -98,7 +98,7 @@ function getGuideSteps(pathname: string) {
       ...common,
       { selector: '[data-testid="sites-refresh"]', message: "刷新站点列表和 Agent 在线状态。" },
       { selector: '[data-testid="sites-consistency"]', message: "这里触发中心库与站点库一致性检查。" },
-      { selector: '[data-testid="sites-register"]', message: "站点写操作受认证和配置约束；未解锁时保持禁用或 blocked。" },
+      { selector: '[data-testid="sites-register"]', message: "站点写操作受认证和配置约束；未解锁时保持禁用并说明原因。" },
     ]
   }
 
@@ -107,7 +107,7 @@ function getGuideSteps(pathname: string) {
       ...common,
       { selector: '[data-testid="settings-site-registry"]', message: "这里展示站点注册和配置来源。" },
       { selector: '[data-testid="settings-site-runtime"]', message: "这里展示 Agent 运行状态和同步运行时信息。" },
-      { selector: '[data-testid="settings-auth-config"]', message: "这里展示认证配置边界，只显示安全 key/ref。" },
+      { selector: '[data-testid="settings-auth-config"]', message: "这里展示认证配置边界，只显示安全引用，不展示敏感值。" },
     ]
   }
 

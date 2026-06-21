@@ -167,9 +167,9 @@ async function main() {
       commandCenterSource.includes("/api/alerts"),
   )
   check(
-    "CommandCenter 明示 real API only / 无 mock fallback",
-    commandCenterSource.includes("real API only") &&
-      commandCenterSource.includes("无 mock fallback"),
+    "CommandCenter 明示实时数据 / 不使用演示数据替代",
+    commandCenterSource.includes("实时数据") &&
+      commandCenterSource.includes("不使用演示数据替代真实状态"),
   )
 
   // ============================================================

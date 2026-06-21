@@ -151,8 +151,9 @@ async function main() {
     "no node-jump wording",
   )
   check(
-    "新建任务对话框含 Agent 闭环文案",
-    tasksPage.includes("站点 Agent 拉取后在站点库创建真实任务"),
+    "新建任务对话框含站点代理闭环文案",
+    tasksPage.includes("站点代理拉取后在目标站点创建真实任务") &&
+      tasksPage.includes("同步回总控后"),
     "honest dialog description",
   )
   const createRes = await fetch(`${BASE}/api/tasks/create`, {

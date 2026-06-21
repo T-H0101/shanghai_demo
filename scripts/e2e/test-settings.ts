@@ -69,14 +69,14 @@ async function main() {
     "settings shows sync config source",
     source.includes("settings-sync-config") &&
       source.includes("同步配置 (只读)") &&
-      source.includes("center_config") &&
-      source.includes("env ref:"),
-    "settings-sync-config 卡片存在且显示 env ref"
+      source.includes("凭据引用") &&
+      source.includes("不展示敏感值"),
+    "settings-sync-config 卡片存在且显示产品化配置引用"
   )
   check(
     "settings shows site registry",
     source.includes("settings-site-registry") &&
-      source.includes("站点注册/派生来源") &&
+      source.includes("站点注册状态") &&
       source.includes("registrySites"),
     "settings-site-registry 卡片存在"
   )
@@ -85,14 +85,14 @@ async function main() {
     source.includes("settings-scheduler-config") &&
       source.includes("调度配置") &&
       source.includes("60") &&
-      source.includes("center_config"),
-    "settings-scheduler-config 卡片存在且标注 60 分钟 + center_config"
+      source.includes("平台配置"),
+    "settings-scheduler-config 卡片存在且标注 60 分钟 + 平台配置"
   )
   check(
     "settings shows auth boundary",
     source.includes("settings-auth-boundary") &&
       source.includes("认证边界") &&
-      source.includes("local JWT 已启用") &&
+      source.includes("本地登录已启用") &&
       source.includes("blocked_by_auth"),
     "settings-auth-boundary 卡片存在"
   )
@@ -184,13 +184,13 @@ async function main() {
     "Settings 页面展示 Auth 安全配置状态",
     source.includes("settings-auth-config") &&
       source.includes("clientSecretKeyRef") &&
-      source.includes("Auth 配置边界")
+      source.includes("认证配置边界")
   )
   check(
     "页面区分站点注册来源与中心调度配置",
     source.includes("settings-site-registry") &&
       source.includes("settings-site-runtime") &&
-      source.includes("注册/派生来源") &&
+      source.includes("站点注册状态") &&
       source.includes("中心调度配置"),
     "provenance 不混称"
   )

@@ -33,10 +33,10 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3", className)}>
+    <div className={cn("page-header-glass flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between", className)}>
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h1>
           {badge && (
             <Badge
               className={cn("text-xs", badgeToneClass[badgeTone])}
@@ -49,13 +49,13 @@ export function PageHeader({
           )}
         </div>
         {description && (
-          <p className="text-sm text-slate-500 mt-1">{description}</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
         )}
         {(source || requirement) && (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
             {source && (
               <span data-testid="page-header-source">
-                数据源: <span className="font-mono text-slate-500">{source}</span>
+                状态来源: <span className="font-mono text-slate-500">{source}</span>
               </span>
             )}
             {requirement && (

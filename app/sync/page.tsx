@@ -14,6 +14,7 @@ import { RefreshCw, Search, Package, AlertCircle, ShieldCheck, Download } from '
 import { useSite } from '@/lib/site/site-context'
 import { toast } from '@/hooks/use-toast'
 import { formatBeijingTime } from '@/components/shared/time-format'
+import { GlassPanel } from '@/components/platform/glass-panel'
 
 interface PackageItem {
   id: string
@@ -465,7 +466,7 @@ export default function SyncCenterPage() {
       <div className="space-y-5">
         <PageHeader
           title="同步中心"
-          description="查看站点推送到总控的数据包批次和表级同步状态"
+          description="查看站点同步批次、调度状态和一致性结果"
           actions={
             <div className="flex items-center gap-2">
               <Select value={exportKind} onValueChange={(value) => setExportKind(value as typeof exportKind)}>
@@ -504,18 +505,19 @@ export default function SyncCenterPage() {
           }
         />
 
-        <Card className="gap-0" data-testid="manual-sync-trigger-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+        <GlassPanel
+          testId="sync-hero-glass-panel"
+          title="同步操作总览"
+          description="管理员可手动提交同步请求，由站点代理拉取执行"
+        >
+          <div data-testid="manual-sync-trigger-card">
+            <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
               <RefreshCw className="h-4 w-4" />
               手动同步触发
               <Badge className="bg-emerald-100 text-emerald-700">Agent 队列真实触发</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
+            </p>
             <p className="text-sm text-slate-700">
-              管理员触发后写入 <code className="text-xs">control_command</code> 和 <code className="text-xs">sync_request_log</code>，
-              站点 Agent 拉取执行并回写最终状态。页面只宣称“已提交”，不把提交动作说成同步完成。
+              管理员触发后会进入同步队列，站点代理拉取执行并回写最终状态。页面只宣称"已提交"，不把提交动作说成同步完成。
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
@@ -546,8 +548,8 @@ export default function SyncCenterPage() {
             <p className="mt-2 text-xs text-amber-700">
               当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || 'SH01'}</code>。最终状态以 Agent 回写和同步日志为准。
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </GlassPanel>
 
         <Card className="gap-0" data-testid="sync-alert-summary-card">
           <CardHeader className="pb-3">
@@ -564,7 +566,7 @@ export default function SyncCenterPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="mb-3 text-xs text-amber-700">
-              来源: sync_package_log / sync_table_log，经 /api/alerts 聚合；不接 ClickHouse，不伪造站点硬件告警。
+              仅展示已接入的同步告警；站点硬件告警未接入时不会伪造成正常告警。
             </p>
             {syncAlertError ? (
               <div className="text-sm text-red-600">同步告警读取失败: {syncAlertError}</div>

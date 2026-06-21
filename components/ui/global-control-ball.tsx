@@ -117,9 +117,9 @@ interface SiteStatusPayload {
 }
 
 const BLOCKERS = [
-  { key: "auth", label: "统一认证/RBAC 未开放", blocker: "blocked_by_auth" },
-  { key: "search", label: "统一检索依赖 ES/ClickHouse", blocker: "blocked_by_external_system" },
-  { key: "manual-sync", label: "网页手动同步触发未开放", blocker: "blocked_by_site_change" },
+  { key: "auth", label: "统一认证与权限未开放", blocker: "待认证接入" },
+  { key: "search", label: "统一检索服务未接入", blocker: "待外部服务" },
+  { key: "manual-sync", label: "网页手动同步触发未开放", blocker: "待站点配合" },
 ] as const
 
 export function GlobalControlBall() {
@@ -716,7 +716,7 @@ export function GlobalControlBall() {
                           <Shield className="h-3.5 w-3.5 text-slate-500" />
                           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">认证边界</span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">blocked_by_auth</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">企业认证待接入</p>
                       </div>
                     </div>
 
@@ -796,7 +796,7 @@ export function GlobalControlBall() {
                         </div>
                       ))}
                       <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 text-[11px] text-slate-600 dark:border-slate-700/60 dark:bg-slate-800/40 dark:text-slate-300">
-                        主机 CPU / 内存 / 磁盘趋势暂未接真实 runtime source，避免继续展示伪百分比。
+                        主机 CPU / 内存 / 磁盘趋势暂未接入实时采集，避免展示伪百分比。
                       </div>
                     </div>
                   </div>

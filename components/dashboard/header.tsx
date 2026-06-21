@@ -120,7 +120,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   )
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6">
+    <header className="app-header-glass sticky top-0 z-30 flex h-16 items-center justify-between px-4 lg:px-6">
       {/* 左侧: 移动菜单 + 整合的搜索/命令面板入口 */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <AppTooltip content="打开侧边栏" side="bottom">

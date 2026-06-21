@@ -1,173 +1,898 @@
 # 统一光盘库总控平台
 
-集团层统一管控平台。总控不替代站点原系统，目标是把多站点数据库同步到中心库，并在总控完成查看、检索、导出、同步、任务控制和审计。
+> 集团层级的统一管控平台。
+> 它**不替代**各站点原有的光盘库管理软件，只在它们之上做统一查看、统一检索、统一任务派发和统一审计。
+> 任何站点的本地数据都先同步到中心库，总控永远从中心库读取，绝不直接读站点的生产库。
 
-## Current Verification Snapshot
+---
 
-- Strict requirements completion: computed from `requirements[].current_status === "complete"`. R.81 recalculation: **29/45 = 64.4%**.
-- Implemented candidate coverage: computed separately from review evidence and candidate markers. R.81: **45/45 (100%)**. Strict and candidate are NEVER merged; use the strict metric for completion rate claims.
-- Strict blockers: ADFS/OIDC/LDAP (REQ-2.2.1/2.1.2/2.2.2/3.2.1/3.2.2/3.3.2), production ES/ClickHouse (REQ-4.1.2), production Site Agent deployment (REQ-4.2.2), station schema/API gaps (REQ-3.1.1/3.3.1/4.3.1/3.1.2).
-- Product pages read center DB (`unified_*`) and external stores (ES/OpenSearch, ClickHouse) only; restore/source DB is sync source only.
-- Top 10 next actions were recalculated from current non-complete entries in R.81; prior top actions were stale and have been corrected (see `requirements-traceability.json#r81_matrix_reconciliation`).
+## 这份文档给谁看
 
-## 当前口径
+- **第一次接触代码的同事**：想了解项目是做什么的、怎么跑起来、目录在哪。
+- **运维同事**：想了解怎么部署、依赖哪些外部服务、需要准备什么密钥。
+- **测试或质量同事**：想了解怎么验证主链路是通的、怎么读需求完成度。
+- **管理者**：想看当前做到什么程度、卡在哪里。
 
-- 最高验收标准: `docs/source/requirements.md`
-- 项目约束: `CLAUDE.md` + `AGENTS.md`
-- 严格完成率: `29/45 = 64.4%`
-- 候选实现覆盖: `45/45 candidate`，但未接入真实 ADFS/LDAP、ES/ClickHouse 生产环境和全部站点生产 Agent 前，不能按 strict complete 汇报。
-- 产品页面读取中心拥有的数据: `unified_*`、中心审计/同步表、ES/OpenSearch、ClickHouse；源库/restore 库只作为同步来源。
+如果只想跑起来看效果，跳到 [第一节「本地起一个开发环境」](#1-本地起一个开发环境-五分钟)。
 
-禁止把 mock、simulator、DRY_RUN 或 blocked 边界说成真实完成。
+---
 
-## 已实现主链路
+## 目录
 
-```mermaid
-flowchart LR
-  SiteDB["站点数据库 / restore 库"] --> Dump["table_backup.sql / pg_dump 白名单"]
-  Dump --> Ingest["中心摄入"]
-  Ingest --> Center["unified_disc_platform / unified_*"]
-  Center --> API["Next.js API"]
-  API --> UI["总控前端"]
-  UI --> Queue["control_command 控制队列"]
-  Queue --> Agent["Site Agent 主动轮询"]
-  Agent --> SiteDB
-```
+1. [本地起一个开发环境](#1-本地起一个开发环境-五分钟)
+2. [项目是什么，做什么](#2-项目是什么-做什么)
+3. [目录结构说明](#3-目录结构说明)
+4. [核心数据流是怎么走的](#4-核心数据流是怎么走的)
+5. [日常开发常用命令](#5-日常开发常用命令)
+6. [怎么验证修改是好的](#6-怎么验证修改是好的)
+7. [部署到测试或生产环境](#7-部署到测试或生产环境)
+8. [需要外部提供的依赖](#8-需要外部提供的依赖)
+9. [需求完成度怎么看](#9-需求完成度怎么看)
+10. [禁止事项](#10-禁止事项)
+11. [附录 A：常用 SQL 查询](#附录-a常用-sql-查询)
+12. [附录 B：端口占用参考](#附录-b端口占用参考)
+13. [附录 C：常见问题](#附录-c常见问题)
+14. [附录 D：贡献者必读](#附录-d贡献者必读)
+15. [附录 E：文档索引](#附录-e文档索引)
 
-核心能力:
+---
 
-- 同步: 13 张白名单表 dump 摄入中心库，支持手动触发和 Site Agent 同步。
-- 查看: 首页、任务、盘架、卷、站点、用户、日志、设置、检索均接真实 API 或显式 blocked 状态。
-- 控制: 总控创建任务、暂停、恢复等命令进入 `control_command`，由 Site Agent 拉取执行。
-- 导出: 任务/设备/卷/日志/用户/检索/同步日志等导出带记录数和 SHA-256 摘要。
-- 安全: local JWT + RBAC 基础、登录审计、导出审计、hash chain 审计验证、未登录 401。
-- UI/UX: Command Center 首页、全局命令面板、全页面首访引导、统一时间格式、真实/blocked 口径提示。
+## 1. 本地起一个开发环境（五分钟）
 
-## 仍需外部条件
+### 1.1 准备工具
 
-| 项 | 当前状态 | 需要什么 |
+需要装好：
+
+| 工具 | 版本要求 | 检查命令 |
 |---|---|---|
-| ADFS / LDAP / 企业 SSO | `blocked_by_auth` | 领导/运维提供 ADFS/OIDC/LDAP 参数、回调地址、测试账号 |
-| ES / OpenSearch | `blocked_by_external_system` | 部署地址、索引策略、文件索引写入验证 |
-| ClickHouse | `partial` | 部署地址、日志表结构、保留策略 |
-| 部分站点 schema | `blocked_by_source_schema` | 站点表字段/控制表补齐 |
-| 生产 Site Agent | `blocked_by_site_change` | 站点部署 Agent、密钥和 systemd/进程守护 |
+| Node.js | 18 或 20 | `node -v` |
+| pnpm | 9 或 10 | `pnpm -v` |
+| Docker Desktop | 任意较新版本 | `docker -v` |
+| Git | 任意较新版本 | `git --version` |
 
-## 技术栈
+如果用的是 macOS，推荐用 Homebrew：`brew install node pnpm docker`。
 
-| 类别 | 技术 |
-|---|---|
-| Framework | Next.js 16 + React 19 |
-| Language | TypeScript |
-| UI | Tailwind CSS v4 + Radix UI + Lucide |
-| Database | PostgreSQL 17 |
-| Sync | pg_dump `table_backup.sql` + Site Agent |
-| Auth | local JWT / RBAC 基础，ADFS/OIDC/LDAP 为候选边界 |
-| Search/Logs | ES/OpenSearch、ClickHouse repository 边界 |
-
-## 快速启动
+### 1.2 拉代码、装依赖
 
 ```bash
+git clone <仓库地址>
+cd 上海
 pnpm install
-cp .env.example .env.local
+```
+
+`pnpm install` 会下载前端依赖（Next.js、React、Tailwind 等）。如果装不上，删掉 `node_modules` 重新试一次。
+
+### 1.3 起数据库
+
+项目用 PostgreSQL 17 存中心数据。docker-compose 已经写好了，直接起：
+
+```bash
 pnpm db:up
+```
+
+第一次跑会下载 postgres:17 镜像，等几十秒。看到 `unified_disc_postgres` 容器状态是 healthy 就好了。
+
+如果想看启动日志：
+
+```bash
+pnpm db:logs
+```
+
+### 1.4 准备环境变量
+
+```bash
+cp .env.example .env.local
+```
+
+`.env.local` 不会被提交到 git。示例文件默认使用真实 API 模式；本地开发只需要按需替换连接地址和密钥引用。
+
+### 1.5 初始化中心库（首次启动）
+
+```bash
+pnpm db:init        # 建表
+pnpm db:seed        # 灌入种子账号
+```
+
+完成后应该有：
+
+- 中心库 `unified_disc_platform` 已建好
+- 默认账号 `admin / admin` 已生效（角色：集团管理员）
+
+### 1.6 启动前端
+
+```bash
 pnpm dev
 ```
 
-访问: `http://localhost:3000`
+打开浏览器访问 <http://localhost:3000>，用 `admin / admin` 登录。
 
-本地测试账号来自中心库 seed/auth 初始化:
+第一次进入会看到首页有 4 大通道：同步、控制、检索、安全。如果哪个通道显示「待接入」或「阻塞」，是正常的——本地环境没有对接外部服务（详见 [第 8 节](#8-需要外部提供的依赖)）。
 
-| 账号 | 密码 | 角色 |
-|---|---|---|
-| `admin` | `admin` | group_admin |
+### 1.7 跑通完整链路（可选但推荐）
 
-生产或汇报环境必须替换 `.env.local` 中的密钥、数据库 URL 和 Agent secret。不要提交 `.env.local`。
+下面这串命令依次跑完，验证整个项目能跑：
 
-## 常用环境变量
+```bash
+set -a && source .env.local && set +a
+pnpm exec tsc --noEmit        # TypeScript 类型检查
+pnpm build                    # 生产构建
+pnpm smoke:sync               # 同步链路冒烟测试
+pnpm check:sync-consistency -- --siteCode=SH01
+                                # 一致性检查
+pnpm baseline:check           # 项目基线冻结检查
+```
 
-只提交 key ref，不提交真实 secret。
+全过才算 OK。任何一步出错，停下来看错误信息——通常是数据库没起、env 没 load、或端口被占。
 
-| 变量 | 说明 |
+---
+
+## 2. 项目是什么，做什么
+
+### 2.1 一句话解释
+
+把分散在全国各地 N 个光盘库管理系统的数据，集中同步到一个 PostgreSQL 中心库，再在中心库之上做一个统一管控平台，给集团运维和审计用。
+
+### 2.2 它解决了什么问题
+
+| 问题 | 这个项目的做法 |
 |---|---|
-| `DATABASE_URL` | 中心库 `unified_disc_platform` |
-| `SOURCE_DATABASE_URL` / `SITE_DATABASE_URL` | 测试站点库/restore 库 |
-| `JWT_SECRET` | local JWT 签名密钥 |
-| `SITE_AGENT_SECRET` / `SYNC_PACKAGE_SECRET` | Site Agent HMAC |
-| `SEARCH_ES_URL` | ES/OpenSearch，可空；空时返回 blocked |
-| `CLICKHOUSE_URL` | ClickHouse，可空；空时走中心 PG/blocked |
+| 各站点系统不一样，没法集中看 | 站点数据导出成 SQL 包，统一摄入中心库 |
+| 站点多了之后，找一个文件要挨个系统登录 | 中心库统一检索（用 OpenSearch 加速） |
+| 总部要统一派发任务给站点（新建、暂停、巡检） | 控制命令走队列 + 站点 Agent 主动拉取执行 |
+| 出问题了不知道谁改了什么 | 所有操作写审计日志，签名验签 |
+| 一线人员看不懂系统内部实现 | UI 用统一风格，文案写人话，阻塞就明说阻塞 |
 
-## 验证命令
+### 2.3 它不是什么
 
-提交前至少运行:
+- **不是光盘库管理系统本身**：每个站点还在用各自的本地系统（比如 IBM TS 系列），总控不替代它。
+- **不是实时同步**：默认 60 分钟一轮。实时性要求高的场景走站点 Agent 推送。
+- **不是单一权限系统**：本地有 JWT + RBAC，正式生产需要接 ADFS/LDAP（详见 [第 8 节](#8-需要外部提供的依赖)）。
+
+### 2.4 数字盘点（2026-06-21 快照）
+
+| 维度 | 数字 |
+|---|---|
+| 严格完成的需求（真后端 + 真 UI + 真测试） | **29 / 45 = 64.4%** |
+| 已写代码但需外部条件才能算严格完成 | 16 项 |
+| 总控页面路由 | 13 个 |
+| 同步白名单表 | 13 张 |
+| 完整站点 schema 审计范围 | 170 张 |
+| 同步链路 e2e 测试 | 以当前 `pnpm e2e:all` 输出为准 |
+
+> ⚠️ 严格数和候选数**不能合并汇报**。候选数（45/45）是「代码已落地但生产条件不具备」，严格数（29/45）是「真后端、真 UI、真测试」。
+
+---
+
+## 3. 目录结构说明
+
+```
+上海/
+├── app/                        # Next.js 路由（每个目录是一个 URL 段）
+│   ├── page.tsx                # 首页（总控首页 / 4 大通道）
+│   ├── login/                  # 登录
+│   ├── tasks/                  # 任务管理
+│   ├── sync/                   # 同步管理
+│   ├── racks/                  # 盘架
+│   ├── volumes/                # 卷
+│   ├── sites/                  # 站点
+│   ├── users/                  # 用户与权限
+│   ├── logs/                   # 日志
+│   ├── search/                 # 检索
+│   ├── settings/               # 设置
+│   ├── control/                # 控制命令
+│   └── api/                    # 后端 API 端点（每个 route.ts 是一个 URL）
+│
+├── components/                 # React 组件
+│   ├── ui/                     # 基础组件（按钮、表格、对话框）
+│   ├── platform/               # 平台级组件（GlassPanel、CapsuleTabs 等）
+│   ├── dashboard/              # 总控首页相关
+│   ├── tasks/                  # 任务管理相关
+│   ├── shared/                 # 跨页面共用
+│   ├── layout/                 # 布局（侧栏、顶栏、首访引导）
+│   └── site/                   # 站点相关
+│
+├── lib/                        # 业务核心代码
+│   ├── db/                     # 数据库连接（PostgreSQL）
+│   ├── auth/                   # 鉴权（JWT、RBAC、OIDC/LDAP 适配器）
+│   ├── api/                    # API 调用层（真实 API 优先，失败显式阻塞）
+│   ├── sync/                   # 同步逻辑（白名单、调度、写入）
+│   ├── control/                # 控制命令（写入 control_command 队列）
+│   ├── site-agent/             # 站点 Agent 适配（HMAC、心跳、控制）
+│   ├── search/                 # 检索（OpenSearch 客户端）
+│   ├── logs/                   # 日志（ClickHouse 客户端）
+│   ├── ingest/                 # 数据摄入
+│   ├── export/                 # 数据导出
+│   ├── source/                 # 源端 schema 引用
+│   └── types/                  # TypeScript 类型定义（Adapter 接口，禁止修改）
+│
+├── scripts/                    # 后台脚本
+│   ├── sync/                   # 同步脚本（导出/摄入）
+│   ├── scheduler/              # 调度器（定时跑同步）
+│   ├── site-agent/             # 站点 Agent 入口
+│   ├── e2e/                    # 端到端测试脚本（白盒）
+│   ├── audit/                  # 审计脚本
+│   ├── smoke-sync.ts           # 同步冒烟
+│   ├── check-sync-consistency.ts
+│   ├── check-project-baseline.ts
+│   └── worker-site.ts          # 站点端 Worker
+│
+├── databases/                  # 数据库脚本
+│   ├── sprint-2b0/             # 初始化
+│   ├── sprint-2b1/             # 种子数据
+│   ├── sprint-2b2/             # mock 任务表
+│   └── sprint-2b4/             # schema 增量
+│
+├── docs/                       # 项目文档
+│   ├── source/                 # 原始需求（requirements.md 是最高标准）
+│   ├── database-analysis/      # 数据库分析与 Sprint 严格审查
+│   ├── testing/                # 测试报告（含质量门）
+│   ├── architecture/           # 系统架构
+│   ├── development/            # 开发指南
+│   ├── operations/             # 运维部署指南
+│   ├── summary/                # 状态和路线图
+│   ├── superpowers/            # Sprint 设计与计划
+│   └── secrets/                # 密钥轮换流程（gitignored）
+│
+├── deploy/                     # 部署模板
+│   └── site-agent/             # 站点 Agent 的 systemd 模板
+│
+├── docker-compose.yml          # 本地依赖（PostgreSQL / OpenSearch / ClickHouse）
+├── .env.example                # 环境变量模板（提交到 git）
+├── package.json                # 前端依赖与脚本
+├── CLAUDE.md                   # AI/Agent 工作约束
+├── AGENTS.md                   # Agent 行为规范
+└── README.md                   # 你正在看的这份
+```
+
+### 3.1 关键目录怎么用
+
+| 想做什么 | 看哪里 |
+|---|---|
+| 改某个页面的 UI | `app/<页面>/page.tsx` + `components/<分类>/` |
+| 改某个 API 行为 | `app/api/<路径>/route.ts` |
+| 改同步逻辑 | `lib/sync/` |
+| 改权限模型 | `lib/auth/rbac-policy.ts` |
+| 改调度频率 | `lib/sync/sync-engine.ts` + `scripts/scheduler/sync-scheduler.ts` |
+| 看质量门 | `docs/testing/r81-quality-gate-report.md` |
+| 看某条需求的完成度 | `docs/database-analysis/requirements-traceability.json` |
+| 看某个 Sprint 干了什么 | `docs/superpowers/plans/` 或 `docs/database-analysis/sprint-*-review.md` |
+
+---
+
+## 4. 核心数据流是怎么走的
+
+整个系统有三股数据流，分清楚才不会乱。
+
+### 4.1 站点 → 中心（同步链路）
+
+```
+站点 PostgreSQL
+    │
+    ▼  站点 Agent 用 pg_dump 导出 13 张白名单表
+table_backup.sql
+    │
+    ▼  中心库 ingest 接口（带 HMAC 签名）
+中心库 unified_* 表
+    │
+    ▼  同步日志写 sync_package_log / sync_table_log
+    │
+    ▼  审计日志写 audit_log
+```
+
+**关键点**：
+- 站点库有 170 张表，**只同步 13 张**白名单表（`tbl_task`、`tbl_user` 等控制类表）。`tbl_file` 和 `tbl_folder` 是几亿行的大表，**不进 PostgreSQL**，走 OpenSearch。
+- `table_backup.sql` 是文本格式，用 `pg_dump --table=...` 生成。
+- HMAC 签名防篡改。
+
+### 4.2 总控 → 站点（控制链路）
+
+```
+总控用户在 /tasks 点「新建」
+    │
+    ▼  POST /api/tasks/create
+控制命令写 control_command 表
+    │
+    ▼  站点 Agent 定时 poll 中心库
+FOR UPDATE SKIP LOCKED + 30 秒租约
+    │
+    ▼  站点 Agent 在站点库 tbl_task 真插入
+站点 PostgreSQL
+    │
+    ▼  下一轮同步带回中心库
+中心库 unified_tasks 出现新行
+    │
+    ▼  总控前端 /tasks 列表自动出现这条任务
+```
+
+**关键点**：
+- 总控**不直接**连站点库。控制必须经过「中心队列 + Agent 拉取」两步。
+- 「暂停」「恢复」「巡检」走的也是这个链路。
+- Agent 拿不到锁会放弃，租约 30 秒超时自动让其他人接手（`SKIP LOCKED`）。
+- 站点没启 Agent 时，命令会一直在队列里挂着。
+
+### 4.3 总控 UI 读取（永远只读中心）
+
+```
+用户在 /tasks 打开页面
+    │
+    ▼  GET /api/tasks
+SELECT * FROM unified_tasks
+    │
+    ▼  渲染表格
+```
+
+**绝对禁止**：UI 直接查站点库或 restore 库。这是 CLAUDE.md 一票否决的硬约束。
+
+### 4.4 检索链路
+
+```
+用户在 /search 输入关键词
+    │
+    ▼  GET /api/search
+    │
+    ├─► 如果配置了 OpenSearch (SEARCH_ES_URL)
+    │      └─► OpenSearch 索引 disc_file_index
+    │
+    └─► 否则
+           └─► 返回 blocked_by_external_system
+                （不返回假数据，不静默 mock）
+```
+
+`tbl_file` 几亿行，PG 检索太慢，所以放 OpenSearch。**绝不让 `tbl_file`/`tbl_folder` 进 PG**。
+
+### 4.5 日志链路
+
+```
+/logs 页面
+    │
+    ▼  GET /api/logs
+    │
+    ├─► 如果后续启用 ClickHouse (CLICKHOUSE_URL)
+    │      └─► ClickHouse 客户端/仓储边界承接高吞吐日志查询
+    │
+    └─► 否则
+           └─► 中心 PG 日志（当前产品主链路）
+                真实可用，但性能受限
+```
+
+---
+
+## 5. 日常开发常用命令
+
+### 5.1 开发期
+
+```bash
+pnpm dev                       # 起开发服务器（热更新）
+pnpm exec tsc --noEmit         # TypeScript 类型检查
+pnpm lint                      # ESLint 检查
+pnpm build                     # 生产构建（提交前必跑）
+```
+
+### 5.2 数据库相关
+
+```bash
+pnpm db:up                     # 起 PostgreSQL
+pnpm db:down                   # 停 PostgreSQL（保留数据）
+pnpm db:down:volumes           # 停 + 删数据卷（危险！会丢数据）
+pnpm db:logs                   # 看数据库日志
+pnpm db:health                 # 查健康状态
+pnpm db:init                   # 首次建表
+pnpm db:init:reset             # 删表重建
+pnpm db:seed                   # 灌种子数据（含默认账号）
+pnpm db:init:sync              # 初始化同步任务相关表
+```
+
+### 5.3 同步相关
+
+```bash
+pnpm smoke:sync                # 跑一次同步冒烟
+pnpm check:sync-consistency -- --siteCode=SH01
+                               # 一致性检查
+pnpm export:package            # 导出站点 SQL 包
+pnpm push:package              # 推送到中心
+pnpm import:all                # 从源端导入所有白名单表
+pnpm import:tasks              # 单表导入
+```
+
+### 5.4 调度与 Agent
+
+```bash
+pnpm scheduler:sync            # 起调度器（持续运行）
+pnpm scheduler:sync:once       # 跑一次同步就退出
+pnpm agent:site                # 起站点 Agent（持续运行）
+pnpm worker:site               # 起站点 Worker
+```
+
+### 5.5 端到端测试
+
+```bash
+pnpm e2e:sites                 # 站点注册表相关
+pnpm e2e:tasks                 # 任务管理
+pnpm e2e:task-create-control   # 任务创建 + 控制命令链路
+pnpm e2e:sync                  # 同步
+pnpm e2e:settings              # 设置
+pnpm e2e:auth                  # 鉴权
+pnpm e2e:rbac                  # 权限
+pnpm e2e:users                 # 用户
+pnpm e2e:search-es             # 检索边界（含 ES）
+pnpm e2e:clickhouse-logs       # 日志边界（含 ClickHouse）
+pnpm e2e:worst-case            # 最坏情况质量检查（5 项）
+```
+
+要一次跑全部：
+
+```bash
+pnpm e2e:all
+```
+
+### 5.6 基线与质量门
+
+```bash
+pnpm baseline:check            # 基线冻结检查（13 项）
+pnpm exec tsc --noEmit         # 类型（提交前必跑）
+pnpm build                     # 构建（提交前必跑）
+pnpm smoke:sync                # 同步冒烟（提交前必跑）
+```
+
+---
+
+## 6. 怎么验证修改是好的
+
+### 6.1 提交前必跑（4 件套）
 
 ```bash
 set -a && source .env.local && set +a
 pnpm exec tsc --noEmit
 pnpm build
 pnpm smoke:sync
-pnpm check:sync-consistency -- --siteCode=SH01
 pnpm baseline:check
-pnpm e2e:all
 ```
 
-R.55-R.71 相关定向验证:
+任何一项不过，不允许 commit。
+
+### 6.2 改了前端，要跑的事件级测试
 
 ```bash
-pnpm e2e:sync-dump-parser
-pnpm e2e:sync-dump
-pnpm e2e:search-es
-pnpm e2e:clickhouse-logs
-pnpm e2e:task-create-control
-pnpm e2e:worst-case
-pnpm e2e:sites
-pnpm e2e:frontend-integration
-pnpm e2e:header-ux-lift
-pnpm e2e:command-center
+# 改了任务相关 → pnpm e2e:tasks + pnpm e2e:task-create-control
+# 改了站点相关 → pnpm e2e:sites
+# 改了同步相关 → pnpm e2e:sync + pnpm smoke:sync
+# 改了设置相关 → pnpm e2e:settings
+# 改了鉴权相关 → pnpm e2e:auth + pnpm e2e:rbac
+# 改了日志相关 → pnpm e2e:logs + pnpm e2e:clickhouse-logs
 ```
 
-注意:
+事件级测试要求（CLAUDE.md 第 10 条）：
+- 必须有真实 e2e 通过（不是只跑 tsc）
+- 必须验证 API 真有调用、有真实响应
+- 必须验证数据库真有写入
+- toast 文案必须含「已提交到控制队列，等待站点 Agent 执行」，**不能**写「已暂停」「暂停成功」
 
-- `e2e:search-es` 在 `SEARCH_ES_URL` 未配置时只证明 blocked 边界正确。
-- `e2e:clickhouse-logs` 在 `CLICKHOUSE_URL` 未配置时只证明 ClickHouse 边界/中心 PG 回退正确。
-- `e2e:task-create-control` 会真实启动 Site Agent `--once` 并向站点 `tbl_task` 插入，必须有 `SITE_DATABASE_URL` 才能跑。
-- `baseline:check` 需要先加载 `.env.local`。
-- **不要把 candidate 数字当作 strict 完成汇报**。`docs/testing/r75-quality-gate-report.md` 是当前最坏情况质量门证据。
+### 6.3 怎么知道需求做到哪了
 
-## 目录说明
-
-```text
-app/                     Next.js 页面和 API routes
-components/              UI、Dashboard、任务控制、共享组件
-lib/                     DB、同步、控制、认证、ES/CH repository
-scripts/e2e/             白盒/接口/事件级 e2e
-scripts/sync/            dump 导出与摄入工具
-scripts/site-agent/      站点 Agent 入口
-databases/sprint-*/      schema patch 和数据库脚本
-docs/source/             requirements.md 等最高需求来源
-docs/database-analysis/  requirements review、矩阵、审计
-docs/superpowers/plans/  规划文档
-deploy/                  部署模板
+```bash
+# 看严格完成度
+pnpm exec tsx -e "
+import j from './docs/database-analysis/requirements-traceability.json';
+const rows = j.requirements || [];
+const c = rows.filter(r => r.current_status === 'complete').length;
+console.log('严格完成:', c, '/', rows.length, '=', (c/rows.length*100).toFixed(1) + '%');
+"
 ```
 
-## 安全边界
+更详细的查 `docs/database-analysis/requirements-traceability.json` 或对应的 `.md`。
 
-- `.env.local`、真实数据库密码、真实密钥不提交。
-- `.env.example` 只能写变量名和空占位。
-- 大表 `tbl_file` / `tbl_folder` 不全量进入 PG17，走 ES/ClickHouse 边界。
-- UI 不显示假成功；控制类操作必须使用“已提交到控制队列，等待站点 Agent 执行”口径。
-- 产品页面不能直接读 restore/source 库；restore/source 只用于同步来源和测试。
+### 6.4 写完一个 Sprint 必须产出
 
-## 汇报口径
+`docs/database-analysis/sprint-<编号>-requirements-review.md`，包含：
 
-可以说:
+1. 对应 requirements 的 ID 列表
+2. 改了哪些文件 / API / 表
+3. 后端是真支持还是只是 UI 调用（必须有 SQL/API 证据）
+4. UI 是不是会误导用户
+5. mock / simulator / DRY_RUN / 真控制 四者明确区分
+6. 没做完的列出来
+7. Blocker 类型（8 选 1）
+8. 站点侧需要配合的 schema/API 改动清单
+9. Verdict：pass / partial / fail
 
-> 总控主链路已经完成候选实现并通过本地验证：中心库统一读取、pg_dump 白名单同步、Site Agent 轮询执行、总控创建任务写入站点库、导出审计、安全边界和全量 e2e 均已跑通。R.69 把站点切换统一到中心注册表，R.70 把任务创建的隐式 SH01 默认和未注册站点校验补齐，R.71 把静默 mock fallback 改为 ApiUnavailableError 显式阻塞。严格 requirements 当前 **29/45 = 64.4%**，候选 45/45。剩余主要依赖 ADFS/LDAP、ES/ClickHouse 正式环境、站点 schema 和生产 Agent 部署验证。
+---
 
-不要说:
+## 7. 部署到测试或生产环境
 
-- “45/45 已完成”
-- “ES/ClickHouse 已生产接入”
-- “ADFS/LDAP 已完成”
-- “控制已真实成功”但没有站点 Agent 执行和站点库回写证据
-- 把 “candidate” 数字汇报成 “complete”
+### 7.1 部署前清单
+
+| 检查项 | 说明 |
+|---|---|
+| Node.js 版本 | 18 或 20 |
+| PostgreSQL 17 | 必须，外部中心库 |
+| OpenSearch（可选） | 检索加速，没配就返回 blocked |
+| ClickHouse（可选） | 日志加速，没配就降级到中心 PG |
+| 反向代理 | nginx / traefik 之类 |
+| TLS 证书 | 站点 Agent HMAC 验签需要 HTTPS |
+| `.env.local` | **不要**提交到 git，本地各自保管 |
+
+### 7.2 关键环境变量（只列键名，**不**列值）
+
+```bash
+# 数据库
+DATABASE_URL=...
+DB_PASSWORD=...                # 必须与 DATABASE_URL 内嵌密码一致
+
+# 鉴权
+JWT_SECRET=...                 # 本地 JWT 签名密钥（生产必须 32+ 随机字符）
+SITE_AGENT_SECRET=...          # 站点 Agent HMAC 签名密钥
+SYNC_PACKAGE_SECRET=...        # 同步包签名密钥
+
+# 检索（可选）
+SEARCH_ES_URL=...
+SEARCH_ES_INDEX=...
+
+# 日志（可选）
+CLICKHOUSE_URL=...
+CLICKHOUSE_DATABASE=...
+CLICKHOUSE_LOG_TABLE=...
+CLICKHOUSE_USER=...
+CLICKHOUSE_PASSWORD_KEY_REF=...
+
+# SSO（生产需要，可选）
+OIDC_ISSUER_URL=...
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET=...         # 或 *_KEY_REF 形式
+OIDC_JWKS_URL=...
+```
+
+完整列表看 `.env.example`。**所有真实值通过环境变量注入，不要写进任何文件**。
+
+### 7.3 部署步骤（简化版）
+
+```bash
+# 1. 准备服务器
+ssh user@server
+git clone <仓库>
+cd 上海
+pnpm install --frozen-lockfile
+
+# 2. 注入环境变量（用 vault / k8s secret / 你的密钥管理工具）
+export DATABASE_URL=...
+export JWT_SECRET=...
+# ... 其他见 .env.example
+
+# 3. 初始化数据库（只第一次）
+pnpm db:init
+pnpm db:seed
+
+# 4. 构建
+pnpm build
+
+# 5. 启动
+pnpm start
+# 或用 systemd / pm2 / docker 起
+```
+
+### 7.4 站点 Agent 部署
+
+站点 Agent 是部署在每个站点本地的小程序，负责拉取控制命令、回写执行结果、上报心跳。
+
+部署模板看 `deploy/site-agent/` 和 `docs/operations/site-agent-deployment.md`。
+
+每个站点需要：
+
+| 资源 | 说明 |
+|---|---|
+| 一台能联网到中心库的机器 | 站点本地即可 |
+| 站点 PostgreSQL 连接信息 | 写到 `SITE_DATABASE_URL` |
+| Agent HMAC 密钥 | 中心库生成，分发到站点 |
+| 进程守护 | systemd / supervisor 二选一 |
+
+### 7.5 健康检查
+
+部署完，浏览器访问 `/api/system/health`，应该返回 200。看到 `{"status":"ok"}` 就对了。
+
+---
+
+## 8. 需要外部提供的依赖
+
+下列依赖是**阻塞**的，没拿到之前，对应的需求严格状态保持 `blocked_*`，不能宣称完成。
+
+### 8.1 ADFS / OIDC / LDAP（5 项需求阻塞）
+
+需要运维提供：
+
+| 项 | 说明 |
+|---|---|
+| 端点地址 | ADFS / OIDC issuer URL 或 LDAP server URL |
+| 客户端凭证 | OIDC client_id / client_secret |
+| 回调地址 | OIDC redirect URI（与本平台域名匹配） |
+| 测试账号 | 至少 1 个，含角色（viewer/operator/admin） |
+| Claim 映射 | 把 IdP 的 group/role claim 映射到本平台角色 |
+
+配置好后写到：
+
+```bash
+OIDC_ISSUER_URL=...
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET_KEY_REF=...
+OIDC_JWKS_URL=...
+```
+
+受影响的 5 项：`REQ-2.1.2`、`REQ-2.2.2`、`REQ-3.2.1`、`REQ-3.2.2`、`REQ-3.3.2`。
+
+### 8.2 OpenSearch / ES（1 项需求阻塞）
+
+需要运维提供：
+
+| 项 | 说明 |
+|---|---|
+| 集群地址 | `https://es-cluster:9200` |
+| 索引策略 | 命名、保留期、备份策略 |
+| 写权限凭证 | 本平台写入文件索引用的 API key |
+
+配置：
+
+```bash
+SEARCH_ES_URL=...
+SEARCH_ES_INDEX=disc_file_index
+```
+
+受影响的 1 项：`REQ-4.1.2`。
+
+### 8.3 ClickHouse（partial 状态）
+
+需要运维提供：
+
+| 项 | 说明 |
+|---|---|
+| 集群地址 | `http://clickhouse:8123` |
+| 日志库名 | 默认 `unified_logs` |
+| 保留期 | 30/90/180 天 |
+| 凭证 | user / password |
+
+配置：
+
+```bash
+CLICKHOUSE_URL=...
+CLICKHOUSE_DATABASE=unified_logs
+CLICKHOUSE_LOG_TABLE=task_logs
+CLICKHOUSE_USER=...
+CLICKHOUSE_PASSWORD_KEY_REF=...
+```
+
+### 8.4 站点生产部署（4 项需求阻塞）
+
+每个真实站点需要：
+
+| 资源 | 说明 |
+|---|---|
+| 站点 Agent 部署 | 站点本地起 `pnpm agent:site` 并守护 |
+| 站点库 schema | 必须包含站点侧需要的 `tbl_task` 等控制表 |
+| Agent HMAC 密钥 | 中心生成，站点保管 |
+| 网络连通性 | 站点能访问中心 PostgreSQL |
+
+受影响的：`REQ-3.1.1`、`REQ-3.1.2`、`REQ-3.3.1`、`REQ-4.3.1`。
+
+### 8.5 决策清单（提交给领导）
+
+- ADFS/OIDC/LDAP 是否接入？由谁负责？测试账号谁出？
+- ES 生产环境是否部署？保留期多久？
+- ClickHouse 生产环境是否部署？
+- 站点 Agent 部署节奏（先 BJ02 还是先 SH01 还是全量）？
+- 站点 schema 改造由谁出（站点运维 or 总控配合）？
+
+---
+
+## 9. 需求完成度怎么看
+
+### 9.1 看哪份文档
+
+- **总览**：`docs/database-analysis/requirements-traceability.json`
+- **可读版**：`docs/database-analysis/requirements-traceability.md`
+- **质量门**：`docs/testing/r81-quality-gate-report.md`
+- **当前状态**：`docs/summary/PROJECT_STATUS.md`
+
+### 9.2 状态含义
+
+| 状态 | 是什么意思 | 升级需要什么 |
+|---|---|---|
+| `complete` | 真后端 + 真 UI + 真测试都过 | - |
+| `partial` | 部分实现，缺块 | 列在 review 里 |
+| `blocked_by_auth` | 需要 ADFS/LDAP/OIDC | 运维提供 IdP |
+| `blocked_by_external_system` | 需要 ES/ClickHouse | 运维部署 |
+| `blocked_by_site_change` | 需要站点 app 改造 | 站点团队配合 |
+| `blocked_by_source_schema` | 站点库缺字段 | 站点表加字段 |
+| `out_of_scope` | 不在本项目范围 | 永远 out_of_scope |
+
+### 9.3 严格数 vs 候选数
+
+| 名字 | 含义 | 数字 |
+|---|---|---|
+| 严格完成 | 真后端 + 真 UI + 真测试 | 29 / 45 = 64.4% |
+| 候选实现 | 代码落地但外部条件不具备 | 45 / 45 |
+
+**不能合并**汇报。比如不能说「45/45 完成」。
+
+### 9.4 汇报时该怎么说
+
+✅ 可以说：
+
+> 总控主链路已经完成候选实现并通过本地验证：产品页面统一读中心库，restore/source 只作为同步来源；pg_dump 白名单同步、Site Agent 轮询、控制命令队列、任务创建由 Agent 写站点 `tbl_task` 的本地恢复库路径、导出审计、安全边界和 e2e 已跑通。严格 requirements 当前 **29/45 = 64.4%**，候选覆盖 45/45。剩余主要依赖 ADFS/LDAP、ES/ClickHouse 正式环境、站点 schema 和生产 Agent 部署验证。
+
+❌ 不可以说：
+
+- 「45/45 已完成」
+- 「ES/ClickHouse 已生产接入」
+- 「ADFS/LDAP 已完成」
+- 「控制已真实成功」但没有站点 Agent 执行和站点库回写证据
+- 把「candidate」数字汇报成「complete」
+
+---
+
+## 10. 禁止事项
+
+### 10.1 代码层面
+
+| 不要做 | 原因 |
+|---|---|
+| 直接修改 `lib/types/*` | 这是 Adapter 接口，全平台依赖 |
+| 修改 Mock 数据结构 | 应该扩展，不应该改 |
+| 把 mock 数据当真实完成 | 会误导用户 |
+| 把 DRY_RUN / simulator 当完成 | 模拟不等于生产 |
+| 把 toast 写成「已暂停」/「暂停成功」 | 必须用「已提交到控制队列，等待站点 Agent 执行」 |
+| 直接连站点库或 restore 库做产品页面 | 必须走中心库 |
+| 删目录、删数据库 | 需要清理请移动到 `archive/` 或 `deprecated/` |
+| 提交 `.env.local` 或真实密钥 | 用环境变量或密钥管理工具 |
+
+### 10.2 数据层面
+
+| 不要做 | 原因 |
+|---|---|
+| 把 `tbl_file` / `tbl_folder` 全量导入 PostgreSQL 17 | 几亿行会撑爆，走 OpenSearch |
+| 同步未授权的表 | 只同步 13 张白名单，其他不碰 |
+| 在测试中污染站点库 | 用 `source_restore` 测试库 |
+
+### 10.3 流程层面
+
+| 不要做 | 原因 |
+|---|---|
+| 只跑 `pnpm exec tsc --noEmit` + `pnpm build` 就说完成 | 必须跑真实 e2e |
+| 不写 `sprint-*-requirements-review.md` 就合并 | 严格审查是硬约束 |
+| 不映射到 `requirements.md` 的需求就做 | `requirements.md` 是最高标准 |
+| 把需求降级或删除 | 只能标 `blocked_*` 或 `out_of_scope` |
+
+---
+
+## 附录 A：常用 SQL 查询
+
+### A.1 看当前站点的同步状态
+
+```sql
+SELECT site_code,
+       enabled,
+       scheduler_enabled,
+       last_connected_at,
+       agent_status
+FROM sync_sites
+ORDER BY site_code;
+```
+
+### A.2 看最近的控制命令
+
+```sql
+SELECT id,
+       command_type,
+       target_site_code,
+       status,
+       created_at,
+       acknowledged_at
+FROM control_command
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+### A.3 看同步包日志
+
+```sql
+SELECT package_id,
+       site_code,
+       status,
+       table_count,
+       record_count,
+       created_at
+FROM sync_package_log
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+### A.4 看统一任务列表
+
+```sql
+SELECT task_id,
+       site_code,
+       task_type,
+       status,
+       created_at,
+       source_site_id
+FROM unified_tasks
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+---
+
+## 附录 B：端口占用参考
+
+| 端口 | 用途 | 默认在哪 |
+|---|---|---|
+| 3000 | Next.js 前端 | `pnpm dev` |
+| 5432 | PostgreSQL 17 | docker compose |
+| 9200 | OpenSearch | docker compose（可选） |
+| 8123 | ClickHouse HTTP | docker compose（可选） |
+| 9000 | ClickHouse TCP | docker compose（可选） |
+
+如果端口被占，改 `docker-compose.yml` 的 ports 段，或在 `.env.local` 里指定其他端口。
+
+---
+
+## 附录 C：常见问题
+
+**Q：本地起项目，登录失败？**
+A：检查 `.env.local` 是否存在，是否跑了 `pnpm db:init` + `pnpm db:seed`。默认账号 `admin / admin`。
+
+**Q：改了前端代码没生效？**
+A：`pnpm dev` 应该会自动热更新。如果没有，删 `.next/` 目录重启。
+
+**Q：`pnpm build` 报错？**
+A：先跑 `pnpm exec tsc --noEmit` 看类型错误，修了再 build。
+
+**Q：怎么新增一个同步白名单表？**
+A：改 `lib/sync/config.ts` 里的白名单列表 + `lib/sync/dump/export-restore-dump.ts`。**别忘了**更新 `docs/database-analysis/schema-inventory.md`。
+
+**Q：怎么新增一个需求状态？**
+A：改 `docs/database-analysis/requirements-traceability.json` 里的 schema，加新状态枚举。先看现有 6 种够不够用。
+
+**Q：领导问「做到多少了」该怎么答？**
+A：说严格数 29/45 = 64.4%。**不要**说 45/45。说候选数的话单独说，别合并。
+
+**Q：怎么判断某个需求是不是真的完成了？**
+A：看 `docs/database-analysis/requirements-traceability.json` 里那一条的 `current_status` 是不是 `complete`。如果有 SQL 证据、UI 截图、e2e 测试通过、产物 review，就是 `complete`。否则是 `partial` 或 `blocked_*`。
+
+---
+
+## 附录 D：贡献者必读
+
+1. 改任何代码前，**先看** `docs/source/requirements.md` 对应章节。
+2. 改完代码**必须**产出 `sprint-<编号>-requirements-review.md`。
+3. **不要**只跑 tsc 就说完成。跑真 e2e 才行。
+4. **不要**把 mock 数据当真实完成。
+5. **不要**直接连站点库或 restore 库做产品页面。
+6. 任何阻塞需求，**不要**关闭它，标 `blocked_*` 并列出升级所需。
+7. **不要**把 "candidate" 数字汇报成 "complete"。
+8. 看到 `lib/types/*` 的修改请求，请拒绝。
+9. 提交前 4 件套：`pnpm exec tsc --noEmit` + `pnpm build` + `pnpm smoke:sync` + `pnpm baseline:check`。
+10. 不确定的时候，看 `CLAUDE.md` 和 `AGENTS.md`。
+
+---
+
+## 附录 E：文档索引
+
+| 想知道什么 | 看哪里 |
+|---|---|
+| 需求是什么 | `docs/source/requirements.md` |
+| AI/Agent 工作约束 | `CLAUDE.md` |
+| 系统架构 | `docs/architecture/system-architecture.md` |
+| 同步链路细节 | `docs/architecture/sync-flow.md` |
+| 大表策略 | `docs/architecture/large-table-strategy.md` |
+| ID 策略 | `docs/architecture/id-strategy.md` |
+| 站点 Agent 部署 | `docs/operations/site-agent-deployment.md` |
+| 开发指南 | `docs/development/测试指南.md` |
+| 项目当前状态 | `docs/summary/PROJECT_STATUS.md` |
+| 路线图 | `docs/summary/ROADMAP.md` |
+| 质量门 | `docs/testing/r81-quality-gate-report.md` |
+| 各 Sprint 严格审查 | `docs/database-analysis/sprint-*-review.md` |
+| 需求矩阵 | `docs/database-analysis/requirements-traceability.json` |
+| 密钥轮换 | `docs/secrets/SECRETS.md` |
+
+---
+
+**最后更新：2026-06-21**
+**对应 Sprint：R.76 - R.81（企业产品化收口）**
+**严格完成度：29/45 = 64.4% · 候选覆盖：45/45**

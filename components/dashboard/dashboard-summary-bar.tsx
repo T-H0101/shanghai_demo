@@ -188,7 +188,7 @@ export function DashboardSummaryBar() {
             {siteLabel}
           </Badge>
           <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border border-emerald-200 text-[10px]">
-            DB
+            实时
           </Badge>
         </div>
         <span className="text-[10px] text-slate-400">

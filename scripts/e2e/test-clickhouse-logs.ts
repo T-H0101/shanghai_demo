@@ -14,9 +14,15 @@
 
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
 import { installAuthenticatedFetch } from "./auth-helper"
+import { queryClickHouseLogs } from "../../lib/logs/clickhouse-client"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
+
+function safeIdentifier(value: string, fallback: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value) ? value : fallback
+}
 
 async function main() {
   await installAuthenticatedFetch(BASE)
@@ -42,7 +48,45 @@ async function main() {
   assert.notEqual(body.dataSource, "mock", "logs must not return mock")
 
   if (process.env.CLICKHOUSE_URL && process.env.CLICKHOUSE_DATABASE) {
-    console.log("CLICKHOUSE_URL configured; CH-configured test would index/query a marker here.")
+    const marker = `CH-E2E-${randomUUID().slice(0, 8)}`
+    const chUrl = process.env.CLICKHOUSE_URL.replace(/\/$/, "")
+    const database = safeIdentifier(process.env.CLICKHOUSE_DATABASE, "unified_logs")
+    const table = safeIdentifier(process.env.CLICKHOUSE_LOG_TABLE ?? "task_logs", "task_logs")
+    const user = process.env.CLICKHOUSE_USER ?? "default"
+    const password = process.env.CLICKHOUSE_PASSWORD ?? ""
+    const auth = `Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`
+    const setupSql = `
+      CREATE DATABASE IF NOT EXISTS ${database};
+      CREATE TABLE IF NOT EXISTS ${database}.${table} (
+        log_id String,
+        site_code String,
+        task_id String,
+        operator String,
+        device_id String,
+        disc_no String,
+        error_code String,
+        error_message String,
+        occurred_at DateTime,
+        level String,
+        message String
+      ) ENGINE = MergeTree ORDER BY occurred_at;
+      INSERT INTO ${database}.${table}
+      (log_id, site_code, task_id, operator, device_id, disc_no, error_code, error_message, occurred_at, level, message)
+      VALUES ('${marker}', 'SH01', 'TASK-${marker}', 'e2e', 'DEV-${marker}', 'DISC-${marker}', '', '', now(), 'info', '${marker} marker');
+    `
+    const setupRes = await fetch(`${chUrl}/?multiquery=1`, {
+      method: "POST",
+      headers: { "content-type": "text/plain", authorization: auth },
+      body: setupSql,
+      signal: AbortSignal.timeout(8000),
+    })
+    assert.ok(setupRes.ok, `ClickHouse marker setup failed: HTTP ${setupRes.status}`)
+    const markerResult = await queryClickHouseLogs({ keyword: marker, siteCode: "SH01", limit: 5, offset: 0 })
+    assert.ok(
+      markerResult.items.some((item) => item.logId === marker || item.message?.includes(marker)),
+      "ClickHouse configured path must query the inserted marker"
+    )
+    console.log(`CLICKHOUSE_URL configured; marker query PASS (${marker})`)
   } else {
     console.log("CLICKHOUSE_URL not configured; configured-path test skipped with center_pg evidence")
   }
@@ -56,6 +100,12 @@ async function main() {
   assert.ok(
     combined.includes("CLICKHOUSE_URL"),
     "R.79: logs boundary must read CLICKHOUSE_URL env"
+  )
+  assert.ok(
+    chClientSource.includes("FORMAT TabSeparatedWithNames") &&
+      chClientSource.includes("param_lim") &&
+      chClientSource.includes("param_off"),
+    "R.79: ClickHouse query must send typed HTTP parameters and parse a header row"
   )
   assert.ok(
     combined.includes("center_pg") ||

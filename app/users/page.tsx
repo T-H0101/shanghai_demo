@@ -180,8 +180,8 @@ export default function Page() {
     <AppShell>
       <PageHeader
         title="用户与权限"
-        description="中心库账号只读视图；认证、生命周期与权限分配尚未接入"
-        badge={dataSource === "database" ? "DATABASE" : dataSource.toUpperCase()}
+        description="账号只读视图；认证、生命周期与权限分配按接入状态展示"
+        badge={dataSource === "database" ? "实时" : dataSource === "empty" ? "暂无数据" : dataSource === "error" ? "异常" : "加载中"}
         actions={
           <div className="flex items-center gap-2">
             <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as typeof exportFormat)}>
@@ -213,10 +213,10 @@ export default function Page() {
         <div className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <p className="font-medium">认证与权限写能力部分可用 (Sprint R.27/R.28)</p>
+            <p className="font-medium">认证与权限写能力部分可用</p>
             <p className="mt-1 text-xs">
-              Auth 账号管理已接入: 查看/启用/禁用/解锁/重置密码。
-              权限分配 (站点→设备→数据) 与跨站点权限同步仍需 Sprint R.29+ 实现。
+              账号管理已接入查看、启用、禁用、解锁和重置密码。
+              权限分配与跨站点权限同步仍待接入。
             </p>
           </div>
         </div>
@@ -232,7 +232,7 @@ export default function Page() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="中心库账号" value={users.length} icon={Users} />
+        <StatCard title="平台账号" value={users.length} icon={Users} />
         <StatCard title="来源站点" value={siteCount} icon={Database} />
         <StatCard title="有角色编码" value={mappedRoleCount} icon={UserRound} />
         <StatCard title="Auth 账号" value={authAccounts.length} icon={Lock} />
@@ -251,14 +251,14 @@ export default function Page() {
             <CardTitle className="flex items-center justify-between text-base">
               <span>用户列表</span>
               <Badge variant="outline" className="font-mono text-[10px]">
-                source: {dataSource}
+                {dataSource === "database" ? "实时" : dataSource === "empty" ? "暂无数据" : dataSource === "error" ? "异常" : "加载中"}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto pt-0">
             {dataSource === "empty" ? (
               <p className="py-8 text-center text-sm text-slate-500">
-                unified_users 当前为空，不使用 mock 数据填充。
+                当前暂无用户数据，不使用演示数据填充。
               </p>
             ) : (
               <Table>

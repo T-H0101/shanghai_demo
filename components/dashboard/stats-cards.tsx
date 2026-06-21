@@ -65,11 +65,19 @@ export function StatsCards() {
 
   return (
     <div className="space-y-2">
-      {/* R.15: dataSource 显式 (R.10D 统一规范) */}
       <div className="flex items-center gap-2 text-[10px] text-slate-500" data-testid="dashboard-stats-source">
         <Database className="h-3 w-3" />
-        <span>dataSource: <code className="font-mono">{dataSource}</code></span>
-        {dataSource === "error" && <span className="text-red-600">中心库读取失败, 未 fallback mock</span>}
+        <span>
+          数据状态：
+          {dataSource === "loading"
+            ? "加载中"
+            : dataSource === "empty"
+              ? "暂无数据"
+              : dataSource === "error"
+                ? "读取异常"
+                : "正常"}
+        </span>
+        {dataSource === "error" && <span className="text-red-600">读取失败，未使用演示数据替代。</span>}
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Card 1 - 任务总数 (可点击 → /tasks) */}

@@ -56,7 +56,7 @@ const LOG_TABS: { value: LogType; label: string; description: string }[] = [
   { value: "sync_table", label: "同步表日志", description: "sync_table_log" },
   { value: "sync_scheduler", label: "调度日志", description: "sync_scheduler_log (R.8)" },
   { value: "sync_consistency", label: "一致性日志", description: "sync_consistency_log (R.7)" },
-  { value: "control", label: "控制命令", description: "control_command (R.4)" },
+  { value: "control", label: "控制命令", description: "总控命令队列" },
   { value: "audit", label: "审计日志", description: "audit_log" },
   { value: "login_audit", label: "登录审计", description: "auth_login_audit (R.27)" },
 ]
@@ -355,13 +355,13 @@ export default function Page() {
   // dataSource Badge
   const dataSourceBadge = (() => {
     if (dataSource === "database") {
-      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><Database className="h-3 w-3 mr-1" />database</Badge>
+      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><Database className="h-3 w-3 mr-1" />正常</Badge>
     }
     if (dataSource === "empty") {
-      return <Badge className="bg-slate-100 text-slate-600 border-slate-200">empty</Badge>
+      return <Badge className="bg-slate-100 text-slate-600 border-slate-200">暂无数据</Badge>
     }
     if (dataSource === "error") {
-      return <Badge className="bg-red-100 text-red-700 border-red-200">error</Badge>
+      return <Badge className="bg-red-100 text-red-700 border-red-200">读取失败</Badge>
     }
     return <Badge className="bg-slate-100 text-slate-500">loading…</Badge>
   })()
@@ -405,7 +405,7 @@ export default function Page() {
               onClick={() => handleExport("xlsx")}
               disabled={exporting || items.length === 0}
               data-testid="logs-export-xlsx"
-              title="Excel 当前未接入 (blocked_by_dependency_policy), 点击会提示"
+              title="Excel 导出暂未接入，点击会提示"
             >
               <Download className="h-4 w-4 mr-1" />
               XLSX (未接入)
@@ -414,15 +414,14 @@ export default function Page() {
         }
       />
 
-      {/* R.12 显式 dataSource */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
         {dataSourceBadge}
         {sources.length > 0 && (
-          <span className="text-xs text-slate-500 font-mono">sources: {sources.join(", ")}</span>
+          <span className="text-xs text-slate-500">已接入 {sources.length} 类日志来源</span>
         )}
         {meta?.requirement && (
           <span className="text-xs text-slate-400">
-            {meta.requirement.id}: {meta.requirement.text} ({meta.requirement.status})
+            {meta.requirement.text}
           </span>
         )}
       </div>

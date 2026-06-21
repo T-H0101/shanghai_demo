@@ -24,6 +24,9 @@ interface SearchBlkInfo {
   nextStep: string
 }
 
+const SEARCH_BLOCKER_REASON = "全文检索服务尚未接入，当前不展示未验证的跨站点文件结果。"
+const SEARCH_BLOCKER_NEXT_STEP = "接入全文检索服务并完成索引验证后开放跨站点检索。"
+
 export default function Page() {
   // R.14F: 全文检索 blocked_by_external_system (ES/ClickHouse 未接入)
   // 移除原 lib/mock/search 列表 + setTimeout 假"导出成功", 全部走真 /api/search
@@ -56,10 +59,10 @@ export default function Page() {
         if (data?.source === "not_implemented" && data?.meta) {
           setBlk({
             blocker: data.meta.blocker ?? data.blocker ?? "blocked_by_external_system",
-            reason: data.meta.reason ?? "全文检索未实现",
+            reason: SEARCH_BLOCKER_REASON,
             requirement: data.meta.requirement ?? { id: "REQ-4.1.1", text: "跨维度检索", status: "blocked_by_external_system" },
             currentReality: data.meta.currentReality ?? { taskLevelFileIndex: 0, sourceTable: "unified_file_index", note: "" },
-            nextStep: data.meta.nextStep ?? "等待 ES 接入",
+            nextStep: SEARCH_BLOCKER_NEXT_STEP,
           })
           setDataSource("not_implemented")
         }
@@ -90,8 +93,8 @@ export default function Page() {
         setSearchResults([])
         setDataSource("not_implemented")
         toast({
-          title: "检索未实现",
-          description: `REQ-4.1.1 ${body?.meta?.reason ?? "全文检索需 ES/ClickHouse, 当前未接入"}`,
+          title: "检索暂不可用",
+          description: SEARCH_BLOCKER_REASON,
           variant: "destructive",
         })
         return
@@ -107,7 +110,7 @@ export default function Page() {
     } catch {
       setSearchResults([])
       setDataSource("not_implemented")
-      toast({ title: "检索请求失败", description: "/api/search 未实现 (REQ-4.1.1 blocked_by_external_system)", variant: "destructive" })
+      toast({ title: "检索请求失败", description: "全文检索服务暂未接入。", variant: "destructive" })
     } finally {
       setSearching(false)
     }
@@ -141,10 +144,9 @@ export default function Page() {
       const sp = new URLSearchParams({ q: keyword, format: exportOptions.format })
       const res = await fetch(`/api/search/export?${sp.toString()}`)
       if (res.status === 501) {
-        const body = await res.json().catch(() => null)
         toast({
-          title: "导出未实现",
-          description: body?.message ?? "全文检索未接入 (REQ-4.1.1), 无可导出数据",
+          title: "导出暂不可用",
+          description: "当前没有可验证的检索结果可导出。",
           variant: "destructive",
         })
         return
@@ -160,7 +162,7 @@ export default function Page() {
       URL.revokeObjectURL(url)
       toast({ title: "导出完成", description: `已生成 ${exportCount} 条检索结果 (${exportOptions.format})` })
     } catch {
-      toast({ title: "导出失败", description: "/api/search/export 未实现 (REQ-4.1.1 blocked)", variant: "destructive" })
+      toast({ title: "导出失败", description: "检索导出服务暂未接入。", variant: "destructive" })
     }
   }
 
@@ -168,7 +170,7 @@ export default function Page() {
     // R.14F: 真实回迁走 /api/control/commands, 但 file 来源是 ES (当前未接入) → 直接 blocked
     toast({
       title: "回迁命令未提交",
-      description: `文件「${file.fileName}」所属 ES 检索未接入 (REQ-4.1.1), 无法定位真实 source_id`,
+      description: `文件「${file.fileName}」暂不能定位到可执行的回迁目标。`,
       variant: "destructive",
     })
   }
@@ -177,8 +179,8 @@ export default function Page() {
     <AppShell>
       <PageHeader
         title="统一检索"
-        description="跨站点全局文件检索"
-        badge={dataSource === "not_implemented" ? "BLOCKED" : dataSource.toUpperCase()}
+        description="跨站点文件检索与结果导出"
+        badge={dataSource === "not_implemented" ? "待接入" : "已接入"}
         actions={
           <Button variant="outline" size="sm" className="h-8" onClick={handleExport} data-testid="search-export">
             <Download className="h-4 w-4 mr-1" />导出
@@ -191,17 +193,15 @@ export default function Page() {
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
             <div className="text-sm flex-1">
               <p className="font-medium text-amber-900">
-                全文检索未实现 (REQ: {blk.requirement.id} {blk.requirement.text})
+                全文检索服务暂未接入
               </p>
               <p className="text-amber-800 mt-1">
-                Blocker: <Badge variant="outline" className="border-amber-400 text-amber-800">{blk.blocker}</Badge>
-                {" · "}
+                <Badge variant="outline" className="border-amber-400 text-amber-800">待接入</Badge>
+                {" "}
                 {blk.reason}
               </p>
               <p className="text-amber-700 mt-1 text-xs">
-                真实数据: unified_file_index {blk.currentReality.taskLevelFileIndex} 行 (任务级, {blk.currentReality.note})
-                {" · "}
-                下一步: {blk.nextStep}
+                当前仅展示已验证的数据范围。下一步: {blk.nextStep}
               </p>
             </div>
           </CardContent>
@@ -214,7 +214,7 @@ export default function Page() {
             <p className="font-medium">权限可见范围</p>
             <p className="text-slate-600 mt-1">
               {blk
-                ? "ES 全文检索未接入, 当前不展示站点可见范围 (REQ-2.2.1 ADFS 阻塞, 见 R.1 §4.1.3)"
+                ? "全文检索服务未接入，当前不展示跨站点可见范围。"
                 : "可检索：上海、北京、南京、武汉（4 站点）。广州/成都不可见。"}
             </p>
           </div>
@@ -249,7 +249,7 @@ export default function Page() {
               </SelectContent>
             </Select>
             <div className="flex gap-2">
-              <AppTooltip content="执行跨站点全文检索 (依赖 ES/ClickHouse, 当前 501)">
+              <AppTooltip content="执行跨站点全文检索；未接入时会显示限制说明">
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors"
@@ -283,7 +283,7 @@ export default function Page() {
             <Badge className="ml-2">{filtered.length} 条</Badge>
             <span className="text-xs text-slate-500 font-normal ml-2">
               {dataSource === "not_implemented"
-                ? "（ES 未接入, 当前 0 条; 真实数据见 unified_file_index 任务级）"
+                ? "（检索服务未接入，当前 0 条）"
                 : `（共 ${filtered.length} 条匹配记录, 第 ${(page-1)*pageSize+1}-${Math.min(page*pageSize, filtered.length)} 条）`}
             </span>
           </CardTitle>
@@ -302,7 +302,7 @@ export default function Page() {
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-8 text-slate-500" data-testid="search-empty">
                     {dataSource === "not_implemented"
-                      ? "全文检索未接入 (REQ-4.1.1 blocked_by_external_system), 当前无可检索文件"
+                      ? "全文检索服务未接入，当前无可检索文件"
                       : "未找到匹配的检索结果"}
                   </TableCell>
                 </TableRow>
@@ -319,7 +319,7 @@ export default function Page() {
                   <TableCell className="text-slate-500 text-sm">{formatBeijingTime(f.createdAt) || "—"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <AppTooltip content="发起回迁请求 (依赖 ES 检索定位)">
+                      <AppTooltip content="发起回迁请求；检索定位服务未接入时不可用">
                         <Button
                           variant="outline"
                           size="sm"
@@ -379,7 +379,7 @@ export default function Page() {
               <Select value={exportOptions.format} onValueChange={(v) => setExportOptions({ ...exportOptions, format: v })}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Excel">Excel (.xlsx) - R.13 未接入</SelectItem>
+                  <SelectItem value="Excel">Excel (.xlsx) - 暂不支持</SelectItem>
                   <SelectItem value="CSV">CSV (.csv)</SelectItem>
                   <SelectItem value="JSON">JSON (.json)</SelectItem>
                 </SelectContent>
@@ -422,7 +422,7 @@ export default function Page() {
                 disabled={exportOptions.delivery !== "push"}
               />
             </div>
-            <p className="text-xs text-slate-500">R.14F: 真实文件将含 SHA-256 完整性摘要 (非数字签名, 需 ADFS 证书)</p>
+            <p className="text-xs text-slate-500">导出文件会附带完整性摘要；证书签名将在企业认证接入后启用。</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowExport(false)}>取消</Button>

@@ -103,15 +103,22 @@ async function main() {
   const tasksSource = await readFile("app/tasks/page.tsx", "utf8")
 
   check(
-    "command palette task shortcuts use page-consumed phase query",
+    "command palette task shortcuts use page-consumed task query",
     !paletteSource.includes("/tasks?status=") &&
       paletteSource.includes("/tasks?phase=failed") &&
-      paletteSource.includes("/tasks?phase=running")
+      !paletteSource.includes("/tasks?phase=running") &&
+      paletteSource.includes("/tasks?phaseGroup=running")
   )
   check(
     "tasks page consumes phase query",
     tasksSource.includes('searchParams.get("phase")') &&
       tasksSource.includes("setPhaseFilter(initialPhase)")
+  )
+  check(
+    "tasks page consumes running phase group",
+    tasksSource.includes('searchParams.get("phaseGroup")') &&
+      tasksSource.includes("RUNNING_PHASES") &&
+      tasksSource.includes('phaseGroupQuery === "running"')
   )
 
   console.log(`\nFrontend integration: ${passed} passed, ${failed} failed`)

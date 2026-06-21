@@ -147,8 +147,8 @@ async function auditPage(p: PageAudit) {
       "clean"
     )
     check(
-      `[${p.label}] 明确 unsupported / 历史 DRY_RUN 边界`,
-      panelSource.includes("unsupported") && panelSource.includes("历史 DRY_RUN"),
+      `[${p.label}] 明确 unsupported / 历史模拟边界`,
+      panelSource.includes("unsupported") && panelSource.includes("历史模拟"),
       "truth boundary"
     )
     const forbiddenHits = FORBIDDEN_WORDS.filter((pattern) => pattern.test(panelSource))

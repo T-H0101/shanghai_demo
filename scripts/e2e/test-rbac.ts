@@ -169,7 +169,7 @@ async function main() {
   check(
     "settings page exposes auth boundary card with local JWT + blocked_by_auth",
     settingsSource.includes("settings-auth-boundary") &&
-      settingsSource.includes("local JWT 已启用") &&
+      settingsSource.includes("本地登录已启用") &&
       settingsSource.includes("blocked_by_auth"),
     "settings-auth-boundary"
   )

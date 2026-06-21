@@ -139,9 +139,9 @@ async function main() {
     "API 模式存储浏览/数据恢复显示 blocked 而非 mock 内容",
       pageSource.includes('testid="racks-storage-browse-blocked"') &&
       pageSource.includes('testid="racks-storage-restore-blocked"') &&
-      pageSource.includes("不能用 mock 目录冒充真实文件树") &&
-      pageSource.includes("总控必须保留完整控制能力") &&
-      pageSource.includes("Site Agent 恢复协议")
+      pageSource.includes("不能用演示目录冒充真实文件树") &&
+      pageSource.includes("总控保留完整控制能力") &&
+      pageSource.includes("站点代理恢复协议")
   )
   check(
     "EmptyState blocked 状态用 severity 参数驱动 (R.UI-CmdCenter)",
