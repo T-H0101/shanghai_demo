@@ -104,11 +104,14 @@ async function main() {
   )
 
   // ── 9. Form input order & autocomplete ────────────────────
-  const inputOrder = html.match(/id="account"[\s\S]{0,300}?id="password"/)
+  // Search for the raw DOM positions; React injects many props between
+  // field tags so allow a generous gap.
+  const accountIdx = html.indexOf('id="account"')
+  const passwordIdx = html.indexOf('id="password"')
   check(
     "Account field precedes password",
-    !!inputOrder,
-    "DOM order: account → password",
+    accountIdx > 0 && passwordIdx > accountIdx,
+    `account@${accountIdx} password@${passwordIdx}`,
   )
   check(
     "Account autoComplete=username",
