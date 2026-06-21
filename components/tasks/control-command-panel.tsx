@@ -26,14 +26,14 @@ interface ControlCommand {
 }
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
-  pending: { label: "待 Agent 拉取", className: "bg-slate-100 text-slate-700" },
-  pulled: { label: "已拉取", className: "bg-cyan-100 text-cyan-700" },
-  running: { label: "执行中", className: "bg-amber-100 text-amber-700" },
-  success: { label: "执行成功", className: "bg-emerald-100 text-emerald-700" },
-  failed: { label: "执行失败", className: "bg-red-100 text-red-700" },
-  cancelled: { label: "已取消", className: "bg-slate-200 text-slate-600" },
-  unsupported: { label: "站点不支持", className: "bg-orange-100 text-orange-700" },
-  dry_run_success: { label: "历史模拟", className: "bg-amber-50 text-amber-700" },
+  pending: { label: "待 Agent 拉取", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  pulled: { label: "已拉取", className: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
+  running: { label: "执行中", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  success: { label: "执行成功", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  failed: { label: "执行失败", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  cancelled: { label: "已取消", className: "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300" },
+  unsupported: { label: "站点不支持", className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" },
+  dry_run_success: { label: "历史模拟", className: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800" },
 }
 
 const COMMAND_LABELS: Record<string, string> = {
@@ -103,12 +103,12 @@ export function ControlCommandPanel() {
 
   return (
     <div className="space-y-4" data-testid="control-command-panel">
-      <Card className="gap-0 border-blue-200 bg-blue-50/60">
+      <Card className="gap-0 border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/20">
         <CardContent className="flex items-start gap-3 p-4 text-sm">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />
           <div>
-            <p className="font-medium text-blue-950">控制结果来自总控命令队列</p>
-            <p className="mt-1 text-blue-800">
+            <p className="font-medium text-blue-950 dark:text-blue-100">控制结果来自总控命令队列</p>
+            <p className="mt-1 text-blue-800 dark:text-blue-200">
               暂停/继续已有站点代理恢复库闭环；其他动作会按站点支持情况展示真实结果。
             </p>
           </div>
@@ -134,7 +134,7 @@ export function ControlCommandPanel() {
         <CardContent className="p-0">
           <div className="flex flex-col gap-3 border-b p-4 sm:flex-row">
             <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
               <Input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
@@ -159,15 +159,15 @@ export function ControlCommandPanel() {
           </div>
 
           {loading && commands.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-sm text-slate-500">
+            <div className="flex items-center justify-center py-16 text-sm text-slate-500 dark:text-slate-400">
               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
               读取控制命令
             </div>
           ) : error ? (
-            <div className="p-6 text-sm text-red-600">加载失败：{error}</div>
+            <div className="p-6 text-sm text-red-600 dark:text-red-400">加载失败：{error}</div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-              <Terminal className="mb-2 h-8 w-8 text-slate-300" />
+            <div className="flex flex-col items-center justify-center py-16 text-slate-500 dark:text-slate-400">
+              <Terminal className="mb-2 h-8 w-8 text-slate-300 dark:text-slate-600" />
               <p className="text-sm">当前筛选条件下没有控制命令</p>
             </div>
           ) : (
@@ -189,7 +189,7 @@ export function ControlCommandPanel() {
                   {filtered.map((command) => {
                     const statusMeta = STATUS_META[command.status] ?? {
                       label: command.status,
-                      className: "bg-slate-100 text-slate-700",
+                      className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
                     }
                     return (
                       <TableRow key={command.id}>
@@ -206,13 +206,13 @@ export function ControlCommandPanel() {
                             {statusMeta.label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs text-slate-500">
+                        <TableCell className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
                           {formatBeijingTime(command.requestedAt) || "—"}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs text-slate-500">
+                        <TableCell className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
                           {formatBeijingTime(command.completedAt) || "—"}
                         </TableCell>
-                        <TableCell className="max-w-56 truncate text-xs text-red-600" title={command.errorMessage ?? ""}>
+                        <TableCell className="max-w-56 truncate text-xs text-red-600 dark:text-red-400" title={command.errorMessage ?? ""}>
                           {command.errorMessage ?? "—"}
                         </TableCell>
                       </TableRow>
@@ -239,11 +239,11 @@ function Summary({
   tone?: "blue" | "slate" | "amber" | "emerald" | "red"
 }) {
   const tones = {
-    blue: "bg-blue-50 text-blue-700",
-    slate: "bg-slate-100 text-slate-700",
-    amber: "bg-amber-50 text-amber-700",
-    emerald: "bg-emerald-50 text-emerald-700",
-    red: "bg-red-50 text-red-700",
+    blue: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    slate: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+    red: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300",
   }
   return (
     <Card className="gap-0">
@@ -252,8 +252,8 @@ function Summary({
           <Icon className="h-4 w-4" />
         </div>
         <div>
-          <p className="text-xs text-slate-500">{label}</p>
-          <p className="text-2xl font-semibold tabular-nums text-slate-950">{value}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+          <p className="text-2xl font-semibold tabular-nums text-slate-950 dark:text-slate-50">{value}</p>
         </div>
       </CardContent>
     </Card>

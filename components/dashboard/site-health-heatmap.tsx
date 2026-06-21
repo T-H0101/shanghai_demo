@@ -11,10 +11,10 @@ import { cn } from "@/lib/utils"
 import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
 
 const statusBadge: Record<string, { label: string; color: string }> = {
-  online: { label: "在线", color: "bg-emerald-100 text-emerald-700" },
-  offline: { label: "离线", color: "bg-slate-100 text-slate-600" },
-  error: { label: "异常", color: "bg-red-100 text-red-700" },
-  maintenance: { label: "维护中", color: "bg-amber-100 text-amber-700" },
+  online: { label: "在线", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  offline: { label: "离线", color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
+  error: { label: "异常", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  maintenance: { label: "维护中", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
 }
 
 interface SiteHealthHeatmapProps {
@@ -47,13 +47,13 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
   })
 
   return (
-    <Card className={`gap-0 h-full ${className || ''}`}>
+    <Card className={`gap-0 h-full bg-white dark:bg-slate-800 ${className || ''}`}>
       <CardHeader className="pb-3 shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold text-slate-900">
+          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             设备健康状态
           </CardTitle>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-400 dark:text-slate-500">
             {racks.filter(r => r.deviceStatus === "online").length}/{racks.length} 在线
           </span>
         </div>
@@ -63,22 +63,22 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
           {sorted.map((rack, idx) => {
             const status = statusBadge[rack.deviceStatus ?? "online"] ?? statusBadge.online
             return (
-              <div key={`heatmap-${rack.siteCode ?? "all"}-${rack.rackId ?? "unknown"}-${idx}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-50">
+              <div key={`heatmap-${rack.siteCode ?? "all"}-${rack.rackId ?? "unknown"}-${idx}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-700 truncate">{rack.rackId}</span>
-                    <span className="text-[10px] text-slate-400">{rack.deviceType}</span>
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{rack.rackId}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.deviceType}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-slate-400">{rack.ip}</span>
-                    <span className="text-[10px] text-slate-300">·</span>
-                    <span className="text-[10px] text-slate-400">{rack.currentTaskCount ?? 0} 任务</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.ip}</span>
+                    <span className="text-[10px] text-slate-300 dark:text-slate-600">·</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.currentTaskCount ?? 0} 任务</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <Progress value={rack.usagePercent} className="h-1 w-12" />
-                    <span className="text-[10px] text-slate-400">{rack.usagePercent}%</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.usagePercent}%</span>
                   </div>
                   <Badge className={cn("text-[10px]", status.color)}>{status.label}</Badge>
                 </div>
@@ -86,11 +86,11 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
             )
           })}
           {racks.length === 0 && (
-            <div className="text-center py-8 text-slate-400 text-xs">暂无设备数据</div>
+            <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs">暂无设备数据</div>
           )}
         </div>
 
-        <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0">
+        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0">
           <span>最后同步: {new Date().toLocaleTimeString("zh-CN", { hour12: false })}</span>
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> 正常

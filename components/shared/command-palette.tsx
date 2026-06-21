@@ -82,7 +82,7 @@ const CommandItemRow = memo(function CommandItemRow({
         "transition-colors duration-100 will-change-[background-color]",
         isActive
           ? "bg-blue-600 text-white"
-          : "text-slate-700 hover:bg-slate-100/80",
+          : "text-slate-700 hover:bg-slate-100/80 dark:text-slate-200 dark:hover:bg-slate-800/80",
       )}
       data-testid={`command-item-${item.id}`}
       data-active={isActive ? "true" : "false"}
@@ -268,7 +268,7 @@ export function CommandPalette() {
                     data-has-active={groupHasActive ? "true" : "false"}
                     className={cn(
                       "relative px-2 py-1 text-[10px] uppercase tracking-wider font-medium transition-colors duration-100",
-                      groupHasActive ? "text-blue-600" : "text-slate-400",
+                      groupHasActive ? "text-blue-600 dark:text-blue-300" : "text-slate-400",
                     )}
                   >
                     {/* 视觉锚点: 当组内有 active 项时, 显示蓝色短竖条 */}
@@ -303,12 +303,12 @@ export function CommandPalette() {
         </div>
 
         <div className="border-t px-4 py-2 text-[11px] text-slate-500 flex items-center justify-between">
-          <span>共 {filtered.length} 项 · 按 <kbd className="px-1 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">ESC</kbd> 关闭</span>
+          <span>共 {filtered.length} 项 · 按 <kbd className="px-1 py-0.5 rounded border bg-slate-100 dark:bg-slate-800 font-mono text-[10px]">ESC</kbd> 关闭</span>
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">↑</kbd>
-            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">↓</kbd>
+            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 dark:bg-slate-800 font-mono text-[10px]">↑</kbd>
+            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 dark:bg-slate-800 font-mono text-[10px]">↓</kbd>
             <span>导航</span>
-            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 font-mono text-[10px]">↵</kbd>
+            <kbd className="px-1.5 py-0.5 rounded border bg-slate-100 dark:bg-slate-800 font-mono text-[10px]">↵</kbd>
             <span>选择</span>
           </span>
         </div>

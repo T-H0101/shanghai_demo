@@ -12,10 +12,10 @@ interface PermissionTreeProps {
 
 export function PermissionTree({ nodes, onToggle, depth = 0 }: PermissionTreeProps) {
   return (
-    <ul className={cn("space-y-1", depth > 0 && "ml-4 border-l border-slate-200 pl-3")}>
+    <ul className={cn("space-y-1", depth > 0 && "ml-4 border-l border-slate-200 dark:border-slate-700 pl-3")}>
       {nodes.map((node) => (
         <li key={node.id}>
-          <label className="flex items-center gap-2 py-1 text-sm text-slate-700 cursor-pointer hover:text-slate-900">
+          <label className="flex items-center gap-2 py-1 text-sm text-slate-700 dark:text-slate-300 cursor-pointer hover:text-slate-900 dark:hover:text-slate-100">
             <Checkbox checked={node.checked} onCheckedChange={() => onToggle?.(node.id)} />
             <span>{node.label}</span>
           </label>
