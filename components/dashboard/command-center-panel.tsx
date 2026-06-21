@@ -16,6 +16,7 @@ import {
   Network,
   RadioTower,
   RefreshCw,
+  Search,
   ShieldCheck,
   TerminalSquare,
   type LucideIcon,
@@ -376,6 +377,44 @@ export function CommandCenterPanel() {
           </div>
         </div>
 
+        {/* R.UI-CmdCenter: 4 大通道 + strict/candidate 状态 */}
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="command-center-lanes">
+          <LaneCard
+            icon={RefreshCw}
+            title="同步"
+            href="/sync"
+            evidence="pg_dump 白名单 / Site Agent"
+            testid="command-center-lane-sync"
+          />
+          <LaneCard
+            icon={Command}
+            title="控制"
+            href="/tasks?view=commands"
+            evidence="control_command / Agent poll"
+            testid="command-center-lane-control"
+          />
+          <LaneCard
+            icon={Search}
+            title="检索"
+            href="/search"
+            evidence="ES boundary / center index"
+            testid="command-center-lane-search"
+          />
+          <LaneCard
+            icon={ShieldCheck}
+            title="安全"
+            href="/logs"
+            evidence="JWT / RBAC / audit hash"
+            testid="command-center-lane-security"
+          />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="command-center-status-badges">
+          <Badge className="border-blue-400/40 bg-blue-400/15 text-blue-100">strict 29/45</Badge>
+          <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-100">candidate 45/45</Badge>
+          <span className="text-[10px] text-slate-400">strict 基于 requirements.md 验收 · candidate 含阻塞边界</span>
+        </div>
+
         {state.loading && (
           <div className="absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-white/10">
             <div className="h-full w-1/3 animate-pulse bg-blue-400" />
@@ -461,4 +500,37 @@ function Evidence({ icon: Icon, text, danger = false }: { icon: LucideIcon; text
 
 function EmptyLine({ text }: { text: string }) {
   return <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-center text-xs text-slate-500">{text}</div>
+}
+
+function LaneCard({
+  icon: Icon,
+  title,
+  href,
+  evidence,
+  testid,
+}: {
+  icon: LucideIcon
+  title: string
+  href: string
+  evidence: string
+  testid: string
+}) {
+  return (
+    <Link
+      href={href}
+      data-testid={testid}
+      className="group flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.055] p-4 transition hover:-translate-y-0.5 hover:border-blue-300/40 hover:bg-blue-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+    >
+      <div className="rounded-xl bg-blue-400/15 p-2 text-blue-100 transition group-hover:bg-blue-400/25">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-white">{title}</span>
+          <ArrowRight className="h-3.5 w-3.5 text-slate-500 transition group-hover:text-blue-200" />
+        </div>
+        <p className="mt-1 truncate text-[11px] text-slate-400">{evidence}</p>
+      </div>
+    </Link>
+  )
 }

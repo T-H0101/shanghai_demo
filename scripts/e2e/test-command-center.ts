@@ -75,6 +75,29 @@ async function main() {
     "truth wording present"
   )
 
+  // R.UI-CmdCenter: 4 大通道 + strict/candidate 状态
+  check(
+    "Command Center shows sync/control/search/security lanes",
+    componentSource.includes("command-center-lane-sync") &&
+      componentSource.includes("command-center-lane-control") &&
+      componentSource.includes("command-center-lane-search") &&
+      componentSource.includes("command-center-lane-security"),
+    "4 lanes present",
+  )
+  check(
+    "Command Center exposes blocked/candidate wording (strict + candidate)",
+    componentSource.includes("strict 29/45") && componentSource.includes("candidate 45/45"),
+    "strict/candidate badges present",
+  )
+  check(
+    "Command Center 通道文案含同步/控制/检索/安全",
+    componentSource.includes("pg_dump") &&
+      componentSource.includes("control_command") &&
+      componentSource.includes("ES boundary") &&
+      componentSource.includes("JWT"),
+    "lane evidence text present",
+  )
+
   console.log(`\nResult: ${pass} passed, ${fail} failed`)
   if (fail > 0) process.exit(1)
 }
