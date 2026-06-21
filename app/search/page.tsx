@@ -188,31 +188,31 @@ export default function Page() {
         }
       />
       {blk && (
-        <Card className="gap-0 border-amber-300 bg-amber-50" data-testid="search-blocker-banner">
+        <Card className="gap-0 border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800" data-testid="search-blocker-banner">
           <CardContent className="p-4 flex gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-300 shrink-0" />
             <div className="text-sm flex-1">
-              <p className="font-medium text-amber-900">
+              <p className="font-medium text-amber-900 dark:text-amber-200">
                 全文检索服务暂未接入
               </p>
-              <p className="text-amber-800 mt-1">
-                <Badge variant="outline" className="border-amber-400 text-amber-800">待接入</Badge>
+              <p className="text-amber-800 dark:text-amber-300 mt-1">
+                <Badge variant="outline" className="border-amber-400 dark:border-amber-700 text-amber-800 dark:text-amber-300">待接入</Badge>
                 {" "}
                 {blk.reason}
               </p>
-              <p className="text-amber-700 mt-1 text-xs">
+              <p className="text-amber-700 dark:text-amber-400 mt-1 text-xs">
                 当前仅展示已验证的数据范围。下一步: {blk.nextStep}
               </p>
             </div>
           </CardContent>
         </Card>
       )}
-      <Card className="gap-0 border-blue-100 bg-blue-50/30">
+      <Card className="gap-0 border-blue-100 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/20">
         <CardContent className="p-4 flex gap-3">
-          <Shield className="h-5 w-5 text-blue-600 shrink-0" />
+          <Shield className="h-5 w-5 text-blue-600 dark:text-blue-300 shrink-0" />
           <div className="text-sm">
             <p className="font-medium">权限可见范围</p>
-            <p className="text-slate-600 mt-1">
+            <p className="text-slate-600 dark:text-slate-300 mt-1">
               {blk
                 ? "全文检索服务未接入，当前不展示跨站点可见范围。"
                 : "可检索：上海、北京、南京、武汉（4 站点）。广州/成都不可见。"}
@@ -264,7 +264,7 @@ export default function Page() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   onClick={handleReset}
                   data-testid="search-reset"
                   aria-label="重置筛选"
@@ -307,8 +307,8 @@ export default function Page() {
                   </TableCell>
                 </TableRow>
               ) : paged.map((f) => (
-                <TableRow key={f.id} className="hover:bg-blue-50/50 transition-colors cursor-pointer">
-                  <TableCell><p className="font-medium text-sm text-blue-700">{f.fileName}</p></TableCell>
+                <TableRow key={f.id} className="hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer">
+                  <TableCell><p className="font-medium text-sm text-blue-700 dark:text-blue-300">{f.fileName}</p></TableCell>
                   <TableCell className="text-xs font-mono truncate max-w-[160px]">{f.path}</TableCell>
                   <TableCell className="text-sm">{f.size}</TableCell>
                   <TableCell><p className="text-sm">{f.siteName}</p><p className="text-xs text-slate-400">{f.siteCode}</p></TableCell>
@@ -323,7 +323,7 @@ export default function Page() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-xs cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                          className="h-7 text-xs cursor-pointer hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-900/20 dark:hover:border-blue-700 transition-colors"
                           onClick={() => handleRestore(f)}
                           data-testid="search-row-restore"
                         >
@@ -343,7 +343,7 @@ export default function Page() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer hover:bg-slate-100 transition-colors disabled:cursor-not-allowed"
+                  className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed"
                   disabled={page<=1}
                   onClick={() => setPage(p=>p-1)}
                   aria-label="上一页"
@@ -355,7 +355,7 @@ export default function Page() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer hover:bg-slate-100 transition-colors disabled:cursor-not-allowed"
+                  className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:cursor-not-allowed"
                   disabled={page>=totalPages}
                   onClick={() => setPage(p=>p+1)}
                   aria-label="下一页"

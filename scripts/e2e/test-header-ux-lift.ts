@@ -500,6 +500,11 @@ async function main() {
   check("Header uses glass sticky surface", headerR77.includes("app-header-glass"))
   check("Sidebar uses enterprise gradient surface", sidebarR77.includes("bg-[radial-gradient"))
   check("PageHeader uses productized glass heading surface", pageHeaderR77.includes("page-header-glass"))
+  check("Ambient shell background is theme-token driven", globalsSource.includes("--app-ambient-bg") && globalsSource.includes("background: var(--app-ambient-bg)"))
+  check("Dark theme remaps ambient shell background", globalsSource.includes(".dark") && globalsSource.includes("--app-ambient-bg:") && globalsSource.includes("#020617"))
+  check("Header glass is theme-token driven", globalsSource.includes("--app-header-glass-bg") && globalsSource.includes("background: var(--app-header-glass-bg)"))
+  check("PageHeader glass is theme-token driven", globalsSource.includes("--page-header-glass-bg") && globalsSource.includes("background: var(--page-header-glass-bg)"))
+  check("PageHeader title has dark-mode contrast", pageHeaderR77.includes("dark:text-slate-50"))
 
   // 5. 实际渲染验证 — dev server 必须返 200
   const settingsRes = await fetch(`${BASE}/settings`)

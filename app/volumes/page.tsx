@@ -43,17 +43,17 @@ import { cn } from "@/lib/utils"
 import { formatBeijingTime } from "@/components/shared/time-format"
 
 const typeBadge: Record<string, { label: string; color: string; icon: typeof Disc }> = {
-  optical: { label: "光盘卷", color: "bg-violet-100 text-violet-700", icon: Disc },
-  magnetic: { label: "磁卷", color: "bg-blue-100 text-blue-700", icon: HardDrive },
-  composite: { label: "复合卷", color: "bg-amber-100 text-amber-700", icon: Layers },
+  optical: { label: "光盘卷", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300", icon: Disc },
+  magnetic: { label: "磁卷", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", icon: HardDrive },
+  composite: { label: "复合卷", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300", icon: Layers },
 }
 
 const statusBadge: Record<string, { label: string; color: string }> = {
-  online: { label: "在线", color: "bg-emerald-100 text-emerald-700" },
-  offline: { label: "离线", color: "bg-slate-100 text-slate-600" },
-  archiving: { label: "归档中", color: "bg-cyan-100 text-cyan-700" },
-  error: { label: "异常", color: "bg-red-100 text-red-700" },
-  warning: { label: "告警", color: "bg-amber-100 text-amber-700" },
+  online: { label: "在线", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  offline: { label: "离线", color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
+  archiving: { label: "归档中", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
+  error: { label: "异常", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
+  warning: { label: "告警", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
 }
 
 function parseBytes(s: string | undefined): number | null {
@@ -308,7 +308,7 @@ function VolumesContent() {
                       ? Math.round((usedBytes / totalBytes) * 100)
                       : null
                     return (
-                      <TableRow key={`volume-${v.id ?? "unknown"}-${idx}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelected(v)}>
+                      <TableRow key={`volume-${v.id ?? "unknown"}-${idx}`} className="cursor-pointer hover:bg-muted/50 dark:hover:bg-slate-800/50" onClick={() => setSelected(v)}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <Server className="h-4 w-4 text-muted-foreground" />
@@ -421,13 +421,13 @@ function VolumesContent() {
                               </div>
                               <div>
                                 <div className="text-muted-foreground text-xs">在线</div>
-                                <div className="font-mono font-medium text-emerald-600">
+                                <div className="font-mono font-medium text-emerald-600 dark:text-emerald-300">
                                   {selected.aggregate.online_slot_count ?? "—"}
                                 </div>
                               </div>
                               <div>
                                 <div className="text-muted-foreground text-xs">离线</div>
-                                <div className="font-mono font-medium text-slate-500">
+                                <div className="font-mono font-medium text-slate-500 dark:text-slate-400">
                                   {selected.aggregate.offline_slot_count ?? "—"}
                                 </div>
                               </div>

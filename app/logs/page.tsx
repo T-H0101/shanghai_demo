@@ -86,27 +86,27 @@ interface ApiEnvelope {
 }
 
 function statusBadgeColor(status: string | null): string {
-  if (!status) return "bg-slate-100 text-slate-600"
+  if (!status) return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
   const s = status.toLowerCase()
   if (s === "success" || s === "matched" || s === "completed" || s === "synced" || s === "pulled") {
-    return "bg-emerald-100 text-emerald-700"
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
   }
   if (s === "failed" || s === "mismatched" || s === "failure") {
-    return "bg-red-100 text-red-700"
+    return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
   }
   if (s === "pending" || s === "running" || s === "syncing" || s === "warning") {
-    return "bg-amber-100 text-amber-700"
+    return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
   }
   if (s === "locked") {
-    return "bg-orange-100 text-orange-700"
+    return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
   }
   if (s === "logout") {
-    return "bg-slate-200 text-slate-600"
+    return "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
   }
   if (s === "dry_run_success" || s === "unsupported") {
-    return "bg-blue-100 text-blue-700"
+    return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
   }
-  return "bg-slate-100 text-slate-700"
+  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
 }
 
 function logTypeLabel(t: LogType): string {
@@ -355,15 +355,15 @@ export default function Page() {
   // dataSource Badge
   const dataSourceBadge = (() => {
     if (dataSource === "database") {
-      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><Database className="h-3 w-3 mr-1" />正常</Badge>
+      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />正常</Badge>
     }
     if (dataSource === "empty") {
-      return <Badge className="bg-slate-100 text-slate-600 border-slate-200">暂无数据</Badge>
+      return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
     }
     if (dataSource === "error") {
-      return <Badge className="bg-red-100 text-red-700 border-red-200">读取失败</Badge>
+      return <Badge className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">读取失败</Badge>
     }
-    return <Badge className="bg-slate-100 text-slate-500">loading…</Badge>
+    return <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">loading…</Badge>
   })()
 
   return (
@@ -427,9 +427,9 @@ export default function Page() {
       </div>
 
       {/* Sprint R.27: 登录审计已接入, 仅数字签名仍 blocked */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-        <AlertTriangle className="h-4 w-4 text-amber-700 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-800">
+      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
+        <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5" />
+        <div className="text-xs text-amber-800 dark:text-amber-300">
           <p className="font-medium">数字签名暂未接入</p>
           <p className="mt-1">
             数字签名需证书/私钥托管 (R.1 §7 禁止伪造签名)。
@@ -557,7 +557,7 @@ export default function Page() {
                     {items.map((row) => (
                       <TableRow
                         key={`${row.log_type}-${row.log_id}`}
-                        className={`cursor-pointer hover:bg-slate-50 ${selected?.log_id === row.log_id ? "bg-blue-50" : ""}`}
+                        className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.log_id === row.log_id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                         onClick={() => setSelected(row)}
                       >
                         <TableCell>
@@ -592,7 +592,7 @@ export default function Page() {
                   {selected.ref_table_name && <DetailRow label="表名" value={selected.ref_table_name} />}
                   <div>
                     <p className="text-xs font-medium text-slate-700 mb-1">摘要</p>
-                    <p className="text-xs bg-slate-50 p-2 rounded border border-slate-100">{selected.summary}</p>
+                    <p className="text-xs bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-700">{selected.summary}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-700 mb-1">详细 (JSON)</p>
