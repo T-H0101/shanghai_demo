@@ -696,7 +696,7 @@ function TasksPageContent() {
               {selected && <Badge className={cn("text-xs", TASK_PHASE_COLORS[selected.phase])}>{TASK_PHASE_LABELS[selected.phase]}</Badge>}
             </div>
           </DrawerHeader>
-          <ScrollArea className="flex-1 h-[calc(100vh-100px)]">
+          <ScrollArea className="flex-1 min-h-0">
             {selected && (
               <div className="p-5 space-y-5">
                 {/* 基本信息 */}
