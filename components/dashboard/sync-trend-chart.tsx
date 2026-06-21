@@ -11,7 +11,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
 import { isApiMode } from "@/lib/api"
+import { getChartPalette, type ChartPalette } from "@/lib/chart-theme"
 
 const chartData = [
   { time: "08:00", backup: 12, restore: 8, verify: 5 },
@@ -28,13 +31,24 @@ interface SyncTrendChartProps {
 }
 
 export function SyncTrendChart({ className }: SyncTrendChartProps) {
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // 防止 hydration mismatch: SSR 与首次客户端渲染使用 light,useEffect 后再切真实主题
+  const isDark = mounted && resolvedTheme === "dark"
+  const palette: ChartPalette = getChartPalette(isDark ? "dark" : "light")
+
   if (isApiMode) {
     return (
       <Card className={`gap-0 ${className || ''}`}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-slate-900">任务执行趋势</CardTitle>
+          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-50">任务执行趋势</CardTitle>
         </CardHeader>
-        <CardContent className="h-[220px] flex items-center justify-center text-sm text-slate-400">
+        <CardContent className="h-[220px] flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">
           暂无真实趋势数据
         </CardContent>
       </Card>
@@ -46,22 +60,22 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-sm font-semibold text-slate-900">
+            <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-50">
               任务执行趋势
             </CardTitle>
-            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs">
+            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs dark:bg-slate-800 dark:text-slate-300">
               最近7日
             </Badge>
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500">
+          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400" style={{ color: palette.legendText }}>
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-slate-600"></span>封包
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.bar1 }}></span>封包
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-slate-400"></span>扫描
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.bar2 }}></span>扫描
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-slate-300"></span>校验
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette.bar3 }}></span>校验
             </span>
           </div>
         </div>
@@ -75,31 +89,31 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
               barCategoryGap="25%"
               barGap={2}
             >
-              <CartesianGrid strokeDasharray="1 1" vertical={false} stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="1 1" vertical={false} stroke={palette.grid} />
               <XAxis
                 dataKey="time"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: palette.axis }}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: palette.axis }}
                 width={20}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#1e293b",
-                  border: "none",
+                  backgroundColor: palette.tooltipBg,
+                  border: `1px solid ${palette.tooltipBorder}`,
                   borderRadius: "4px",
-                  color: "#fff",
+                  color: palette.tooltipText,
                   fontSize: "11px",
                 }}
               />
-              <Bar dataKey="backup" fill="#475569" radius={[1, 1, 0, 0]} />
-              <Bar dataKey="restore" fill="#94a3b8" radius={[1, 1, 0, 0]} />
-              <Bar dataKey="verify" fill="#cbd5e1" radius={[1, 1, 0, 0]} />
+              <Bar dataKey="backup" fill={palette.bar1} radius={[1, 1, 0, 0]} />
+              <Bar dataKey="restore" fill={palette.bar2} radius={[1, 1, 0, 0]} />
+              <Bar dataKey="verify" fill={palette.bar3} radius={[1, 1, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
