@@ -1,19 +1,14 @@
 "use client"
 
 /**
- * Sprint UI-2026-06 — 全局命令面板 (⌘K / Ctrl+K)
+ * Sprint UI-2026-06 + r2 — 全局命令面板 (⌘K / Ctrl+K)
  *
- * 功能:
- * - 模糊搜索页面 (跨 sidebar menuItems)
- * - 跳转到任意页面
- * - 切换站点
- * - 触发快速任务操作 (跳转 /tasks?phase=...)
- * - 不修改业务逻辑, 只 router.push + 触发现有 API
- *
- * 设计依据: 设计系统 Master → Components → Modals (cmdk 风格)
+ * r2 修复:
+ *  - Bug A: 箭头键顺序错乱 → 字符串 id 替代数字 index (具体见 activeItemId 状态)
+ *  - Bug B: hover 卡顿 → CommandItemRow React.memo + useCallback + will-change
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   LayoutDashboard,
@@ -51,13 +46,78 @@ interface CommandItem {
   perform: () => void
 }
 
+interface CommandItemRowProps {
+  item: CommandItem
+  isActive: boolean
+  isCurrentSite: boolean
+  onSelect: (item: CommandItem) => void
+  onHover: (id: string) => void
+}
+
+const CommandItemRow = memo(function CommandItemRow({
+  item,
+  isActive,
+  isCurrentSite,
+  onSelect,
+  onHover,
+}: CommandItemRowProps) {
+  const Icon = item.icon
+  const ref = useRef<HTMLButtonElement>(null)
+
+  // 当本项被激活(↑↓/hover)时, 如果不在视口内则滚动到可见。
+  // 'nearest' 表示只在不可见时才滚, 不会在已可见时强制重定位。
+  // 不带 behavior 让滚动即时, 避免长列表里 smooth 累积导致"飘"。
+  useEffect(() => {
+    if (isActive) ref.current?.scrollIntoView({ block: "nearest" })
+  }, [isActive])
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={() => onSelect(item)}
+      onMouseEnter={() => onHover(item.id)}
+      className={cn(
+        "w-full flex items-center gap-3 px-2 py-2 rounded-md text-sm text-left cursor-pointer",
+        "transition-colors duration-100 will-change-[background-color]",
+        isActive
+          ? "bg-blue-600 text-white"
+          : "text-slate-700 hover:bg-slate-100/80",
+      )}
+      data-testid={`command-item-${item.id}`}
+      data-active={isActive ? "true" : "false"}
+    >
+      <Icon
+        className={cn(
+          "h-4 w-4 shrink-0",
+          isActive ? "text-white" : "text-slate-500",
+        )}
+      />
+      <span className="flex-1">{item.label}</span>
+      {item.hint && (
+        <span
+          className={cn(
+            "text-xs",
+            isActive ? "text-blue-100" : "text-slate-400",
+          )}
+        >
+          {item.hint}
+        </span>
+      )}
+      {isCurrentSite && item.group === "site" && (
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+      )}
+    </button>
+  )
+})
+
 export function CommandPalette() {
   const router = useRouter()
   const { siteCode, isAllSites, setSiteCode } = useSite()
   const { sites: siteOptions } = useSiteSites()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [activeItemId, setActiveItemId] = useState<string | null>(null)
 
   // 监听全局快捷键 ⌘K / Ctrl+K
   useEffect(() => {
@@ -76,7 +136,7 @@ export function CommandPalette() {
   useEffect(() => {
     if (!open) {
       setQuery("")
-      setActiveIndex(0)
+      setActiveItemId(null)
     }
   }, [open])
 
@@ -125,27 +185,37 @@ export function CommandPalette() {
     })
   }, [items, query])
 
-  // 重置 activeIndex 当 query 变化
+  // 重置 active — query/open 变化时默认第一项
   useEffect(() => {
-    setActiveIndex(0)
-  }, [query])
+    setActiveItemId(filtered[0]?.id ?? null)
+  }, [query, open])
 
-  const handleSelect = (item: CommandItem) => {
+  const handleSelect = useCallback((item: CommandItem) => {
     setOpen(false)
     item.perform()
-  }
+  }, [])
+
+  const handleHover = useCallback((id: string) => {
+    setActiveItemId(id)
+  }, [])
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (filtered.length === 0) return
     if (e.key === "ArrowDown") {
       e.preventDefault()
-      setActiveIndex((i) => (i + 1) % filtered.length)
+      setActiveItemId((cur) => {
+        const idx = cur ? filtered.findIndex((x) => x.id === cur) : -1
+        return filtered[(idx + 1 + filtered.length) % filtered.length]?.id ?? null
+      })
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
-      setActiveIndex((i) => (i - 1 + filtered.length) % filtered.length)
+      setActiveItemId((cur) => {
+        const idx = cur ? filtered.findIndex((x) => x.id === cur) : filtered.length
+        return filtered[(idx - 1 + filtered.length) % filtered.length]?.id ?? null
+      })
     } else if (e.key === "Enter") {
       e.preventDefault()
-      const item = filtered[activeIndex]
+      const item = filtered.find((x) => x.id === activeItemId)
       if (item) handleSelect(item)
     }
   }
@@ -156,9 +226,6 @@ export function CommandPalette() {
     grouped[it.group] = grouped[it.group] ?? []
     grouped[it.group].push(it)
   }
-
-  // 当前高亮项 (基于 id, 不基于 index, 避免分组后 index 错位)
-  const activeItemId = filtered[activeIndex]?.id
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -180,7 +247,6 @@ export function CommandPalette() {
             data-testid="command-palette-input"
             aria-label="命令面板搜索"
           />
-          {/* 提示信息: 移到底部 footer, 不与 input 视觉冲突 */}
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto py-2" data-testid="command-palette-list">
@@ -194,51 +260,40 @@ export function CommandPalette() {
               if (!list || list.length === 0) return null
               const groupLabel =
                 g === "page" ? "页面" : g === "action" ? "快捷操作" : "切换站点"
+              const groupHasActive = list.some((it) => it.id === activeItemId)
               return (
                 <div key={g} className="px-2 pb-1">
-                  <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                  <div
+                    data-testid={`command-group-${g}`}
+                    data-has-active={groupHasActive ? "true" : "false"}
+                    className={cn(
+                      "relative px-2 py-1 text-[10px] uppercase tracking-wider font-medium transition-colors duration-100",
+                      groupHasActive ? "text-blue-600" : "text-slate-400",
+                    )}
+                  >
+                    {/* 视觉锚点: 当组内有 active 项时, 显示蓝色短竖条 */}
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "absolute left-0 top-1/2 -translate-y-1/2 h-3 w-0.5 rounded-full transition-opacity duration-100",
+                        groupHasActive ? "bg-blue-600 opacity-100" : "opacity-0",
+                      )}
+                    />
                     {groupLabel}
                   </div>
                   {list.map((it) => {
-                    const isActive = it.id === activeItemId
                     const active = isAllSites
                       ? it.id === `site-${ALL_SITES}`
                       : it.id === `site-${siteCode ?? ALL_SITES}`
                     return (
-                      <button
+                      <CommandItemRow
                         key={it.id}
-                        type="button"
-                        onClick={() => handleSelect(it)}
-                        onMouseEnter={() => setActiveIndex(items.findIndex((x) => x.id === it.id))}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-2 py-2 rounded-md text-sm text-left transition-colors cursor-pointer",
-                          isActive
-                            ? "bg-blue-600 text-white"
-                            : "text-slate-700 hover:bg-slate-100"
-                        )}
-                        data-testid={`command-item-${it.id}`}
-                      >
-                        <it.icon
-                          className={cn(
-                            "h-4 w-4 shrink-0",
-                            isActive ? "text-white" : "text-slate-500"
-                          )}
-                        />
-                        <span className="flex-1">{it.label}</span>
-                        {it.hint && (
-                          <span
-                            className={cn(
-                              "text-xs",
-                              isActive ? "text-blue-100" : "text-slate-400"
-                            )}
-                          >
-                            {it.hint}
-                          </span>
-                        )}
-                        {active && it.group === "site" && (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                        )}
-                      </button>
+                        item={it}
+                        isActive={it.id === activeItemId}
+                        isCurrentSite={active}
+                        onSelect={handleSelect}
+                        onHover={handleHover}
+                      />
                     )
                   })}
                 </div>
