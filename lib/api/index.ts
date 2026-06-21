@@ -9,7 +9,10 @@
 import type {
   SiteProvider, TaskProvider, UserProvider, RackProvider,
   SearchProvider, AuditProvider, SettingsProvider,
+  SearchResult, FilterOptions, ExportJob,
 } from "./providers"
+import type { AuditLog, AuditStats } from "@/lib/types/audit"
+import type { SystemSettings } from "@/lib/types/settings"
 
 // Mock Providers
 import {
@@ -60,9 +63,67 @@ export const siteProvider: SiteProvider = isApiMode ? apiSiteProvider : mockSite
 export const taskProvider: TaskProvider = isApiMode ? apiTaskProvider : mockTaskProvider
 export const userProvider: UserProvider = isApiMode ? apiUserProvider : mockUserProvider
 export const rackProvider: RackProvider = isApiMode ? apiRackProvider : mockRackProvider
-export const searchProvider: SearchProvider = mockSearchProvider  // Sprint 2A 暂不实现 API
-export const auditProvider: AuditProvider = mockAuditProvider  // Sprint 2A 暂不实现 API
-export const settingsProvider: SettingsProvider = mockSettingsProvider  // Sprint 2A 暂不实现 API
+// ============================================================
+// R.71: search / audit / settings providers
+// 这些 provider 在 API 模式下没有真实后端端点, 返回 explicit blocked DTO
+// 避免静默 fallback 到 mock (UI 应能识别并展示 BLOCKED 状态)
+// 真实接入由后续 Sprint 完成
+//
+// 设计要点:
+// - search: 返回空结果, 不抛错 (search 页面已用 /api/search 501 直接调用, 此处仅供向后兼容)
+// - audit / settings: 显式抛错, 调用方必须捕获并降级到 UI 显式 BLOCKED 状态
+// ============================================================
+
+export const searchProvider: SearchProvider = {
+  search: async (): Promise<SearchResult> => ({
+    total: 0,
+    returned: 0,
+    files: [],
+    siteBreakdown: {},
+  }),
+  getFilterOptions: async (): Promise<FilterOptions> => ({
+    sites: [],
+    departments: [],
+    fileTypes: [],
+    dateRange: { start: "", end: "" },
+  }),
+  exportIndex: async (): Promise<ExportJob> => ({
+    id: "",
+    status: "failed",
+    progress: 0,
+  }),
+}
+
+export const auditProvider: AuditProvider = {
+  getLogs: async (): Promise<AuditLog[]> => {
+    throw new Error(
+      "audit provider blocked: AuditProvider 暂未实现真实 API, 等待站点审计日志通道接入"
+    )
+  },
+  getStats: async (): Promise<AuditStats> => {
+    throw new Error(
+      "audit provider blocked: AuditProvider 暂未实现真实 API, 等待站点审计日志通道接入"
+    )
+  },
+  exportLogs: async (): Promise<ExportJob> => ({
+    id: "",
+    status: "failed",
+    progress: 0,
+  }),
+}
+
+export const settingsProvider: SettingsProvider = {
+  get: async (): Promise<SystemSettings> => {
+    throw new Error(
+      "settings provider blocked: SettingsProvider 暂未实现真实 API, 等待系统设置通道接入"
+    )
+  },
+  update: async (): Promise<SystemSettings> => {
+    throw new Error(
+      "settings provider blocked: SettingsProvider 暂未实现真实 API, 等待系统设置通道接入"
+    )
+  },
+}
 
 // Dashboard 数据获取（聚合函数）
 export async function getDashboardSummary() {

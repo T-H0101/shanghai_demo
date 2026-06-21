@@ -15,6 +15,32 @@ function check(name: string, condition: boolean, detail = "") {
 }
 
 async function main() {
+  // ============================================================
+  // R.71: silent mock fallback removal
+  // ============================================================
+  const fallbackSrc = await readFile("lib/api/fallback.ts", "utf8")
+  check(
+    "fallback helper no longer silently warns 'using mock'",
+    !fallbackSrc.includes("using mock")
+  )
+  check(
+    "fallback helper exports ApiUnavailableError",
+    fallbackSrc.includes("class ApiUnavailableError")
+  )
+
+  const indexSrc = await readFile("lib/api/index.ts", "utf8")
+  check(
+    "search provider is not always mock",
+    !indexSrc.includes("searchProvider: SearchProvider = mockSearchProvider")
+  )
+  check(
+    "settings provider is not always mock",
+    !indexSrc.includes("settingsProvider: SettingsProvider = mockSettingsProvider")
+  )
+  check(
+    "audit provider is not always mock",
+    !indexSrc.includes("auditProvider: AuditProvider = mockAuditProvider")
+  )
   const redirect = await fetch(`${BASE}/control`, { redirect: "manual" })
   check(
     "legacy control route redirects",
