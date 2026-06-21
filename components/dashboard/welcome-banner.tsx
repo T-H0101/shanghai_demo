@@ -83,16 +83,16 @@ export function WelcomeBanner() {
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/30 p-5 lg:p-6"
+      className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/30 p-5 lg:p-6 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900/40 dark:to-indigo-950/30"
       data-testid="welcome-banner"
     >
       {/* 装饰背景 */}
       <div
-        className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-blue-100/40 blur-2xl"
+        className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-blue-100/40 blur-2xl dark:bg-blue-900/30"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -right-24 -bottom-16 h-44 w-44 rounded-full bg-indigo-100/40 blur-2xl"
+        className="pointer-events-none absolute -right-24 -bottom-16 h-44 w-44 rounded-full bg-indigo-100/40 blur-2xl dark:bg-indigo-900/30"
         aria-hidden
       />
 
@@ -104,19 +104,19 @@ export function WelcomeBanner() {
               <Disc className="h-5 w-5 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-slate-500">
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 UNIFIED CONTROL
               </span>
-              <span className="text-xs text-slate-600">集团层统一管控平台</span>
+              <span className="text-xs text-slate-600 dark:text-slate-300">集团层统一管控平台</span>
             </div>
           </div>
 
-          <h1 className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight dark:text-slate-50">
             光盘库总控台
           </h1>
 
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <Badge variant="outline" className="border-slate-300 bg-white text-slate-700">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <Badge variant="outline" className="border-slate-300 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
               {isReady
                 ? isAllSites
                   ? "全部站点"
@@ -128,8 +128,8 @@ export function WelcomeBanner() {
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
                 overall === "healthy"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-amber-50 text-amber-700"
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
               )}
               data-testid="welcome-banner-status"
             >
@@ -152,7 +152,7 @@ export function WelcomeBanner() {
 
         {/* 右侧: 快捷操作 */}
         <div className="flex flex-col gap-2 lg:items-end" data-testid="welcome-banner-actions">
-          <span className="text-[10px] uppercase tracking-wider text-slate-500">
+          <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
             常用操作
           </span>
           <div className="flex flex-wrap gap-2">
@@ -162,7 +162,7 @@ export function WelcomeBanner() {
                 asChild
                 variant="outline"
                 size="sm"
-                className="h-9 border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors cursor-pointer"
+                className="h-9 border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:hover:border-blue-400 dark:hover:text-blue-300 transition-colors cursor-pointer"
                 data-testid={`welcome-action-${a.label}`}
               >
                 <Link href={a.href} className="flex items-center gap-1.5">
@@ -223,24 +223,24 @@ function HealthChip({ icon: Icon, label, ok, hint, testid }: HealthChipProps) {
       className={cn(
         "flex items-center gap-2 rounded-lg border px-3 py-2",
         ok
-          ? "border-emerald-100 bg-white text-slate-700"
-          : "border-amber-100 bg-white text-slate-700"
+          ? "border-emerald-100 bg-white text-slate-700 dark:border-emerald-800 dark:bg-slate-800 dark:text-slate-200"
+          : "border-amber-100 bg-white text-slate-700 dark:border-amber-800 dark:bg-slate-800 dark:text-slate-200"
       )}
       data-testid={testid}
     >
       <div
         className={cn(
           "flex h-6 w-6 items-center justify-center rounded",
-          ok ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+          ok ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300"
         )}
       >
         <Icon className="h-3.5 w-3.5" />
       </div>
       <div className="flex flex-col">
-        <span className="text-[11px] text-slate-500">{label}</span>
-        <span className={cn("text-xs font-medium", ok ? "text-emerald-700" : "text-amber-700")}>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400">{label}</span>
+        <span className={cn("text-xs font-medium", ok ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300")}>
           {ok ? "正常" : "异常"}
-          {hint && <span className="ml-1 text-slate-400 font-normal">{hint}</span>}
+          {hint && <span className="ml-1 text-slate-400 font-normal dark:text-slate-500">{hint}</span>}
         </span>
       </div>
     </div>

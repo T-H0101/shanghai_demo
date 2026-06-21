@@ -122,27 +122,27 @@ function statusColor(status: string): string {
   switch (status) {
     case 'success':
     case 'online':
-      return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      return 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800'
     case 'failed':
     case 'offline':
     case 'degraded':
-      return 'bg-red-100 text-red-700 border-red-200'
+      return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
     case 'running':
-      return 'bg-blue-100 text-blue-700 border-blue-200'
+      return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
     case 'duplicated':
     case 'stale':
-      return 'bg-amber-100 text-amber-700 border-amber-200'
+      return 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
     case 'skipped':
-      return 'bg-slate-100 text-slate-700 border-slate-200'
+      return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
     default:
-      return 'bg-slate-100 text-slate-700 border-slate-200'
+      return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
   }
 }
 
 function alertSeverityColor(severity: string): string {
   return severity === 'critical'
-    ? 'bg-red-100 text-red-700 border-red-200'
-    : 'bg-amber-100 text-amber-700 border-amber-200'
+    ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+    : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
 }
 
 function formatDateTime(iso: string | null): string {
@@ -514,7 +514,7 @@ export default function SyncCenterPage() {
             <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
               <RefreshCw className="h-4 w-4" />
               手动同步触发
-              <Badge className="bg-emerald-100 text-emerald-700">Agent 队列真实触发</Badge>
+              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Agent 队列真实触发</Badge>
             </p>
             <p className="text-sm text-slate-700">
               管理员触发后会进入同步队列，站点代理拉取执行并回写最终状态。页面只宣称"已提交"，不把提交动作说成同步完成。
@@ -545,7 +545,7 @@ export default function SyncCenterPage() {
                 {triggeringSync === 'full' ? '提交中' : '提交全量同步'}
               </Button>
             </div>
-            <p className="mt-2 text-xs text-amber-700">
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
               当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || 'SH01'}</code>。最终状态以 Agent 回写和同步日志为准。
             </p>
           </div>
@@ -556,20 +556,20 @@ export default function SyncCenterPage() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               同步告警摘要
-              <Badge className="bg-blue-100 text-blue-700">真实告警源</Badge>
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">真实告警源</Badge>
               {activeSyncAlerts > 0 ? (
-                <Badge className="bg-red-100 text-red-700">{activeSyncAlerts} active</Badge>
+                <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">{activeSyncAlerts} active</Badge>
               ) : (
-                <Badge className="bg-emerald-100 text-emerald-700">暂无 active</Badge>
+                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">暂无 active</Badge>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="mb-3 text-xs text-amber-700">
+            <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
               仅展示已接入的同步告警；站点硬件告警未接入时不会伪造成正常告警。
             </p>
             {syncAlertError ? (
-              <div className="text-sm text-red-600">同步告警读取失败: {syncAlertError}</div>
+              <div className="text-sm text-red-600 dark:text-red-300">同步告警读取失败: {syncAlertError}</div>
             ) : syncAlerts.length === 0 ? (
               <div className="text-sm text-slate-500">暂无同步失败告警。</div>
             ) : (
@@ -581,11 +581,11 @@ export default function SyncCenterPage() {
                   </div>
                   <div>
                     <div className="text-slate-500">Critical</div>
-                    <div className="font-mono text-lg text-red-600">{criticalSyncAlerts}</div>
+                    <div className="font-mono text-lg text-red-600 dark:text-red-300">{criticalSyncAlerts}</div>
                   </div>
                   <div>
                     <div className="text-slate-500">Warning</div>
-                    <div className="font-mono text-lg text-amber-600">{warningSyncAlerts}</div>
+                    <div className="font-mono text-lg text-amber-600 dark:text-amber-300">{warningSyncAlerts}</div>
                   </div>
                   <div>
                     <div className="text-slate-500">聚合总告警</div>
@@ -614,7 +614,7 @@ export default function SyncCenterPage() {
                         <TableCell className="font-mono text-xs">{alert.siteCode ?? "—"}</TableCell>
                         <TableCell>
                           <div className="text-sm font-medium">{alert.title}</div>
-                          <div className="max-w-[420px] truncate text-xs text-slate-500">{alert.message}</div>
+                          <div className="max-w-[420px] truncate text-xs text-slate-500 dark:text-slate-400">{alert.message}</div>
                         </TableCell>
                         <TableCell className="text-xs">{formatDateTime(alert.createdAt)}</TableCell>
                       </TableRow>
@@ -634,22 +634,22 @@ export default function SyncCenterPage() {
                 <ShieldCheck className="h-4 w-4" />
                 数据一致性校验
                 {consistency.status === "matched" && (
-                  <Badge className="bg-emerald-100 text-emerald-700">匹配</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">匹配</Badge>
                 )}
                 {consistency.status === "mismatched" && (
-                  <Badge className="bg-amber-100 text-amber-700">异常</Badge>
+                  <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">异常</Badge>
                 )}
                 {consistency.status === "failed" && (
-                  <Badge className="bg-red-100 text-red-700">失败</Badge>
+                  <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">失败</Badge>
                 )}
                 {consistency.status === "not_run" && (
-                  <Badge className="bg-slate-100 text-slate-600">未运行</Badge>
+                  <Badge className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">未运行</Badge>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               {consistency.status === "not_run" ? (
-                <div className="text-sm text-slate-600">
+                <div className="text-sm text-slate-600 dark:text-slate-300">
                   尚未运行一致性校验。
                   运行 <code className="text-xs">pnpm check:sync-consistency -- --siteCode={consistency.siteCode}</code> 启动。
                 </div>
@@ -667,13 +667,13 @@ export default function SyncCenterPage() {
                   </div>
                   <div>
                     <div className="text-slate-500">匹配</div>
-                    <div className="font-mono text-lg text-emerald-600">
+                    <div className="font-mono text-lg text-emerald-600 dark:text-emerald-300">
                       {consistency.matchedTableCount ?? "—"}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-500">异常</div>
-                    <div className="font-mono text-lg text-amber-600">
+                    <div className="font-mono text-lg text-amber-600 dark:text-amber-300">
                       {consistency.mismatchedTableCount ?? "—"}
                     </div>
                   </div>
@@ -688,11 +688,11 @@ export default function SyncCenterPage() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" />
               多站点同步配置
-              <Badge className="bg-blue-100 text-blue-700">只读</Badge>
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">只读</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-xs text-amber-700 mb-3">
+            <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
               {syncConfigNote || "中心配置仅用于调度，不作为源端真实站点证据。"}
             </p>
             {syncConfigSites.length === 0 ? (
@@ -716,7 +716,7 @@ export default function SyncCenterPage() {
                         <div className="font-mono text-xs text-slate-500">{site.siteCode}</div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={site.enabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}>
+                        <Badge className={site.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}>
                           {site.enabled ? site.status : "disabled"}
                         </Badge>
                       </TableCell>
@@ -736,11 +736,11 @@ export default function SyncCenterPage() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               站点最新同步状态
-              <Badge className="bg-blue-100 text-blue-700">运行日志</Badge>
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">运行日志</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="mb-3 text-xs text-amber-700">
+            <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
               {siteStatusNote || "无日志时显示 not_run，不推断站点成功。"}
             </p>
             {siteSyncStatuses.length === 0 ? (
@@ -816,17 +816,17 @@ export default function SyncCenterPage() {
               <RefreshCw className="h-4 w-4" />
               自动同步调度
               {schedulerLogs.length > 0 ? (
-                <Badge className="bg-slate-100 text-slate-600">
+                <Badge className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   最近 {schedulerLogs.length} 次
                 </Badge>
               ) : (
-                <Badge className="bg-slate-100 text-slate-500">未运行</Badge>
+                <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">未运行</Badge>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             {schedulerLogs.length === 0 ? (
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-slate-600 dark:text-slate-300">
                 尚未运行过自动同步。运行 <code className="text-xs">pnpm scheduler:sync:once -- --siteCode=SH01</code> 启动。
               </div>
             ) : (
@@ -849,10 +849,10 @@ export default function SyncCenterPage() {
                         {formatDateTime(log.startedAt)}
                       </TableCell>
                       <TableCell>
-                        {log.status === 'success' && <Badge className="bg-emerald-100 text-emerald-700">成功</Badge>}
-                        {log.status === 'partial' && <Badge className="bg-amber-100 text-amber-700">部分</Badge>}
-                        {log.status === 'failed' && <Badge className="bg-red-100 text-red-700">失败</Badge>}
-                        {log.status === 'running' && <Badge className="bg-blue-100 text-blue-700">运行中</Badge>}
+                        {log.status === 'success' && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">成功</Badge>}
+                        {log.status === 'partial' && <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">部分</Badge>}
+                        {log.status === 'failed' && <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">失败</Badge>}
+                        {log.status === 'running' && <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">运行中</Badge>}
                       </TableCell>
                       <TableCell className="text-xs">{log.exportStatus}</TableCell>
                       <TableCell className="text-xs">{log.pushStatus}</TableCell>
@@ -860,7 +860,7 @@ export default function SyncCenterPage() {
                       <TableCell className="font-mono text-xs max-w-[120px] truncate">
                         {log.packageBatchId ?? '—'}
                       </TableCell>
-                      <TableCell className="text-xs text-red-600 max-w-[200px] truncate">
+                      <TableCell className="text-xs text-red-600 dark:text-red-300 max-w-[200px] truncate">
                         {log.errorMessage ?? '—'}
                       </TableCell>
                     </TableRow>
@@ -989,7 +989,7 @@ export default function SyncCenterPage() {
                       <TableRow
                         key={pkg.id}
                         onClick={() => setSelectedPkg(pkg.id)}
-                        className={`cursor-pointer hover:bg-slate-50 ${selectedPkg === pkg.id ? 'bg-blue-50' : ''}`}
+                        className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedPkg === pkg.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                       >
                         <TableCell className="text-xs font-mono">{pkg.siteCode}</TableCell>
                         <TableCell className="text-xs font-mono max-w-xs truncate" title={pkg.batchId}>
@@ -1003,9 +1003,9 @@ export default function SyncCenterPage() {
                         <TableCell className="text-xs text-right">{pkg.tableCount}</TableCell>
                         <TableCell className="text-xs text-right">{pkg.totalRecordCount}</TableCell>
                         <TableCell className="text-xs text-right">
-                          <span className="text-emerald-600">{pkg.successTableCount}</span>
+                          <span className="text-emerald-600 dark:text-emerald-300">{pkg.successTableCount}</span>
                           <span className="text-slate-400 mx-1">/</span>
-                          <span className="text-red-600">{pkg.failedTableCount}</span>
+                          <span className="text-red-600 dark:text-red-300">{pkg.failedTableCount}</span>
                         </TableCell>
                         <TableCell className="text-xs">{formatDateTime(pkg.startedAt)}</TableCell>
                         <TableCell className="text-xs">{formatDateTime(pkg.finishedAt)}</TableCell>
@@ -1075,16 +1075,16 @@ export default function SyncCenterPage() {
                           {t.expectedRecordCount ?? '—'} / {t.processedRecordCount}
                         </TableCell>
                         <TableCell className="text-xs text-right">
-                          <span className="text-emerald-600">{t.insertedCount}</span>
+                          <span className="text-emerald-600 dark:text-emerald-300">{t.insertedCount}</span>
                           <span className="text-slate-400 mx-1">/</span>
-                          <span className="text-blue-600">{t.updatedCount}</span>
+                          <span className="text-blue-600 dark:text-blue-300">{t.updatedCount}</span>
                         </TableCell>
                         <TableCell className="text-xs text-right">
-                          <span className="text-amber-600">{t.skippedCount}</span>
+                          <span className="text-amber-600 dark:text-amber-300">{t.skippedCount}</span>
                           <span className="text-slate-400 mx-1">/</span>
-                          <span className="text-red-600">{t.failedCount}</span>
+                          <span className="text-red-600 dark:text-red-300">{t.failedCount}</span>
                         </TableCell>
-                        <TableCell className="text-xs text-red-600 max-w-xs truncate" title={t.errorMessage ?? ''}>
+                        <TableCell className="text-xs text-red-600 dark:text-red-300 max-w-xs truncate" title={t.errorMessage ?? ''}>
                           {t.errorMessage ?? '—'}
                         </TableCell>
                       </TableRow>

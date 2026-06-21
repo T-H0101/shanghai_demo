@@ -39,20 +39,20 @@ import { cn } from "@/lib/utils"
 import { formatBeijingTime } from "@/components/shared/time-format"
 
 const typeColors: Record<string, string> = {
-  full_scan: "bg-slate-100 text-slate-700", incremental_scan: "bg-blue-100 text-blue-700",
-  full_package: "bg-violet-100 text-violet-700", incremental_package: "bg-indigo-100 text-indigo-700",
-  backup: "bg-emerald-100 text-emerald-700", restore: "bg-cyan-100 text-cyan-700",
-  migrate: "bg-amber-100 text-amber-700", device_scan: "bg-orange-100 text-orange-700",
-  raid_check: "bg-pink-100 text-pink-700", other: "bg-slate-100 text-slate-500",
+  full_scan: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300", incremental_scan: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  full_package: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300", incremental_package: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  backup: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300", restore: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+  migrate: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300", device_scan: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  raid_check: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300", other: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
 }
 
 const logLevelColor: Record<string, string> = {
-  info: "bg-slate-50 text-slate-700", warn: "bg-amber-50 text-amber-800", error: "bg-red-50 text-red-800",
+  info: "bg-slate-50 text-slate-700 dark:bg-slate-900/50 dark:text-slate-300", warn: "bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", error: "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 }
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex gap-3 py-2 border-b border-slate-50 last:border-0 text-sm">
+    <div className="flex gap-3 py-2 border-b border-slate-50 dark:border-slate-700/40 last:border-0 text-sm">
       <span className="text-slate-400 shrink-0 w-24 text-right">{label}</span>
       <span className="text-slate-900 min-w-0 break-words">{value}</span>
     </div>
@@ -61,7 +61,7 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-center">
+    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 text-center">
       <p className="text-[10px] text-slate-400 mb-1">{label}</p>
       <p className="text-sm font-semibold text-slate-900">{value}</p>
     </div>
@@ -408,7 +408,7 @@ function TasksPageContent() {
   }
 
   const viewSwitcher = (
-    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm" aria-label="任务中心视图">
+    <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-sm" aria-label="任务中心视图">
       <Button
         variant={view === "tasks" ? "default" : "ghost"}
         size="sm"
@@ -549,7 +549,7 @@ function TasksPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 cursor-pointer hover:bg-slate-100 transition-colors"
+                className="h-9 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 onClick={handleResetFilters}
                 disabled={!hasFilters}
                 data-testid="tasks-reset-filters"
@@ -560,7 +560,7 @@ function TasksPageContent() {
           </div>
           {deviceFilter && (
             <div className="mt-2 flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
                 设备筛选: {deviceFilter}
               </Badge>
               <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => router.push("/racks")}>
@@ -614,7 +614,7 @@ function TasksPageContent() {
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={12} className="text-center py-10 text-slate-400">未找到匹配的任务</TableCell></TableRow>
               ) : filtered.map(t => (
-                <TableRow key={`${t.siteCode}-${t.taskNo}-${t.id}`} className="cursor-pointer hover:bg-slate-50" onClick={() => openDetail(t)}>
+                <TableRow key={`${t.siteCode}-${t.taskNo}-${t.id}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" onClick={() => openDetail(t)}>
                   <TableCell className="font-mono text-xs text-slate-500">{t.taskNo}</TableCell>
                   <TableCell>
                     <p className="font-medium text-sm truncate max-w-[180px]" title={t.name}>{t.name}</p>
@@ -687,7 +687,7 @@ function TasksPageContent() {
       {/* ── 任务详情抽屉 ─────────────────────────────────────── */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
         <DrawerContent className="!w-[680px] !max-w-[90vw]">
-          <DrawerHeader className="border-b border-slate-100">
+          <DrawerHeader className="border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-start justify-between">
               <div>
                 <DrawerTitle className="text-base">{selected?.name}</DrawerTitle>
@@ -696,7 +696,7 @@ function TasksPageContent() {
               {selected && <Badge className={cn("text-xs", TASK_PHASE_COLORS[selected.phase])}>{TASK_PHASE_LABELS[selected.phase]}</Badge>}
             </div>
           </DrawerHeader>
-          <ScrollArea className="flex-1 h-[calc(100vh-100px)]">
+          <ScrollArea className="flex-1 min-h-0">
             {selected && (
               <div className="p-5 space-y-5">
                 {/* 基本信息 */}
@@ -770,19 +770,19 @@ function TasksPageContent() {
                           <div className="flex flex-col items-center gap-1 min-w-[56px]">
                             <div className={cn(
                               "w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border-2",
-                              isFailed ? "bg-red-50 border-red-300 text-red-600" :
-                              isCompleted ? "bg-emerald-50 border-emerald-300 text-emerald-600" :
-                              isActive ? "bg-blue-50 border-blue-400 text-blue-600" :
-                              "bg-slate-50 border-slate-200 text-slate-400"
+                              isFailed ? "bg-red-50 border-red-300 text-red-600 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300" :
+                              isCompleted ? "bg-emerald-50 border-emerald-300 text-emerald-600 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300" :
+                              isActive ? "bg-blue-50 border-blue-400 text-blue-600 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300" :
+                              "bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900/50 dark:border-slate-700 dark:text-slate-500"
                             )}>
                               {isFailed ? <AlertCircle className="h-3.5 w-3.5" /> : isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                             </div>
-                            <span className={cn("text-[10px] whitespace-nowrap", isActive ? "text-blue-600 font-medium" : isCompleted ? "text-emerald-600" : isFailed ? "text-red-600" : "text-slate-400")}>
+                            <span className={cn("text-[10px] whitespace-nowrap", isActive ? "text-blue-600 dark:text-blue-300 font-medium" : isCompleted ? "text-emerald-600 dark:text-emerald-300" : isFailed ? "text-red-600 dark:text-red-300" : "text-slate-400")}>
                               {TASK_PHASE_LABELS[phase as TaskPhase] ?? phase}
                             </span>
                           </div>
                           {i < getPhases(selected).length - 1 && (
-                            <div className={cn("h-0.5 w-5 mx-0.5", i < activeIdx ? "bg-emerald-300" : "bg-slate-200")} />
+                            <div className={cn("h-0.5 w-5 mx-0.5", i < activeIdx ? "bg-emerald-300 dark:bg-emerald-700" : "bg-slate-200 dark:bg-slate-700")} />
                           )}
                         </div>
                       )
@@ -798,10 +798,10 @@ function TasksPageContent() {
                       <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Zap className="h-4 w-4 text-slate-400" />多线程封包进度</h4>
                       <div className="grid grid-cols-2 gap-2">
                         {selected.packagingThreads.map(th => (
-                          <div key={th.id} className={cn("p-2.5 rounded-lg border", th.status === "error" ? "border-red-200 bg-red-50/50" : "border-slate-100 bg-slate-50/50")}>
+                          <div key={th.id} className={cn("p-2.5 rounded-lg border", th.status === "error" ? "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/20" : "border-slate-100 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/40")}>
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-xs font-medium text-slate-700">{th.name}</span>
-                              <span className={cn("text-[10px]", th.status === "completed" ? "text-emerald-600" : th.status === "running" ? "text-blue-600" : th.status === "error" ? "text-red-600" : "text-slate-400")}>
+                              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{th.name}</span>
+                              <span className={cn("text-[10px]", th.status === "completed" ? "text-emerald-600 dark:text-emerald-300" : th.status === "running" ? "text-blue-600 dark:text-blue-300" : th.status === "error" ? "text-red-600 dark:text-red-300" : "text-slate-400")}>
                                 {th.status === "completed" ? "已完成" : th.status === "running" ? "运行中" : th.status === "error" ? "异常" : "等待中"}
                               </span>
                             </div>
@@ -843,8 +843,8 @@ function TasksPageContent() {
                     <MiniStat label="当前阶段" value={selected.currentPhase ?? "—"} />
                   </div>
                   {formatErrorMessage(selected.errorMessage) !== "—" && (
-                    <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
-                      <p className="text-xs text-red-700"><span className="font-medium">失败原因：</span>{formatErrorMessage(selected.errorMessage)}</p>
+                    <div className="mt-2 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <p className="text-xs text-red-700 dark:text-red-300"><span className="font-medium">失败原因：</span>{formatErrorMessage(selected.errorMessage)}</p>
                     </div>
                   )}
                 </section>
@@ -966,12 +966,12 @@ function TasksPageContent() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-300">
               提交后显示为“等待站点 Agent 执行”。只有 Agent 回写成功并完成同步后，才算站点真实创建完成。
             </div>
-            <div data-testid="task-create-target-site" className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+            <div data-testid="task-create-target-site" className="rounded-lg border border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3 text-xs text-blue-800 dark:text-blue-300">
               目标站点: <code className="font-mono">{siteCode}</code>
-              <span className="ml-2 text-blue-600/80">只有站点代理执行并同步回总控后，任务才会出现在列表中。</span>
+              <span className="ml-2 text-blue-600/80 dark:text-blue-400/80">只有站点代理执行并同步回总控后，任务才会出现在列表中。</span>
             </div>
           </div>
           <DialogFooter>

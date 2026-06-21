@@ -95,10 +95,10 @@ export function Header({ onMenuClick }: HeaderProps) {
   }
 
   const typeColors = {
-    info: "bg-blue-100 text-blue-700",
-    warning: "bg-amber-100 text-amber-700",
-    error: "bg-red-100 text-red-700",
-    success: "bg-emerald-100 text-emerald-700",
+    info: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    warning: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    error: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
   }
 
   // 三合一健康徽章文案
@@ -150,7 +150,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Button
             type="button"
             variant="outline"
-            className="h-9 justify-start gap-2 border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer w-full max-w-sm"
+            className="h-9 justify-start gap-2 border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:border-slate-600 transition-colors cursor-pointer w-full max-w-sm"
             onClick={() => {
               const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true, bubbles: true })
               window.dispatchEvent(event)
@@ -158,9 +158,9 @@ export function Header({ onMenuClick }: HeaderProps) {
             data-testid="command-palette-trigger"
             aria-label="打开命令面板"
           >
-            <Search className="h-4 w-4 text-slate-400" />
+            <Search className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             <span className="truncate text-sm">搜索页面、站点、操作…</span>
-            <kbd className="ml-auto hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded border bg-white text-slate-500 border-slate-200">
+            <kbd className="ml-auto hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded border bg-white text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
               ⌘K
             </kbd>
           </Button>
@@ -197,10 +197,10 @@ export function Header({ onMenuClick }: HeaderProps) {
             className={cn(
               "flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs font-medium transition-colors cursor-pointer",
               systemStatus === "healthy"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
                 : systemStatus === "degraded"
-                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                  : "border-slate-200 bg-slate-50 text-slate-600",
+                  ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
             )}
             data-testid="header-health-badge"
             aria-label="系统健康状态"
@@ -236,10 +236,10 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenu open={panelOpen} onOpenChange={setPanelOpen}>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   aria-label="通知"
                 >
-                  <Bell className="h-5 w-5 text-slate-600" />
+                  <Bell className="h-5 w-5 text-slate-600 dark:text-slate-300" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
                       {unreadCount}
@@ -248,12 +248,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-96 p-0">
-                <div className="flex items-center justify-between p-4 border-b">
-                  <h3 className="font-semibold">通知中心</h3>
+                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-50">通知中心</h3>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-blue-600 hover:text-blue-700"
+                    className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
                     onClick={handleMarkAllRead}
                   >
                     全部已读
@@ -262,13 +262,13 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <ScrollArea className="h-80">
                   <div className="p-2">
                     {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-slate-500 text-sm">暂无通知</div>
+                      <div className="p-4 text-center text-slate-500 dark:text-slate-400 text-sm">暂无通知</div>
                     ) : (
                       notifications.map((notif) => (
                         <button
                           key={notif.id}
-                          className={`w-full text-left p-3 rounded-lg hover:bg-slate-50 transition-colors ${
-                            !notif.read ? 'bg-blue-50/50' : ''
+                          className={`w-full text-left p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
+                            !notif.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                           }`}
                           onClick={() => handleNotificationClick(notif.id)}
                         >
@@ -278,13 +278,13 @@ export function Header({ onMenuClick }: HeaderProps) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium">{notif.title}</p>
+                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{notif.title}</p>
                                 {!notif.read && (
                                   <span className="h-2 w-2 rounded-full bg-blue-500"></span>
                                 )}
                               </div>
-                              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{notif.message}</p>
-                              <p className="text-xs text-slate-400 mt-1">{notif.time}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{notif.message}</p>
+                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{notif.time}</p>
                             </div>
                           </div>
                         </button>
@@ -303,7 +303,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-1.5 rounded-full hover:bg-slate-100 transition-colors p-1 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-1 cursor-pointer"
                 data-testid="header-user-avatar"
                 aria-label="账号菜单"
               >
@@ -312,7 +312,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     {(session?.displayName ?? session?.username)?.charAt(0) ?? "?"}
                   </AvatarFallback>
                 </Avatar>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-500 hidden md:block" />
+                <ChevronDown className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 hidden md:block" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">

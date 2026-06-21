@@ -209,7 +209,7 @@ export default function Page() {
         }
       />
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-900 dark:text-amber-300">
         <div className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -223,7 +223,7 @@ export default function Page() {
       </div>
 
       {dataSource === "error" && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             {error ?? "中心库用户数据读取失败"}
@@ -275,7 +275,7 @@ export default function Page() {
                   {users.map((user, idx) => (
                     <TableRow
                       key={`user-${user.id}-${idx}`}
-                      className={`cursor-pointer ${selected?.id === user.id ? "bg-blue-50" : ""}`}
+                      className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.id === user.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                       onClick={() => setSelected(user)}
                     >
                       <TableCell>
@@ -320,7 +320,7 @@ export default function Page() {
               <DetailRow label="电话" value={selected.phone ?? "—"} />
               <DetailRow label="邮箱" value={selected.email ?? "—"} />
               <DetailRow label="同步时间" value={formatTime(selected.createdAt)} />
-              <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <div className="mt-4 rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-300">
                 站点多对多关系、设备/数据权限树与账号生命周期需真实 Auth/RBAC 服务，
                 当前不推断、不模拟。
               </div>
@@ -370,10 +370,10 @@ export default function Page() {
                           <TableCell className="text-sm">{acc.department ?? "—"}</TableCell>
                           <TableCell>
                             <Badge className={`text-xs ${
-                              acc.status === "active" ? "bg-emerald-100 text-emerald-700" :
-                              isLocked ? "bg-orange-100 text-orange-700" :
-                              acc.status === "disabled" ? "bg-slate-200 text-slate-600" :
-                              "bg-amber-100 text-amber-700"
+                              acc.status === "active" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" :
+                              isLocked ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" :
+                              acc.status === "disabled" ? "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300" :
+                              "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                             }`}>
                               {isLocked ? "已锁定" : acc.status === "active" ? "正常" : acc.status === "disabled" ? "已禁用" : acc.status}
                             </Badge>

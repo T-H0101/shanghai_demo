@@ -114,21 +114,21 @@ export function AlertCenter() {
   }
 
   const getLevelColor = (level: string) => {
-    return level === "error" ? "text-red-600" : "text-amber-600"
+    return level === "error" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
   }
 
   return (
-    <Card className="gap-0 relative">
+    <Card className="gap-0 relative bg-white dark:bg-slate-800">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Bell className="h-5 w-5 text-slate-400" />
+          <CardTitle className="text-base flex items-center gap-2 text-slate-900 dark:text-slate-100">
+            <Bell className="h-5 w-5 text-slate-400 dark:text-slate-500" />
             系统告警
             {alerts.length > 0 && <Badge variant="destructive" className="ml-1">{alerts.length}</Badge>}
           </CardTitle>
           <button
             onClick={() => router.push("/tasks")}
-            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            className="text-xs text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 flex items-center gap-1"
           >
             查看全部 <ChevronRight className="h-3 w-3" />
           </button>
@@ -138,12 +138,12 @@ export function AlertCenter() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={`alert-skeleton-${i}`} className="h-10 bg-slate-100 rounded animate-pulse" />
+              <div key={`alert-skeleton-${i}`} className="h-10 bg-slate-100 dark:bg-slate-700 rounded animate-pulse" />
             ))}
           </div>
         ) : alerts.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 text-sm flex flex-col items-center gap-2">
-            <Info className="h-8 w-8 text-slate-300" />
+          <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm flex flex-col items-center gap-2">
+            <Info className="h-8 w-8 text-slate-300 dark:text-slate-400" />
             <span>系统运行正常</span>
           </div>
         ) : (
@@ -153,16 +153,16 @@ export function AlertCenter() {
               return (
                 <div
                   key={alert.id}
-                  className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
                   onClick={() => alert.target && router.push(alert.target)}
                 >
                   <Icon className={cn("h-4 w-4 shrink-0 mt-0.5", getLevelColor(alert.level))} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate">{alert.message}</p>
+                    <p className="text-sm break-words line-clamp-2 text-slate-900 dark:text-slate-100">{alert.message}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-slate-400">{alert.detail}</span>
-                      <span className="text-[10px] text-slate-300">·</span>
-                      <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">{alert.detail}</span>
+                      <span className="text-[10px] text-slate-300 dark:text-slate-400">·</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5">
                         <Clock className="h-2.5 w-2.5" />{alert.time}
                       </span>
                     </div>

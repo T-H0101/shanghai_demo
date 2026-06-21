@@ -70,7 +70,7 @@ interface TreeNode {
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex gap-3 py-2 border-b border-slate-50 last:border-0 text-sm">
+    <div className="flex gap-3 py-2 border-b border-slate-50 dark:border-slate-700/40 last:border-0 text-sm">
       <span className="text-slate-400 shrink-0 w-24 text-right">{label}</span>
       <span className="text-slate-900 min-w-0 break-words">{value}</span>
     </div>
@@ -325,7 +325,7 @@ export default function Page() {
         <div
           className={cn(
             "flex items-center gap-1 px-2 py-1 rounded cursor-pointer text-sm transition-colors",
-            isSelected ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50",
+            isSelected ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "hover:bg-slate-50 dark:hover:bg-slate-800",
             isInRestoreList && "opacity-60",
           )}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
@@ -354,7 +354,7 @@ export default function Page() {
             <button
               className={cn(
                 "h-5 px-1.5 rounded text-[10px] shrink-0",
-                isInRestoreList ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                isInRestoreList ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300" : "bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-800/50"
               )}
               onClick={(e) => {
                 e.stopPropagation()
@@ -735,13 +735,13 @@ export default function Page() {
 
       {/* ── 数据源提示 ────────────────────────────────────────── */}
       {isApiMode && racksDataSource === "error" && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>中心库设备数据读取失败，未使用模拟数据回退。</span>
         </div>
       )}
       {isApiMode && racksDataSource === "empty" && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
           <Info className="h-4 w-4 shrink-0" />
           <span>暂无设备数据，未使用演示数据填充。</span>
         </div>
@@ -784,7 +784,7 @@ export default function Page() {
                     onClick={() => setCategory(node.id)}
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left",
-                      isActive ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-600 hover:bg-slate-50"
+                      isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                     )}
                   >
                     <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-blue-600" : "text-slate-400")} />
@@ -850,7 +850,7 @@ export default function Page() {
                     const ds = deviceStatusMap[r.deviceStatus ?? "online"] ?? deviceStatusMap.online
                     const DsIcon = ds.icon
                     return (
-                      <TableRow key={`${r.siteCode}-${r.rackId}-${r.id}`} className="cursor-pointer hover:bg-slate-50" onClick={() => openDrawerDetail(r)}>
+                      <TableRow key={`${r.siteCode}-${r.rackId}-${r.id}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" onClick={() => openDrawerDetail(r)}>
                         <TableCell>
                           <p className="font-medium text-sm font-mono">{r.rackId}</p>
                           <p className="text-[10px] text-slate-400">{r.room ?? r.datacenter}</p>
@@ -899,7 +899,7 @@ export default function Page() {
       {/* ── 设备详情抽屉 ─────────────────────────────────────── */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
         <DrawerContent className="!w-[720px] !max-w-[90vw]">
-          <DrawerHeader className="border-b border-slate-100">
+          <DrawerHeader className="border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-start justify-between">
               <div>
                 <DrawerTitle className="text-base font-mono">{selected?.rackId}</DrawerTitle>
@@ -911,7 +911,7 @@ export default function Page() {
               })()}
             </div>
           </DrawerHeader>
-          <ScrollArea className="flex-1 h-[calc(100vh-100px)]">
+          <ScrollArea className="flex-1 min-h-0">
             {selected && (
               <div className="p-5 space-y-5">
                 {/* 基础信息 */}
@@ -939,10 +939,10 @@ export default function Page() {
                 {/* 模式控制 */}
                 <section>
                   <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Power className="h-4 w-4 text-slate-400" />模式控制</h4>
-                  <div className="bg-slate-100 p-1 rounded-full flex relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-full flex relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
                     {/* 滑动指示器 */}
                     <div
-                      className="absolute top-1 bottom-1 bg-white rounded-full shadow-md transition-[left] duration-200 ease-out"
+                      className="absolute top-1 bottom-1 bg-white dark:bg-slate-700 rounded-full shadow-md transition-[left] duration-200 ease-out"
                       style={{
                         width: "calc(33.333% - 2px)",
                         left: selected ? `calc(2px + ${(["off", "standard", "high_speed"].indexOf(selected.mode ?? 'off') * (100 / 3))}%)` : "2px",
@@ -953,7 +953,7 @@ export default function Page() {
                         key={mode}
                         className={cn(
                           "flex-1 relative z-10 h-8 text-xs font-medium rounded-full transition-colors duration-200",
-                          selected.mode === mode ? "text-blue-600" : "text-slate-500 hover:text-slate-700"
+                          selected.mode === mode ? "text-blue-600 dark:text-blue-300" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                         )}
                         onClick={() => handleModeChange(selected, mode)}
                       >
@@ -991,7 +991,7 @@ export default function Page() {
                       <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Layers className="h-4 w-4 text-slate-400" />托盘信息</h4>
                       <div className="grid grid-cols-4 gap-2">
                         {selected.trays.map(tray => (
-                          <div key={tray.id} className="p-3 rounded-lg border border-slate-100 bg-white text-center">
+                          <div key={tray.id} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-center">
                             <p className="text-xs text-slate-400">{tray.label}</p>
                             <p className="text-lg font-bold text-slate-900 mt-1">{tray.usedCount}/{tray.slotCount}</p>
                             <p className="text-[10px] text-slate-400">块/位</p>
@@ -1076,7 +1076,7 @@ export default function Page() {
                         {selected.recentTasks.map(task => (
                           <div
                             key={task.id}
-                            className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-100/50 cursor-pointer transition-colors"
+                            className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
                             onClick={() => { setDrawerOpen(false); router.push(`/tasks?device=${selected.rackId}`) }}
                           >
                             <div className="min-w-0 flex-1">
@@ -1092,10 +1092,10 @@ export default function Page() {
                                 <span className="text-[10px] text-slate-400">{task.progress}%</span>
                               </div>
                               <Badge className={cn("text-[10px]",
-                                task.status === "completed" ? "bg-emerald-100 text-emerald-700" :
-                                task.status === "failed" ? "bg-red-100 text-red-700" :
-                                task.status === "running" ? "bg-blue-100 text-blue-700" :
-                                "bg-slate-100 text-slate-600"
+                                task.status === "completed" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" :
+                                task.status === "failed" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" :
+                                task.status === "running" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" :
+                                "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
                               )}>
                                 {task.status === "completed" ? "已完成" : task.status === "failed" ? "已失败" : task.status === "running" ? "运行中" : task.status}
                               </Badge>
@@ -1296,32 +1296,32 @@ export default function Page() {
         </DialogContent>
       </Dialog>
       {/* ── 存储浏览 / 数据恢复 / 设备总览 Tab ───────────────────── */}
-      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+      <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-800">
         <Tabs
           value={storageTab}
           onValueChange={(v) => setStorageTab(v as typeof storageTab)}
           className="w-full"
         >
           {/* Tab 切换区 */}
-          <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
-            <TabsList className="h-8 bg-slate-100" data-testid="racks-storage-tabs">
+          <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+            <TabsList className="h-8 bg-slate-100 dark:bg-slate-800" data-testid="racks-storage-tabs">
               <TabsTrigger
                 value="overview"
-                className="h-7 text-xs data-[state=active]:bg-white"
+                className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
                 data-testid="racks-storage-tab-overview"
               >
                 <HardDrive className="h-3.5 w-3.5 mr-1" />设备总览
               </TabsTrigger>
               <TabsTrigger
                 value="browse"
-                className="h-7 text-xs data-[state=active]:bg-white"
+                className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
                 data-testid="racks-storage-tab-browse"
               >
                 <FolderTree className="h-3.5 w-3.5 mr-1" />存储浏览
               </TabsTrigger>
               <TabsTrigger
                 value="restore"
-                className="h-7 text-xs data-[state=active]:bg-white"
+                className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
                 data-testid="racks-storage-tab-restore"
               >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />数据恢复
@@ -1329,16 +1329,16 @@ export default function Page() {
             </TabsList>
             {storageTab === "restore" && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">恢复模式：</span>
-                <div className="flex bg-slate-100 rounded-lg p-0.5">
+                <span className="text-xs text-slate-500 dark:text-slate-400">恢复模式：</span>
+                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
                   <button
-                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "server" ? "bg-white shadow text-blue-600" : "text-slate-500")}
+                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "server" ? "bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-300" : "text-slate-500 dark:text-slate-400")}
                     onClick={() => setRestoreMode("server")}
                   >
                     恢复到服务器路径
                   </button>
                   <button
-                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "local" ? "bg-white shadow text-blue-600" : "text-slate-500")}
+                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "local" ? "bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-300" : "text-slate-500 dark:text-slate-400")}
                     onClick={() => setRestoreMode("local")}
                   >
                     下载到本地目录
@@ -1349,7 +1349,7 @@ export default function Page() {
           </div>
 
           {/* 内容区 — 使用 TabsContent 保证切换时内容 mount/unmount */}
-          <div className="p-4 bg-slate-50 min-h-[260px]">
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/50 min-h-[260px]">
             {/* 存储浏览 */}
             <TabsContent value="browse" forceMount={undefined} className="m-0">
               {isApiMode ? (
@@ -1364,7 +1364,7 @@ export default function Page() {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="racks-storage-browse-content">
                   {/* 左侧目录树 */}
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-medium">备份数据目录树</h4>
                       <Select value={currentVolumeId} onValueChange={setCurrentVolumeId}>
@@ -1384,20 +1384,20 @@ export default function Page() {
                   </div>
 
                   {/* 右侧选中详情 */}
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
                     <h4 className="text-sm font-medium mb-3">文件详情</h4>
                     {selectedPath ? (
                       <div className="space-y-3">
-                        <div className="p-3 bg-slate-50 rounded-lg">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
                           <p className="text-sm font-medium">{selectedPath.split("/").pop()}</p>
                           <p className="text-xs text-slate-500 mt-1">{selectedPath}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="p-2 bg-slate-50 rounded">
+                          <div className="p-2 bg-slate-50 dark:bg-slate-900/50 rounded">
                             <p className="text-slate-400">所属卷</p>
                             <p className="font-medium">{getVolumeName(currentVolumeId)}</p>
                           </div>
-                          <div className="p-2 bg-slate-50 rounded">
+                          <div className="p-2 bg-slate-50 dark:bg-slate-900/50 rounded">
                             <p className="text-slate-400">路径</p>
                             <p className="font-medium truncate">{selectedPath}</p>
                           </div>
@@ -1428,7 +1428,7 @@ export default function Page() {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-restore-content">
                   {/* 左侧目录树 */}
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
                     <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
                     <ScrollArea className="h-[320px]">
                       <div className="text-xs">
@@ -1438,7 +1438,7 @@ export default function Page() {
                   </div>
 
                   {/* 中间待恢复列表 */}
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
                     <h4 className="text-sm font-medium mb-3">
                       待恢复列表
                       {restoreList.length > 0 && (
@@ -1454,7 +1454,7 @@ export default function Page() {
                       <ScrollArea className="h-[280px]">
                         <div className="space-y-1">
                           {restoreList.map(item => (
-                            <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-xs">
+                            <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded text-xs">
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium truncate">{item.name}</p>
                                 <p className="text-slate-400 truncate">{item.sourcePath}</p>
@@ -1462,7 +1462,7 @@ export default function Page() {
                               <div className="flex items-center gap-2 shrink-0">
                                 {item.size && <span className="text-slate-500">{item.size}</span>}
                                 <button
-                                  className="h-5 w-5 rounded text-red-500 hover:bg-red-50 flex items-center justify-center"
+                                  className="h-5 w-5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center"
                                   onClick={() => removeFromRestoreList(item.id)}
                                 >
                                   ×
@@ -1476,7 +1476,7 @@ export default function Page() {
                   </div>
 
                   {/* 右侧目标选择 + 容量看板 */}
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
                     <h4 className="text-sm font-medium mb-3">恢复目标</h4>
                     <div className="space-y-3">
                       <Select value={targetPath} onValueChange={setTargetPath}>
@@ -1489,32 +1489,32 @@ export default function Page() {
                       </Select>
 
                       {/* 容量看板 */}
-                      <div className="p-3 bg-slate-50 rounded-lg space-y-2">
-                        <p className="text-xs text-slate-500 font-medium">容量看板</p>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg space-y-2">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">容量看板</p>
                         <div className="space-y-1.5 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-slate-500">已选文件数</span>
+                            <span className="text-slate-500 dark:text-slate-400">已选文件数</span>
                             <span className="font-medium">{restoreList.length} 个</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-500">计划使用</span>
+                            <span className="text-slate-500 dark:text-slate-400">计划使用</span>
                             <span className="font-medium">{calcTotalSize(restoreList).display}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-500">目标剩余</span>
+                            <span className="text-slate-500 dark:text-slate-400">目标剩余</span>
                             <span className="font-medium">{getTargetRemaining()}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-500">恢复模式</span>
+                            <span className="text-slate-500 dark:text-slate-400">恢复模式</span>
                             <span className="font-medium">{restoreMode === "server" ? "恢复到服务器" : "下载到本地"}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-500">源存储卷</span>
+                            <span className="text-slate-500 dark:text-slate-400">源存储卷</span>
                             <span className="font-medium">{getVolumeName(currentVolumeId)}</span>
                           </div>
                         </div>
                         {isCapacityInsufficient() && (
-                          <div className="mt-2 p-2 bg-red-50 rounded text-red-600 text-xs">
+                          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-300 text-xs">
                             目标容量不足，请选择其他路径或减少文件
                           </div>
                         )}
@@ -1537,62 +1537,62 @@ export default function Page() {
             {/* 设备总览（默认） */}
             <TabsContent value="overview" className="m-0">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-overview-content">
-                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
                   <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                     <HardDrive className="h-4 w-4 text-blue-600" />
                     设备在线概况
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-lg bg-emerald-50 p-3">
-                      <p className="text-2xl font-semibold text-emerald-700">{filtered.filter(r => r.deviceStatus === "online").length}</p>
-                      <p className="mt-1 text-xs text-emerald-700/70">在线</p>
+                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3">
+                      <p className="text-2xl font-semibold text-emerald-700 dark:text-emerald-300">{filtered.filter(r => r.deviceStatus === "online").length}</p>
+                      <p className="mt-1 text-xs text-emerald-700/70 dark:text-emerald-400">在线</p>
                     </div>
-                    <div className="rounded-lg bg-slate-50 p-3">
-                      <p className="text-2xl font-semibold text-slate-700">{filtered.filter(r => r.deviceStatus === "offline").length}</p>
-                      <p className="mt-1 text-xs text-slate-500">离线</p>
+                    <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3">
+                      <p className="text-2xl font-semibold text-slate-700 dark:text-slate-300">{filtered.filter(r => r.deviceStatus === "offline").length}</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">离线</p>
                     </div>
-                    <div className="rounded-lg bg-red-50 p-3">
-                      <p className="text-2xl font-semibold text-red-700">{filtered.filter(r => r.deviceStatus === "error" || r.status === "fault").length}</p>
-                      <p className="mt-1 text-xs text-red-700/70">异常</p>
+                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3">
+                      <p className="text-2xl font-semibold text-red-700 dark:text-red-300">{filtered.filter(r => r.deviceStatus === "error" || r.status === "fault").length}</p>
+                      <p className="mt-1 text-xs text-red-700/70 dark:text-red-400">异常</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
                   <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                     <Grid3X3 className="h-4 w-4 text-violet-600" />
                     盘位汇总
                   </div>
                   <div className="mt-4 space-y-3 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">已用盘位</span>
+                      <span className="text-slate-500 dark:text-slate-400">已用盘位</span>
                       <span className="font-semibold text-slate-900">{stats.usedSlots} / {stats.totalSlotsAll || "—"}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">平均使用率</span>
+                      <span className="text-slate-500 dark:text-slate-400">平均使用率</span>
                       <span className="font-semibold text-slate-900">{stats.avgUsage}%</span>
                     </div>
                     <Progress value={stats.avgUsage} className="h-2" />
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
                   <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                     <Database className="h-4 w-4 text-blue-600" />
                     当前数据口径
                   </div>
-                  <div className="mt-4 space-y-2 text-xs text-slate-600">
+                  <div className="mt-4 space-y-2 text-xs text-slate-600 dark:text-slate-300">
                     <p>来源: {isApiMode ? "平台同步结果" : "本地演示数据"}</p>
                     <p>设备数量: {filtered.length} 台</p>
                     <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
                     <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>
-                    <p className="text-amber-700">存储浏览/数据恢复未接入时明确说明，不使用演示目录冒充真实能力。</p>
+                    <p className="text-amber-700 dark:text-amber-300">存储浏览/数据恢复未接入时明确说明，不使用演示目录冒充真实能力。</p>
                   </div>
                 </div>
 
                 {/* 设备列表预览 — 让 Tab 内容更"实" */}
                 {filtered.length > 0 && (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 lg:col-span-3" data-testid="racks-storage-overview-list">
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 lg:col-span-3" data-testid="racks-storage-overview-list">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                         <Server className="h-4 w-4 text-blue-600" />
@@ -1604,7 +1604,7 @@ export default function Page() {
                       {filtered.slice(0, 5).map(r => {
                         const ds = deviceStatusMap[r.deviceStatus ?? "online"] ?? deviceStatusMap.online
                         return (
-                          <div key={`overview-${r.siteCode}-${r.rackId}-${r.id}`} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2">
+                          <div key={`overview-${r.siteCode}-${r.rackId}-${r.id}`} className="rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 p-2">
                             <div className="flex items-center justify-between gap-1">
                               <span className="font-mono font-medium truncate text-slate-900">{r.rackId}</span>
                               <Badge className={cn("text-[10px] shrink-0", ds.color)}>{ds.label}</Badge>

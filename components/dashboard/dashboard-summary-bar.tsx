@@ -42,17 +42,17 @@ interface StatTile {
 function toneClasses(tone: StatTile["tone"]): string {
   switch (tone) {
     case "blue":
-      return "bg-blue-50 text-blue-600"
+      return "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
     case "indigo":
-      return "bg-indigo-50 text-indigo-600"
+      return "bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300"
     case "amber":
-      return "bg-amber-50 text-amber-600"
+      return "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300"
     case "emerald":
-      return "bg-emerald-50 text-emerald-600"
+      return "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300"
     case "red":
-      return "bg-red-50 text-red-600"
+      return "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300"
     default:
-      return "bg-slate-50 text-slate-600"
+      return "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
   }
 }
 
@@ -149,8 +149,8 @@ export function DashboardSummaryBar() {
 
   if (source === "unavailable" || error) {
     return (
-      <Card className="p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
+      <Card className="p-4 flex items-center justify-between gap-4 bg-white dark:bg-slate-800">
+        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <AlertTriangle className="h-4 w-4 text-amber-500" />
           <span>统计加载失败{error ? ` (${error})` : ""}</span>
         </div>
@@ -165,7 +165,7 @@ export function DashboardSummaryBar() {
               setLoading(false)
             })
           }}
-          className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+          className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1"
         >
           <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
           重试
@@ -180,18 +180,18 @@ export function DashboardSummaryBar() {
   const siteLabel = siteCode ?? "全部站点"
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 bg-white dark:bg-slate-800">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-900">总览统计</span>
-          <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-[10px]">
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">总览统计</span>
+          <Badge className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-[10px]">
             {siteLabel}
           </Badge>
-          <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border border-emerald-200 text-[10px]">
+          <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-[10px]">
             实时
           </Badge>
         </div>
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[10px] text-slate-400 dark:text-slate-500">
           {loading ? "加载中..." : `刷新于 ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`}
         </span>
       </div>
@@ -201,21 +201,21 @@ export function DashboardSummaryBar() {
           return (
             <div
               key={tile.label}
-              className="flex flex-col gap-1.5 rounded border border-slate-100 bg-slate-50/50 p-3"
+              className="flex flex-col gap-1.5 rounded border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-3"
             >
               <div className="flex items-center gap-1.5">
                 <div className={`p-1 rounded ${toneClasses(tile.tone)}`}>
                   <Icon className="h-3.5 w-3.5" />
                 </div>
-                <span className="text-[11px] text-slate-500 uppercase tracking-wide">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   {tile.label}
                 </span>
               </div>
-              <div className="text-xl font-bold text-slate-900 leading-tight">
+              <div className="text-xl font-bold tabular-nums break-words text-slate-900 dark:text-slate-100 leading-tight">
                 {tile.value}
               </div>
               {tile.hint && (
-                <div className="text-[10px] text-slate-500 leading-tight">
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
                   {tile.hint}
                 </div>
               )}

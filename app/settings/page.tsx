@@ -184,17 +184,17 @@ export default function Page() {
               intensity="default"
             >
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">应用服务</p>
+                <div className="rounded-lg border bg-slate-50 dark:bg-slate-800/40 p-4">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">应用服务</p>
                   <p className="mt-2 text-lg font-semibold">{snapshot.systemStatus}</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     运行 {snapshot.systemUptime === null ? "—" : `${Math.floor(snapshot.systemUptime)} 秒`}
                   </p>
                 </div>
-                <div className="rounded-lg border bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">中心数据库</p>
+                <div className="rounded-lg border bg-slate-50 dark:bg-slate-800/40 p-4">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">中心数据库</p>
                   <p className="mt-2 text-lg font-semibold">{snapshot.databaseStatus}</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     {snapshot.databaseConnected ? "已连接" : "未连接"} · 延迟{" "}
                     {snapshot.databaseLatencyMs === null ? "—" : `${snapshot.databaseLatencyMs} ms`}
                   </p>
@@ -244,22 +244,22 @@ export default function Page() {
               intensity="default"
             >
               <div className="space-y-3">
-                <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <div className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
                   自动发现的站点可用于查看与筛选；正式纳管仍需补齐站点注册配置。
                 </div>
                 {snapshot.registrySites.length === 0 && !loading ? (
                   <p className="text-sm text-slate-500">暂无可验证的站点注册或派生记录。</p>
                 ) : (
                   snapshot.registrySites.map((site) => (
-                    <div key={site.id} className="rounded-lg border bg-slate-50 p-3">
+                    <div key={site.id} className="rounded-lg border bg-slate-50 dark:bg-slate-800/40 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium">{site.name}</p>
-                          <p className="font-mono text-xs text-slate-500">{site.code}</p>
+                          <p className="font-mono text-xs text-slate-500 dark:text-slate-400">{site.code}</p>
                         </div>
                         <Badge variant="outline">{site.status}</Badge>
                       </div>
-                      <p className="mt-2 text-xs text-slate-500">
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                         设备 {site.deviceCount ?? 0}
                       </p>
                     </div>
@@ -285,7 +285,7 @@ export default function Page() {
                   <p className="text-sm text-slate-500">暂无可读取的站点同步配置。</p>
                 ) : (
                   snapshot.sites.map((site) => (
-                    <div key={site.siteCode} className="rounded-lg border bg-slate-50 p-3">
+                    <div key={site.siteCode} className="rounded-lg border bg-slate-50 dark:bg-slate-800/40 p-3">
                       {(() => {
                         const runtime = snapshot.siteStatuses.find(
                           (item) => item.siteCode === site.siteCode
@@ -295,7 +295,7 @@ export default function Page() {
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="text-sm font-medium">{site.siteName}</p>
-                                <p className="font-mono text-xs text-slate-500">{site.siteCode}</p>
+                                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">{site.siteCode}</p>
                               </div>
                               <Badge variant={site.enabled ? "default" : "secondary"}>
                                 {site.enabled ? displayStatus(site.status) : "已停用"}
@@ -303,23 +303,23 @@ export default function Page() {
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                               <div>
-                                <p className="text-slate-500">同步周期</p>
+                                <p className="text-slate-500 dark:text-slate-400">同步周期</p>
                                 <p className="mt-1 font-medium">{site.intervalSeconds} 秒</p>
                               </div>
                               <div>
-                                <p className="text-slate-500">凭据引用</p>
+                                <p className="text-slate-500 dark:text-slate-400">凭据引用</p>
                                 <p className="mt-1 break-all font-mono font-medium">
                                   {site.credentialKeyRef ?? "未配置"}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-slate-500">最近调度</p>
+                                <p className="text-slate-500 dark:text-slate-400">最近调度</p>
                                 <p className="mt-1 font-medium">
                                   {displayStatus(runtime?.schedulerStatus ?? "not_run")}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-slate-500">最近一致性</p>
+                                <p className="text-slate-500 dark:text-slate-400">最近一致性</p>
                                 <p className="mt-1 font-medium">
                                   {displayStatus(runtime?.consistencyStatus ?? "not_run")} ·{" "}
                                   {runtime?.matchedTableCount ?? "—"} /{" "}
@@ -334,7 +334,7 @@ export default function Page() {
                   ))
                 )}
                 {snapshot.realityNote && (
-                  <p className="text-xs text-amber-700">{snapshot.realityNote}</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">{snapshot.realityNote}</p>
                 )}
               </div>
             </GlassPanel>
@@ -367,7 +367,7 @@ export default function Page() {
                   snapshot.envKeyRefs.map((item) => (
                     <div
                       key={item.key}
-                      className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2"
+                      className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2"
                     >
                       <span className="break-all font-mono text-xs">{item.key}</span>
                       <Badge variant={item.configured ? "default" : "outline"}>
@@ -392,9 +392,9 @@ export default function Page() {
               intensity="default"
             >
               <div className="space-y-3">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   当前默认调度：每{" "}
-                  <span className="font-mono font-medium text-slate-700">60</span>{" "}
+                  <span className="font-mono font-medium text-slate-700 dark:text-slate-300">60</span>{" "}
                   分钟执行一次站点同步；个别站点可使用独立周期。
                 </p>
                 {snapshot.sites.length === 0 && !loading ? (
@@ -403,21 +403,21 @@ export default function Page() {
                   snapshot.sites.map((site) => (
                     <div
                       key={site.siteCode}
-                      className="rounded-lg border bg-slate-50 p-3 text-xs"
+                      className="rounded-lg border bg-slate-50 dark:bg-slate-800/40 p-3 text-xs"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{site.siteName}</span>
-                        <span className="font-mono text-slate-500">{site.siteCode}</span>
+                        <span className="font-mono text-slate-500 dark:text-slate-400">{site.siteCode}</span>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <div>
-                          <p className="text-slate-500">凭据引用</p>
+                          <p className="text-slate-500 dark:text-slate-400">凭据引用</p>
                           <p className="mt-1 font-mono">
                             {site.credentialKeyRef ?? "未配置"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-slate-500">周期</p>
+                          <p className="text-slate-500 dark:text-slate-400">周期</p>
                           <p className="mt-1 font-mono">{site.intervalSeconds} 秒</p>
                         </div>
                       </div>
@@ -440,19 +440,19 @@ export default function Page() {
               intensity="default"
             >
               <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
                   <span>默认调度周期</span>
                   <Badge variant="outline" className="font-mono">
                     60 分钟
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
                   <span>配置来源</span>
                   <Badge variant="outline" className="font-mono">
                     平台配置
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
                   <span>调度进程</span>
                   <Badge variant="outline" className="font-mono">
                     独立运行
@@ -484,7 +484,7 @@ export default function Page() {
               intensity="default"
             >
               <div className="space-y-3">
-                <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
                   <span className="text-sm">当前模式</span>
                   <Badge variant="outline" className="font-mono">
                     {snapshot.auth.mode}
@@ -496,8 +496,8 @@ export default function Page() {
                   <ConfigFlag label="公钥配置" configured={snapshot.auth.jwksUrlConfigured} />
                   <ConfigFlag label="目录服务地址" configured={snapshot.auth.ldapUrlConfigured} />
                   <ConfigFlag label="目录同步范围" configured={snapshot.auth.ldapBaseDnConfigured} />
-                  <div className="rounded border bg-slate-50 px-3 py-2">
-                    <p className="text-xs text-slate-500">客户端密钥引用</p>
+                  <div className="rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">客户端密钥引用</p>
                     <p className="mt-1 break-all font-mono text-xs font-medium">
                       {snapshot.auth.clientSecretKeyRef}
                     </p>
@@ -560,7 +560,7 @@ export default function Page() {
                   label="邮件 / Webhook 投递"
                   status="blocked_by_external_system"
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   配置由运行环境统一管理，页面仅展示状态，不直接填写敏感连接信息。
                 </p>
               </div>
@@ -585,7 +585,7 @@ export default function Page() {
                   snapshot.siteStatuses.map((item) => (
                     <div
                       key={item.siteCode}
-                      className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2 text-xs"
+                      className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2 text-xs"
                     >
                       <span className="font-mono">{item.siteCode}</span>
                       <Badge variant="outline">{displayStatus(item.schedulerStatus)}</Badge>
@@ -621,7 +621,7 @@ export default function Page() {
         }
       />
 
-      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <div className="mb-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-900 dark:text-amber-300">
         <div className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
@@ -634,7 +634,7 @@ export default function Page() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}
@@ -651,7 +651,7 @@ export default function Page() {
 
 function WriteRow({ label, reason }: { label: string; reason: string }) {
   return (
-    <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+    <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
       <span className="text-sm">{label}</span>
       <div className="flex items-center gap-2">
         <Badge variant="outline" className="font-mono text-[10px]">
@@ -673,7 +673,7 @@ function ConfigFlag({
   configured: boolean
 }) {
   return (
-    <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+    <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
       <span className="text-xs">{label}</span>
       <Badge variant={configured ? "default" : "outline"}>
         {configured ? "已配置" : "未配置"}
@@ -684,7 +684,7 @@ function ConfigFlag({
 
 function BlockedItem({ label, status }: { label: string; status: string }) {
   return (
-    <div className="flex items-center justify-between rounded border bg-slate-50 px-3 py-2">
+    <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
       <span>{label}</span>
       <Badge variant="outline" className="font-mono text-[10px]">
         {displayStatus(status)}

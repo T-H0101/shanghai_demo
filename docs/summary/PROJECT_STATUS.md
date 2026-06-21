@@ -1,8 +1,35 @@
 # Project Status
 
-> **截至**: 2026-06-20
-> **Sprint**: Sprint R.23 同步时效白盒证据
-> **当前主线**: 同步与控制可视化；随后继续 manual-sync command 通道、生产持续时延和百万级全量验收
+> **截至**: 2026-06-22
+> **Sprint**: Sprint card-layout-fix (R.78)
+> **当前主线**: 卡片排版整体修复,详情面板 / 抽屉 / 首页卡片内容可达,浅色模式不动,暗色模式清晰
+
+---
+
+## Sprint card-layout-fix (R.78) — 卡片排版整体修复 (2026-06-22)
+
+- DetailPanel 重构: 去 ScrollArea 包装,改 `h-full flex-1 min-h-0 overflow-y-auto`,父容器决定高度
+- DetailRow value 加 `min-w-0 break-words dark:text-slate-100`,长 IP / 邮箱自动换行不撑爆
+- Card 显式 `bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 overflow-hidden`
+- CardHeader 加 `border-b border-slate-100 dark:border-slate-800`,标题 / 内容视觉分隔
+- Drawer 内部 ScrollArea 改 `flex-1 min-h-0`(去掉 viewport 固定高度)
+- 首页 dashboard 数字加 `tabular-nums`,alert message 加 `break-words line-clamp-2`
+- `e2e:card-layout` 新增 25 项断言 100% 通过
+- 顺手清理 `package.json` 的 dead `e2e:theme-background` 引用
+- `REQ-§6.2` 视觉合规 R.78 增强
+
+---
+
+## Sprint dark-theme-overhaul (R.77) — 全平台暗色主题整体重做 (2026-06-22)
+
+- 11 个 page.tsx + 30+ 组件 + Recharts + 状态映射函数 全部加 `dark:` 前缀变体
+- `app/globals.css` 新增 12 个 CSS 变量(`--app-surface-2/3` / `--app-text-1/2/3/4` / `--app-info/warn/error/success` 系列)
+- `styles/dark.css` 扩展 12 个色族覆盖(blue/amber/red/emerald/orange/indigo + purple/pink/sky/rose/violet/teal/cyan/fuchsia/lime/yellow)
+- `lib/chart-theme.ts` 新文件: Recharts 动态 palette(lightPalette / darkPalette)
+- `app/login/page.tsx` 用 `useTheme()` + mounted guard 动态背景,LoginCard 浅色玻璃/暗色玻璃双主题
+- `e2e:dark-mode` 新增 44 项断言,100% 通过
+- login (27) + theme-background (10) e2e 无回归
+- `REQ-§6.2` 视觉合规 — 暗色主题从 `partial` → `complete`
 
 ---
 

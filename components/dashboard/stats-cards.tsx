@@ -65,7 +65,7 @@ export function StatsCards() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-[10px] text-slate-500" data-testid="dashboard-stats-source">
+      <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400" data-testid="dashboard-stats-source">
         <Database className="h-3 w-3" />
         <span>
           数据状态：
@@ -77,7 +77,7 @@ export function StatsCards() {
                 ? "读取异常"
                 : "正常"}
         </span>
-        {dataSource === "error" && <span className="text-red-600">读取失败，未使用演示数据替代。</span>}
+        {dataSource === "error" && <span className="text-red-600 dark:text-red-400">读取失败，未使用演示数据替代。</span>}
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Card 1 - 任务总数 (可点击 → /tasks) */}
@@ -86,21 +86,21 @@ export function StatsCards() {
         className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg"
         data-testid="dashboard-stat-tasks"
       >
-        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-blue-300 cursor-pointer">
+        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-blue-300 dark:group-hover:border-blue-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded bg-blue-50">
-              <Activity className="h-4 w-4 text-blue-600" />
+            <div className="p-1.5 rounded bg-blue-50 dark:bg-blue-900/30">
+              <Activity className="h-4 w-4 text-blue-600 dark:text-blue-300" />
             </div>
-            <span className="text-xs text-slate-500 uppercase tracking-wide">任务总数</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 group-hover:text-blue-500 transition-colors" />
+            <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">任务总数</span>
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-blue-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
-            <span className="text-2xl font-bold text-slate-900">{taskStats.total}</span>
-            <span className="text-xs text-slate-500">个</span>
+            <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{taskStats.total}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">个</span>
           </div>
           <div className="flex items-center gap-3 text-xs">
-            <span className="text-blue-600 flex items-center gap-1"><Clock className="h-3 w-3" />{taskStats.running} 运行中</span>
-            <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{taskStats.completed} 已完成</span>
+            <span className="text-blue-600 dark:text-blue-300 flex items-center gap-1"><Clock className="h-3 w-3" />{taskStats.running} 运行中</span>
+            <span className="text-emerald-600 dark:text-emerald-300 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{taskStats.completed} 已完成</span>
           </div>
         </Card>
       </Link>
@@ -111,19 +111,19 @@ export function StatsCards() {
         className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
         data-testid="dashboard-stat-running"
       >
-        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-emerald-300 cursor-pointer">
+        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-emerald-300 dark:group-hover:border-emerald-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded bg-emerald-50">
-              <Activity className="h-4 w-4 text-emerald-600" />
+            <div className="p-1.5 rounded bg-emerald-50 dark:bg-emerald-900/30">
+              <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
             </div>
-            <span className="text-xs text-slate-500 uppercase tracking-wide">运行任务</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 group-hover:text-emerald-500 transition-colors" />
+            <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">运行任务</span>
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-emerald-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
-            <span className="text-2xl font-bold text-emerald-600">{taskStats.running}</span>
-            <span className="text-xs text-slate-500">进行中</span>
+            <span className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-300">{taskStats.running}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">进行中</span>
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {taskStats.pending} 待处理 · {taskStats.failed} 失败
           </div>
         </Card>
@@ -135,21 +135,21 @@ export function StatsCards() {
         className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
         data-testid="dashboard-stat-devices"
       >
-        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-indigo-300 cursor-pointer">
+        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-indigo-300 dark:group-hover:border-indigo-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded bg-indigo-50">
-              <HardDrive className="h-4 w-4 text-indigo-600" />
+            <div className="p-1.5 rounded bg-indigo-50 dark:bg-indigo-900/30">
+              <HardDrive className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
             </div>
-            <span className="text-xs text-slate-500 uppercase tracking-wide">设备在线</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 group-hover:text-indigo-500 transition-colors" />
+            <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">设备在线</span>
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-indigo-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
-            <span className="text-2xl font-bold text-slate-900">{rackStats.online}/{rackStats.total}</span>
-            <span className="text-xs text-slate-500">台</span>
+            <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{rackStats.online}/{rackStats.total}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">台</span>
           </div>
           <div className="flex items-center gap-3 text-xs">
-            <span className="text-emerald-600">{rackStats.online} 在线</span>
-            <span className="text-red-600">{rackStats.offline} 离线</span>
+            <span className="text-emerald-600 dark:text-emerald-300">{rackStats.online} 在线</span>
+            <span className="text-red-600 dark:text-red-300">{rackStats.offline} 离线</span>
           </div>
         </Card>
       </Link>
@@ -160,19 +160,19 @@ export function StatsCards() {
         className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
         data-testid="dashboard-stat-storage"
       >
-        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-amber-300 cursor-pointer">
+        <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-amber-300 dark:group-hover:border-amber-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded bg-amber-50">
-              <Database className="h-4 w-4 text-amber-600" />
+            <div className="p-1.5 rounded bg-amber-50 dark:bg-amber-900/30">
+              <Database className="h-4 w-4 text-amber-600 dark:text-amber-300" />
             </div>
-            <span className="text-xs text-slate-500 uppercase tracking-wide">存储使用率</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 group-hover:text-amber-500 transition-colors" />
+            <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">存储使用率</span>
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-amber-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
-            <span className="text-2xl font-bold text-slate-900">{rackStats.avgUsage}%</span>
+            <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{rackStats.avgUsage}%</span>
           </div>
           <Progress value={rackStats.avgUsage} className="h-1.5 mb-1" />
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             已用 {rackStats.usedSlots}/{rackStats.totalSlotsAll} 盘位
           </div>
         </Card>

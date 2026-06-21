@@ -215,18 +215,18 @@ export default function Page() {
   // dataSource 标识徽章
   const dataSourceBadge = (() => {
     if (dataSource === "database") {
-      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><Database className="h-3 w-3 mr-1" />已注册</Badge>
+      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />已注册</Badge>
     }
     if (dataSource === "derived") {
-      return <Badge className="bg-amber-100 text-amber-700 border-amber-200" title={meta?.reason}><Layers className="h-3 w-3 mr-1" />由同步数据派生</Badge>
+      return <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" title={meta?.reason}><Layers className="h-3 w-3 mr-1" />由同步数据派生</Badge>
     }
     if (dataSource === "empty") {
-      return <Badge className="bg-slate-100 text-slate-600 border-slate-200">暂无数据</Badge>
+      return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
     }
     if (dataSource === "error") {
-      return <Badge className="bg-red-100 text-red-700 border-red-200">加载失败</Badge>
+      return <Badge className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">加载失败</Badge>
     }
-    return <Badge className="bg-slate-100 text-slate-500">加载中…</Badge>
+    return <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">加载中…</Badge>
   })()
 
   return (
@@ -241,7 +241,7 @@ export default function Page() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 cursor-pointer hover:bg-slate-100 transition-colors"
+                className="h-8 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 onClick={loadSites}
                 disabled={loading}
                 data-testid="sites-refresh"
@@ -327,7 +327,7 @@ export default function Page() {
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <CardTitle className="text-base font-semibold">
-                站点列表 {dataSource === "derived" && <span className="text-xs text-amber-600 font-normal ml-2">(由同步数据派生，名称/IP/联系人暂缺)</span>}
+                站点列表 {dataSource === "derived" && <span className="text-xs text-amber-600 dark:text-amber-400 font-normal ml-2">(由同步数据派生，名称/IP/联系人暂缺)</span>}
               </CardTitle>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as SiteStatusFilter)}>
@@ -386,7 +386,7 @@ export default function Page() {
                   {filtered.map((site, idx) => (
                     <TableRow
                       key={`site-${site.id}-${idx}`}
-                      className={`cursor-pointer hover:bg-slate-50 ${selected?.id === site.id ? "bg-blue-50" : ""}`}
+                      className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.id === site.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                       onClick={() => setSelected(site)}
                     >
                       <TableCell>
@@ -395,7 +395,7 @@ export default function Page() {
                       </TableCell>
                       <TableCell>
                         {site.status === "derived" ? (
-                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">派生</Badge>
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 text-xs">派生</Badge>
                         ) : (
                           <OnlineStatusBadge status={site.status} />
                         )}
@@ -447,9 +447,9 @@ export default function Page() {
           {selected && (
             <div className="space-y-4">
               {selected.status === "derived" && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-xs text-amber-700 font-medium">⚠️ 派生数据</p>
-                  <p className="text-xs text-amber-600 mt-1">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">⚠️ 派生数据</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                     该站点来自已同步业务记录，IP、联系人和数据中心等详细信息暂缺。
                   </p>
                 </div>
@@ -457,7 +457,7 @@ export default function Page() {
               <DetailRow label="站点名称" value={selected.name} />
               <DetailRow label="区域" value={selected.region} />
               <DetailRow label="在线状态" value={
-                selected.status === "derived" ? <Badge className="bg-amber-100 text-amber-700">派生</Badge> : <OnlineStatusBadge status={selected.status} />
+                selected.status === "derived" ? <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">派生</Badge> : <OnlineStatusBadge status={selected.status} />
               } />
               <DetailRow label="同步状态" value={<SyncStatusBadge status={selected.syncStatus} />} />
               <DetailRow label="最后同步" value={selected.lastSyncAt} />
@@ -470,12 +470,12 @@ export default function Page() {
               <DetailRow label="槽位总数" value={selected.totalSlots ? `${selected.totalSlots} 槽位（${selected.usedSlots} 已占用）` : "—"} />
               <DetailRow label="活跃任务" value={selected.taskCount ?? 0} />
               {selected.description && (
-                <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg p-3">{selected.description}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg p-3">{selected.description}</p>
               )}
               <AppTooltip content="校验中心库与源站点的数据一致性, 找出差异行">
                 <Button
                   variant="outline"
-                  className="w-full h-8 cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="w-full h-8 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   size="sm"
                   onClick={() => handleCheckConsistency(selected)}
                   disabled={checking}
@@ -509,10 +509,10 @@ export default function Page() {
                   <Badge
                     className={
                       consistencyReport.status === "matched"
-                        ? "bg-emerald-100 text-emerald-700"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                         : consistencyReport.status === "mismatched"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-slate-100 text-slate-700"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                        : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                     }
                   >
                     {consistencyReport.status === "matched"
@@ -540,10 +540,10 @@ export default function Page() {
                   <div className="space-y-2">
                     <p className="text-sm font-medium">差异详情</p>
                     {consistencyReport.issues.map((issue: any, idx: number) => (
-                      <div key={idx} className={`p-3 rounded-lg border ${issue.severity === "error" ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+                      <div key={idx} className={`p-3 rounded-lg border ${issue.severity === "error" ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"}`}>
                         <div className="flex items-center justify-between mb-1">
                           <Badge variant="outline" className="text-xs">{issue.type}</Badge>
-                          <Badge variant="outline" className={`text-xs ${issue.severity === "error" ? "text-red-600 border-red-300" : "text-amber-600 border-amber-300"}`}>
+                          <Badge variant="outline" className={`text-xs ${issue.severity === "error" ? "text-red-600 dark:text-red-300 border-red-300 dark:border-red-700" : "text-amber-600 dark:text-amber-300 border-amber-300 dark:border-amber-700"}`}>
                             {issue.severity === "error" ? "错误" : "警告"}
                           </Badge>
                         </div>
@@ -553,10 +553,10 @@ export default function Page() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-emerald-600">
+                  <div className="text-center py-8 text-emerald-600 dark:text-emerald-300">
                     <ShieldCheck className="h-12 w-12 mx-auto mb-2" />
                     <p className="font-medium">数据完全一致</p>
-                    <p className="text-sm text-slate-500">该站点数据与统一平台无差异</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">该站点数据与统一平台无差异</p>
                   </div>
                 )}
               </>

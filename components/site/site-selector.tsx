@@ -27,7 +27,7 @@ export function SiteSelector({ className }: { className?: string }) {
     return (
       <div
         className={cn(
-          "flex items-center gap-1.5 text-xs text-slate-400",
+          "flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500",
           className
         )}
       >
@@ -42,7 +42,7 @@ export function SiteSelector({ className }: { className?: string }) {
     return (
       <div
         className={cn(
-          "flex items-center gap-1.5 text-xs text-slate-400",
+          "flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500",
           className
         )}
       >
@@ -62,7 +62,7 @@ export function SiteSelector({ className }: { className?: string }) {
     return (
       <div
         className={cn(
-          "flex items-center gap-1.5 text-xs text-slate-400",
+          "flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500",
           className
         )}
       >
@@ -75,7 +75,7 @@ export function SiteSelector({ className }: { className?: string }) {
           disabled
         >
           <SelectTrigger
-            className="h-8 w-[140px] text-xs bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed"
+            className="h-8 w-[140px] text-xs bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 opacity-60 cursor-not-allowed"
             data-testid="site-selector-trigger"
           >
             <SelectValue placeholder="未注册站点" />
@@ -95,13 +95,13 @@ export function SiteSelector({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
-      <Globe className="h-3.5 w-3.5 text-slate-400" />
+      <Globe className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
       <Select
         value={isAllSites ? ALL_SITES : siteCode ?? ALL_SITES}
         onValueChange={(v) => setSiteCode(v === ALL_SITES ? null : v)}
       >
         <SelectTrigger
-          className="h-8 w-[140px] text-xs bg-slate-50 border-slate-200"
+          className="h-8 w-[140px] text-xs bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
           data-testid="site-selector-trigger"
         >
           <SelectValue />

@@ -22,10 +22,10 @@ import {
 } from "@/lib/api/dashboard-provider"
 
 const statusBadge: Record<string, { label: string; color: string }> = {
-  success: { label: "成功", color: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
-  failed: { label: "失败", color: "bg-red-50 text-red-700 border border-red-200" },
-  partial: { label: "部分成功", color: "bg-amber-50 text-amber-700 border border-amber-200" },
-  running: { label: "运行中", color: "bg-blue-50 text-blue-700 border border-blue-200" },
+  success: { label: "成功", color: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" },
+  failed: { label: "失败", color: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800" },
+  partial: { label: "部分成功", color: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800" },
+  running: { label: "运行中", color: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800" },
 }
 
 function formatDuration(ms: number | null): string {
@@ -63,12 +63,12 @@ export function DashboardRecentSyncs() {
 
   if (source === "unavailable" || error) {
     return (
-      <Card className="gap-0 h-full">
+      <Card className="gap-0 h-full bg-white dark:bg-slate-800">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-slate-900">最近同步</CardTitle>
+          <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-100">最近同步</CardTitle>
         </CardHeader>
         <CardContent className="pt-0 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
             <span>同步记录加载失败{error ? ` (${error})` : ""}</span>
           </div>
@@ -83,7 +83,7 @@ export function DashboardRecentSyncs() {
                 setLoading(false)
               })
             }}
-            className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 self-start"
+            className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1 self-start"
           >
             <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
             重试
@@ -94,16 +94,16 @@ export function DashboardRecentSyncs() {
   }
 
   return (
-    <Card className="gap-0 h-full" data-testid="dashboard-recent-syncs">
+    <Card className="gap-0 h-full bg-white dark:bg-slate-800" data-testid="dashboard-recent-syncs">
       <CardHeader className="pb-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-sm font-semibold text-slate-900">最近同步</CardTitle>
-            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-50 text-[10px]">
+            <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-100">最近同步</CardTitle>
+            <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-[10px]">
               实时
             </Badge>
           </div>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-slate-400 dark:text-slate-500">
             {loading ? "加载中..." : `${items.length} 条`}
           </span>
         </div>
@@ -111,38 +111,38 @@ export function DashboardRecentSyncs() {
       <CardContent className="pt-0 flex flex-col h-[calc(100%-3.5rem)]">
         <div className="flex-1 space-y-1.5 overflow-y-auto min-h-0">
           {items.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs flex flex-col items-center gap-1">
-              <Package className="h-5 w-5 text-slate-300" />
+            <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs flex flex-col items-center gap-1">
+              <Package className="h-5 w-5 text-slate-300 dark:text-slate-400" />
               <span>暂无同步记录</span>
             </div>
           ) : (
             items.map((it) => {
               const badge = statusBadge[it.status] ?? {
                 label: it.status,
-                color: "bg-slate-50 text-slate-600 border border-slate-200",
+                color: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
               }
               return (
                 <div
                   key={`${it.siteCode}-${it.batchId}`}
-                  className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-slate-50"
+                  className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-700 truncate">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
                         {it.siteCode}
                       </span>
-                      <span className="text-[10px] text-slate-400 truncate">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
                         {it.batchId}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
                       <TimeDisplay value={it.finishedAt} mode="datetime" />
                       <span>·</span>
                       <span>耗时 {formatDuration(it.durationMs)}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
                       {it.successTableCount}/{it.tableCount} 表
                     </span>
                     <Badge className={`text-[10px] ${badge.color}`}>{badge.label}</Badge>

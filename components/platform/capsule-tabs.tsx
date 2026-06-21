@@ -128,7 +128,7 @@ export function CapsuleTabs({
         aria-orientation="horizontal"
         onKeyDown={handleKeyDown}
         className={cn(
-          "flex w-full overflow-x-auto rounded-full border border-slate-200 bg-slate-100/70 p-1",
+          "flex w-full overflow-x-auto rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100/70 dark:bg-slate-800/70 p-1",
           alignClass[align],
           listClassName,
         )}
@@ -157,9 +157,9 @@ export function CapsuleTabs({
                 "group relative inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
                 active
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
-                  : "text-slate-600 hover:text-slate-900",
-                item.disabled && "cursor-not-allowed opacity-50 hover:text-slate-600",
+                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-700"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100",
+                item.disabled && "cursor-not-allowed opacity-50 hover:text-slate-600 dark:hover:text-slate-400",
               )}
             >
               {item.icon && (
@@ -173,8 +173,8 @@ export function CapsuleTabs({
                   className={cn(
                     "ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-4",
                     active
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-slate-200 text-slate-600",
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                      : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
                   )}
                 >
                   {item.badge}

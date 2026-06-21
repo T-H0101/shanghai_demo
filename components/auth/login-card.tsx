@@ -85,8 +85,12 @@ export function LoginCard({ availableSites }: LoginCardProps) {
     <div
       data-testid="login-card"
       className={cn(
-        "relative w-full max-w-md rounded-2xl border border-white/15 p-8 shadow-2xl shadow-black/40",
-        "bg-white/[0.12] backdrop-blur-2xl backdrop-saturate-180",
+        "relative w-full max-w-md rounded-2xl border p-8 shadow-2xl",
+        "border-white/15 shadow-black/40 dark:border-white/15",
+        // 双主题玻璃: 浅色下用白底高透 + 浅蓝紫光,暗色下保留原夜空玻璃感
+        "bg-white/70 backdrop-blur-2xl backdrop-saturate-180",
+        "dark:bg-white/[0.12]",
+        "shadow-slate-900/10 dark:shadow-black/40",
         "animate-in fade-in slide-in-from-bottom-3 duration-300",
       )}
     >
@@ -95,24 +99,24 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden"
       >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-900/15 to-transparent dark:via-white/30" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent dark:from-white/[0.04]" />
       </div>
 
       <div className="relative z-10 mb-8">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-2.5 py-1 text-[10px] uppercase tracking-widest text-blue-300">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] uppercase tracking-widest text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
           <ShieldCheck className="h-3 w-3" aria-hidden="true" />
           Enterprise Auth
         </div>
-        <h2 className="text-xl font-semibold text-white">统一身份登录</h2>
-        <p className="mt-1 text-sm text-slate-400">平台认证基座 · 单点登录与会话统一</p>
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">统一身份登录</h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">平台认证基座 · 单点登录与会话统一</p>
       </div>
 
       <form onSubmit={handleSubmit} className="relative z-10 space-y-5" noValidate>
         <div className="space-y-2">
           <Label
             htmlFor="account"
-            className="text-xs uppercase tracking-wider text-slate-400"
+            className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400"
           >
             Domain Account
           </Label>
@@ -133,7 +137,8 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-invalid={!!accountError}
               aria-describedby={accountError ? "account-error" : undefined}
               className={cn(
-                "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white placeholder:text-slate-600",
+                "h-11 border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400",
+                "dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 accountError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -141,7 +146,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
             />
           </div>
           {accountError && (
-            <p id="account-error" className="text-xs text-red-400">
+            <p id="account-error" className="text-xs text-red-600 dark:text-red-400">
               {accountError}
             </p>
           )}
@@ -149,16 +154,16 @@ export function LoginCard({ availableSites }: LoginCardProps) {
 
         {hasEnteredAccount && (
           <div className="animate-in space-y-2 fade-in duration-200">
-            <Label className="text-xs uppercase tracking-wider text-slate-400">
+            <Label className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Available Sites
             </Label>
-            <div className="flex flex-wrap gap-2 rounded-lg border border-white/10 bg-slate-950/40 p-3">
+            <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
               {availableSites.length > 0 ? (
                 availableSites.map((s) => (
                   <Badge
                     key={s}
                     variant="outline"
-                    className="border-blue-700/50 bg-blue-950/30 text-blue-300"
+                    className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-700/50 dark:bg-blue-950/30 dark:text-blue-300"
                   >
                     {s}
                   </Badge>
@@ -173,7 +178,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         <div className="space-y-2">
           <Label
             htmlFor="password"
-            className="text-xs uppercase tracking-wider text-slate-400"
+            className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400"
           >
             Password
           </Label>
@@ -192,7 +197,8 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-invalid={!!passwordError}
               aria-describedby={passwordError ? "password-error" : undefined}
               className={cn(
-                "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white placeholder:text-slate-600",
+                "h-11 border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400",
+                "dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 passwordError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -200,14 +206,14 @@ export function LoginCard({ availableSites }: LoginCardProps) {
             />
           </div>
           {passwordError && (
-            <p id="password-error" className="text-xs text-red-400">
+            <p id="password-error" className="text-xs text-red-600 dark:text-red-400">
               {passwordError}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-slate-400">
+          <Label className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">
             Site / Data Center
           </Label>
           <div className="relative">
@@ -219,7 +225,8 @@ export function LoginCard({ availableSites }: LoginCardProps) {
             >
               <SelectTrigger
                 className={cn(
-                  "h-11 border-slate-700 bg-slate-950/60 pl-10 text-white",
+                  "h-11 border-slate-300 bg-white pl-10 text-slate-900",
+                  "dark:border-slate-700 dark:bg-slate-800 dark:text-white",
                   "focus:ring-blue-500/40",
                 )}
               >
@@ -241,7 +248,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         {error && (
           <p
             role="alert"
-            className="animate-in fade-in slide-in-from-top-1 rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-400 duration-200"
+            className="animate-in fade-in slide-in-from-top-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 duration-200 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400"
           >
             {error}
           </p>
@@ -249,7 +256,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         {isLocked && (
           <p
             role="alert"
-            className="rounded-lg border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-sm text-amber-400"
+            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-400"
           >
             连续登录失败次数过多，账户已临时锁定，请30秒后再试
           </p>
@@ -259,7 +266,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
           type="submit"
           disabled={loading || !site || isLocked}
           data-testid="login-submit"
-          className="h-11 w-full bg-blue-600 font-medium text-white hover:bg-blue-500 active:scale-[0.98] disabled:bg-slate-700 disabled:text-slate-400"
+          className="h-11 w-full bg-blue-600 font-medium text-white hover:bg-blue-500 active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
         >
           {loading ? (
             <>
@@ -272,7 +279,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         </Button>
       </form>
 
-      <p className="relative z-10 mt-6 text-center text-xs leading-relaxed text-slate-500">
+      <p className="relative z-10 mt-6 text-center text-xs leading-relaxed text-slate-500 dark:text-slate-500">
         当前认证：本地 JWT
         <br />
         企业 ADFS/LDAP：待接入，缺少 provider metadata 与测试账号
@@ -281,14 +288,14 @@ export function LoginCard({ availableSites }: LoginCardProps) {
       </p>
 
       <div
-        className="relative z-10 mt-6 flex flex-wrap justify-center gap-4 border-t border-white/10 pt-6"
+        className="relative z-10 mt-6 flex flex-wrap justify-center gap-4 border-t border-slate-200 pt-6 dark:border-white/10"
         data-testid="login-federation-status"
       >
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
           JWT 会话
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
           登录审计
         </div>

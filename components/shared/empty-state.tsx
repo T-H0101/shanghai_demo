@@ -45,15 +45,15 @@ interface EmptyStateProps {
 }
 
 const severityClass: Record<EmptyStateSeverity, string> = {
-  empty: "border-slate-200 bg-slate-50/40 text-slate-600",
-  blocked: "border-amber-200 bg-amber-50/40 text-amber-800",
-  error: "border-red-200 bg-red-50/40 text-red-800",
+  empty: "border-slate-200 dark:border-slate-700 bg-slate-50/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300",
+  blocked: "border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300",
+  error: "border-red-200 dark:border-red-800 bg-red-50/40 dark:bg-red-900/20 text-red-800 dark:text-red-300",
 }
 
 const severityIconClass: Record<EmptyStateSeverity, string> = {
-  empty: "bg-slate-100 text-slate-400",
-  blocked: "bg-amber-100 text-amber-600",
-  error: "bg-red-100 text-red-500",
+  empty: "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
+  blocked: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300",
+  error: "bg-red-100 text-red-500 dark:bg-red-900/30 dark:text-red-300",
 }
 
 export function EmptyState({
@@ -123,16 +123,16 @@ export function ErrorState({
     <div
       className={cn(
         "flex flex-col items-center justify-center py-10 px-6 text-center",
-        "border border-red-200 rounded-lg bg-red-50/40",
+        "border border-red-200 dark:border-red-800 rounded-lg bg-red-50/40 dark:bg-red-900/20",
         className,
       )}
       data-testid={testid ?? "error-state"}
     >
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-        <Inbox className="h-6 w-6 text-red-500" />
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+        <Inbox className="h-6 w-6 text-red-500 dark:text-red-300" />
       </div>
-      <p className="text-sm font-medium text-red-800">{title}</p>
-      <p className="mt-1 text-xs text-red-600 max-w-md">{description}</p>
+      <p className="text-sm font-medium text-red-800 dark:text-red-300">{title}</p>
+      <p className="mt-1 text-xs text-red-600 dark:text-red-400 max-w-md">{description}</p>
       {onRetry && (
         <Button
           variant="outline"
