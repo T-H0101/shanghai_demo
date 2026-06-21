@@ -136,21 +136,24 @@ async function main() {
     "控制仅提交队列"
   )
   check(
-    "总控新建任务按钮接入任务创建 API",
-    tasksPage.includes('data-testid="task-create-open"') &&
-      tasksPage.includes("/api/tasks/create"),
-    "总控提交到控制队列"
+    "总控新建任务按钮存在",
+    tasksPage.includes('data-testid="task-create-open"'),
+    "task-create-open testid present",
   )
   check(
-    "总控新建任务文案不冒充站点已创建",
-    tasksPage.includes("任务创建命令已提交") &&
-      tasksPage.includes("等待站点 Agent 执行"),
-    "提交队列，不宣称创建成功"
+    "总控新建任务调用 /api/tasks/create",
+    tasksPage.includes("/api/tasks/create"),
+    "control-command submit endpoint",
   )
   check(
-    "控制文案明确等待 Agent",
-    tasksPage.includes("等待站点 Agent 执行"),
-    "不冒充执行成功"
+    "不含节点跳转旧口径",
+    !tasksPage.includes("节点新建任务") && !tasksPage.includes("/api/site-navigation/task-create"),
+    "no node-jump wording",
+  )
+  check(
+    "新建任务对话框含 Agent 闭环文案",
+    tasksPage.includes("站点 Agent 拉取后在站点库创建真实任务"),
+    "honest dialog description",
   )
   const createRes = await fetch(`${BASE}/api/tasks/create`, {
     method: "POST",
