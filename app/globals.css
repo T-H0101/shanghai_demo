@@ -40,37 +40,40 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  /* R.79 dark-theme-color-consistency: 统一到 slate-800 (#1e293b) 标准
+   * 让 Card / Popover / Sidebar / Input 组件默认暗色背景一致,
+   * 避免左卡(用 token bg-card)比右卡(显式 bg-slate-800)更深。 */
+  --background: oklch(0.207 0.042 264.695);          /* slate-900 (#0f172a) 整页背景 */
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
+  --card: oklch(0.279 0.041 260.031);               /* slate-800 (#1e293b) 卡片 */
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
+  --popover: oklch(0.279 0.041 260.031);            /* slate-800 弹窗 */
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --secondary: oklch(0.372 0.044 257.287);          /* slate-700 (#334155) */
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
+  --muted: oklch(0.372 0.044 257.287);               /* slate-700 */
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(0.372 0.044 257.287);              /* slate-700 */
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
+  --border: oklch(0.372 0.044 257.287);             /* slate-700 边框 */
+  --input: oklch(0.279 0.041 260.031);              /* slate-800 输入框 */
   --ring: oklch(0.439 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: oklch(0.279 0.041 260.031);            /* slate-800 侧栏 */
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: oklch(0.372 0.044 257.287);     /* slate-700 */
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-border: oklch(0.372 0.044 257.287);     /* slate-700 */
   --sidebar-ring: oklch(0.439 0 0);
 }
 
