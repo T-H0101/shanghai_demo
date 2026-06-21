@@ -1,9 +1,9 @@
 {
   "$schema": "requirements-traceability-v1",
-  "version": "R.68",
-  "date": "2026-06-20",
+  "version": "R.71",
+  "date": "2026-06-21",
   "source_of_truth": "docs/source/requirements.md",
-  "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.43 matrix reconciliation after R.39-R.43 strict evidence backfill",
+  "constraint_doc": "requirements.md + CLAUDE.md + AGENTS.md; R.43 matrix reconciliation after R.39-R.43 strict evidence backfill; R.69-R.71 site-registry + task-site-closure + fail-closed fallback integration",
   "total_requirements": 45,
   "stats": {
     "complete": 29,
@@ -246,10 +246,14 @@
         "app/sites/page.tsx",
         "app/settings/page.tsx",
         "app/api/sites/[id]/route.ts",
-        "scripts/e2e/test-sites.ts"
+        "scripts/e2e/test-sites.ts",
+        "lib/site/site-context.tsx",
+        "components/site/site-selector.tsx",
+        "components/shared/command-palette.tsx"
       ],
       "related_api": [
         "GET /api/sites",
+        "GET /api/sync/config",
         "GET /api/sync/sites/status"
       ],
       "related_db_tables": [
@@ -264,8 +268,8 @@
         "/sites",
         "/settings"
       ],
-      "backend_reality": "R.30: 站点列表真实读取/派生；PATCH/DELETE 支持站点编辑、启用/禁用、删除并写 audit_log；配置仅保存 env key refs，不存 secret。",
-      "ui_reality": "Sites 页面展示真实/派生来源、禁用写动作边界和一致性入口。",
+      "backend_reality": "R.30: 站点列表真实读取/派生；PATCH/DELETE 支持站点编辑、启用/禁用、删除并写 audit_log；配置仅保存 env key refs，不存 secret。R.69: site-context 改为从 /api/sync/config 拉取 sync_sites 注册表, 移除硬编码 SITE_CANDIDATES; site-selector 显示 data-testid=site-selector-source (sync_sites | error); command-palette ⌘K 切换站点同步升级到 useSiteSites。",
+      "ui_reality": "Sites 页面展示真实/派生来源、禁用写动作边界和一致性入口。SiteSelector 在空注册或拉取失败时显示 '未注册站点' disabled 状态; error 状态显式标注。",
       "mock_or_simulator": "N/A - real DB/API/UI/e2e evidence; no mock/simulator/DRY_RUN counted as completion",
       "blocker_type": null,
       "missing_parts": [],
@@ -833,18 +837,27 @@
       "current_status": "complete",
       "implemented_files": [
         "app/tasks/page.tsx",
-        "app/api/tasks/route.ts"
+        "app/api/tasks/route.ts",
+        "app/api/tasks/create/route.ts",
+        "lib/control/task-create.ts",
+        "lib/site-agent/control/postgres-adapter.ts",
+        "scripts/e2e/test-task-create-control.ts",
+        "scripts/e2e/test-tasks.ts"
       ],
       "related_api": [
-        "GET /api/tasks (只读)"
+        "GET /api/tasks (只读)",
+        "POST /api/tasks/create (R.58 + R.70)"
       ],
       "related_db_tables": [
-        "unified_tasks"
+        "unified_tasks",
+        "control_command",
+        "sync_sites",
+        "tbl_task (station)"
       ],
       "ui_pages": [
         "/tasks"
       ],
-      "backend_reality": "control_command table with FOR UPDATE SKIP LOCKED. Site Agent poll/ack/execute/result cycle. 6 command types (task_pause, task_resume, task_reset, task_priority_restore, task_inspect, sync_full, sync_incremental). PostgresSiteActionAdapter writes real tbl_task.status. ControlCoordinator manages execution lifecycle.",
+      "backend_reality": "control_command table with FOR UPDATE SKIP LOCKED. Site Agent poll/ack/execute/result cycle. 6 command types (task_pause, task_resume, task_reset, task_priority_restore, task_inspect, sync_full, sync_incremental). PostgresSiteActionAdapter writes real tbl_task.status. ControlCoordinator manages execution lifecycle. R.58: POST /api/tasks/create enqueues task_create command. R.70: removed hidden SH01 default; siteCode is required and validated against sync_sites (returns 400 if missing/unregistered); create dialog surfaces data-testid=task-create-target-site with explicit siteCode display.",
       "ui_reality": "/tasks page control-command-panel with submit/cancel. /control redirects to /tasks?view=commands.",
       "mock_or_simulator": "none",
       "blocker_type": null,

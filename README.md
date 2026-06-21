@@ -103,7 +103,7 @@ pnpm baseline:check
 pnpm e2e:all
 ```
 
-R.55-R.68 相关定向验证:
+R.55-R.71 相关定向验证:
 
 ```bash
 pnpm e2e:sync-dump-parser
@@ -112,13 +112,19 @@ pnpm e2e:search-es
 pnpm e2e:clickhouse-logs
 pnpm e2e:task-create-control
 pnpm e2e:worst-case
+pnpm e2e:sites
+pnpm e2e:frontend-integration
+pnpm e2e:header-ux-lift
+pnpm e2e:command-center
 ```
 
 注意:
 
 - `e2e:search-es` 在 `SEARCH_ES_URL` 未配置时只证明 blocked 边界正确。
 - `e2e:clickhouse-logs` 在 `CLICKHOUSE_URL` 未配置时只证明 ClickHouse 边界/中心 PG 回退正确。
+- `e2e:task-create-control` 会真实启动 Site Agent `--once` 并向站点 `tbl_task` 插入，必须有 `SITE_DATABASE_URL` 才能跑。
 - `baseline:check` 需要先加载 `.env.local`。
+- **不要把 candidate 数字当作 strict 完成汇报**。`docs/testing/r75-quality-gate-report.md` 是当前最坏情况质量门证据。
 
 ## 目录说明
 
@@ -148,7 +154,7 @@ deploy/                  部署模板
 
 可以说:
 
-> 总控主链路已经完成候选实现并通过本地验证：中心库统一读取、pg_dump 白名单同步、Site Agent 轮询执行、总控创建任务写入站点库、导出审计、安全边界和全量 e2e 均已跑通。严格 requirements 当前 29/45，剩余主要依赖 ADFS/LDAP、ES/ClickHouse 正式环境、站点 schema 和生产 Agent 部署验证。
+> 总控主链路已经完成候选实现并通过本地验证：中心库统一读取、pg_dump 白名单同步、Site Agent 轮询执行、总控创建任务写入站点库、导出审计、安全边界和全量 e2e 均已跑通。R.69 把站点切换统一到中心注册表，R.70 把任务创建的隐式 SH01 默认和未注册站点校验补齐，R.71 把静默 mock fallback 改为 ApiUnavailableError 显式阻塞。严格 requirements 当前 **29/45 = 64.4%**，候选 45/45。剩余主要依赖 ADFS/LDAP、ES/ClickHouse 正式环境、站点 schema 和生产 Agent 部署验证。
 
 不要说:
 
@@ -156,3 +162,4 @@ deploy/                  部署模板
 - “ES/ClickHouse 已生产接入”
 - “ADFS/LDAP 已完成”
 - “控制已真实成功”但没有站点 Agent 执行和站点库回写证据
+- 把 “candidate” 数字汇报成 “complete”
