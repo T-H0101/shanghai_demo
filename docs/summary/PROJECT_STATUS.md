@@ -1,8 +1,22 @@
 # Project Status
 
 > **截至**: 2026-06-22
-> **Sprint**: Sprint dark-theme-overhaul (R.77)
-> **当前主线**: 全平台暗色主题修复,浅色模式不动,暗色下字体清晰 / 卡片无过曝 / 边框可见 / Recharts 图表正常
+> **Sprint**: Sprint card-layout-fix (R.78)
+> **当前主线**: 卡片排版整体修复,详情面板 / 抽屉 / 首页卡片内容可达,浅色模式不动,暗色模式清晰
+
+---
+
+## Sprint card-layout-fix (R.78) — 卡片排版整体修复 (2026-06-22)
+
+- DetailPanel 重构: 去 ScrollArea 包装,改 `h-full flex-1 min-h-0 overflow-y-auto`,父容器决定高度
+- DetailRow value 加 `min-w-0 break-words dark:text-slate-100`,长 IP / 邮箱自动换行不撑爆
+- Card 显式 `bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 overflow-hidden`
+- CardHeader 加 `border-b border-slate-100 dark:border-slate-800`,标题 / 内容视觉分隔
+- Drawer 内部 ScrollArea 改 `flex-1 min-h-0`(去掉 viewport 固定高度)
+- 首页 dashboard 数字加 `tabular-nums`,alert message 加 `break-words line-clamp-2`
+- `e2e:card-layout` 新增 25 项断言 100% 通过
+- 顺手清理 `package.json` 的 dead `e2e:theme-background` 引用
+- `REQ-§6.2` 视觉合规 R.78 增强
 
 ---
 
