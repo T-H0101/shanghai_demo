@@ -97,18 +97,27 @@ export function LoginBackground() {
       for (const e of edges) {
         const a = nodes[e.a]
         const b = nodes[e.b]
-        ctx.strokeStyle = "rgba(59,130,246,0.15)"
+        ctx.strokeStyle = "rgba(96,165,250,0.35)"
         ctx.beginPath()
         ctx.moveTo(a.x, a.y)
         ctx.lineTo(b.x, b.y)
         ctx.stroke()
       }
       for (const n of nodes) {
-        const s = animate ? 0.6 + 0.4 * Math.sin(t * n.speed + n.phase) : 0.8
+        const s = animate ? 0.6 + 0.4 * Math.sin(t * n.speed + n.phase) : 0.85
         const r = n.r * (animate ? 1 + 0.2 * Math.sin(t * n.speed + n.phase) : 1)
-        ctx.fillStyle = `rgba(59,130,246,${0.35 * s})`
+        const alpha = 0.6 * s
+        ctx.fillStyle = `rgba(147,197,253,${alpha})`
         ctx.beginPath()
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2)
+        ctx.fill()
+        // inner glow halo so nodes read clearly on dark bg
+        const halo = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 4)
+        halo.addColorStop(0, `rgba(96,165,250,${alpha * 0.4})`)
+        halo.addColorStop(1, "rgba(96,165,250,0)")
+        ctx.fillStyle = halo
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, r * 4, 0, Math.PI * 2)
         ctx.fill()
       }
     }
