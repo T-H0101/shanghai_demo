@@ -19,6 +19,7 @@ const scripts = [
   "e2e:racks",
   "e2e:volumes",
   "e2e:logs",
+  "e2e:login",
   "e2e:exports",
   "e2e:r16-control-loop",
   "e2e:r16-postreview",
