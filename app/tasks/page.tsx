@@ -154,11 +154,13 @@ function TasksPageContent() {
   const router = useRouter()
   const deviceFilter = searchParams.get("device")
   const view = searchParams.get("view") === "commands" ? "commands" : "tasks"
+  const phaseQuery = searchParams.get("phase")
+  const initialPhase = phaseQuery && Object.keys(TASK_PHASE_LABELS).includes(phaseQuery) ? phaseQuery : "all"
 
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [keyword, setKeyword] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [phaseFilter, setPhaseFilter] = useState<string>("all")
+  const [phaseFilter, setPhaseFilter] = useState<string>(initialPhase)
   const [scopeFilter, setScopeFilter] = useState<string>("all")
   const [selected, setSelected] = useState<TaskItem | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -194,6 +196,11 @@ function TasksPageContent() {
   useEffect(() => {
     if (siteReady) loadTasks()
   }, [loadTasks, siteReady])
+
+  // R.76: 同步 ?phase= 查询参数 → phaseFilter (命令面板跳转后保持一致)
+  useEffect(() => {
+    setPhaseFilter(initialPhase)
+  }, [phaseQuery])
 
   const openDetail = (task: TaskItem) => { setSelected(task); setDrawerOpen(true) }
 

@@ -96,6 +96,24 @@ async function main() {
     !header.includes('placeholder="搜索任务、站点或日志..."')
   )
 
+  // ============================================================
+  // R.76: command palette /tasks?status= → /tasks?phase= contract
+  // ============================================================
+  const paletteSource = await readFile("components/shared/command-palette.tsx", "utf8")
+  const tasksSource = await readFile("app/tasks/page.tsx", "utf8")
+
+  check(
+    "command palette task shortcuts use page-consumed phase query",
+    !paletteSource.includes("/tasks?status=") &&
+      paletteSource.includes("/tasks?phase=failed") &&
+      paletteSource.includes("/tasks?phase=running")
+  )
+  check(
+    "tasks page consumes phase query",
+    tasksSource.includes('searchParams.get("phase")') &&
+      tasksSource.includes("setPhaseFilter(initialPhase)")
+  )
+
   console.log(`\nFrontend integration: ${passed} passed, ${failed} failed`)
   process.exit(failed === 0 ? 0 : 1)
 }

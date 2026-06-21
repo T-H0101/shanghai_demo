@@ -7,7 +7,7 @@
  * - 模糊搜索页面 (跨 sidebar menuItems)
  * - 跳转到任意页面
  * - 切换站点
- * - 触发快速任务操作 (跳转 /tasks?status=...)
+ * - 触发快速任务操作 (跳转 /tasks?phase=...)
  * - 不修改业务逻辑, 只 router.push + 触发现有 API
  *
  * 设计依据: 设计系统 Master → Components → Modals (cmdk 风格)
@@ -87,8 +87,8 @@ export function CommandPalette() {
       { id: "p-search", label: "统一检索", icon: SearchIcon, group: "page", keywords: ["search", "检索", "全文"], perform: () => router.push("/search") },
       { id: "p-sync", label: "同步中心", icon: RefreshCw, group: "page", keywords: ["sync", "同步", "调度", "一致性"], perform: () => router.push("/sync") },
       { id: "p-tasks", label: "任务管理", icon: ClipboardList, group: "page", keywords: ["task", "任务", "工单"], perform: () => router.push("/tasks") },
-      { id: "p-tasks-failed", label: "任务管理 · 失败任务", hint: "查看失败任务", icon: AlertTriangle, group: "action", keywords: ["failed", "失败", "task"], perform: () => router.push("/tasks?status=failed") },
-      { id: "p-tasks-running", label: "任务管理 · 进行中", hint: "查看运行中任务", icon: Activity, group: "action", keywords: ["running", "运行"], perform: () => router.push("/tasks?status=running") },
+      { id: "p-tasks-failed", label: "任务管理 · 失败任务", hint: "查看失败任务", icon: AlertTriangle, group: "action", keywords: ["failed", "失败", "task"], perform: () => router.push("/tasks?phase=failed") },
+      { id: "p-tasks-running", label: "任务管理 · 进行中", hint: "查看运行中任务", icon: Activity, group: "action", keywords: ["running", "运行"], perform: () => router.push("/tasks?phase=running") },
       { id: "p-racks", label: "盘架管理", icon: HardDrive, group: "page", keywords: ["rack", "盘架", "设备"], perform: () => router.push("/racks") },
       { id: "p-volumes", label: "存储卷", icon: Database, group: "page", keywords: ["volume", "卷", "存储"], perform: () => router.push("/volumes") },
       { id: "p-users", label: "用户与权限", icon: Users, group: "page", keywords: ["user", "用户", "权限"], perform: () => router.push("/users") },
