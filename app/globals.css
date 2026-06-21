@@ -163,3 +163,47 @@
 .app-focus:focus-visible {
   box-shadow: 0 0 0 3px rgb(59 130 246 / 0.35);
 }
+
+/* ── R.77 Enterprise UI shine hover (GlassPanel 等) ───────────── */
+.app-shine-hover {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-shine-hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  background-position: 200% 0;
+  opacity: 0;
+  transition: background-position 600ms ease-out, opacity 250ms ease-out;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+.app-shine-hover > * {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shine-hover:hover::after {
+  background-position: -120% 0;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shine-hover::after {
+    display: none;
+  }
+  .app-shine-hover {
+    transition: none;
+  }
+}

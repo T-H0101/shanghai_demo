@@ -203,7 +203,7 @@ export default function LoginPage() {
               统一光盘库管理平台
             </h1>
             <p className="text-slate-400 text-sm lg:text-base mb-10 max-w-md">
-              Unified Optical Disc Library Management Platform — 集团级多站点统一视图、统一检索与统一运维入口（演示环境）。
+              Unified Optical Disc Library Management Platform — 集团级多站点统一视图、统一检索与统一运维入口。
             </p>
 
             <div className="space-y-4">
@@ -372,11 +372,21 @@ export default function LoginPage() {
               企业 ADFS/LDAP：待接入，缺少 provider metadata 与测试账号
               <br />
               站点 SSO：待 ADFS/LDAP 与站点 token 接收端点确认
-              <br />
-              <span className="text-slate-400">
-                本地开发账号：admin / admin — 登录行为写入 auth_login_audit, 连续失败触发锁定
-              </span>
             </p>
+
+            <div className="mt-4 flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                disabled
+                data-testid="login-sso-blocked"
+                className="h-9 px-4 text-xs"
+                title="企业 SSO 待接入 (blocked_by_auth)"
+              >
+                <Building2 className="mr-2 h-3.5 w-3.5" />
+                企业 SSO 待接入
+              </Button>
+            </div>
 
             <div className="mt-6 pt-6 border-t border-slate-800 flex flex-wrap gap-4 justify-center">
               {federationStatus.map((s) => (

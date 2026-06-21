@@ -434,9 +434,28 @@ async function main() {
   check(`搜索页 AppTooltip 数量 ≥ 4 (实际 ${searchTooltipCount})`, searchTooltipCount >= 4)
 
   // ============================================================
-  // 8. requirements 对照
+  // 8. R.77 Enterprise UI 产品化 (GlassPanel / CapsuleTabs / shine)
   // ============================================================
-  console.log("\n=== 8. requirements 对照 (R.1) ===")
+  console.log("\n=== 8. R.77 Enterprise UI 产品化 ===")
+  const glassSource = readFileSync("components/platform/glass-panel.tsx", "utf8")
+  const capsuleSource = readFileSync("components/platform/capsule-tabs.tsx", "utf8")
+  const globalsSource = readFileSync("app/globals.css", "utf8")
+  const loginProdSource = readFileSync("app/login/page.tsx", "utf8")
+  const settingsProdSource = readFileSync("app/settings/page.tsx", "utf8")
+  check("GlassPanel 组件存在", glassSource.includes("export function GlassPanel"))
+  check("CapsuleTabs 组件存在", capsuleSource.includes("export function CapsuleTabs"))
+  check("Diagonal shine 工具类存在 (app-shine-hover)", globalsSource.includes("app-shine-hover"))
+  check("Reduced motion 媒体查询 (prefers-reduced-motion)", globalsSource.includes("prefers-reduced-motion"))
+  check(
+    "login 页面去除 demo 文案 (演示环境 / 开发账号)",
+    !loginProdSource.includes("演示环境") && !loginProdSource.includes("开发账号"),
+  )
+  check("settings 页面使用 CapsuleTabs 分段", settingsProdSource.includes("CapsuleTabs"))
+
+  // ============================================================
+  // 9. requirements 对照
+  // ============================================================
+  console.log("\n=== 9. requirements 对照 (R.1) ===")
   check(
     "未修改 lib/types/* (Adapter 接口契约)",
     true /* 已通过 Edit 不触碰 */,
