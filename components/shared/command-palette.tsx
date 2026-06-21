@@ -4,7 +4,7 @@
  * Sprint UI-2026-06 + r2 — 全局命令面板 (⌘K / Ctrl+K)
  *
  * r2 修复:
- *  - Bug A: 箭头键顺序错乱 → activeItemId (string) 替代 activeIndex (number)
+ *  - Bug A: 箭头键顺序错乱 → 字符串 id 替代数字 index (具体见 activeItemId 状态)
  *  - Bug B: hover 卡顿 → CommandItemRow React.memo + useCallback + will-change
  */
 

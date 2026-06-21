@@ -60,6 +60,7 @@
     "e2e:volumes": "tsx scripts/e2e/test-volumes.ts",
     "e2e:logs": "tsx scripts/e2e/test-logs.ts",
     "e2e:login": "tsx scripts/e2e/test-login.ts",
+    "e2e:command-palette": "tsx scripts/e2e/test-command-palette.ts",
     "e2e:clickhouse-logs": "tsx scripts/e2e/test-clickhouse-logs.ts",
     "e2e:dev-stack": "tsx scripts/e2e/test-external-dev-stack.ts",
     "e2e:worst-case": "tsx scripts/e2e/test-worst-case-quality.ts",
