@@ -37,6 +37,28 @@ async function main() {
   await installAuthenticatedFetch(BASE)
 
   // ──────────────────────────────────────────────────────────
+  // 0. R.69 Task 1: 站点注册表单一来源契约
+  // ──────────────────────────────────────────────────────────
+  const { readFileSync: readFileSyncRaw } = await import("node:fs")
+  const siteContextSrc = readFileSyncRaw("lib/site/site-context.tsx", "utf8")
+  const siteSelectorSrc = readFileSyncRaw("components/site/site-selector.tsx", "utf8")
+  check(
+    "R.69: site selector no longer uses hardcoded SITE_CANDIDATES = [",
+    !siteContextSrc.includes("SITE_CANDIDATES = ["),
+    "site-context.tsx 不再硬编码 SITE_CANDIDATES 数组"
+  )
+  check(
+    "R.69: site context fetches /api/sync/config or /api/sites",
+    siteContextSrc.includes("/api/sync/config") || siteContextSrc.includes("/api/sites"),
+    "site-context.tsx 已接入中心注册表接口"
+  )
+  check(
+    "R.69: site selector exposes data source state",
+    siteSelectorSrc.includes("data-testid=\"site-selector-source\""),
+    "site-selector.tsx 含 site-selector-source 标识"
+  )
+
+  // ──────────────────────────────────────────────────────────
   // 1. 页面能打开
   // ──────────────────────────────────────────────────────────
   const pageRes = await fetch(`${BASE}/sites`)
