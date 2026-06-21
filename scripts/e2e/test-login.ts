@@ -64,22 +64,22 @@ async function main() {
     check("Federation status container found", false, "container missing")
   }
 
-  // ── 5. Header: help mailto + theme toggle, no Globe ───────
+  // ── 5. Header (r2: simplified to logo only) ──────────────
   check(
-    "Help mailto present",
-    html.includes('data-testid="login-help"') &&
-      html.includes('href="mailto:platform-admin@company.com"'),
-    "login-help + mailto: link",
+    "Login header has no help mailto",
+    !html.includes('data-testid="login-help"'),
+    "Help button removed in r2",
   )
   check(
-    "Theme toggle present",
-    html.includes('data-testid="login-theme-toggle"'),
-    "login-theme-toggle found",
+    "Login header has no theme toggle",
+    !html.includes('data-testid="login-theme-toggle"'),
+    "Moon button removed in r2",
   )
   check(
-    "Globe icon NOT in header",
-    !html.includes('aria-label="语言"'),
-    "旧演示 UI Globe 已移除",
+    "Login header mounted (logo + product name only)",
+    html.includes('data-testid="login-header"') &&
+      (html.match(/data-testid="login-header"/g) ?? []).length === 1,
+    "header element present exactly once",
   )
 
   // ── 6 & 7. Login card + submit ─────────────────────────────
