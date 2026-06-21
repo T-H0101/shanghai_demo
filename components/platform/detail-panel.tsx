@@ -27,11 +27,11 @@ export function DetailPanel({
     <Card
       className={cn(
         "gap-0 h-full flex flex-col overflow-hidden",
-        "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700",
+        "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700",
         className,
       )}
     >
-      <CardHeader className="pb-3 shrink-0 px-5 pt-5 border-b border-slate-100 dark:border-slate-800">
+      <CardHeader className="pb-3 shrink-0 px-5 pt-5 border-b border-slate-100 dark:border-slate-700">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50">
@@ -61,7 +61,7 @@ export function DetailPanel({
 
 export function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm">
+    <div className="flex justify-between gap-4 py-2 border-b border-slate-100 dark:border-slate-700 last:border-0 text-sm">
       <span className="text-slate-500 dark:text-slate-400 shrink-0">{label}</span>
       <span className="text-slate-900 dark:text-slate-100 text-right font-medium min-w-0 break-words">
         {value}

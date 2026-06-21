@@ -408,7 +408,7 @@ function TasksPageContent() {
   }
 
   const viewSwitcher = (
-    <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-sm" aria-label="任务中心视图">
+    <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-sm" aria-label="任务中心视图">
       <Button
         variant={view === "tasks" ? "default" : "ghost"}
         size="sm"

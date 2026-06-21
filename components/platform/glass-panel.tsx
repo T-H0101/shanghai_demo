@@ -34,7 +34,7 @@ const intensityClass: Record<NonNullable<GlassPanelProps["intensity"]>, string> 
   default:
     "bg-white/85 border-slate-200 shadow-md dark:bg-slate-900/90 dark:border-slate-700",
   strong:
-    "bg-white/95 border-slate-300 shadow-lg dark:bg-slate-900 dark:border-slate-700",
+    "bg-white/95 border-slate-300 shadow-lg dark:bg-slate-800 dark:border-slate-700",
 }
 
 /**

@@ -138,7 +138,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-describedby={accountError ? "account-error" : undefined}
               className={cn(
                 "h-11 border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400",
-                "dark:border-slate-700 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-600",
+                "dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 accountError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -157,7 +157,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
             <Label className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Available Sites
             </Label>
-            <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-950/40">
+            <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
               {availableSites.length > 0 ? (
                 availableSites.map((s) => (
                   <Badge
@@ -198,7 +198,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               aria-describedby={passwordError ? "password-error" : undefined}
               className={cn(
                 "h-11 border-slate-300 bg-white pl-10 text-slate-900 placeholder:text-slate-400",
-                "dark:border-slate-700 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-600",
+                "dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500",
                 "focus-visible:border-blue-500 focus-visible:ring-blue-500/40",
                 passwordError && "border-red-500/70 focus-visible:border-red-500 focus-visible:ring-red-500/40",
               )}
@@ -226,7 +226,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               <SelectTrigger
                 className={cn(
                   "h-11 border-slate-300 bg-white pl-10 text-slate-900",
-                  "dark:border-slate-700 dark:bg-slate-950/60 dark:text-white",
+                  "dark:border-slate-700 dark:bg-slate-800 dark:text-white",
                   "focus:ring-blue-500/40",
                 )}
               >

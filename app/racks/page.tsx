@@ -325,7 +325,7 @@ export default function Page() {
         <div
           className={cn(
             "flex items-center gap-1 px-2 py-1 rounded cursor-pointer text-sm transition-colors",
-            isSelected ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300" : "hover:bg-slate-50 dark:hover:bg-slate-800",
+            isSelected ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "hover:bg-slate-50 dark:hover:bg-slate-800",
             isInRestoreList && "opacity-60",
           )}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
@@ -784,7 +784,7 @@ export default function Page() {
                     onClick={() => setCategory(node.id)}
                     className={cn(
                       "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left",
-                      isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 font-medium" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                      isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
                     )}
                   >
                     <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-blue-600" : "text-slate-400")} />
@@ -1296,14 +1296,14 @@ export default function Page() {
         </DialogContent>
       </Dialog>
       {/* ── 存储浏览 / 数据恢复 / 设备总览 Tab ───────────────────── */}
-      <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+      <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-800">
         <Tabs
           value={storageTab}
           onValueChange={(v) => setStorageTab(v as typeof storageTab)}
           className="w-full"
         >
           {/* Tab 切换区 */}
-          <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
             <TabsList className="h-8 bg-slate-100 dark:bg-slate-800" data-testid="racks-storage-tabs">
               <TabsTrigger
                 value="overview"
