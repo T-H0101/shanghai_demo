@@ -2,6 +2,14 @@
 
 集团层统一管控平台。总控不替代站点原系统，目标是把多站点数据库同步到中心库，并在总控完成查看、检索、导出、同步、任务控制和审计。
 
+## Current Verification Snapshot
+
+- Strict requirements completion: computed from `requirements[].current_status === "complete"`. R.81 recalculation: **29/45 = 64.4%**.
+- Implemented candidate coverage: computed separately from review evidence and candidate markers. R.81: **45/45 (100%)**. Strict and candidate are NEVER merged; use the strict metric for completion rate claims.
+- Strict blockers: ADFS/OIDC/LDAP (REQ-2.2.1/2.1.2/2.2.2/3.2.1/3.2.2/3.3.2), production ES/ClickHouse (REQ-4.1.2), production Site Agent deployment (REQ-4.2.2), station schema/API gaps (REQ-3.1.1/3.3.1/4.3.1/3.1.2).
+- Product pages read center DB (`unified_*`) and external stores (ES/OpenSearch, ClickHouse) only; restore/source DB is sync source only.
+- Top 10 next actions were recalculated from current non-complete entries in R.81; prior top actions were stale and have been corrected (see `requirements-traceability.json#r81_matrix_reconciliation`).
+
 ## 当前口径
 
 - 最高验收标准: `docs/source/requirements.md`
