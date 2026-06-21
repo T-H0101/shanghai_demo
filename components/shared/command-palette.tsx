@@ -8,7 +8,7 @@
  *  - Bug B: hover 卡顿 → CommandItemRow React.memo + useCallback + will-change
  */
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   LayoutDashboard,
@@ -62,8 +62,18 @@ const CommandItemRow = memo(function CommandItemRow({
   onHover,
 }: CommandItemRowProps) {
   const Icon = item.icon
+  const ref = useRef<HTMLButtonElement>(null)
+
+  // 当本项被激活(↑↓/hover)时, 如果不在视口内则滚动到可见。
+  // 'nearest' 表示只在不可见时才滚, 不会在已可见时强制重定位。
+  // 不带 behavior 让滚动即时, 避免长列表里 smooth 累积导致"飘"。
+  useEffect(() => {
+    if (isActive) ref.current?.scrollIntoView({ block: "nearest" })
+  }, [isActive])
+
   return (
     <button
+      ref={ref}
       type="button"
       onClick={() => onSelect(item)}
       onMouseEnter={() => onHover(item.id)}
@@ -250,9 +260,25 @@ export function CommandPalette() {
               if (!list || list.length === 0) return null
               const groupLabel =
                 g === "page" ? "页面" : g === "action" ? "快捷操作" : "切换站点"
+              const groupHasActive = list.some((it) => it.id === activeItemId)
               return (
                 <div key={g} className="px-2 pb-1">
-                  <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                  <div
+                    data-testid={`command-group-${g}`}
+                    data-has-active={groupHasActive ? "true" : "false"}
+                    className={cn(
+                      "relative px-2 py-1 text-[10px] uppercase tracking-wider font-medium transition-colors duration-100",
+                      groupHasActive ? "text-blue-600" : "text-slate-400",
+                    )}
+                  >
+                    {/* 视觉锚点: 当组内有 active 项时, 显示蓝色短竖条 */}
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "absolute left-0 top-1/2 -translate-y-1/2 h-3 w-0.5 rounded-full transition-opacity duration-100",
+                        groupHasActive ? "bg-blue-600 opacity-100" : "opacity-0",
+                      )}
+                    />
                     {groupLabel}
                   </div>
                   {list.map((it) => {

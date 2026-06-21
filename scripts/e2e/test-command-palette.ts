@@ -122,6 +122,28 @@ async function main() {
     "useEffect 监听 query 变化",
   )
 
+  // ── 4. r3 跨组视觉改进 ──────────────────────────────────
+  check(
+    "r3: CommandItemRow uses scrollIntoView on activation",
+    /scrollIntoView\(\{ block: "nearest" \}\)/.test(src),
+    "active 变化时滚到可见",
+  )
+  check(
+    "r3: 命令面板源码引用 scrollIntoView",
+    src.includes("scrollIntoView"),
+    "scrollIntoView 调用存在",
+  )
+  check(
+    "r3: 分组标题使用 data-has-active 属性",
+    /data-has-active=\{groupHasActive/.test(src),
+    "groupHasActive 计算属性",
+  )
+  check(
+    "r3: 分组标题使用 data-testid for e2e",
+    /data-testid=\{`command-group-\$\{g\}`\}/.test(src),
+    "command-group-{g} 测试钩子",
+  )
+
   // ── Summary ──────────────────────────────────────────
   console.log(`\n${pass} passed, ${fail} failed`)
   if (fail > 0) process.exit(1)
