@@ -62,7 +62,7 @@ async function main() {
   )
   check(
     "包含站点切换项",
-    paletteSource.includes("SITE_CANDIDATES") &&
+    paletteSource.includes("useSiteSites") &&
       paletteSource.includes("ALL_SITES"),
   )
   check(

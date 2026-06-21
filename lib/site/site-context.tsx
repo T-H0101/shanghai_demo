@@ -60,13 +60,6 @@ interface SiteContextValue {
   sitesSource: SiteSource
 }
 
-/**
- * @deprecated Sprint R.69 起, 站点候选由中心注册表 (`sync_sites`) 动态提供。
- * 保留此导出仅为兼容遗留调用方 (e.g. `components/shared/command-palette.tsx`),
- * 新代码请使用 `useSiteSites()` 获取实时站点列表。
- */
-export const SITE_CANDIDATES: ReadonlyArray<SiteOption> = FALLBACK_SITES
-
 const SiteContext = createContext<SiteContextValue | null>(null)
 
 interface SyncConfigSitesResponse {

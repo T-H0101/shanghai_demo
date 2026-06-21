@@ -38,7 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { ALL_SITES, SITE_CANDIDATES, useSite } from "@/lib/site/site-context"
+import { ALL_SITES, useSite, useSiteSites } from "@/lib/site/site-context"
 import { cn } from "@/lib/utils"
 
 interface CommandItem {
@@ -54,6 +54,7 @@ interface CommandItem {
 export function CommandPalette() {
   const router = useRouter()
   const { siteCode, isAllSites, setSiteCode } = useSite()
+  const { sites: siteOptions } = useSiteSites()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [activeIndex, setActiveIndex] = useState(0)
@@ -95,7 +96,11 @@ export function CommandPalette() {
       { id: "p-settings", label: "系统设置", icon: Settings, group: "page", keywords: ["setting", "设置", "config"], perform: () => router.push("/settings") },
     ]
 
-    const sites: CommandItem[] = SITE_CANDIDATES.map((s) => ({
+    const siteList: Array<{ code: string; label: string }> = [
+      { code: ALL_SITES, label: "全部站点" },
+      ...siteOptions.filter((s) => s.code !== ALL_SITES),
+    ]
+    const sites: CommandItem[] = siteList.map((s) => ({
       id: `site-${s.code}`,
       label: s.label,
       hint: s.code === ALL_SITES ? "汇总全部站点" : `切换到 ${s.code}`,
@@ -109,7 +114,7 @@ export function CommandPalette() {
     }))
 
     return [...pages, ...sites]
-  }, [router, setSiteCode])
+  }, [router, setSiteCode, siteOptions])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
