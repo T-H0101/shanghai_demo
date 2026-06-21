@@ -11,7 +11,7 @@ export function LoginHeader() {
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/90 shadow-md shadow-blue-900/40 backdrop-blur-sm">
         <Disc className="h-5 w-5 text-white" aria-hidden="true" />
       </div>
-      <span className="text-sm font-semibold tracking-wide text-slate-100">
+      <span className="text-sm font-semibold tracking-wide text-slate-900 dark:text-slate-100">
         光盘库管控平台
       </span>
     </header>
