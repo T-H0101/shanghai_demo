@@ -71,7 +71,7 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.ip}</span>
-                    <span className="text-[10px] text-slate-300 dark:text-slate-600">·</span>
+                    <span className="text-[10px] text-slate-300 dark:text-slate-400">·</span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.currentTaskCount ?? 0} 任务</span>
                   </div>
                 </div>

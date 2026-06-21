@@ -112,7 +112,7 @@ export function DashboardRecentSyncs() {
         <div className="flex-1 space-y-1.5 overflow-y-auto min-h-0">
           {items.length === 0 ? (
             <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs flex flex-col items-center gap-1">
-              <Package className="h-5 w-5 text-slate-300 dark:text-slate-600" />
+              <Package className="h-5 w-5 text-slate-300 dark:text-slate-400" />
               <span>暂无同步记录</span>
             </div>
           ) : (

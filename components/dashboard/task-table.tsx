@@ -83,7 +83,7 @@ export function TaskTable() {
                   <p className="text-sm font-medium truncate text-slate-900 dark:text-slate-100">{task.name}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">{task.siteName}</span>
-                    <span className="text-[10px] text-slate-300 dark:text-slate-600">·</span>
+                    <span className="text-[10px] text-slate-300 dark:text-slate-400">·</span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">{task.type}</span>
                   </div>
                 </div>

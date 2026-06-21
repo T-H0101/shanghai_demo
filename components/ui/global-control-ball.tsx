@@ -325,7 +325,7 @@ export function GlobalControlBall() {
         <div className="space-y-2">
           {alertsData.length === 0 ? (
             <div className="text-center py-8">
-              <Bell className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <Bell className="h-10 w-10 text-slate-300 dark:text-slate-400 mx-auto mb-2" />
               <p className="text-[12px] text-slate-500">暂无真实告警</p>
             </div>
           ) : (
@@ -369,7 +369,7 @@ export function GlobalControlBall() {
                       {notification.time} {notification.siteCode ? `· ${notification.siteCode}` : ""}
                     </p>
                   </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600 shrink-0 mt-1" />
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-400 shrink-0 mt-1" />
                 </button>
               )
             })
@@ -616,7 +616,7 @@ export function GlobalControlBall() {
                     <div className="space-y-1.5">
                       {routeHistory.length === 0 ? (
                         <div className="text-center py-8">
-                          <Route className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                          <Route className="h-10 w-10 text-slate-300 dark:text-slate-400 mx-auto mb-2" />
                           <p className="text-[12px] text-slate-500">暂无浏览记录</p>
                         </div>
                       ) : (

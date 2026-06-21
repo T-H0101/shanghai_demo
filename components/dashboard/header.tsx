@@ -160,7 +160,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           >
             <Search className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             <span className="truncate text-sm">搜索页面、站点、操作…</span>
-            <kbd className="ml-auto hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded border bg-white text-slate-500 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700">
+            <kbd className="ml-auto hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded border bg-white text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
               ⌘K
             </kbd>
           </Button>

@@ -92,7 +92,7 @@ export function StatsCards() {
               <Activity className="h-4 w-4 text-blue-600 dark:text-blue-300" />
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">任务总数</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors" />
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-blue-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
             <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{taskStats.total}</span>
@@ -117,7 +117,7 @@ export function StatsCards() {
               <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">运行任务</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-600 group-hover:text-emerald-500 transition-colors" />
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-emerald-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
             <span className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-300">{taskStats.running}</span>
@@ -141,7 +141,7 @@ export function StatsCards() {
               <HardDrive className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">设备在线</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors" />
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-indigo-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
             <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{rackStats.online}/{rackStats.total}</span>
@@ -166,7 +166,7 @@ export function StatsCards() {
               <Database className="h-4 w-4 text-amber-600 dark:text-amber-300" />
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">存储使用率</span>
-            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-600 group-hover:text-amber-500 transition-colors" />
+            <ChevronRight className="h-3.5 w-3.5 ml-auto text-slate-300 dark:text-slate-400 group-hover:text-amber-500 transition-colors" />
           </div>
           <div className="flex items-baseline gap-1.5 mb-1">
             <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{rackStats.avgUsage}%</span>

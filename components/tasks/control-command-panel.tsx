@@ -167,7 +167,7 @@ export function ControlCommandPanel() {
             <div className="p-6 text-sm text-red-600 dark:text-red-400">加载失败：{error}</div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-500 dark:text-slate-400">
-              <Terminal className="mb-2 h-8 w-8 text-slate-300 dark:text-slate-600" />
+              <Terminal className="mb-2 h-8 w-8 text-slate-300 dark:text-slate-400" />
               <p className="text-sm">当前筛选条件下没有控制命令</p>
             </div>
           ) : (
