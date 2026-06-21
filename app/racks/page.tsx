@@ -1288,13 +1288,23 @@ export default function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* ── 存储浏览 / 数据恢复 Tab ───────────────────────────── */}
-      <div className="border border-slate-200 rounded-lg overflow-hidden">
-        {/* Tab 切换区 */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
-          <Tabs value={storageTab} onValueChange={v => setStorageTab(v as any)} className="w-auto">
+      {/* ── 存储浏览 / 数据恢复 / 设备总览 Tab ───────────────────── */}
+      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+        <Tabs
+          value={storageTab}
+          onValueChange={(v) => setStorageTab(v as typeof storageTab)}
+          className="w-full"
+        >
+          {/* Tab 切换区 */}
+          <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
             <TabsList className="h-8 bg-slate-100" data-testid="racks-storage-tabs">
-              <TabsTrigger value="overview" className="h-7 text-xs data-[state=active]:bg-white" data-testid="racks-storage-tab-overview">设备总览</TabsTrigger>
+              <TabsTrigger
+                value="overview"
+                className="h-7 text-xs data-[state=active]:bg-white"
+                data-testid="racks-storage-tab-overview"
+              >
+                <HardDrive className="h-3.5 w-3.5 mr-1" />设备总览
+              </TabsTrigger>
               <TabsTrigger
                 value="browse"
                 className="h-7 text-xs data-[state=active]:bg-white"
@@ -1310,270 +1320,300 @@ export default function Page() {
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />数据恢复
               </TabsTrigger>
             </TabsList>
-          </Tabs>
-          {storageTab === "restore" && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">恢复模式：</span>
-              <div className="flex bg-slate-100 rounded-lg p-0.5">
-                <button
-                  className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "server" ? "bg-white shadow text-blue-600" : "text-slate-500")}
-                  onClick={() => setRestoreMode("server")}
-                >
-                  恢复到服务器路径
-                </button>
-                <button
-                  className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "local" ? "bg-white shadow text-blue-600" : "text-slate-500")}
-                  onClick={() => setRestoreMode("local")}
-                >
-                  下载到本地目录
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 内容区 */}
-        <div className="p-4 bg-slate-50">
-          {/* 存储浏览 */}
-          {storageTab === "browse" && (
-            isApiMode ? (
-              <EmptyState
-                icon={FolderTree}
-                title="存储浏览暂未接入真实源端目录树"
-                description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要站点文件索引服务或 ES/ClickHouse 查询通道，不能用 mock 目录冒充真实文件树。"
-                className="bg-amber-50/60 border-amber-200"
-                testid="racks-storage-browse-blocked"
-              />
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="racks-storage-browse-content">
-              {/* 左侧目录树 */}
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium">备份数据目录树</h4>
-                  <Select value={currentVolumeId} onValueChange={setCurrentVolumeId}>
-                    <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="v1">硬盘卷</SelectItem>
-                      <SelectItem value="v2">光盘卷</SelectItem>
-                      <SelectItem value="v6">NAS存储</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {storageTab === "restore" && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">恢复模式：</span>
+                <div className="flex bg-slate-100 rounded-lg p-0.5">
+                  <button
+                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "server" ? "bg-white shadow text-blue-600" : "text-slate-500")}
+                    onClick={() => setRestoreMode("server")}
+                  >
+                    恢复到服务器路径
+                  </button>
+                  <button
+                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "local" ? "bg-white shadow text-blue-600" : "text-slate-500")}
+                    onClick={() => setRestoreMode("local")}
+                  >
+                    下载到本地目录
+                  </button>
                 </div>
-                <ScrollArea className="h-[400px]">
-                  <div className="text-xs">
-                    {mockBackupFiles.map(file => renderTreeItem(file, 0))}
-                  </div>
-                </ScrollArea>
               </div>
+            )}
+          </div>
 
-              {/* 右侧选中详情 */}
-              <div className="bg-white rounded-lg p-3">
-                <h4 className="text-sm font-medium mb-3">文件详情</h4>
-                {selectedPath ? (
-                  <div className="space-y-3">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <p className="text-sm font-medium">{selectedPath.split("/").pop()}</p>
-                      <p className="text-xs text-slate-500 mt-1">{selectedPath}</p>
+          {/* 内容区 — 使用 TabsContent 保证切换时内容 mount/unmount */}
+          <div className="p-4 bg-slate-50 min-h-[260px]">
+            {/* 存储浏览 */}
+            <TabsContent value="browse" forceMount={undefined} className="m-0">
+              {isApiMode ? (
+                <EmptyState
+                  severity="blocked"
+                  icon={FolderTree}
+                  title="存储浏览暂未接入真实源端目录树"
+                  description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要站点文件索引服务或 ES/ClickHouse 查询通道，不能用 mock 目录冒充真实文件树。"
+                  testid="racks-storage-browse-blocked"
+                  action={{ label: "查看站点 Agent 接入文档", href: "/sites" }}
+                />
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="racks-storage-browse-content">
+                  {/* 左侧目录树 */}
+                  <div className="bg-white rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium">备份数据目录树</h4>
+                      <Select value={currentVolumeId} onValueChange={setCurrentVolumeId}>
+                        <SelectTrigger className="h-7 text-xs w-32"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="v1">硬盘卷</SelectItem>
+                          <SelectItem value="v2">光盘卷</SelectItem>
+                          <SelectItem value="v6">NAS存储</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-2 bg-slate-50 rounded">
-                        <p className="text-slate-400">所属卷</p>
-                        <p className="font-medium">{getVolumeName(currentVolumeId)}</p>
+                    <ScrollArea className="h-[400px]">
+                      <div className="text-xs">
+                        {mockBackupFiles.map(file => renderTreeItem(file, 0))}
                       </div>
-                      <div className="p-2 bg-slate-50 rounded">
-                        <p className="text-slate-400">路径</p>
-                        <p className="font-medium truncate">{selectedPath}</p>
-                      </div>
-                    </div>
+                    </ScrollArea>
                   </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-400 text-sm">
-                    <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                    <p>请在左侧选择文件或文件夹</p>
-                  </div>
-                )}
-              </div>
-              </div>
-            )
-          )}
 
-          {/* 数据恢复 */}
-          {storageTab === "restore" && (
-            isApiMode ? (
-              <EmptyState
-                icon={RotateCcw}
-                title="数据恢复任务等待 Site Agent 闭环"
-                description="总控必须保留完整控制能力。当前页面不使用 mock 文件树冒充恢复任务，后续需通过总控任务创建接口、文件索引和 Site Agent 恢复协议完成真实站点库写入。"
-                className="bg-amber-50/60 border-amber-200"
-                testid="racks-storage-restore-blocked"
-                action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}
-              />
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-restore-content">
-              {/* 左侧目录树 */}
-              <div className="bg-white rounded-lg p-3">
-                <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
-                <ScrollArea className="h-[320px]">
-                  <div className="text-xs">
-                    {mockBackupFiles.map(file => renderTreeItem(file, 0))}
-                  </div>
-                </ScrollArea>
-              </div>
-
-              {/* 中间待恢复列表 */}
-              <div className="bg-white rounded-lg p-3">
-                <h4 className="text-sm font-medium mb-3">
-                  待恢复列表
-                  {restoreList.length > 0 && (
-                    <Badge variant="outline" className="ml-2 text-xs">{restoreList.length} 项</Badge>
-                  )}
-                </h4>
-                {restoreList.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-sm">
-                    <FileText className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                    <p>点击左侧"添加"加入恢复列表</p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[280px]">
-                    <div className="space-y-1">
-                      {restoreList.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-xs">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{item.name}</p>
-                            <p className="text-slate-400 truncate">{item.sourcePath}</p>
+                  {/* 右侧选中详情 */}
+                  <div className="bg-white rounded-lg p-3">
+                    <h4 className="text-sm font-medium mb-3">文件详情</h4>
+                    {selectedPath ? (
+                      <div className="space-y-3">
+                        <div className="p-3 bg-slate-50 rounded-lg">
+                          <p className="text-sm font-medium">{selectedPath.split("/").pop()}</p>
+                          <p className="text-xs text-slate-500 mt-1">{selectedPath}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 bg-slate-50 rounded">
+                            <p className="text-slate-400">所属卷</p>
+                            <p className="font-medium">{getVolumeName(currentVolumeId)}</p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {item.size && <span className="text-slate-500">{item.size}</span>}
-                            <button
-                              className="h-5 w-5 rounded text-red-500 hover:bg-red-50 flex items-center justify-center"
-                              onClick={() => removeFromRestoreList(item.id)}
-                            >
-                              ×
-                            </button>
+                          <div className="p-2 bg-slate-50 rounded">
+                            <p className="text-slate-400">路径</p>
+                            <p className="font-medium truncate">{selectedPath}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </div>
-
-              {/* 右侧目标选择 + 容量看板 */}
-              <div className="bg-white rounded-lg p-3">
-                <h4 className="text-sm font-medium mb-3">恢复目标</h4>
-                <div className="space-y-3">
-                  <Select value={targetPath} onValueChange={setTargetPath}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="选择目标路径" /></SelectTrigger>
-                    <SelectContent>
-                      {targetOptions.map(t => (
-                        <SelectItem key={t.id} value={t.path}>{t.name} ({t.path})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* 容量看板 */}
-                  <div className="p-3 bg-slate-50 rounded-lg space-y-2">
-                    <p className="text-xs text-slate-500 font-medium">容量看板</p>
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">已选文件数</span>
-                        <span className="font-medium">{restoreList.length} 个</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">计划使用</span>
-                        <span className="font-medium">{calcTotalSize(restoreList).display}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">目标剩余</span>
-                        <span className="font-medium">{getTargetRemaining()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">恢复模式</span>
-                        <span className="font-medium">{restoreMode === "server" ? "恢复到服务器" : "下载到本地"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">源存储卷</span>
-                        <span className="font-medium">{getVolumeName(currentVolumeId)}</span>
-                      </div>
-                    </div>
-                    {isCapacityInsufficient() && (
-                      <div className="mt-2 p-2 bg-red-50 rounded text-red-600 text-xs">
-                        目标容量不足，请选择其他路径或减少文件
+                    ) : (
+                      <div className="text-center py-12 text-slate-400 text-sm">
+                        <FolderOpen className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                        <p>请在左侧选择文件或文件夹</p>
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+            </TabsContent>
 
-                  <Button
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={restoreList.length === 0 || !targetPath || isCapacityInsufficient() || restoreSubmitting}
-                    onClick={handleRestoreSubmit}
-                  >
-                    {restoreSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
-                    开始恢复
-                  </Button>
-                </div>
-              </div>
-              </div>
-            )
-          )}
+            {/* 数据恢复 */}
+            <TabsContent value="restore" className="m-0">
+              {isApiMode ? (
+                <EmptyState
+                  severity="blocked"
+                  icon={RotateCcw}
+                  title="数据恢复任务等待 Site Agent 闭环"
+                  description="总控必须保留完整控制能力。当前页面不使用 mock 文件树冒充恢复任务，后续需通过总控任务创建接口、文件索引和 Site Agent 恢复协议完成真实站点库写入。"
+                  testid="racks-storage-restore-blocked"
+                  action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}
+                />
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-restore-content">
+                  {/* 左侧目录树 */}
+                  <div className="bg-white rounded-lg p-3">
+                    <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
+                    <ScrollArea className="h-[320px]">
+                      <div className="text-xs">
+                        {mockBackupFiles.map(file => renderTreeItem(file, 0))}
+                      </div>
+                    </ScrollArea>
+                  </div>
 
-          {/* 设备总览（默认） */}
-          {storageTab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-overview-content">
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                  <HardDrive className="h-4 w-4 text-blue-600" />
-                  设备在线概况
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-                  <div className="rounded-lg bg-emerald-50 p-3">
-                    <p className="text-2xl font-semibold text-emerald-700">{filtered.filter(r => r.deviceStatus === "online").length}</p>
-                    <p className="mt-1 text-xs text-emerald-700/70">在线</p>
+                  {/* 中间待恢复列表 */}
+                  <div className="bg-white rounded-lg p-3">
+                    <h4 className="text-sm font-medium mb-3">
+                      待恢复列表
+                      {restoreList.length > 0 && (
+                        <Badge variant="outline" className="ml-2 text-xs">{restoreList.length} 项</Badge>
+                      )}
+                    </h4>
+                    {restoreList.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400 text-sm">
+                        <FileText className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                        <p>点击左侧"添加"加入恢复列表</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[280px]">
+                        <div className="space-y-1">
+                          {restoreList.map(item => (
+                            <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded text-xs">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium truncate">{item.name}</p>
+                                <p className="text-slate-400 truncate">{item.sourcePath}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {item.size && <span className="text-slate-500">{item.size}</span>}
+                                <button
+                                  className="h-5 w-5 rounded text-red-500 hover:bg-red-50 flex items-center justify-center"
+                                  onClick={() => removeFromRestoreList(item.id)}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-3">
-                    <p className="text-2xl font-semibold text-slate-700">{filtered.filter(r => r.deviceStatus === "offline").length}</p>
-                    <p className="mt-1 text-xs text-slate-500">离线</p>
-                  </div>
-                  <div className="rounded-lg bg-red-50 p-3">
-                    <p className="text-2xl font-semibold text-red-700">{filtered.filter(r => r.deviceStatus === "error" || r.status === "fault").length}</p>
-                    <p className="mt-1 text-xs text-red-700/70">异常</p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                  <Grid3X3 className="h-4 w-4 text-violet-600" />
-                  盘位汇总
-                </div>
-                <div className="mt-4 space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">已用盘位</span>
-                    <span className="font-semibold text-slate-900">{stats.usedSlots} / {stats.totalSlotsAll || "—"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">平均使用率</span>
-                    <span className="font-semibold text-slate-900">{stats.avgUsage}%</span>
-                  </div>
-                  <Progress value={stats.avgUsage} className="h-2" />
-                </div>
-              </div>
+                  {/* 右侧目标选择 + 容量看板 */}
+                  <div className="bg-white rounded-lg p-3">
+                    <h4 className="text-sm font-medium mb-3">恢复目标</h4>
+                    <div className="space-y-3">
+                      <Select value={targetPath} onValueChange={setTargetPath}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="选择目标路径" /></SelectTrigger>
+                        <SelectContent>
+                          {targetOptions.map(t => (
+                            <SelectItem key={t.id} value={t.path}>{t.name} ({t.path})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                  <Database className="h-4 w-4 text-blue-600" />
-                  当前数据口径
+                      {/* 容量看板 */}
+                      <div className="p-3 bg-slate-50 rounded-lg space-y-2">
+                        <p className="text-xs text-slate-500 font-medium">容量看板</p>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">已选文件数</span>
+                            <span className="font-medium">{restoreList.length} 个</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">计划使用</span>
+                            <span className="font-medium">{calcTotalSize(restoreList).display}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">目标剩余</span>
+                            <span className="font-medium">{getTargetRemaining()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">恢复模式</span>
+                            <span className="font-medium">{restoreMode === "server" ? "恢复到服务器" : "下载到本地"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">源存储卷</span>
+                            <span className="font-medium">{getVolumeName(currentVolumeId)}</span>
+                          </div>
+                        </div>
+                        {isCapacityInsufficient() && (
+                          <div className="mt-2 p-2 bg-red-50 rounded text-red-600 text-xs">
+                            目标容量不足，请选择其他路径或减少文件
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        disabled={restoreList.length === 0 || !targetPath || isCapacityInsufficient() || restoreSubmitting}
+                        onClick={handleRestoreSubmit}
+                      >
+                        {restoreSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+                        开始恢复
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-4 space-y-2 text-xs text-slate-600">
-                  <p>来源: {isApiMode ? "中心库 unified_devices / unified_slots" : "本地 mock 演示数据"}</p>
-                  <p>设备数量: {filtered.length} 台</p>
-                  <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
-                  <p className="text-amber-700">存储浏览/数据恢复未接入时显示 blocked，不使用模拟目录冒充真实能力。</p>
+              )}
+            </TabsContent>
+
+            {/* 设备总览（默认） */}
+            <TabsContent value="overview" className="m-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-overview-content">
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                    <HardDrive className="h-4 w-4 text-blue-600" />
+                    设备在线概况
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-lg bg-emerald-50 p-3">
+                      <p className="text-2xl font-semibold text-emerald-700">{filtered.filter(r => r.deviceStatus === "online").length}</p>
+                      <p className="mt-1 text-xs text-emerald-700/70">在线</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-2xl font-semibold text-slate-700">{filtered.filter(r => r.deviceStatus === "offline").length}</p>
+                      <p className="mt-1 text-xs text-slate-500">离线</p>
+                    </div>
+                    <div className="rounded-lg bg-red-50 p-3">
+                      <p className="text-2xl font-semibold text-red-700">{filtered.filter(r => r.deviceStatus === "error" || r.status === "fault").length}</p>
+                      <p className="mt-1 text-xs text-red-700/70">异常</p>
+                    </div>
+                  </div>
                 </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                    <Grid3X3 className="h-4 w-4 text-violet-600" />
+                    盘位汇总
+                  </div>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">已用盘位</span>
+                      <span className="font-semibold text-slate-900">{stats.usedSlots} / {stats.totalSlotsAll || "—"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">平均使用率</span>
+                      <span className="font-semibold text-slate-900">{stats.avgUsage}%</span>
+                    </div>
+                    <Progress value={stats.avgUsage} className="h-2" />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                    <Database className="h-4 w-4 text-blue-600" />
+                    当前数据口径
+                  </div>
+                  <div className="mt-4 space-y-2 text-xs text-slate-600">
+                    <p>来源: {isApiMode ? "中心库 unified_devices / unified_slots" : "本地 mock 演示数据"}</p>
+                    <p>设备数量: {filtered.length} 台</p>
+                    <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
+                    <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>
+                    <p className="text-amber-700">存储浏览/数据恢复未接入时显示 blocked，不使用模拟目录冒充真实能力。</p>
+                  </div>
+                </div>
+
+                {/* 设备列表预览 — 让 Tab 内容更"实" */}
+                {filtered.length > 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 lg:col-span-3" data-testid="racks-storage-overview-list">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                        <Server className="h-4 w-4 text-blue-600" />
+                        设备列表预览
+                      </div>
+                      <span className="text-xs text-slate-400">最多展示前 5 台 · 完整列表见上方设备表格</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2 text-xs">
+                      {filtered.slice(0, 5).map(r => {
+                        const ds = deviceStatusMap[r.deviceStatus ?? "online"] ?? deviceStatusMap.online
+                        return (
+                          <div key={`overview-${r.siteCode}-${r.rackId}-${r.id}`} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-mono font-medium truncate text-slate-900">{r.rackId}</span>
+                              <Badge className={cn("text-[10px] shrink-0", ds.color)}>{ds.label}</Badge>
+                            </div>
+                            <p className="mt-1 text-[10px] text-slate-400 truncate">{r.siteName} · {r.deviceType ?? "—"}</p>
+                            <p className="mt-1 text-[10px] text-slate-500">使用率: {r.usagePercent != null ? `${r.usagePercent}%` : "—"}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </AppShell>
   )

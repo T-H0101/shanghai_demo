@@ -122,6 +122,13 @@ async function main() {
       pageSource.includes("当前数据口径")
   )
   check(
+    "存储浏览/数据恢复 Tab 用 TabsContent 包结构 (切换能正确 mount)",
+    pageSource.includes("TabsContent") &&
+      pageSource.includes('value="browse"') &&
+      pageSource.includes('value="restore"') &&
+      pageSource.includes('value="overview"'),
+  )
+  check(
     "存储浏览/数据恢复 Tab 可切换且不 disabled",
     pageSource.includes('data-testid="racks-storage-tab-browse"') &&
       pageSource.includes('data-testid="racks-storage-tab-restore"') &&
@@ -135,6 +142,15 @@ async function main() {
       pageSource.includes("不能用 mock 目录冒充真实文件树") &&
       pageSource.includes("总控必须保留完整控制能力") &&
       pageSource.includes("Site Agent 恢复协议")
+  )
+  check(
+    "EmptyState blocked 状态用 severity 参数驱动 (R.UI-CmdCenter)",
+    pageSource.includes("severity=\"blocked\""),
+  )
+  check(
+    "设备总览含设备列表预览 (修复 Tab 信息展示)",
+    pageSource.includes('data-testid="racks-storage-overview-list"') &&
+      pageSource.includes("设备列表预览"),
   )
 
   console.log("\n--- R.17 盘位明细 (Racks/Slots closure) ---")
