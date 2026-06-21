@@ -7,6 +7,10 @@
  * - logout clears session
  * - repeated failures lock the account
  * - auth source no longer advertises mock localStorage login
+ *
+ * Sprint R.80 — adds contract checks: ADFS/OIDC/LDAP remain
+ * `blocked_by_auth` until real issuer + test AD user + claim
+ * mapping exist. local JWT is the only path that may be complete.
  */
 
 import assert from "node:assert/strict"
@@ -97,6 +101,61 @@ async function main() {
   const lockedJson = await locked.json().catch(() => ({}))
   check("sixth failed login returns 423 lockout", locked.status === 423, `status=${locked.status}`)
   check("lockout response exposes locked code", lockedJson?.code === "AUTH_LOCKED", JSON.stringify(lockedJson))
+
+  // ── R.80 contract: ADFS/OIDC/LDAP must remain blocked_by_auth ──
+  console.log("\n─── R.80 auth boundary contract ───")
+
+  const oidcProviderSource = readFileSync("lib/auth/oidc-provider.ts", "utf8")
+  const ldapProviderSource = readFileSync("lib/auth/ldap-provider.ts", "utf8")
+  const accountMappingSource = readFileSync("lib/auth/account-mapping.ts", "utf8")
+  const traceabilitySource = readFileSync("docs/database-analysis/requirements-traceability.md", "utf8")
+  const settingsSource = readFileSync("app/settings/page.tsx", "utf8")
+
+  check(
+    "OIDC provider exposes readiness contract",
+    oidcProviderSource.includes("getOidcReadiness") &&
+      oidcProviderSource.includes("missingEnvKeys") &&
+      oidcProviderSource.includes("blocked_by_auth"),
+    "getOidcReadiness() must return {ready, missingEnvKeys, status}"
+  )
+  check(
+    "OIDC adapter remains blocked without issuer",
+    oidcProviderSource.includes("OIDC_ISSUER_URL") &&
+      oidcProviderSource.includes("enterprise_provider_not_configured"),
+    "OIDC env key ref + blocker"
+  )
+  check(
+    "LDAP adapter remains blocked without URL",
+    ldapProviderSource.includes("LDAP_URL") &&
+      ldapProviderSource.includes("enterprise_provider_not_configured"),
+    "LDAP env key ref + blocker"
+  )
+  check(
+    "Account mapping returns implemented_candidate when IdP is not configured",
+    accountMappingSource.includes("implemented_candidate") &&
+      accountMappingSource.includes("oidc_not_configured") &&
+      accountMappingSource.includes("ldap_not_configured"),
+    "mapOidcClaimsToAccount / mapLdapEntryToAccount"
+  )
+  check(
+    "ADFS not claimed complete in requirements traceability",
+    traceabilitySource.includes("blocked_by_auth"),
+    "traceability must surface blocked_by_auth"
+  )
+  check(
+    "settings page exposes settings-auth-boundary card",
+    settingsSource.includes("settings-auth-boundary") &&
+      settingsSource.includes("blocked_by_auth") &&
+      settingsSource.includes("local JWT 已启用"),
+    "settings-auth-boundary card present"
+  )
+  check(
+    "auth code does not fake OIDC login",
+    !oidcProviderSource.includes("fakeOIDCLogin") &&
+      !oidcProviderSource.includes("stub-oidc-login") &&
+      !ldapProviderSource.includes("fakeLdapBind"),
+    "no fake ADFS/OIDC/LDAP login helpers"
+  )
 
   assert.equal(process.exitCode ?? 0, 0)
 }

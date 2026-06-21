@@ -98,6 +98,19 @@ async function main() {
       pageSource.includes("empty") &&
       pageSource.includes("error")
   )
+  check(
+    "R.80: 站点→AD 映射展示受限时不宣称完成",
+    pageSource.includes("未映射") ||
+      pageSource.includes("blocked") ||
+      pageSource.includes("candidate") ||
+      !pageSource.includes("AD")
+  )
+  check(
+    "R.80: 跨站点权限同步未宣称完成",
+    !pageSource.includes("跨站点权限同步完成") &&
+      !pageSource.includes("已传播至所有站点") &&
+      !pageSource.includes("站点同步完成")
+  )
 
   console.log(`\n=== Users: ${pass} pass, ${fail} fail ===`)
   if (fail > 0) process.exit(1)

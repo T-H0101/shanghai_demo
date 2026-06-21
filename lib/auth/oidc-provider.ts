@@ -62,3 +62,23 @@ export function buildOidcStartUrl(state: string, redirectUri: string): OidcStart
   url.searchParams.set("state", state)
   return { status: "redirect", redirectUrl: url.toString() }
 }
+
+// Sprint R.80: contract helper that exposes readiness using the
+// requirements.md blocker vocabulary. Distinct from oidcStatus()
+// which is the provider's internal enum. The readiness contract is
+// consumed by e2e contract tests and the settings boundary UI.
+export interface OidcReadiness {
+  ready: boolean
+  missingEnvKeys: string[]
+  status: "configured_candidate" | "blocked_by_auth"
+}
+
+export function getOidcReadiness(): OidcReadiness {
+  const required = ["OIDC_ISSUER_URL", "OIDC_CLIENT_ID", "OIDC_JWKS_URL"] as const
+  const missing = required.filter((k) => !process.env[k])
+  return {
+    ready: missing.length === 0,
+    missingEnvKeys: [...missing],
+    status: missing.length === 0 ? "configured_candidate" : "blocked_by_auth",
+  }
+}

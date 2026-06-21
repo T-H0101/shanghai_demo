@@ -3,10 +3,15 @@
  *
  * REQ-6.2.4: session + permission + site access 中间件
  *
+ * Sprint R.80 — adds contract checks: local RBAC roles are
+ * actually enforced; ADFS/OIDC station propagation is gated on a
+ * Site Agent permission adapter that does not exist yet.
+ *
  * 运行: npx tsx scripts/e2e/test-rbac.ts
  */
 
 import { Client } from "pg"
+import { readFileSync } from "node:fs"
 
 export {} // Make this a module to avoid variable conflicts
 
@@ -126,6 +131,60 @@ async function main() {
 
   const middlewareRes = await fetch(`${BASE}/api/system/health`)
   check("系统健康检查可访问 (不受 auth 影响)", middlewareRes.ok)
+
+  // ── 5. R.80 contract: RBAC roles + station propagation boundary ──
+  console.log("\n─── 5. R.80 RBAC contract ───")
+
+  const rbacPolicySource = readFileSync("lib/auth/rbac-policy.ts", "utf8")
+  const usersPageSource = readFileSync("app/users/page.tsx", "utf8")
+  const settingsSource = readFileSync("app/settings/page.tsx", "utf8")
+  const accountMappingSource = readFileSync("lib/auth/account-mapping.ts", "utf8")
+  const traceabilitySource = readFileSync("docs/database-analysis/requirements-traceability.md", "utf8")
+
+  check(
+    "local RBAC roles viewer/operator/admin are defined",
+    rbacPolicySource.includes('"viewer"') &&
+      rbacPolicySource.includes('"operator"') &&
+      rbacPolicySource.includes('"admin"'),
+    "BUILTIN_ROLES keys"
+  )
+  check(
+    "RBAC policy is deny-by-default",
+    rbacPolicySource.includes("deny-by-default") &&
+      rbacPolicySource.includes("no_principal") &&
+      rbacPolicySource.includes("no_matching_grant"),
+    "deny-by-default fallbacks"
+  )
+  check(
+    "users page renders RBAC role column",
+    usersPageSource.includes("role") && usersPageSource.includes("Auth 账号管理"),
+    "user listing + auth management"
+  )
+  check(
+    "users page does not claim station propagation complete",
+    !usersPageSource.includes("站点同步完成") &&
+      !usersPageSource.includes("跨站点权限同步完成"),
+    "no fake station propagation success"
+  )
+  check(
+    "settings page exposes auth boundary card with local JWT + blocked_by_auth",
+    settingsSource.includes("settings-auth-boundary") &&
+      settingsSource.includes("local JWT 已启用") &&
+      settingsSource.includes("blocked_by_auth"),
+    "settings-auth-boundary"
+  )
+  check(
+    "account mapping is candidate when IdP missing",
+    accountMappingSource.includes("implemented_candidate") &&
+      accountMappingSource.includes("oidc_not_configured") &&
+      accountMappingSource.includes("ldap_not_configured"),
+    "no auto-mapping without IdP"
+  )
+  check(
+    "ADFS / OIDC station propagation not claimed complete in traceability",
+    traceabilitySource.includes("blocked_by_auth"),
+    "traceability surfaces blocked_by_auth"
+  )
 
   // ── Summary ──
   console.log(`\n${"═".repeat(60)}`)
