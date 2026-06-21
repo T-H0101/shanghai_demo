@@ -30,9 +30,11 @@ interface GlassPanelProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> 
 }
 
 const intensityClass: Record<NonNullable<GlassPanelProps["intensity"]>, string> = {
-  soft: "bg-white/70 border-slate-200/70 shadow-sm",
-  default: "bg-white/85 border-slate-200 shadow-md",
-  strong: "bg-white/95 border-slate-300 shadow-lg",
+  soft: "bg-white/70 border-slate-200/70 shadow-sm dark:bg-slate-900/80 dark:border-slate-700/70",
+  default:
+    "bg-white/85 border-slate-200 shadow-md dark:bg-slate-900/90 dark:border-slate-700",
+  strong:
+    "bg-white/95 border-slate-300 shadow-lg dark:bg-slate-900 dark:border-slate-700",
 }
 
 /**
@@ -69,13 +71,15 @@ export function GlassPanel({
       {...rest}
     >
       {(title || description || actions) && (
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200/60 px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200/60 px-5 py-4 dark:border-slate-700/60">
           <div className="min-w-0">
             {title && (
-              <p className="text-sm font-semibold tracking-tight text-slate-900">{title}</p>
+              <p className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                {title}
+              </p>
             )}
             {description && (
-              <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{description}</p>
             )}
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
