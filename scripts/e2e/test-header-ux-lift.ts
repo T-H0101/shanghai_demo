@@ -67,6 +67,25 @@ async function main() {
   check("EmptyState 含跳转按钮", emptySource.includes("Button") && emptySource.includes("href"))
   check("ErrorState 含 onRetry", emptySource.includes("onRetry"))
 
+  // R.UI-CmdCenter: severity 契约 + 源/需求徽章
+  const pageHeaderSource = readFileSync("components/platform/page-header.tsx", "utf8")
+  const statCardSource = readFileSync("components/platform/stat-card.tsx", "utf8")
+  check(
+    "PageHeader exposes source/requirement badge slot",
+    pageHeaderSource.includes("badge") && pageHeaderSource.includes("actions") && pageHeaderSource.includes("page-header-source") && pageHeaderSource.includes("page-header-requirement"),
+  )
+  check(
+    "StatCard clickable state has cursor and focus-visible",
+    statCardSource.includes("cursor-pointer") && statCardSource.includes("focus-visible"),
+  )
+  check(
+    "EmptyState supports blocked/error/empty severity",
+    emptySource.includes("severity") &&
+      emptySource.includes("blocked") &&
+      emptySource.includes("error") &&
+      emptySource.includes('"empty"'),
+  )
+
   // ============================================================
   // 4. Header 改造
   // ============================================================

@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Sprint UI-2026-06-B — 表格空/错状态统一组件
+ * Sprint UI-2026-06-B — 表格空/错状态统一组件 (R.UI-CmdCenter 升级)
  *
  * 用法:
  *   <EmptyState
@@ -9,7 +9,13 @@
  *     title="暂无任务"
  *     description="等待站点上报任务数据"
  *     action={{ label: "查看站点", href: "/sites" }}
+ *     severity="blocked"
  *   />
+ *
+ * 三档 severity:
+ *   - empty   : 中性, 默认, 表示真的无数据
+ *   - blocked : 受限, 因 source schema / 站点配合 / 外部系统阻塞
+ *   - error   : 错误, 数据读取失败
  *
  * 设计:
  * - 居中布局, 弱化视觉 (用户不会一直盯着空状态)
@@ -22,6 +28,8 @@ import { Inbox, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
+export type EmptyStateSeverity = "empty" | "blocked" | "error"
+
 interface EmptyStateProps {
   icon?: LucideIcon
   title: string
@@ -33,6 +41,19 @@ interface EmptyStateProps {
   }
   className?: string
   testid?: string
+  severity?: EmptyStateSeverity
+}
+
+const severityClass: Record<EmptyStateSeverity, string> = {
+  empty: "border-slate-200 bg-slate-50/40 text-slate-600",
+  blocked: "border-amber-200 bg-amber-50/40 text-amber-800",
+  error: "border-red-200 bg-red-50/40 text-red-800",
+}
+
+const severityIconClass: Record<EmptyStateSeverity, string> = {
+  empty: "bg-slate-100 text-slate-400",
+  blocked: "bg-amber-100 text-amber-600",
+  error: "bg-red-100 text-red-500",
 }
 
 export function EmptyState({
@@ -42,22 +63,24 @@ export function EmptyState({
   action,
   className,
   testid,
+  severity = "empty",
 }: EmptyStateProps) {
   return (
     <div
       className={cn(
         "flex flex-col items-center justify-center py-10 px-6 text-center",
-        "border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/40",
+        "border-2 border-dashed rounded-lg",
+        severityClass[severity],
         className,
       )}
-      data-testid={testid ?? "empty-state"}
+      data-testid={testid ?? `empty-state-${severity}`}
     >
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-        <Icon className="h-6 w-6 text-slate-400" />
+      <div className={cn("mb-3 flex h-12 w-12 items-center justify-center rounded-full", severityIconClass[severity])}>
+        <Icon className="h-6 w-6" />
       </div>
-      <p className="text-sm font-medium text-slate-700">{title}</p>
+      <p className="text-sm font-medium">{title}</p>
       {description && (
-        <p className="mt-1 text-xs text-slate-500 max-w-md">{description}</p>
+        <p className="mt-1 text-xs opacity-80 max-w-md">{description}</p>
       )}
       {action && (
         <div className="mt-4">
