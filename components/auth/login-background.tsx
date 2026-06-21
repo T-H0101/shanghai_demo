@@ -97,7 +97,7 @@ export function LoginBackground() {
       for (const e of edges) {
         const a = nodes[e.a]
         const b = nodes[e.b]
-        ctx.strokeStyle = "rgba(96,165,250,0.35)"
+        ctx.strokeStyle = "rgba(96,165,250,0.28)"
         ctx.beginPath()
         ctx.moveTo(a.x, a.y)
         ctx.lineTo(b.x, b.y)
@@ -106,7 +106,7 @@ export function LoginBackground() {
       for (const n of nodes) {
         const s = animate ? 0.6 + 0.4 * Math.sin(t * n.speed + n.phase) : 0.85
         const r = n.r * (animate ? 1 + 0.2 * Math.sin(t * n.speed + n.phase) : 1)
-        const alpha = 0.6 * s
+        const alpha = 0.5 * s
         ctx.fillStyle = `rgba(147,197,253,${alpha})`
         ctx.beginPath()
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2)

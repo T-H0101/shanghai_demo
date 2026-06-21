@@ -22,7 +22,18 @@ export default function LoginPage() {
   }, [router])
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
+    <div
+      className="relative min-h-screen overflow-hidden text-white"
+      style={{
+        backgroundColor: "#020617",
+        backgroundImage: [
+          // 单色斑: 蓝紫 (品牌冷色系, opacity 0.18) — 填补中间空白
+          "radial-gradient(ellipse 80% 60% at 65% 75%, rgba(91, 33, 182, 0.18) 0%, transparent 60%)",
+          // vignette: 边缘暗化, 收焦点
+          "radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4) 100%)",
+        ].join(", "),
+      }}
+    >
       <LoginBackground />
 
       <div className="relative z-10 flex min-h-screen flex-col">

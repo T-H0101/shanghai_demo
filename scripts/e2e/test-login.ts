@@ -47,6 +47,13 @@ async function main() {
     'data-testid="login-background" found',
   )
 
+  // ── 2b. r3 background polish — radial gradient overlay ─
+  check(
+    "r3: login page background has radial-gradient overlay",
+    html.includes("radial-gradient"),
+    "CSS radial-gradient present in SSR HTML",
+  )
+
   // ── 3. SSO dead button removed ─────────────────────────────
   check(
     "SSO disabled button REMOVED",
