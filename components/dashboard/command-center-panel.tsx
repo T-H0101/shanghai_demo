@@ -270,7 +270,7 @@ export function CommandCenterPanel() {
               集团光盘库总控指挥台
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              同步、控制队列、站点代理、日志风险集中呈现；所有指标实时读取，不使用演示数据替代真实状态。
+              同步、控制队列、站点代理、日志风险集中呈现；所有指标以中心库状态为准。
             </p>
           </div>
 
@@ -359,8 +359,8 @@ export function CommandCenterPanel() {
 
         <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs text-slate-300 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Evidence icon={ShieldCheck} text="不使用演示数据替代真实状态" />
-            <Evidence icon={Gauge} text="同步 / 控制 / 告警实时读取" />
+            <Evidence icon={ShieldCheck} text="中心库状态实时呈现" />
+            <Evidence icon={Gauge} text="同步 / 控制 / 告警统一汇总" />
             <Evidence icon={Clock3} text={`刷新 ${state.updatedAt ? compactTime(state.updatedAt) : "加载中"}`} />
             {state.error && <Evidence icon={AlertTriangle} text={`error: ${state.error}`} danger />}
           </div>

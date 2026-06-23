@@ -71,7 +71,7 @@ async function main() {
   )
   check(
     "Command Center 明确真实数据口径",
-    componentSource.includes("实时数据") && componentSource.includes("不使用演示数据替代真实状态"),
+    componentSource.includes("实时数据") && componentSource.includes("中心库状态实时呈现"),
     "truth wording present"
   )
 

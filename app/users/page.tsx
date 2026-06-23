@@ -258,7 +258,7 @@ export default function Page() {
           <CardContent className="overflow-x-auto pt-0">
             {dataSource === "empty" ? (
               <p className="py-8 text-center text-sm text-slate-500">
-                当前暂无用户数据，不使用演示数据填充。
+                当前暂无中心库用户记录。
               </p>
             ) : (
               <Table>

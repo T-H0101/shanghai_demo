@@ -40,7 +40,7 @@ import type { SiteDTO } from "@/lib/api/dto"
  * 改造后 (R.9A):
  *   - 调用 GET /api/sites 真实接口
  *   - dataSource 显式: database / derived / empty (不允许 mock 静默 fallback)
- *   - dataSource=derived 时, 顶部加 "由同步数据派生" 标识
+ *   - dataSource=derived 时, 顶部加 "待完善登记" 标识
  *   - 写操作按钮 (注册新站点 / 启用禁用 / SSO 跳转) 全部 disabled, tooltip 提示
  *   - 一致性校验按钮走 /api/sync/consistency (R.7 真实 API, 替换 mockSiteProvider)
  *
@@ -218,7 +218,7 @@ export default function Page() {
       return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />已注册</Badge>
     }
     if (dataSource === "derived") {
-      return <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" title={meta?.reason}><Layers className="h-3 w-3 mr-1" />由同步数据派生</Badge>
+      return <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" title={meta?.reason}><Layers className="h-3 w-3 mr-1" />待完善登记</Badge>
     }
     if (dataSource === "empty") {
       return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
@@ -250,7 +250,7 @@ export default function Page() {
                 刷新
               </Button>
             </AppTooltip>
-            <AppTooltip content="站点登记功能未接入, 后续 Sprint 解锁">
+            <AppTooltip content="站点登记功能待接入">
               <Button
                 size="sm"
                 className="h-8 bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors"
@@ -327,7 +327,7 @@ export default function Page() {
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <CardTitle className="text-base font-semibold">
-                站点列表 {dataSource === "derived" && <span className="text-xs text-amber-600 dark:text-amber-400 font-normal ml-2">(由同步数据派生，名称/IP/联系人暂缺)</span>}
+                站点列表 {dataSource === "derived" && <span className="text-xs text-amber-600 dark:text-amber-400 font-normal ml-2">(基础登记信息待完善)</span>}
               </CardTitle>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as SiteStatusFilter)}>

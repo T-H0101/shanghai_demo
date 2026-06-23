@@ -14,7 +14,7 @@ export default function Page() {
       <div className="flex items-center gap-2 px-1 text-[10px] text-slate-500" data-testid="dashboard-datasource">
         <Database className="h-3 w-3" />
         <span>平台数据实时读取，异常时会直接提示。</span>
-        <span className="text-amber-600 ml-2">不使用演示数据替代真实状态</span>
+        <span className="text-amber-600 ml-2">数据缺失时显示空状态</span>
       </div>
       <CommandCenterPanel />
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6 items-stretch">

@@ -9,9 +9,9 @@
  *  5. Top-right has help mailto + theme toggle (no Globe)
  *  6. Login card has data-testid="login-card"
  *  7. Submit button has data-testid="login-submit"
- *  8. Bottom copy lines preserved (本地 JWT / ADFS 待接入 / 站点 SSO 待接入)
+ *  8. Bottom copy lines use enterprise product wording
  *  9. Form has account + password inputs in correct autoComplete order
- * 10. Source file integrity (3 components imported, GlassPanel removed)
+ * 10. Source file integrity (3 auth components imported, GlassPanel capability cards enabled)
  */
 
 import { readFileSync } from "node:fs"
@@ -154,18 +154,18 @@ async function main() {
     html.includes('data-testid="login-submit"'),
   )
 
-  // ── 8. Bottom copy preserved ───────────────────────────────
+  // ── 8. Bottom copy uses product wording ────────────────────
   check(
-    "Bottom copy line 1 preserved",
-    html.includes("当前认证：本地 JWT"),
+    "Bottom copy line 1 uses local account wording",
+    html.includes("当前认证：本地账号体系"),
   )
   check(
-    "Bottom copy line 2 preserved",
-    html.includes("企业 ADFS/LDAP：待接入"),
+    "Bottom copy line 2 uses enterprise identity wording",
+    html.includes("企业身份源：待配置 ADFS / LDAP"),
   )
   check(
-    "Bottom copy line 3 preserved",
-    html.includes("站点 SSO：待 ADFS/LDAP 与站点 token 接收端点确认"),
+    "Bottom copy line 3 uses site trust wording",
+    html.includes("站点单点登录：待配置站点信任关系"),
   )
 
   // ── 9. Form input order & autocomplete ────────────────────
@@ -197,9 +197,9 @@ async function main() {
     "all three imports present",
   )
   check(
-    "app/login/page.tsx removed GlassPanel (capability cards gone)",
-    !pageSrc.includes("GlassPanel"),
-    "GlassPanel import removed",
+    "app/login/page.tsx uses GlassPanel capability cards",
+    pageSrc.includes("GlassPanel") && pageSrc.includes("login-capability-"),
+    "GlassPanel capability cards present",
   )
 
   // ── Summary ───────────────────────────────────────────────

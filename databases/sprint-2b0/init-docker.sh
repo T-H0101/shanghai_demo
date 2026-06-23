@@ -12,7 +12,7 @@
 # 特点:
 # - 使用 Docker 容器内的 psql，不要求本机安装 PostgreSQL 客户端
 # - 自动检查 Docker 容器状态
-# - 支持 schema 和 seed 数据初始化
+# - 支持 schema、后续 DDL patch 和 auth bootstrap 初始化
 #
 # ============================================================
 
@@ -51,7 +51,7 @@ show_help() {
   echo "  --reset               重置数据库（删除所有表后重建）"
   echo ""
   echo "示例:"
-  echo "  $0                     # 初始化 schema 和 seed"
+  echo "  $0                     # 初始化当前完整 schema"
   echo "  $0 --dry-run           # 仅验证连接"
   echo "  $0 --reset            # 重置数据库"
   echo ""
@@ -156,10 +156,10 @@ execute_sql_file() {
     return 1
   fi
 
+  local target="/tmp/$(basename "$sql_file")"
   log_info "执行 $description..."
-  docker exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -f "/docker-entrypoint-initdb.d/$(basename "$sql_file")" 2>/dev/null || \
-  docker cp "$sql_file" "$CONTAINER_NAME:/docker-entrypoint-initdb.d/" && \
-  docker exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -f "/docker-entrypoint-initdb.d/$(basename "$sql_file")"
+  docker cp "$sql_file" "$CONTAINER_NAME:$target" >/dev/null
+  docker exec "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -f "$target"
 }
 
 # 重置数据库（删除所有表）
@@ -235,25 +235,32 @@ else
   exit 1
 fi
 
-# 7. 验证表创建
-verify_tables
+# 7. 执行当前版本 DDL patch
+MIGRATION_FILES=(
+  "databases/sprint-2c17/sync-package-log.sql"
+  "databases/sprint-2c18/file-index-schema.sql"
+  "databases/sprint-2e2/unified-user-site-platform.sql"
+  "databases/sprint-4.5/control-command.sql"
+  "databases/sprint-4.8/audit-log.sql"
+  "databases/sprint-r19/site-agent-runtime.sql"
+  "databases/sprint-r.26/auth-foundation.sql"
+  "databases/sprint-r27/auth-system-config.sql"
+  "databases/sprint-r39/sync-command-types.sql"
+  "databases/sprint-r41/audit-hash-chain.sql"
+)
 
-# 8. 执行 seed 数据
-SEED_FILE="$SCRIPT_DIR/../sprint-2b1/seed.sql"
-if [[ -f "$SEED_FILE" ]]; then
-  log_step "执行 seed 数据..."
-
-  seed_count=$(docker_psql -t -c "SELECT COUNT(*) FROM sites;" 2>/dev/null | tr -d ' ' || echo "0")
-
-  if [[ "$seed_count" -gt 0 ]]; then
-    log_warn "数据库已包含 $seed_count 条 sites 记录，seed 数据使用 ON CONFLICT DO NOTHING，不会重复插入"
+log_step "执行当前版本 DDL patch..."
+for migration in "${MIGRATION_FILES[@]}"; do
+  migration_file="$PROJECT_DIR/$migration"
+  if [[ -f "$migration_file" ]]; then
+    execute_sql_file "$migration_file" "$migration"
+  else
+    log_warn "DDL patch 不存在, 跳过: $migration"
   fi
+done
 
-  # 直接执行 seed.sql（使用 COPY 或直接执行）
-  docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" < "$SEED_FILE"
-else
-  log_info "未找到 seed.sql，跳过数据插入"
-fi
+# 8. 验证表创建
+verify_tables
 
 # 9. 显示统计
 echo ""
@@ -269,7 +276,10 @@ UNION ALL SELECT 'sync_sites', COUNT(*) FROM sync_sites
 UNION ALL SELECT 'unified_tasks', COUNT(*) FROM unified_tasks
 UNION ALL SELECT 'unified_devices', COUNT(*) FROM unified_devices
 UNION ALL SELECT 'unified_volumes', COUNT(*) FROM unified_volumes
-UNION ALL SELECT 'unified_alerts', COUNT(*) FROM unified_alerts;
+UNION ALL SELECT 'unified_alerts', COUNT(*) FROM unified_alerts
+UNION ALL SELECT 'auth_accounts', COUNT(*) FROM auth_accounts
+UNION ALL SELECT 'control_command', COUNT(*) FROM control_command
+UNION ALL SELECT 'sync_package_log', COUNT(*) FROM sync_package_log;
 " 2>/dev/null || true
 echo "----------------------------------------"
 echo ""

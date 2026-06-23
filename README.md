@@ -92,13 +92,13 @@ cp .env.example .env.local
 ### 1.5 初始化中心库（首次启动）
 
 ```bash
-pnpm db:init        # 建表
-pnpm db:seed        # 灌入种子账号
+pnpm db:init        # 建当前完整中心库 schema + auth bootstrap
 ```
 
 完成后应该有：
 
 - 中心库 `unified_disc_platform` 已建好
+- 当前版本需要的 DDL patch 已执行（同步日志、控制队列、审计、Auth、检索索引表等）
 - 默认账号 `admin / admin` 已生效（角色：集团管理员）
 
 ### 1.6 启动前端
@@ -116,6 +116,8 @@ pnpm dev
 下面这串命令依次跑完，验证整个项目能跑：
 
 ```bash
+# ⚠️ set -a 仅适合本地开发,把 .env.local 的 key 注入当前 shell
+# 生产部署请用 systemd EnvironmentFile= / k8s secretRef / vault,不要 set -a
 set -a && source .env.local && set +a
 pnpm exec tsc --noEmit        # TypeScript 类型检查
 pnpm build                    # 生产构建
@@ -157,8 +159,9 @@ pnpm baseline:check           # 项目基线冻结检查
 |---|---|
 | 严格完成的需求（真后端 + 真 UI + 真测试） | **29 / 45 = 64.4%** |
 | 已写代码但需外部条件才能算严格完成 | 16 项 |
-| 总控页面路由 | 13 个 |
-| 同步白名单表 | 13 张 |
+| 总控页面路由(`app/<段>/page.tsx`,不含 /login 与 /api) | 11 个(加 /login 共 12 个) |
+| 后端 API 路由(`app/api/<段>/route.ts`) | 数十个 |
+| 同步白名单表 | 13 张(`lib/sync/dump/manifest.ts:DUMP_ALLOWED_TABLES`) |
 | 完整站点 schema 审计范围 | 170 张 |
 | 同步链路 e2e 测试 | 以当前 `pnpm e2e:all` 输出为准 |
 
@@ -220,10 +223,11 @@ pnpm baseline:check           # 项目基线冻结检查
 │   └── worker-site.ts          # 站点端 Worker
 │
 ├── databases/                  # 数据库脚本
-│   ├── sprint-2b0/             # 初始化
-│   ├── sprint-2b1/             # 种子数据
-│   ├── sprint-2b2/             # mock 任务表
-│   └── sprint-2b4/             # schema 增量
+│   ├── sprint-2b0/             # 中心库基础 schema + 初始化脚本
+│   ├── sprint-2c17/            # 同步包日志表
+│   ├── sprint-4.5/             # control_command 控制队列表
+│   ├── sprint-r.26/            # 本地 JWT/Auth/RBAC 基座
+│   └── sprint-r41/             # audit hash chain 等增量 DDL
 │
 ├── docs/                       # 项目文档
 │   ├── source/                 # 原始需求（requirements.md 是最高标准）
@@ -286,6 +290,34 @@ table_backup.sql
 - 站点库有 170 张表，**只同步 13 张**白名单表（`tbl_task`、`tbl_user` 等控制类表）。`tbl_file` 和 `tbl_folder` 是几亿行的大表，**不进 PostgreSQL**，走 OpenSearch。
 - `table_backup.sql` 是文本格式，用 `pg_dump --table=...` 生成。
 - HMAC 签名防篡改。
+- 文档里的 `DATABASE_URL` / `SITE_DATABASE_URL` / `SOURCE_DATABASE_URL` 都是 **PostgreSQL 数据库连接串**，不是 HTTP API 地址。
+
+#### 多站点怎么同步
+
+多站点不是在中心服务里写多个 `SITE_DATABASE_URL`。
+
+正确模型是：
+
+```
+中心服务
+  ├─ DATABASE_URL -> 中心库 unified_disc_platform
+  └─ sync_sites   -> 站点注册表，记录 SH01 / BJ02 / ...
+
+SH01 站点 Agent
+  ├─ SITE_WORKER_SITE_CODE=SH01
+  └─ SITE_DATABASE_URL -> SH01 本地 PostgreSQL
+
+BJ02 站点 Agent
+  ├─ SITE_WORKER_SITE_CODE=BJ02
+  └─ SITE_DATABASE_URL -> BJ02 本地 PostgreSQL
+```
+
+也就是说：
+- 中心服务只有一个 `DATABASE_URL`，负责读写中心库。
+- 每个站点各跑一个 Agent/Worker 进程，各自持有自己的 `SITE_DATABASE_URL`。
+- 站点身份用 `siteCode` 区分，写入中心库时落到 `source_site_id` / `site_code` / `target_site_code`。
+- 中心库只保存站点注册、状态、密钥引用和同步结果；**不保存真实站点数据库密码**。
+- 本地只有一个 restore 库时，可以把它当作 `SH01` 测试站点；没有 restore 库时，项目仍能启动，但不能跑真实站点同步。
 
 ### 4.2 总控 → 站点（控制链路）
 
@@ -379,10 +411,10 @@ pnpm db:down                   # 停 PostgreSQL（保留数据）
 pnpm db:down:volumes           # 停 + 删数据卷（危险！会丢数据）
 pnpm db:logs                   # 看数据库日志
 pnpm db:health                 # 查健康状态
-pnpm db:init                   # 首次建表
+pnpm db:init                   # 首次建当前完整中心库 schema
 pnpm db:init:reset             # 删表重建
-pnpm db:seed                   # 灌种子数据（含默认账号）
-pnpm db:init:sync              # 初始化同步任务相关表
+pnpm db:seed                   # 兼容命令：重放 Auth bootstrap（admin / RBAC）
+pnpm db:init:sync              # 旧同步 mock 表初始化；当前主链路通常不用
 ```
 
 ### 5.3 同步相关
@@ -391,6 +423,12 @@ pnpm db:init:sync              # 初始化同步任务相关表
 pnpm smoke:sync                # 跑一次同步冒烟
 pnpm check:sync-consistency -- --siteCode=SH01
                                # 一致性检查
+pnpm sync:dump:export --siteCode=SH01 --out=/tmp/sh01-table_backup.sql
+                               # 从 SOURCE_DATABASE_URL / restore 库导出白名单表
+pnpm sync:dump:ingest --siteCode=SH01 --file=/tmp/sh01-table_backup.sql
+                               # 把 table_backup.sql 导入中心库
+pnpm scheduler:sync:once -- SH01
+                               # 对单站点跑一次调度同步
 pnpm export:package            # 导出站点 SQL 包
 pnpm push:package              # 推送到中心
 pnpm import:all                # 从源端导入所有白名单表
@@ -507,9 +545,10 @@ console.log('严格完成:', c, '/', rows.length, '=', (c/rows.length*100).toFix
 | 检查项 | 说明 |
 |---|---|
 | Node.js 版本 | 18 或 20 |
-| PostgreSQL 17 | 必须，外部中心库 |
-| OpenSearch（可选） | 检索加速，没配就返回 blocked |
-| ClickHouse（可选） | 日志加速，没配就降级到中心 PG |
+| PostgreSQL 17 中心库 | 必须，存 `unified_*`、同步日志、控制队列、Auth、审计 |
+| 站点 PostgreSQL / restore 库 | 同步来源；产品页面不能直读，只能由同步/Agent 写回中心库 |
+| OpenSearch（可选） | 承接 `tbl_file` / `tbl_folder` 大文件索引；没配就返回 blocked 或走中心 `unified_file_index` |
+| ClickHouse（可选） | 承接大规模任务/系统日志；没配就降级到中心 PG 可用日志 |
 | 反向代理 | nginx / traefik 之类 |
 | TLS 证书 | 站点 Agent HMAC 验签需要 HTTPS |
 | `.env.local` | **不要**提交到 git，本地各自保管 |
@@ -517,12 +556,17 @@ console.log('严格完成:', c, '/', rows.length, '=', (c/rows.length*100).toFix
 ### 7.2 关键环境变量（只列键名，**不**列值）
 
 ```bash
-# 数据库
-DATABASE_URL=...
+# 数据库连接串（都是 PostgreSQL 直连连接串，不是 HTTP API 地址）
+DATABASE_URL=...               # 中心库连接串：总控服务读写 unified_disc_platform
 DB_PASSWORD=...                # 必须与 DATABASE_URL 内嵌密码一致
 
+# 同步来源连接串
+SOURCE_DATABASE_URL=...        # 本地开发/restore 测试库连接串；用于导出/导入脚本
+SITE_DATABASE_URL=...          # 站点 Agent/Worker 侧连接串；每个站点进程各自配置
+SITE_WORKER_SITE_CODE=...      # 当前 Agent/Worker 代表的站点，如 SH01
+
 # 鉴权
-JWT_SECRET=...                 # 本地 JWT 签名密钥（生产必须 32+ 随机字符）
+AUTH_SESSION_SECRET=...        # 本地 JWT session 签名密钥（生产必须 32+ 随机字符）
 SITE_AGENT_SECRET=...          # 站点 Agent HMAC 签名密钥
 SYNC_PACKAGE_SECRET=...        # 同步包签名密钥
 
@@ -538,10 +582,28 @@ CLICKHOUSE_USER=...
 CLICKHOUSE_PASSWORD_KEY_REF=...
 
 # SSO（生产需要，可选）
+# ⚠️ 项目里实际有两套 SSO 环境变量,作用不同:
+#   - OIDC_* / LDAP_* 是运行时真正消费的键(/api/auth/sso/start + lib/auth/oidc-provider.ts + lib/auth/ldap-provider.ts)
+#   - AUTH_* 是 lib/auth/config.ts:getSafeAuthConfig() 的"配置探测"层,只返回 boolean 给前端展示用,不影响 SSO 实际跳转
+# 配 SSO 时,OIDC_* 和 LDAP_* 必须配;AUTH_* 可选配(配了之后前端能识别"已配置 SSO"状态)
 OIDC_ISSUER_URL=...
 OIDC_CLIENT_ID=...
-OIDC_CLIENT_SECRET=...         # 或 *_KEY_REF 形式
+OIDC_CLIENT_SECRET=...         # 或 OIDC_CLIENT_SECRET_KEY_REF=... 引用 secrets 管理器
+OIDC_CLIENT_SECRET_KEY_REF=...
 OIDC_JWKS_URL=...
+LDAP_URL=...
+LDAP_BASE_DN=...
+LDAP_BIND_DN=...                # 或 LDAP_BIND_DN_KEY_REF=...
+LDAP_BIND_PASSWORD=...          # 或 LDAP_BIND_PASSWORD_KEY_REF=...
+
+# AUTH_* 配置探测层(可选,前端展示用,不配也不影响 SSO)
+AUTH_ISSUER_URL=...
+AUTH_CLIENT_ID=...
+AUTH_CLIENT_SECRET=...
+AUTH_CLIENT_SECRET_REF=...
+AUTH_JWKS_URL=...
+AUTH_LDAP_URL=...
+AUTH_LDAP_BASE_DN=...
 ```
 
 完整列表看 `.env.example`。**所有真实值通过环境变量注入，不要写进任何文件**。
@@ -556,13 +618,16 @@ cd 上海
 pnpm install --frozen-lockfile
 
 # 2. 注入环境变量（用 vault / k8s secret / 你的密钥管理工具）
+# ⚠️ 下面 `export` 只在当前 shell 生效,关掉就丢。生产请改用:
+#   - systemd:  EnvironmentFile=/etc/unified-disc-platform.env
+#   - docker:   --env-file 或 compose secrets
+#   - k8s:      envFrom: secretRef / vault sidecar
 export DATABASE_URL=...
-export JWT_SECRET=...
+export AUTH_SESSION_SECRET=...
 # ... 其他见 .env.example
 
 # 3. 初始化数据库（只第一次）
 pnpm db:init
-pnpm db:seed
 
 # 4. 构建
 pnpm build
@@ -583,9 +648,70 @@ pnpm start
 | 资源 | 说明 |
 |---|---|
 | 一台能联网到中心库的机器 | 站点本地即可 |
-| 站点 PostgreSQL 连接信息 | 写到 `SITE_DATABASE_URL` |
+| 站点 PostgreSQL 连接串 | 写到该站点 Agent/Worker 的 `SITE_DATABASE_URL` |
+| 站点编码 | 写到该站点 Agent/Worker 的 `SITE_WORKER_SITE_CODE`，例如 `SH01` |
 | Agent HMAC 密钥 | 中心库生成，分发到站点 |
 | 进程守护 | systemd / supervisor 二选一 |
+
+多站点部署时，建议每个站点一份独立环境文件：
+
+```bash
+# /etc/unified-disc-agent-SH01.env
+DATABASE_URL=postgresql://center_user:<center_password>@center-host:5432/unified_disc_platform
+SITE_WORKER_SITE_CODE=SH01
+SITE_DATABASE_URL=postgresql://site_user:<site_password>@sh01-db:5432/star_storage_db
+SITE_AGENT_SECRET=<secret-ref-or-secret-value-from-deployer>
+
+# /etc/unified-disc-agent-BJ02.env
+DATABASE_URL=postgresql://center_user:<center_password>@center-host:5432/unified_disc_platform
+SITE_WORKER_SITE_CODE=BJ02
+SITE_DATABASE_URL=postgresql://site_user:<site_password>@bj02-db:5432/star_storage_db
+SITE_AGENT_SECRET=<secret-ref-or-secret-value-from-deployer>
+```
+
+这些真实连接串只存在部署环境里，不能提交到仓库。
+
+#### 同步和控制要部署哪些进程？
+
+只配置数据库连接串不会自动同步。生产环境至少需要这些进程：
+
+| 进程 | 部署位置 | 作用 |
+|---|---|---|
+| 中心 Web 服务 | 中心机房 / 云主机 | 提供页面和 `/api/*`，读写中心库 `DATABASE_URL` |
+| 中心 PostgreSQL | 中心机房 / 云数据库 | 保存 `unified_*`、同步日志、控制队列、审计、Auth |
+| 站点同步调度器 | 每个站点一份，或由中心按站点启动 | 定时导出站点白名单表并写回中心库 |
+| 站点 Agent / Worker | 每个站点一份 | 拉取 `control_command`，在本站点库执行任务创建/暂停/恢复等操作 |
+
+`pnpm scheduler:sync -- --siteCode SH01` 是**长运行同步进程**：默认每 3600 秒跑一轮，直到进程被停止。它不是数据库触发器，也不是打开网页后自动运行。
+
+单站点常用命令：
+
+```bash
+# 每小时持续同步 SH01
+pnpm scheduler:sync -- --siteCode SH01
+
+# 只跑一次同步，用于测试
+pnpm scheduler:sync:once -- SH01
+
+# 控制闭环：站点侧持续拉取命令并执行
+SITE_WORKER_SITE_CODE=SH01 SITE_WORKER_DRY_RUN=false pnpm worker:site
+```
+
+多站点需要每个站点各跑一份调度器/Agent，或者用 systemd、supervisor、PM2、k8s 为每个 `siteCode` 启一个实例：
+
+```bash
+pnpm scheduler:sync -- --siteCode SH01
+pnpm scheduler:sync -- --siteCode BJ02
+
+SITE_WORKER_SITE_CODE=SH01 SITE_WORKER_DRY_RUN=false pnpm worker:site
+SITE_WORKER_SITE_CODE=BJ02 SITE_WORKER_DRY_RUN=false pnpm worker:site
+```
+
+如果某个新站点一直有任务新增，只要该站点的同步调度器持续运行，下一轮同步会把白名单表变化写入中心库；如需更快频率，可通过 `--interval` 调整：
+
+```bash
+pnpm scheduler:sync -- --siteCode SH01 --interval 300
+```
 
 ### 7.5 健康检查
 
@@ -595,6 +721,18 @@ pnpm start
 
 > 上面的 §7.3 是最简流程。下面按"你的环境是什么样"分类，每种都给完整步骤。
 > 不知道选哪个？**先用方案 A（PM2 + 本机）**，企业生产用方案 C（Docker）或方案 D（k8s）。
+
+#### 怎么选方案？
+
+| 你的情况 | 用哪个 |
+|---|---|
+| 1 台 Linux 服务器,没装 Docker | **方案 A (PM2)** |
+| 1 台 Linux 服务器,装了 Docker,想一条命令起全栈 | **方案 B (Docker Compose) — 但要先按本节提示补 compose** |
+| 多环境,要推镜像仓库 (Harbor / GHCR) | **方案 C (Docker 镜像) — 但要先加 `next.config.mjs` 的 `output: 'standalone'`** |
+| 多副本 + 滚动更新 + 自动伸缩 | **方案 D (k8s)** |
+| 接受云端 Postgres,不要本机 Docker | **方案 E (Vercel)** |
+| Windows 笔记本,本地开发调试 | **方案 F (Windows 本地)** |
+| 不需要数据库,纯前端演示 | **方案 G 不适用 — 项目 API 路由强依赖 PG** |
 
 #### 方案 A：单机 + PM2 守护（最简单，1 台服务器搞定）
 
@@ -614,7 +752,7 @@ pnpm build
 
 # 3. 注入环境变量（推荐用 .env.production 或 systemd EnvironmentFile）
 cp .env.example .env.production
-# 编辑 .env.production 填入真实 DATABASE_URL / JWT_SECRET 等
+# 编辑 .env.production 填入真实 DATABASE_URL / AUTH_SESSION_SECRET 等
 
 # 4. 用 PM2 守护进程（开机自启 + 崩溃重启）
 pm2 start "pnpm start" --name unified-disc-platform
@@ -636,6 +774,27 @@ pm2 restart unified-disc-platform
 
 适用:服务器装了 Docker,想把数据库 + 应用一起管。
 
+> ⚠️ **必读 — 当前 compose 文件不完整**
+>
+> 仓库根目录的 `docker-compose.yml` 现在**只定义了 3 个数据服务**:
+> `postgres` / `opensearch` / `clickhouse`,**没有 `app` service**。
+> 直接 `docker compose up -d` 只能起数据服务,起不来 Next.js;`docker compose logs -f app` 会报 "service app not found"。
+>
+> **解决方案(任选一个)**:
+> 1. **先用方案 A (PM2) 起应用,只用 compose 起数据服务**(最稳)
+>    ```bash
+>    docker compose up -d postgres opensearch clickhouse   # 只起数据
+>    pnpm install --frozen-lockfile && pnpm build
+>    pm2 start "pnpm start" --name unified-disc-platform
+>    ```
+> 2. **复制附录 A.2 全栈模板覆盖 compose**(一步到位,但要先备份原文件)
+>    ```bash
+>    cp docker-compose.yml docker-compose.yml.bak
+>    # 把附录 A.2 的内容粘到 docker-compose.yml
+>    ```
+>
+> 下面步骤默认你已经按方案 (1) 或 (2) 处理过 compose。
+
 ```bash
 # 1. 服务器装 Docker（Ubuntu 示例）
 curl -fsSL https://get.docker.com | sh
@@ -646,14 +805,12 @@ git clone <仓库> && cd 上海
 
 # 3. 准备环境变量
 cp .env.example .env.production
-# 编辑填入 JWT_SECRET / SITE_AGENT_SECRET 等
+# 编辑填入 AUTH_SESSION_SECRET / SITE_AGENT_SECRET / SYNC_PACKAGE_SECRET 等
 
-# 4. 启动全栈（postgres + 应用,数据库初始化在容器内做）
-docker compose -f docker-compose.yml up -d
-# 首次启动会建表 + 灌种子数据（依赖 docker-compose.yml 里的 init 任务）
+# 4. 当前仓库 compose 只起数据服务；应用请用方案 A，或先替换为附录 A.2 全栈模板
+docker compose -f docker-compose.yml up -d postgres opensearch clickhouse
 
 # 5. 看日志
-docker compose logs -f app
 docker compose logs -f postgres
 
 # 6. 健康检查
@@ -667,11 +824,35 @@ git pull
 docker compose -f docker-compose.yml up -d --build
 ```
 
-> 注意:当前 `docker-compose.yml` 只定义了 `postgres` 服务(数据库)。方案 B 需要补一个 `app` service,见附录 A.2。
+> 注意:当前 `docker-compose.yml` 只定义了 `postgres` / `opensearch` / `clickhouse` 三个数据服务。方案 B 要一条命令起全栈，需要补 `app` service,见附录 A.2。
 
 #### 方案 C：纯 Docker 镜像（自包含,可推到镜像仓库）
 
 适用:多环境部署,或推到 Harbor / Docker Hub / GHCR。
+
+> ⚠️ **必读 — `next.config.mjs` 当前没有 `output: 'standalone'`,直接 build 会失败**
+>
+> 附录 A.1 给的 Dockerfile 里这一步会失败:
+> ```
+> COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+> ERROR: failed to solve: "/app/.next/standalone": not found
+> ```
+> 因为 `next build` 默认**不输出 standalone 目录**,必须显式开启。
+>
+> **先改 `next.config.mjs`**:
+> ```js
+> /** @type {import('next').NextConfig} */
+> const nextConfig = {
+>   output: 'standalone',   // ← 加这一行
+>   typescript: { ignoreBuildErrors: false },
+>   images: { unoptimized: true },
+>   async redirects() { return [{ source: "/control", destination: "/tasks?view=commands", permanent: false }] },
+> }
+> export default nextConfig
+> ```
+> 然后 `pnpm build` 会输出 `.next/standalone/`,Dockerfile 才能 COPY。
+>
+> 下面步骤默认你已经改好 `next.config.mjs` 并把附录 A.1 的 Dockerfile 放到根目录。
 
 ```bash
 # 1. 在仓库根目录创建 Dockerfile（项目当前没自带,见附录 A.1）
@@ -770,7 +951,7 @@ npm i -g vercel
 # 2. 在仓库根目录
 vercel link          # 连接 GitHub repo
 vercel env add DATABASE_URL production       # 按提示粘贴
-vercel env add JWT_SECRET production
+vercel env add AUTH_SESSION_SECRET production
 # ... 其他 env
 
 # 3. 部署
@@ -801,7 +982,6 @@ cd 上海
 pnpm install
 pnpm db:up
 pnpm db:init
-pnpm db:seed
 pnpm dev
 # 浏览器打开 http://localhost:3000
 ```
@@ -872,7 +1052,7 @@ sudo certbot --nginx -d platform.example.com   # 自动配 HTTPS
 | `Error: Cannot find module 'next/dist/...'` | node_modules 损坏 | `rm -rf node_modules pnpm-lock.yaml && pnpm install` |
 | `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 20 LTS (项目用 next-themes + React 19 需要) |
 | `pnpm install` 卡死 / 超时 | 镜像源问题 | `pnpm config set registry https://registry.npmmirror.com` 后重试 |
-| `prisma generate` / `drizzle-kit` 报错 | 缺数据库 schema 迁移 | 首次启动必须先跑 `pnpm db:init` |
+| `pnpm db:init` 报 SQL 语法错(某行 `\dt` 无效) | 端口混淆 / 连到了错误数据库 | 确认 `docker exec -it unified_disc_postgres psql -U unified -d unified_disc_platform` 能正常进库;SQL 脚本在 `databases/sprint-2b0/unified_schema.sql` |
 | 浏览器访问 `/login` 显示 "认证服务暂不可用" | `/api/auth/login` 路由找不到 PG | 检查 `pnpm db:up` 状态 + 看 dev server stderr |
 | 部署到生产后 502 Bad Gateway | 反向代理没指向 app 端口 | nginx `proxy_pass http://127.0.0.1:3000` 确认应用在监听 3000 |
 | `permission denied` 写文件 | 用了 root 起应用 | 用方案 A 的非 root user (nextjs uid 1001),或在 Dockerfile 加 `USER nodejs` |
@@ -1153,6 +1333,16 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./databases/sprint-2b0/unified_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./databases/sprint-2c17/sync-package-log.sql:/docker-entrypoint-initdb.d/02-sync-package-log.sql
+      - ./databases/sprint-2c18/file-index-schema.sql:/docker-entrypoint-initdb.d/03-file-index-schema.sql
+      - ./databases/sprint-2e2/unified-user-site-platform.sql:/docker-entrypoint-initdb.d/04-unified-user-site-platform.sql
+      - ./databases/sprint-4.5/control-command.sql:/docker-entrypoint-initdb.d/05-control-command.sql
+      - ./databases/sprint-4.8/audit-log.sql:/docker-entrypoint-initdb.d/06-audit-log.sql
+      - ./databases/sprint-r19/site-agent-runtime.sql:/docker-entrypoint-initdb.d/07-site-agent-runtime.sql
+      - ./databases/sprint-r.26/auth-foundation.sql:/docker-entrypoint-initdb.d/08-auth-foundation.sql
+      - ./databases/sprint-r27/auth-system-config.sql:/docker-entrypoint-initdb.d/09-auth-system-config.sql
+      - ./databases/sprint-r39/sync-command-types.sql:/docker-entrypoint-initdb.d/10-sync-command-types.sql
+      - ./databases/sprint-r41/audit-hash-chain.sql:/docker-entrypoint-initdb.d/11-audit-hash-chain.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U unified -d unified_disc_platform"]
       interval: 5s
@@ -1168,7 +1358,9 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://unified:${POSTGRES_PASSWORD:-unified123}@postgres:5432/unified_disc_platform
-      JWT_SECRET: ${JWT_SECRET:-please-change-me-in-production-32-chars-min}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-please-change-me-in-production-32-chars-min}
+      SYNC_PACKAGE_SECRET: ${SYNC_PACKAGE_SECRET:-please-change-me-in-production-32-chars-min}
+      SITE_AGENT_SECRET: ${SITE_AGENT_SECRET:-please-change-me-in-production-32-chars-min}
       NODE_ENV: production
     ports:
       - "3000:3000"
@@ -1186,9 +1378,11 @@ volumes:
 ```bash
 cp .env.example .env.production
 echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" >> .env.production
-echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env.production
+echo "AUTH_SESSION_SECRET=$(openssl rand -hex 32)" >> .env.production
+echo "SYNC_PACKAGE_SECRET=$(openssl rand -hex 32)" >> .env.production
+echo "SITE_AGENT_SECRET=$(openssl rand -hex 32)" >> .env.production
 docker compose up -d
-# 等 ~30 秒数据库初始化完成
+# 首次空 volume 会执行 /docker-entrypoint-initdb.d/*.sql；已有 volume 不会重放
 docker compose logs -f app
 ```
 
@@ -1269,7 +1463,7 @@ LIMIT 20;
 ## 附录 D：常见问题
 
 **Q：本地起项目，登录失败？**
-A：检查 `.env.local` 是否存在，是否跑了 `pnpm db:init` + `pnpm db:seed`。默认账号 `admin / admin`。
+A：检查 `.env.local` 是否存在、`DATABASE_URL` 密码是否与 docker-compose 一致、是否跑了 `pnpm db:init`。默认账号 `admin / admin`。
 
 **Q：改了前端代码没生效？**
 A：`pnpm dev` 应该会自动热更新。如果没有，删 `.next/` 目录重启。

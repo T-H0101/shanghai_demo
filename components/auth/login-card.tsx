@@ -280,11 +280,11 @@ export function LoginCard({ availableSites }: LoginCardProps) {
       </form>
 
       <p className="relative z-10 mt-6 text-center text-xs leading-relaxed text-slate-500 dark:text-slate-500">
-        当前认证：本地 JWT
+        当前认证：本地账号体系
         <br />
-        企业 ADFS/LDAP：待接入，缺少 provider metadata 与测试账号
+        企业身份源：待配置 ADFS / LDAP
         <br />
-        站点 SSO：待 ADFS/LDAP 与站点 token 接收端点确认
+        站点单点登录：待配置站点信任关系
       </p>
 
       <div
