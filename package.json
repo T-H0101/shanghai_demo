@@ -92,7 +92,9 @@
     "e2e:sync-dump-parser": "tsx scripts/e2e/test-sync-dump-parser.ts",
     "sync:dump:export": "tsx scripts/sync/export-restore-dump.ts",
     "sync:dump:ingest": "tsx scripts/sync/ingest-dump.ts",
-    "e2e:all": "tsx scripts/e2e/run-all.ts"
+    "e2e:all": "tsx scripts/e2e/run-all.ts",
+    "cleanup:test-pollution": "tsx scripts/cleanup/center-db-test-pollution.ts",
+    "test:cleanup": "tsx scripts/cleanup/__tests__/cleanup-self-check.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
