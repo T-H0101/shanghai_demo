@@ -8,6 +8,7 @@ ALTER TABLE control_command ADD CONSTRAINT control_command_command_type_check
     'task_pause',
     'task_resume',
     'task_reset',
+    'task_create',
     'task_priority_restore',
     'inspect_start',
     'recovery_start',
