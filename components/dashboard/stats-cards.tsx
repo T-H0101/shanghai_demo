@@ -77,7 +77,7 @@ export function StatsCards() {
                 ? "读取异常"
                 : "正常"}
         </span>
-        {dataSource === "error" && <span className="text-red-600 dark:text-red-400">读取失败，未使用演示数据替代。</span>}
+        {dataSource === "error" && <span className="text-red-600 dark:text-red-400">读取失败，请检查中心库连接。</span>}
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Card 1 - 任务总数 (可点击 → /tasks) */}

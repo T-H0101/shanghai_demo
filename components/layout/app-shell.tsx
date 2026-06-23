@@ -43,7 +43,7 @@ function getGuideSteps(pathname: string) {
       ...common,
       { selector: '[data-testid="command-center-panel"]', message: "这里是总控首页，集中展示同步、任务、告警和控制队列的真实状态。" },
       { selector: '[data-testid="dashboard-stat-tasks"]', message: "KPI 卡片可跳转到对应业务页面，用于快速定位问题。" },
-      { selector: '[data-testid="dashboard-recent-syncs"]', message: "这里查看最近同步结果，失败记录会明确标红，不用演示数据掩盖。" },
+      { selector: '[data-testid="dashboard-recent-syncs"]', message: "这里查看最近同步结果，失败记录会明确标红。" },
       { selector: '[data-testid="dashboard-task-table"]', message: "这里展示任务状态；控制类操作只提交队列，等待站点 Agent 执行。" },
     ]
   }
@@ -62,7 +62,7 @@ function getGuideSteps(pathname: string) {
       ...common,
       { selector: '[data-testid="tasks-search-input"]', message: "按任务编号、名称或站点快速筛选任务。" },
       { selector: '[data-testid="tasks-phase-filter"]', message: "按运行、失败、暂停等阶段查看任务。" },
-      { selector: '[data-testid="task-row-pause"]', message: "暂停/恢复会提交到控制队列，不会冒充站点已执行成功。" },
+      { selector: '[data-testid="task-row-pause"]', message: "暂停/恢复会提交到控制队列，最终结果以站点 Agent 回写为准。" },
       { selector: '[data-testid="tasks-reset-filters"]', message: "这里可以清除筛选条件，回到全量任务视图。" },
     ]
   }
@@ -89,7 +89,7 @@ function getGuideSteps(pathname: string) {
     return [
       ...common,
       { selector: '[data-testid="logs-filter-error-code"]', message: "日志支持错误码、设备和任务类型筛选，用于排查站点任务问题。" },
-      { selector: '[data-testid="logs-export-xlsx"]', message: "导出能力按真实依赖展示；未接入格式会明确提示，不伪造成功。" },
+      { selector: '[data-testid="logs-export-xlsx"]', message: "导出能力按已配置依赖展示；未接入格式会明确提示。" },
     ]
   }
 

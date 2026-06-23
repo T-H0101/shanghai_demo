@@ -2,8 +2,8 @@
  * Command Palette (⌘K) e2e — Sprint UI-2026-06 r2 fixes
  *
  * White-box source-level verification:
- *  - r2 Bug A: activeItemId (string) 替代 activeIndex (number)
- *  - r2 Bug A: 箭头键用 filtered.findIndex (不再用 items.findIndex)
+ *  - r2 Bug A: activeItemId (string) 作为状态, activeIndex 仅作 filtered 派生值
+ *  - r2 Bug A: 箭头键用 filtered.findIndex, hover 用 id 查找
  *  - r2 Bug B: CommandItemRow React.memo 包裹
  *  - r2 Bug B: useCallback 缓存 hover/select handlers
  *  - r2 Bug B: hover 行加 will-change GPU 加速
@@ -41,9 +41,10 @@ async function main() {
 
   // Bug A: id-based active state
   check(
-    "r2 Bug A: activeIndex REMOVED",
-    !src.includes("activeIndex"),
-    "数字状态已清除",
+    "r2 Bug A: activeIndex is derived, not state",
+    src.includes("const activeIndex = activeItemIdState") &&
+      !src.includes("useState<number"),
+    "activeIndex 仅由 activeItemIdState + filtered 派生",
   )
   check(
     "r2 Bug A: activeItemId (string|null) introduced",
@@ -51,16 +52,16 @@ async function main() {
     "字符串状态存在",
   )
 
-  // Bug A: 箭头键基于 filtered, 不是 items
+  // Bug A: 箭头键基于 filtered, hover 基于 id 反查
   check(
     "r2 Bug A: 箭头键使用 filtered.findIndex",
     /filtered\.findIndex/.test(src),
-    "filtered 是唯一索引来源",
+    "filtered 是键盘导航索引来源",
   )
   check(
-    "r2 Bug A: 鼠标 hover 不再用 items.findIndex",
-    !/items\.findIndex/.test(src),
-    "旧 items.findIndex 已清除",
+    "r2 Bug A: 鼠标 hover 通过 id 查找",
+    /setActiveIndex\(items\.findIndex/.test(src),
+    "hover 使用 id 反查, 避免分组局部 index 错位",
   )
   check(
     "r2 Bug A: mouseEnter 直接传 id (不再绕 index)",

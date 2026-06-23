@@ -796,7 +796,7 @@ export function GlobalControlBall() {
                         </div>
                       ))}
                       <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 text-[11px] text-slate-600 dark:border-slate-700/60 dark:bg-slate-800/40 dark:text-slate-300">
-                        主机 CPU / 内存 / 磁盘趋势暂未接入实时采集，避免展示伪百分比。
+                        主机 CPU / 内存 / 磁盘趋势待接入实时采集后展示。
                       </div>
                     </div>
                   </div>

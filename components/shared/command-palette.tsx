@@ -117,7 +117,7 @@ export function CommandPalette() {
   const { sites: siteOptions } = useSiteSites()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const [activeItemId, setActiveItemId] = useState<string | null>(null)
+  const [activeItemIdState, setActiveItemId] = useState<string | null>(null)
 
   // 监听全局快捷键 ⌘K / Ctrl+K
   useEffect(() => {
@@ -185,10 +185,22 @@ export function CommandPalette() {
     })
   }, [items, query])
 
+  const activeIndex = activeItemIdState
+    ? Math.max(0, filtered.findIndex((it) => it.id === activeItemIdState))
+    : 0
+  const activeItemId = filtered[activeIndex]?.id ?? null
+
   // 重置 active — query/open 变化时默认第一项
   useEffect(() => {
     setActiveItemId(filtered[0]?.id ?? null)
   }, [query, open])
+
+  const setActiveIndex = useCallback(
+    (nextIndex: number) => {
+      setActiveItemId(items[nextIndex]?.id ?? null)
+    },
+    [items],
+  )
 
   const handleSelect = useCallback((item: CommandItem) => {
     setOpen(false)
@@ -196,8 +208,8 @@ export function CommandPalette() {
   }, [])
 
   const handleHover = useCallback((id: string) => {
-    setActiveItemId(id)
-  }, [])
+    setActiveIndex(items.findIndex((it) => it.id === id))
+  }, [items, setActiveIndex])
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (filtered.length === 0) return

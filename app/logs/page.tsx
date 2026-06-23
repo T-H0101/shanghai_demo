@@ -432,7 +432,7 @@ export default function Page() {
         <div className="text-xs text-amber-800 dark:text-amber-300">
           <p className="font-medium">数字签名暂未接入</p>
           <p className="mt-1">
-            数字签名需证书/私钥托管 (R.1 §7 禁止伪造签名)。
+            数字签名需接入证书/私钥托管后启用。
             当前可检索 7 类日志: sync_package / sync_table / sync_scheduler / sync_consistency / control / audit / <strong>登录审计</strong>。
           </p>
         </div>

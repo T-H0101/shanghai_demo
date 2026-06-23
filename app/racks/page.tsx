@@ -737,13 +737,13 @@ export default function Page() {
       {isApiMode && racksDataSource === "error" && (
         <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>中心库设备数据读取失败，未使用模拟数据回退。</span>
+          <span>中心库设备数据读取失败，请检查数据库连接与同步状态。</span>
         </div>
       )}
       {isApiMode && racksDataSource === "empty" && (
         <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
           <Info className="h-4 w-4 shrink-0" />
-          <span>暂无设备数据，未使用演示数据填充。</span>
+          <span>暂无中心库设备记录，请先完成站点同步。</span>
         </div>
       )}
 
@@ -1357,7 +1357,7 @@ export default function Page() {
                   severity="blocked"
                   icon={FolderTree}
                   title="存储浏览暂未接入真实源端目录树"
-                  description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要接入站点文件索引服务，不能用演示目录冒充真实文件树。"
+                  description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要接入站点文件索引服务。"
                   testid="racks-storage-browse-blocked"
                   action={{ label: "查看站点 Agent 接入文档", href: "/sites" }}
                 />
@@ -1421,7 +1421,7 @@ export default function Page() {
                   severity="blocked"
                   icon={RotateCcw}
                   title="数据恢复任务等待 Site Agent 闭环"
-                  description="总控保留完整控制能力。当前页面不使用演示文件树冒充恢复任务，后续需接入文件索引和站点代理恢复协议。"
+                  description="总控保留完整控制能力；文件索引与站点代理恢复协议接入后可执行恢复任务。"
                   testid="racks-storage-restore-blocked"
                   action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}
                 />
@@ -1582,11 +1582,11 @@ export default function Page() {
                     当前数据口径
                   </div>
                   <div className="mt-4 space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    <p>来源: {isApiMode ? "平台同步结果" : "本地演示数据"}</p>
+                    <p>来源: {isApiMode ? "平台同步结果" : "本地预览数据"}</p>
                     <p>设备数量: {filtered.length} 台</p>
                     <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
                     <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>
-                    <p className="text-amber-700 dark:text-amber-300">存储浏览/数据恢复未接入时明确说明，不使用演示目录冒充真实能力。</p>
+                    <p className="text-amber-700 dark:text-amber-300">存储浏览/数据恢复按接入状态展示，未配置时保持不可操作。</p>
                   </div>
                 </div>
 

@@ -167,9 +167,9 @@ async function main() {
       commandCenterSource.includes("/api/alerts"),
   )
   check(
-    "CommandCenter 明示实时数据 / 不使用演示数据替代",
+    "CommandCenter 明示中心库实时状态",
     commandCenterSource.includes("实时数据") &&
-      commandCenterSource.includes("不使用演示数据替代真实状态"),
+      commandCenterSource.includes("中心库状态实时呈现"),
   )
 
   // ============================================================

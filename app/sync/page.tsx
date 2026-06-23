@@ -566,7 +566,7 @@ export default function SyncCenterPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
-              仅展示已接入的同步告警；站点硬件告警未接入时不会伪造成正常告警。
+              当前展示同步日志告警；站点硬件告警待接入后纳入统一视图。
             </p>
             {syncAlertError ? (
               <div className="text-sm text-red-600 dark:text-red-300">同步告警读取失败: {syncAlertError}</div>
@@ -693,7 +693,7 @@ export default function SyncCenterPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-              {syncConfigNote || "中心配置仅用于调度，不作为源端真实站点证据。"}
+              {syncConfigNote || "同步策略来自中心配置；站点运行状态以 Agent 心跳和同步日志为准。"}
             </p>
             {syncConfigSites.length === 0 ? (
               <div className="text-sm text-slate-500">暂无中心同步配置。</div>

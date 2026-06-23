@@ -139,7 +139,7 @@ async function main() {
     "API 模式存储浏览/数据恢复显示 blocked 而非 mock 内容",
       pageSource.includes('testid="racks-storage-browse-blocked"') &&
       pageSource.includes('testid="racks-storage-restore-blocked"') &&
-      pageSource.includes("不能用演示目录冒充真实文件树") &&
+      pageSource.includes("完整目录浏览需要接入站点文件索引服务") &&
       pageSource.includes("总控保留完整控制能力") &&
       pageSource.includes("站点代理恢复协议")
   )

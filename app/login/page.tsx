@@ -7,6 +7,7 @@ import { Disc, Network, ShieldCheck } from "lucide-react"
 import { LoginBackground } from "@/components/auth/login-background"
 import { LoginHeader } from "@/components/auth/login-header"
 import { LoginCard } from "@/components/auth/login-card"
+import { GlassPanel } from "@/components/platform/glass-panel"
 import { isAuthenticated } from "@/lib/auth/session"
 
 export default function LoginPage() {
@@ -93,14 +94,26 @@ export default function LoginPage() {
               </p>
 
               <div className="mt-8 grid grid-cols-2 gap-3 text-xs text-slate-600 dark:text-slate-400">
-                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                <GlassPanel
+                  testId="login-capability-sites"
+                  intensity="soft"
+                  className="rounded-lg"
+                >
+                  <div className="flex items-center gap-2">
                   <Network className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                   多站点统一管控
-                </div>
-                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                  </div>
+                </GlassPanel>
+                <GlassPanel
+                  testId="login-capability-audit"
+                  intensity="soft"
+                  className="rounded-lg"
+                >
+                  <div className="flex items-center gap-2">
                   <ShieldCheck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                   审计与合规
-                </div>
+                  </div>
+                </GlassPanel>
               </div>
             </section>
 
