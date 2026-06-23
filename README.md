@@ -453,7 +453,7 @@ pnpm check:sync-consistency -- --siteCode=SH01
 - `TEST_*`、`PKG_TEST` 等历史测试 siteCode 只能作为审计告警，不计入站点总数。
 - `sync_sites` 只能保存 `credential_ref`，不能保存数据库明文密码。
 - `unified_users/unified_devices/unified_tasks` 的 `raw_data` 中敏感键必须为空或 `[REDACTED]`。
-- 170 张站点库表不会被默认全量塞进 PG17；当前 PG 白名单为 13 张小表，`tbl_file/tbl_folder` 等大表走 ES/ClickHouse 或后续专门索引链路。
+- 170 张站点库表不会被默认全量塞进 PG17；当前 PG 白名单为 28 张小表(R.83.1 起:13 既有 + 15 新增部门/项目/接收单)，`tbl_file/tbl_folder` 等大表走 ES/ClickHouse 或后续专门索引链路。
 
 生产验收时使用严格模式：
 
@@ -462,6 +462,79 @@ pnpm audit:center-db -- --strict
 ```
 
 严格模式存在未注册的非测试 siteCode 或明文敏感字段时会失败。
+
+### 5.3.2 audit:center-db finding 解读
+
+跑完 `pnpm audit:center-db` 后,每个 finding 都有 `[PASS|WARN|FAIL]` 三种级别,常见含义如下:
+
+| finding name | PASS 含义 | WARN 含义 | FAIL 含义 |
+|---|---|---|---|
+| `center database selected` | 已连上中心库 | — | env 缺失 |
+| `sync_sites table` | 表存在 | — | 表不存在 |
+| `sync_sites secret storage` | 无明文密码列 | — | 有 db_password / password 列(违反 §6.2.1) |
+| `registered sites` | 至少 1 个注册站点 | — | 0 个注册 |
+| `credential refs` | 全是 env 引用 | — | 含 `postgres:` 等直连接串 |
+| `unregistered non-test site data` | 无 | — | 存在非测试 orphan(必须清理) |
+| `unregistered test/historical site data` | 无 | 仅作数据质量提示 | — |
+| `center unified tables` | 任意 | < 30 时提示扩表 | — |
+| `unified_* raw_data sensitive keys` | 全空或 [REDACTED] | — | 含明文密码/token |
+| `matrix JSON written` | 已产出 | — | 写入失败 |
+| `unified table count` | ≥ 28 | < 28 提示扩表 | — |
+| `unclassified tbl_* tables` | 0 张未分类 | < 170 张未分类提示后续 Sprint 推 | — |
+
+### 5.3.3 治理矩阵 JSON 字段含义
+
+```bash
+pnpm audit:center-db -- --matrix
+# 产出 audit/center-db-matrix.json
+```
+
+字段:
+
+| 字段 | 含义 |
+|---|---|
+| `generatedAt` | 生成时间(ISO 8601) |
+| `unifiedCount` | 中心库当前 `unified_*` 表总数 |
+| `entries[].unified_table` | 中心库 unified_* 表名 |
+| `entries[].source_table` | 对应站点源表名 |
+| `entries[].classification` | `pg17_small` / `opensearch` / `clickhouse` / `forbidden` |
+| `entries[].blocker` | `none` / `blocked_by_source_schema` / `blocked_by_external_system` |
+| `entries[].round` | `R.83.1` / `R.83.2+` / `already` / `deferred` / `never` |
+
+完整 170 张表逐行分类见 `docs/database-analysis/r83-170-table-governance-matrix.md`。
+
+### 5.3.4 测试污染清理
+
+部署时如果发现中心库业务表残留 `TEST_*` / `PKG_TEST` 测试 siteCode 行,先 dry-run:
+
+```bash
+pnpm cleanup:test-pollution -- --dry-run
+```
+
+输出 `[DRY-RUN]` 与每张表匹配行数 + 计划 dump 路径。人工 review 后再真删:
+
+```bash
+pnpm cleanup:test-pollution -- --apply
+# 幂等:第二次跑应显示 0 matches
+```
+
+脚本默认把匹配行 dump 到 `archive/cleanup-<YYYYMMDD>/<table>.jsonl` 后再 DELETE;**不会**动 `audit_log` / `control_command`。
+
+### 5.3.5 站点 schema/API 决策清单(给领导)
+
+如果某个 req 长期 `partial` 是因为站点侧阻塞,产出如下清单给领导决策:
+
+```markdown
+## R.83.x 站点 schema/API 变更清单
+
+| 变更项 | 涉及表/API | DDL/文档 | 决策人 |
+|---|---|---|---|
+| tbl_task 加 paused BOOLEAN | tbl_task | ALTER TABLE tbl_task ADD COLUMN paused BOOLEAN DEFAULT FALSE; | 领导 + 站点运维 |
+| 站点 app poll control_command | 站点 app | 启动时 GET /api/site-control/commands | 站点 app 团队 |
+| 站点 app 读 tbl_check_patrol_task 新行 | 站点 app | 巡检进程启动时 SELECT pending 行 | 同上 |
+| 站点 app 读 tbl_hot_restore_record 新行 | 站点 app | 热恢复进程启动时 SELECT pending 行 | 同上 |
+| 提供真站点 API 文档 | 站点 | swagger / openapi.yml 提交到 `docs/source/site-api-spec.md` | 站点架构师 |
+```
 
 ### 5.4 调度与 Agent
 
