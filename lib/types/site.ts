@@ -2,10 +2,9 @@ import type { OnlineStatus, SyncStatus } from "./common"
 
 /**
  * Site.status: 站点业务状态
- * - online/offline: 站点真实登记状态 (来自 unified_sites)
- * - derived: 由同步数据派生的待确认状态 (来自 unified_tasks/devices/volumes 等表)
+ * - online/offline: 站点真实登记状态 (来自 sync_sites + sites)
  */
-export type SiteStatusValue = OnlineStatus | "derived"
+export type SiteStatusValue = OnlineStatus
 
 export interface Site {
   id: string

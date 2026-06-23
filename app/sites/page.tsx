@@ -24,12 +24,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import type { Site } from "@/lib/types/site"
-import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, Power, ShieldCheck, Database, Layers } from "lucide-react"
+import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, Power, ShieldCheck, Database } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import type { SiteDTO } from "@/lib/api/dto"
 
 /**
- * /sites 页面 — Sprint R.9A 真实化
+ * /sites 页面 — Sprint R.82 中心库治理
  *
  * 改造前 (R.8A-1 之前):
  *   - 硬编码 `import { sites as mockSites }`
@@ -37,14 +37,15 @@ import type { SiteDTO } from "@/lib/api/dto"
  *   - 全量 setTimeout 假操作 (handleSync / handleToggleStatus / handleCreateSite)
  *   - mockSiteProvider.checkConsistency 假报告
  *
- * 改造后 (R.9A):
+ * 当前口径:
  *   - 调用 GET /api/sites 真实接口
- *   - dataSource 显式: database / derived / empty (不允许 mock 静默 fallback)
- *   - dataSource=derived 时, 顶部加 "待完善登记" 标识
+ *   - dataSource 显式: database / empty / error (不允许 mock 静默 fallback)
+ *   - 站点列表只统计 sync_sites 注册站点
+ *   - 业务表里未注册 siteCode 仅作为 meta.orphanSiteCodes 数据质量证据
  *   - 写操作按钮 (注册新站点 / 启用禁用 / SSO 跳转) 全部 disabled, tooltip 提示
  *   - 一致性校验按钮走 /api/sync/consistency (R.7 真实 API, 替换 mockSiteProvider)
  *
- * 范围严格限定 (R.9A 约束):
+ * 范围严格限定:
  *   - 不新增数据库表
  *   - 不新增 API
  *   - 不新增页面
@@ -52,8 +53,8 @@ import type { SiteDTO } from "@/lib/api/dto"
  *   - 不接多站点
  */
 
-type SiteStatusFilter = "all" | "online" | "offline" | "derived"
-type DataSource = "database" | "derived" | "empty" | "error" | "loading"
+type SiteStatusFilter = "all" | "online" | "offline"
+type DataSource = "database" | "empty" | "error" | "loading"
 
 interface ApiEnvelope {
   code: number
@@ -63,13 +64,13 @@ interface ApiEnvelope {
   source: string
   meta?: {
     reason?: string
-    derivedFromTables?: string[]
+    orphanSiteCodes?: Array<{ site_code: string; task_count: number; device_count: number; volume_count: number; package_count: number }>
     requirement?: { id: string; text: string; status: string }
   }
   traceId?: string
 }
 
-// 把 /api/sites 的 SiteDTO 转成前端 Site (补齐 mock 字段, 缺则 —)
+// 把 /api/sites 的 SiteDTO 转成前端 Site (缺失展示字段统一显示 —)
 function toSite(dto: SiteDTO): Site {
   return {
     id: dto.id,
@@ -113,7 +114,7 @@ export default function Page() {
   const [showConsistencyResult, setShowConsistencyResult] = useState(false)
   const [consistencyReport, setConsistencyReport] = useState<any>(null)
 
-  // 真实加载 /api/sites (R.9A: 替换 mockSites)
+  // 真实加载 /api/sites
   const loadSites = async () => {
     setLoading(true)
     setLoadError(null)
@@ -146,17 +147,16 @@ export default function Page() {
     loadSites()
   }, [])
 
-  // 派生统计 (从真实 sites 计算, 不再用硬编码 siteStats)
+  // 统计来自 sync_sites 注册站点, 不再用业务表派生 siteCode 充当站点
   const stats = useMemo(() => {
     const onlineCount = sites.filter((s) => s.status === "online").length
     const offlineCount = sites.filter((s) => s.status === "offline").length
-    const derivedCount = sites.filter((s) => s.status === "derived").length
     const syncingCount = sites.filter((s) => s.syncStatus === "syncing").length
     const devices = sites.reduce((sum, s) => sum + (s.deviceCount || 0), 0)
     return {
       total: sites.length,
       online: onlineCount,
-      offline: offlineCount + derivedCount, // derived 视为待确认, 计入异常
+      offline: offlineCount,
       syncing: syncingCount,
       deviceCount: devices,
     }
@@ -217,9 +217,6 @@ export default function Page() {
     if (dataSource === "database") {
       return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />已注册</Badge>
     }
-    if (dataSource === "derived") {
-      return <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" title={meta?.reason}><Layers className="h-3 w-3 mr-1" />待完善登记</Badge>
-    }
     if (dataSource === "empty") {
       return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
     }
@@ -266,9 +263,9 @@ export default function Page() {
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
         {dataSourceBadge}
-        {meta?.derivedFromTables && (
+        {meta?.orphanSiteCodes && meta.orphanSiteCodes.length > 0 && (
           <span className="text-xs text-slate-500">
-            自动发现自已同步业务记录
+            检测到 {meta.orphanSiteCodes.length} 个未注册历史 siteCode，未计入站点总数
           </span>
         )}
         {meta?.requirement && (
@@ -318,7 +315,7 @@ export default function Page() {
           icon={AlertTriangle}
           iconBg="bg-red-50"
           iconColor="text-red-600"
-          footer={<p className="text-xs text-slate-400">含 derived (待确认)</p>}
+          footer={<p className="text-xs text-slate-400">离线或异常注册站点</p>}
         />
       </div>
 
@@ -327,7 +324,7 @@ export default function Page() {
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <CardTitle className="text-base font-semibold">
-                站点列表 {dataSource === "derived" && <span className="text-xs text-amber-600 dark:text-amber-400 font-normal ml-2">(基础登记信息待完善)</span>}
+                站点列表 <span className="text-xs text-slate-500 dark:text-slate-400 font-normal ml-2">(来源: sync_sites 注册表)</span>
               </CardTitle>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as SiteStatusFilter)}>
@@ -338,7 +335,6 @@ export default function Page() {
                     <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="online">在线</SelectItem>
                     <SelectItem value="offline">离线</SelectItem>
-                    <SelectItem value="derived">派生 (待确认)</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative w-full sm:w-64">
@@ -394,11 +390,7 @@ export default function Page() {
                         <p className="text-xs text-slate-400">{site.code}</p>
                       </TableCell>
                       <TableCell>
-                        {site.status === "derived" ? (
-                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 text-xs">派生</Badge>
-                        ) : (
-                          <OnlineStatusBadge status={site.status} />
-                        )}
+                        <OnlineStatusBadge status={site.status} />
                       </TableCell>
                       <TableCell className="text-sm font-mono">{site.ip}:{site.port || "—"}</TableCell>
                       <TableCell className="text-sm">{site.datacenter}</TableCell>
@@ -446,18 +438,10 @@ export default function Page() {
         <DetailPanel title="站点详情" subtitle={selected?.code} empty={!selected}>
           {selected && (
             <div className="space-y-4">
-              {selected.status === "derived" && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                  <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">⚠️ 派生数据</p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    该站点来自已同步业务记录，IP、联系人和数据中心等详细信息暂缺。
-                  </p>
-                </div>
-              )}
               <DetailRow label="站点名称" value={selected.name} />
               <DetailRow label="区域" value={selected.region} />
               <DetailRow label="在线状态" value={
-                selected.status === "derived" ? <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">派生</Badge> : <OnlineStatusBadge status={selected.status} />
+                <OnlineStatusBadge status={selected.status} />
               } />
               <DetailRow label="同步状态" value={<SyncStatusBadge status={selected.syncStatus} />} />
               <DetailRow label="最后同步" value={selected.lastSyncAt} />

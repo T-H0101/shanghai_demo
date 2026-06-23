@@ -415,6 +415,7 @@ pnpm db:init                   # 首次建当前完整中心库 schema
 pnpm db:init:reset             # 删表重建
 pnpm db:seed                   # 兼容命令：重放 Auth bootstrap（admin / RBAC）
 pnpm db:init:sync              # 旧同步 mock 表初始化；当前主链路通常不用
+pnpm audit:center-db           # 只读审计中心库：注册站点、测试污染、敏感字段、170 表覆盖
 ```
 
 ### 5.3 同步相关
@@ -434,6 +435,33 @@ pnpm push:package              # 推送到中心
 pnpm import:all                # 从源端导入所有白名单表
 pnpm import:tasks              # 单表导入
 ```
+
+### 5.3.1 中心库真实性自检
+
+部署或接入新站点后，不要只看页面判断数据库是否正确，先跑：
+
+```bash
+set -a && source .env.local && set +a
+pnpm audit:center-db
+pnpm smoke:sync
+pnpm check:sync-consistency -- --siteCode=SH01
+```
+
+判断标准：
+
+- `/api/sites` 和顶部站点切换器都以 `sync_sites` 为注册站点来源。
+- `TEST_*`、`PKG_TEST` 等历史测试 siteCode 只能作为审计告警，不计入站点总数。
+- `sync_sites` 只能保存 `credential_ref`，不能保存数据库明文密码。
+- `unified_users/unified_devices/unified_tasks` 的 `raw_data` 中敏感键必须为空或 `[REDACTED]`。
+- 170 张站点库表不会被默认全量塞进 PG17；当前 PG 白名单为 13 张小表，`tbl_file/tbl_folder` 等大表走 ES/ClickHouse 或后续专门索引链路。
+
+生产验收时使用严格模式：
+
+```bash
+pnpm audit:center-db -- --strict
+```
+
+严格模式存在未注册的非测试 siteCode 或明文敏感字段时会失败。
 
 ### 5.4 调度与 Agent
 

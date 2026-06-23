@@ -7,7 +7,8 @@
  *   - unified_devices    (deviceCount)
  *   - unified_volumes    (volumeCount)
  *   - unified_users      (userCount)
- *   - sync_package_log   (packageCount, failedPackageCount, lastSyncAt, successRate, siteCount)
+ *   - sync_package_log   (packageCount, failedPackageCount, lastSyncAt, successRate)
+ *   - sync_sites         (registered siteCount and all-site scope)
  *
  * 参数:
  *   - siteCode: 可选, 不传 = 全部站点
@@ -130,15 +131,15 @@ export async function GET(request: NextRequest) {
       site_count: number
     }>(
       `SELECT
-         (SELECT COUNT(*)::int FROM unified_tasks) AS task_count,
-         (SELECT COUNT(*)::int FROM unified_devices) AS device_count,
-         (SELECT COUNT(*)::int FROM unified_volumes) AS volume_count,
-         (SELECT COUNT(*)::int FROM unified_users) AS user_count,
-         (SELECT COUNT(*)::int FROM sync_package_log) AS package_count,
-         (SELECT COUNT(*)::int FROM sync_package_log WHERE status = 'failed') AS failed_count,
-         (SELECT MAX(finished_at) FROM sync_package_log) AS last_sync,
-         (SELECT COUNT(*)::int FROM sync_package_log WHERE status = 'success') AS success_count,
-         (SELECT COUNT(DISTINCT site_code)::int FROM sync_package_log) AS site_count`
+         (SELECT COUNT(*)::int FROM unified_tasks WHERE source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)) AS task_count,
+         (SELECT COUNT(*)::int FROM unified_devices WHERE source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)) AS device_count,
+         (SELECT COUNT(*)::int FROM unified_volumes WHERE source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)) AS volume_count,
+         (SELECT COUNT(*)::int FROM unified_users WHERE source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)) AS user_count,
+         (SELECT COUNT(*)::int FROM sync_package_log WHERE site_code IN (SELECT site_code FROM sync_sites WHERE enabled = true)) AS package_count,
+         (SELECT COUNT(*)::int FROM sync_package_log WHERE site_code IN (SELECT site_code FROM sync_sites WHERE enabled = true) AND status = 'failed') AS failed_count,
+         (SELECT MAX(finished_at) FROM sync_package_log WHERE site_code IN (SELECT site_code FROM sync_sites WHERE enabled = true)) AS last_sync,
+         (SELECT COUNT(*)::int FROM sync_package_log WHERE site_code IN (SELECT site_code FROM sync_sites WHERE enabled = true) AND status = 'success') AS success_count,
+         (SELECT COUNT(*)::int FROM sync_sites WHERE enabled = true) AS site_count`
     )
     const row = r.rows[0]
     if (!row) {

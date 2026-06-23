@@ -1,10 +1,11 @@
 /**
- * Sites 事件 e2e - Sprint R.6 实施 + R.9A 真实化
+ * Sites 事件 e2e - Sprint R.6 实施 + R.82 中心库治理
  *
- * R.9A 覆盖:
+ * R.82 覆盖:
  *   - /sites 页面 200
- *   - /api/sites 真实读 (R.4 修复: 100% mock → real/derived)
- *   - dataSource 显式 (database / derived / empty, 不允许 mock)
+ *   - /api/sites 真实读 sync_sites 注册表
+ *   - dataSource 显式 (database / empty / error, 不允许 mock)
+ *   - 业务表里未注册 siteCode 只能出现在 meta.orphanSiteCodes, 不计入站点总数
  *   - /sites 页面 HTML 不再含 mockSites 硬编码 6 站点 (上海/北京/广州/成都/南京/武汉)
  *   - /sites 页面不直接 import mockSites
  *   - "注册新站点" / "启用禁用" / "SSO 跳转" 按钮在源码中标记为 disabled
@@ -33,7 +34,7 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 async function main() {
-  console.log("=== Sites 事件 e2e (R.9A) ===\n")
+  console.log("=== Sites 事件 e2e (R.82) ===\n")
   await installAuthenticatedFetch(BASE)
 
   // ──────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ async function main() {
   check("页面 /sites 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
 
   // ──────────────────────────────────────────────────────────
-  // 2. /api/sites 真实 (R.4 修复: 不允许 mock)
+  // 2. /api/sites 真实读取 sync_sites 注册表
   // ──────────────────────────────────────────────────────────
   const sitesRes = await fetch(`${BASE}/api/sites`)
   const sites = await sitesRes.json()
@@ -75,9 +76,8 @@ async function main() {
     `HTTP ${sitesRes.status}`
   )
   check(
-    "dataSource 显式 (database/derived/empty/error, 不允许 mock)",
+    "dataSource 显式 (database/empty/error, 不允许 mock)",
     sites.dataSource === "database" ||
-      sites.dataSource === "derived" ||
       sites.dataSource === "empty" ||
       sites.dataSource === "error",
     `dataSource=${sites.dataSource}`
@@ -88,30 +88,41 @@ async function main() {
     `dataSource=${sites.dataSource} ≠ mock`
   )
   check(
-    "站点列表非空 (derived 至少 1 site)",
+    "站点列表非空 (sync_sites 至少 1 site)",
     Array.isArray(sites.data) && sites.data.length >= 1,
     `items=${sites.data?.length ?? 0}`
+  )
+  check(
+    "/api/sites 来源为 sync_sites 注册表",
+    sites.source === "sync_sites",
+    `source=${sites.source}`
+  )
+  const returnedSiteCodes = new Set((sites.data ?? []).map((s: any) => s.code))
+  const orphanSiteCodes = new Set((sites.meta?.orphanSiteCodes ?? []).map((s: any) => s.site_code))
+  const leakedOrphans = [...orphanSiteCodes].filter((code) => returnedSiteCodes.has(code))
+  check(
+    "未注册 siteCode 不进入站点列表",
+    leakedOrphans.length === 0,
+    leakedOrphans.length === 0 ? "orphan only in meta" : `leaked=${leakedOrphans.join(",")}`
   )
 
   // ──────────────────────────────────────────────────────────
   // 3. source 显式 (R.4 修复)
   // ──────────────────────────────────────────────────────────
   check(
-    "source 显式 (unified_sites 或派生)",
+    "source 显式 (sync_sites)",
     sites.source !== undefined && sites.source !== "mock",
     `source=${sites.source}`
   )
 
   // ──────────────────────────────────────────────────────────
-  // 4. derived 来源: 真实表 (不 mock)
+  // 4. orphan 来源: 真实表质量证据 (不计入站点)
   // ──────────────────────────────────────────────────────────
-  if (sites.dataSource === "derived") {
-    check(
-      "derived 来自真实表 (unified_tasks/devices/volumes/sync_package_log)",
-      sites.source?.includes("unified") && sites.source?.includes("sync_package_log"),
-      `source=${sites.source}`
-    )
-  }
+  check(
+    "orphanSiteCodes 显式披露",
+    Array.isArray(sites.meta?.orphanSiteCodes),
+    `orphanCount=${sites.meta?.orphanSiteCodes?.length ?? 0}`
+  )
 
   // ──────────────────────────────────────────────────────────
   // 5. R.9A: 页面源码不再 import mockSites / 硬编码 6 站点名
@@ -143,13 +154,13 @@ async function main() {
     "硬编码站点名已清除"
   )
   check(
-    "R.9A: 页面 fetch /api/sites",
+    "R.82: 页面 fetch /api/sites",
     sitesPage.includes("/api/sites") && sitesPage.includes("fetch"),
     "fetch('/api/sites') 已接入"
   )
   check(
-    "R.9A: 页面渲染 dataSource 标识 (database/derived/empty)",
-    sitesPage.includes("dataSource") && (sitesPage.includes("database") || sitesPage.includes("derived") || sitesPage.includes("empty")),
+    "R.82: 页面渲染 dataSource 标识 (database/empty)",
+    sitesPage.includes("dataSource") && (sitesPage.includes("database") || sitesPage.includes("empty")),
     "dataSource 标识已在源码"
   )
 
@@ -247,18 +258,17 @@ async function main() {
   )
 
   // ──────────────────────────────────────────────────────────
-  // 11. 派生站点 siteCode 与 unified_tasks 真实数据交叉验证
+  // 11. 注册站点应来自 sync_sites, 不是 unified_tasks 派生列表
   // ──────────────────────────────────────────────────────────
   const sitesData: Array<{ code: string }> = sites.data ?? []
-  const tasksRes = await fetch(`${BASE}/api/tasks?limit=200`)
-  const tasks = await tasksRes.json()
-  const taskSiteCodes = new Set<string>()
-  for (const t of tasks.data?.items ?? []) taskSiteCodes.add(t.siteCode)
-  const overlap = sitesData.filter((s) => taskSiteCodes.has(s.code))
+  const syncConfigRes = await fetch(`${BASE}/api/sync/config`)
+  const syncConfig = await syncConfigRes.json()
+  const registryCodes = new Set<string>((syncConfig.data?.sites ?? []).map((s: any) => s.siteCode))
+  const allReturnedRegistered = sitesData.every((s) => registryCodes.has(s.code))
   check(
-    "派生站点 siteCode 与 unified_tasks 真实数据重叠",
-    sitesData.length === 0 || overlap.length > 0,
-    `sites=${sitesData.length} overlap=${overlap.length} taskSites=${taskSiteCodes.size}`
+    "站点列表与 sync_sites 注册表一致",
+    allReturnedRegistered,
+    `sites=${sitesData.length} registry=${registryCodes.size}`
   )
 
   // ──────────────────────────────────────────────────────────

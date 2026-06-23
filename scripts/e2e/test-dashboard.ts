@@ -55,6 +55,14 @@ async function main() {
     typeof sum.data?.siteCount === "number",
     `siteCount=${sum.data?.siteCount}`
   )
+  const configRes = await fetch(`${BASE}/api/sync/config`)
+  const config = await configRes.json()
+  const registeredCount = (config.data?.sites ?? []).filter((s: any) => s.enabled !== false).length
+  check(
+    "summary siteCount 使用 sync_sites 注册站点数",
+    sum.data?.siteCount === registeredCount,
+    `siteCount=${sum.data?.siteCount} registry=${registeredCount}`
+  )
 
   // 3. /api/dashboard/recent-syncs 真实调用
   const recentRes = await fetch(`${BASE}/api/dashboard/recent-syncs?limit=3`)

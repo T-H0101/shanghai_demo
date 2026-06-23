@@ -1,36 +1,30 @@
 /**
  * GET /api/sites
- * 站点列表 API — Sprint R.4 Bug 3 修复
  *
- * 修复前: unified_sites 0 行 → fallback mock, 6 站点 (上海/北京/广州...) 全是假
- * 修复后:
- *   1. 优先读 unified_sites
- *   2. 若 0 行 → 从 unified_tasks / unified_devices / unified_volumes / sync_package_log 派生 source_site_id
- *   3. 永远不允许 mock fallback, dataSource 明确标识
+ * Registered site API. The center registry is the source of truth:
+ *   sync_sites: scheduler/agent registration and safe credential references
+ *   sites: optional business details for display
  *
- * R.4 范围: 0 业务功能, 仅修 100% mock bug
+ * Business data may contain historical test site codes. Those codes are
+ * reported as orphan evidence in meta, but never counted as registered sites.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import type { ApiResponse, SiteDTO } from "@/lib/api/dto"
 
-interface UnifiedSiteRow {
+interface SiteRegistryRow {
   id: string
-  source_site_id: string
-  source_table: string
-  source_id: string
-  site_code: string | null
-  site_name: string | null
+  site_code: string
+  site_name: string
+  enabled: boolean
   status: string | null
-  location: string | null
-  endpoint_url: string | null
-  description: string | null
-  created_at: string
-}
-
-interface DerivedSiteRow {
-  source_site_id: string
+  sync_interval_seconds: number
+  last_connected_at: string | null
+  business_region: string | null
+  business_datacenter: string | null
+  contact_name: string | null
+  contact_phone: string | null
   task_count: number
   device_count: number
   volume_count: number
@@ -38,144 +32,155 @@ interface DerivedSiteRow {
   last_sync_at: string | null
 }
 
-export async function GET(request: NextRequest) {
+interface OrphanSiteRow {
+  site_code: string
+  task_count: number
+  device_count: number
+  volume_count: number
+  package_count: number
+}
+
+function toStatus(row: SiteRegistryRow): SiteDTO["status"] {
+  if (!row.enabled) return "offline"
+  if (row.status === "inactive") return "offline"
+  if (row.status === "error") return "offline"
+  return "online"
+}
+
+export async function GET(_request: NextRequest) {
   const traceId = `api-${Date.now()}`
 
   try {
-    // 1. 优先读 unified_sites 真实中心表
-    const realResult = await query<UnifiedSiteRow>(
-      `SELECT id::text, source_site_id, source_table, source_id,
-              site_code, site_name, status, location,
-              endpoint_url, description, created_at::text
-       FROM unified_sites
-       ORDER BY created_at ASC`
-    )
-    const realRows = realResult.rows
-
-    if (realRows.length > 0) {
-      const data: SiteDTO[] = realRows.map((r: UnifiedSiteRow) => ({
-        id: r.id,
-        name: r.site_name ?? r.source_site_id,
-        code: r.site_code ?? r.source_site_id,
-        status: (r.status as SiteDTO["status"]) ?? "unknown",
-        ip: "—",
-        port: 0,
-        datacenter: r.location ?? "—",
-        contact: "—",
-        contactPhone: "—",
-        deviceCount: 0,
-        lastSyncAt: r.created_at,
-        syncStatus: "synced" as SiteDTO["syncStatus"],
-        syncDelay: 0,
-        storageUsedPercent: 0,
-        storageTotal: "—",
-        storageUsed: "—",
-        region: "—",
-        ssoEnabled: false,
-        sourceSiteId: r.source_site_id,
-        sourceTable: r.source_table,
-        sourceId: r.source_id,
-        description: r.description ?? undefined,
-      }))
-      return NextResponse.json({
-        code: 0,
-        message: "ok",
-        data,
-        dataSource: "database",
-        source: "unified_sites",
-        traceId,
-      } as ApiResponse<SiteDTO[]> & { dataSource: string; source: string })
-    }
-
-    // 2. Fallback: 从其他表派生 source_site_id (允许 mock 但显式标记)
-    const derivedResult = await query<DerivedSiteRow>(
-      `SELECT
-         u.source_site_id,
+    const registryResult = await query<SiteRegistryRow>(
+      `WITH task_counts AS (
+         SELECT source_site_id AS site_code, COUNT(*)::int AS cnt
+         FROM unified_tasks
+         GROUP BY source_site_id
+       ),
+       device_counts AS (
+         SELECT source_site_id AS site_code, COUNT(*)::int AS cnt
+         FROM unified_devices
+         GROUP BY source_site_id
+       ),
+       volume_counts AS (
+         SELECT source_site_id AS site_code, COUNT(*)::int AS cnt
+         FROM unified_volumes
+         GROUP BY source_site_id
+       ),
+       package_counts AS (
+         SELECT site_code, COUNT(*)::int AS cnt, MAX(COALESCE(finished_at, updated_at, started_at)) AS last_completed_at
+         FROM sync_package_log
+         GROUP BY site_code
+       )
+       SELECT
+         ss.id::text,
+         ss.site_code,
+         ss.site_name,
+         ss.enabled,
+         ss.status,
+         ss.sync_interval_seconds,
+         ss.last_connected_at::text,
+         s.region AS business_region,
+         s.datacenter AS business_datacenter,
+         s.contact_name,
+         s.contact_phone,
          COALESCE(t.cnt, 0) AS task_count,
          COALESCE(d.cnt, 0) AS device_count,
          COALESCE(v.cnt, 0) AS volume_count,
-         COALESCE(s.cnt, 0) AS package_count,
-         MAX(u.synced_at)::text AS last_sync_at
-       FROM (SELECT DISTINCT source_site_id, synced_at FROM unified_tasks) u
-       LEFT JOIN (SELECT source_site_id, COUNT(*) AS cnt FROM unified_tasks GROUP BY source_site_id) t
-         ON t.source_site_id = u.source_site_id
-       LEFT JOIN (SELECT source_site_id, COUNT(*) AS cnt FROM unified_devices GROUP BY source_site_id) d
-         ON d.source_site_id = u.source_site_id
-       LEFT JOIN (SELECT source_site_id, COUNT(*) AS cnt FROM unified_volumes GROUP BY source_site_id) v
-         ON v.source_site_id = u.source_site_id
-       LEFT JOIN (SELECT site_code AS source_site_id, COUNT(*) AS cnt FROM sync_package_log GROUP BY site_code) s
-         ON s.source_site_id = u.source_site_id
-       GROUP BY u.source_site_id, t.cnt, d.cnt, v.cnt, s.cnt
-       ORDER BY u.source_site_id`
+         COALESCE(p.cnt, 0) AS package_count,
+         GREATEST(
+           ss.last_connected_at,
+           p.last_completed_at
+         )::text AS last_sync_at
+       FROM sync_sites ss
+       LEFT JOIN sites s ON s.site_code = ss.site_code
+       LEFT JOIN task_counts t ON t.site_code = ss.site_code
+       LEFT JOIN device_counts d ON d.site_code = ss.site_code
+       LEFT JOIN volume_counts v ON v.site_code = ss.site_code
+       LEFT JOIN package_counts p ON p.site_code = ss.site_code
+       ORDER BY ss.site_code`
     )
-    const derivedRows = derivedResult.rows
 
-    if (derivedRows.length > 0) {
-      const data: SiteDTO[] = derivedRows.map((r: DerivedSiteRow) => ({
-        id: r.source_site_id,
-        name: r.source_site_id,
-        code: r.source_site_id,
-        status: "derived" as SiteDTO["status"],
-        ip: "—",
-        port: 0,
-        datacenter: "—",
-        contact: "—",
-        contactPhone: "—",
-        deviceCount: Number(r.device_count) || 0,
-        lastSyncAt: r.last_sync_at ?? new Date().toISOString(),
-        syncStatus: "synced" as SiteDTO["syncStatus"],
-        syncDelay: 0,
-        storageUsedPercent: 0,
-        storageTotal: "—",
-        storageUsed: "—",
-        region: "—",
-        ssoEnabled: false,
-        sourceSiteId: r.source_site_id,
-        sourceTable: "(derived)",
-        sourceId: r.source_site_id,
-        description: `derived from unified_tasks(${r.task_count})/unified_devices(${r.device_count})/unified_volumes(${r.volume_count})/sync_package_log(${r.package_count})`,
-      }))
-      return NextResponse.json({
-        code: 0,
-        message: "ok",
-        data,
-        dataSource: "derived",
-        source: "unified_tasks/unified_devices/unified_volumes/sync_package_log",
-        meta: {
-          reason: "unified_sites 表 0 行, 从相关表派生 source_site_id",
-          derivedFromTables: [
-            "unified_tasks",
-            "unified_devices",
-            "unified_volumes",
-            "sync_package_log",
-          ],
-          requirement: {
-            id: "REQ-2.1.1",
-            text: "站点配置 (名称/IP/状态/联系人)",
-            status: "blocked_by_source_schema",
-          },
-        },
-        traceId,
-      } as ApiResponse<SiteDTO[]> & { dataSource: string; source: string; meta: any })
-    }
+    const orphanResult = await query<OrphanSiteRow>(
+      `WITH observed AS (
+         SELECT source_site_id AS site_code, COUNT(*)::int AS task_count, 0::int AS device_count, 0::int AS volume_count, 0::int AS package_count
+         FROM unified_tasks
+         GROUP BY source_site_id
+         UNION ALL
+         SELECT source_site_id AS site_code, 0, COUNT(*)::int, 0, 0
+         FROM unified_devices
+         GROUP BY source_site_id
+         UNION ALL
+         SELECT source_site_id AS site_code, 0, 0, COUNT(*)::int, 0
+         FROM unified_volumes
+         GROUP BY source_site_id
+         UNION ALL
+         SELECT site_code, 0, 0, 0, COUNT(*)::int
+         FROM sync_package_log
+         GROUP BY site_code
+       )
+       SELECT
+         o.site_code,
+         SUM(o.task_count)::int AS task_count,
+         SUM(o.device_count)::int AS device_count,
+         SUM(o.volume_count)::int AS volume_count,
+         SUM(o.package_count)::int AS package_count
+       FROM observed o
+       LEFT JOIN sync_sites ss ON ss.site_code = o.site_code
+       WHERE ss.site_code IS NULL
+       GROUP BY o.site_code
+       ORDER BY o.site_code`
+    )
 
-    // 3. 完全无数据, 返回 empty (不 mock)
+    const data: SiteDTO[] = registryResult.rows.map((row) => ({
+      id: row.id,
+      name: row.site_name,
+      code: row.site_code,
+      status: toStatus(row),
+      ip: "—",
+      port: 0,
+      datacenter: row.business_datacenter ?? "—",
+      contact: row.contact_name ?? "—",
+      contactPhone: row.contact_phone ?? "—",
+      deviceCount: Number(row.device_count) || 0,
+      lastSyncAt: row.last_sync_at ?? row.last_connected_at ?? "—",
+      syncStatus: row.enabled ? "synced" : "pending",
+      syncDelay: 0,
+      storageUsedPercent: 0,
+      storageTotal: "—",
+      storageUsed: "—",
+      region: row.business_region ?? "—",
+      ssoEnabled: false,
+      taskCount: Number(row.task_count) || 0,
+      sourceSiteId: row.site_code,
+      sourceTable: "sync_sites",
+      sourceId: row.site_code,
+      description: `registered site; tasks=${row.task_count}, devices=${row.device_count}, volumes=${row.volume_count}, packages=${row.package_count}`,
+    }))
+
     return NextResponse.json({
       code: 0,
-      message: "ok (no sites found)",
-      data: [],
-      dataSource: "empty",
-      source: "none",
+      message: "ok",
+      data,
+      dataSource: data.length > 0 ? "database" : "empty",
+      source: "sync_sites",
       meta: {
-        reason: "unified_sites 0 行, 其他相关表也 0 行, 无法派生",
+        registrySource: "sync_sites",
+        detailSource: "sites",
+        orphanSiteCodes: orphanResult.rows,
+        note: "Only sync_sites rows are registered sites. Orphan site codes are data quality evidence and are not counted as sites.",
         requirement: {
           id: "REQ-2.1.1",
           text: "站点配置 (名称/IP/状态/联系人)",
-          status: "blocked_by_source_schema",
+          status: data.length > 0 ? "partial" : "blocked_by_source_schema",
         },
       },
       traceId,
-    } satisfies ApiResponse<SiteDTO[]> & { dataSource: string; source: string; meta: any })
+    } satisfies ApiResponse<SiteDTO[]> & {
+      dataSource: string
+      source: string
+      meta: Record<string, unknown>
+    })
   } catch (error) {
     console.error("[API Error] /api/sites:", error)
     return NextResponse.json(
