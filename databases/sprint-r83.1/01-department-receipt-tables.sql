@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS unified_user_roles (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_user_role',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   user_id BIGINT,
   role_id INTEGER,
   raw_data JSONB DEFAULT '{}',
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS unified_departments (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_depa',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_depa_id BIGINT,
   depa_name VARCHAR(50),
   depa_code VARCHAR(20),
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS unified_workspaces (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_workspace',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_ws_id BIGINT,
   depa_id INTEGER,
   user_id INTEGER,
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS unified_workspace_users (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_workspace_user',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   ws_id INTEGER,
   user_id INTEGER,
   permission INTEGER,
@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS unified_department_users (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_depa_user',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   depa_id INTEGER,
   user_id INTEGER,
   black_list VARCHAR(255),
@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS unified_department_user_info (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_depa_user_info',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id BIGINT,
   depa_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
@@ -220,7 +220,7 @@ CREATE TABLE IF NOT EXISTS unified_projects (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_project',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_project_id BIGINT,
   maintitle VARCHAR(255),
   project_title VARCHAR(255),
@@ -255,7 +255,7 @@ CREATE TABLE IF NOT EXISTS unified_project_sites (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_project_site',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id BIGINT,
   project_id BIGINT NOT NULL,
   site_id INTEGER NOT NULL,
@@ -284,7 +284,7 @@ CREATE TABLE IF NOT EXISTS unified_task_projects (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_task_projects',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id BIGINT,
   task_id BIGINT NOT NULL,
   project_id BIGINT NOT NULL,
@@ -309,7 +309,7 @@ CREATE TABLE IF NOT EXISTS unified_task_receipts (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_task_receipts',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id BIGINT,
   task_id BIGINT NOT NULL,
   r_id BIGINT NOT NULL,
@@ -334,7 +334,7 @@ CREATE TABLE IF NOT EXISTS unified_task_files (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_task_files',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id BIGINT,
   file_path VARCHAR(1024) NOT NULL,
   file_size BIGINT NOT NULL,
@@ -363,7 +363,7 @@ CREATE TABLE IF NOT EXISTS unified_task_checks (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_task_check',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id INTEGER,
   lib_id INTEGER,
   driver VARCHAR(50),
@@ -416,7 +416,7 @@ CREATE TABLE IF NOT EXISTS unified_receipts (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_receipt',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id BIGINT,
   annual VARCHAR(50),
   batch VARCHAR(50),
@@ -484,7 +484,7 @@ CREATE TABLE IF NOT EXISTS unified_receipt_checks (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_receipt_check',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   r_file_id INTEGER,
   check_id VARCHAR(64),
   result INTEGER,
@@ -507,7 +507,7 @@ CREATE TABLE IF NOT EXISTS unified_receipt_files (
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_receipt_file',
   source_record_id TEXT NOT NULL,
-  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   src_id BIGINT,
   file_name VARCHAR(765),
   file_size BIGINT,
@@ -534,3 +534,24 @@ COMMENT ON COLUMN unified_receipt_files.check_id IS '检测任务ID';
 COMMENT ON COLUMN unified_receipt_files.cmt IS '备注';
 CREATE INDEX IF NOT EXISTS idx_unified_receipt_files_site ON unified_receipt_files (source_site_id);
 CREATE INDEX IF NOT EXISTS idx_unified_receipt_files_rid ON unified_receipt_files (source_site_id, r_id);
+
+
+-- ============================================================
+-- raw_data GIN indexes (R.83.1 spec §4.3 item 3: 全文检索)
+-- 按表名升序,15 张表各 1 条
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_unified_user_roles_raw_gin ON unified_user_roles USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_departments_raw_gin ON unified_departments USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_workspaces_raw_gin ON unified_workspaces USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_workspace_users_raw_gin ON unified_workspace_users USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_department_users_raw_gin ON unified_department_users USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_department_user_info_raw_gin ON unified_department_user_info USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_projects_raw_gin ON unified_projects USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_project_sites_raw_gin ON unified_project_sites USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_task_projects_raw_gin ON unified_task_projects USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_task_receipts_raw_gin ON unified_task_receipts USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_task_files_raw_gin ON unified_task_files USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_task_checks_raw_gin ON unified_task_checks USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_receipts_raw_gin ON unified_receipts USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_receipt_checks_raw_gin ON unified_receipt_checks USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_unified_receipt_files_raw_gin ON unified_receipt_files USING GIN (raw_data);

@@ -137,7 +137,7 @@
 1. 必须引用 `databases/disc_files.sql` 同名列(逐字段比对),不允许改类型、不允许丢字段
 2. 每张表必须有:
    - `id` 主键(若源表 `id` 是 `text` / `bigint` / `integer`,沿用,不动)
-   - `source_site_id VARCHAR(64) NOT NULL`(每个 unified_* 表都有)
+   - `source_site_id VARCHAR(50) NOT NULL`(每个 unified_* 表都有;**注:与 R.82 既有 unified_users / unified_tasks / unified_volumes / unified_devices 保持一致**;若未来需要更长站点代码,后续 Sprint 单独扩列,不允许单点改 15 张表)
    - `source_record_id TEXT NOT NULL`(原始主键,字符串保留避免精度问题)
    - `synced_at TIMESTAMPTZ NOT NULL DEFAULT now()`
    - `raw_data JSONB`(完整保留源行,R.5.2 §7 不删)
