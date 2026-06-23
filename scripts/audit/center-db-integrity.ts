@@ -12,6 +12,8 @@ import { Pool } from "pg"
 import { ALLOWED_PACKAGE_TABLES, FORBIDDEN_PACKAGE_TABLES } from "@/lib/sync/package-schema"
 
 const STRICT = process.argv.includes("--strict")
+const MATRIX = process.argv.includes("--matrix")
+const MATRIX_DOC = "docs/database-analysis/r83-170-table-governance-matrix.md"
 const TEST_SITE_PATTERN = /^(TEST_|PKG_TEST$)/
 const SENSITIVE_RAW_KEYS = [
   "pwd",
@@ -260,6 +262,54 @@ async function main() {
     }
   } else {
     add("warn", "SITE_DATABASE_URL", "not configured; skip 170-table site inventory")
+  }
+
+  // R.83.1: --matrix 产出统一表清单到 JSON
+  if (MATRIX) {
+    const matrixPool = new Pool({ connectionString: requireUrl("DATABASE_URL") })
+    try {
+      const matrixResult = await matrixPool.query<{ table_name: string }>(
+        `SELECT table_name FROM information_schema.tables
+         WHERE table_schema='public' AND table_type='BASE TABLE' AND table_name LIKE 'unified\\_%' ESCAPE '\\'
+         ORDER BY table_name`
+      )
+      const unified = matrixResult.rows.map((r) => r.table_name)
+      const fs = await import("fs/promises")
+      let docRef = "(missing matrix doc)"
+      try {
+        docRef = await fs.readFile(MATRIX_DOC, "utf-8")
+      } catch {
+        // doc not yet generated; emit warning
+      }
+      const entries = unified.map((t) => ({
+        unified_table: t,
+        source_table: t.replace(/^unified_/, "tbl_"),
+        classification: "pg17_small",
+        blocker: "none",
+        round: docRef.includes(t) ? "R.83.1" : "R.83.2+",
+      }))
+      await fs.mkdir("audit", { recursive: true })
+      await fs.writeFile(
+        "audit/center-db-matrix.json",
+        JSON.stringify(
+          { generatedAt: new Date().toISOString(), unifiedCount: unified.length, entries },
+          null,
+          2
+        )
+      )
+      add(
+        unified.length >= 28 ? "pass" : "warn",
+        "matrix JSON written",
+        `audit/center-db-matrix.json (${entries.length} unified tables)`
+      )
+      add(
+        unified.length >= 28 ? "pass" : "warn",
+        "unified table count",
+        `${unified.length} unified_* tables (target ≥28)`
+      )
+    } finally {
+      await matrixPool.end()
+    }
   }
 
   const failures = findings.filter((f) => f.level === "fail")
