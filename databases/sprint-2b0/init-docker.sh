@@ -247,6 +247,7 @@ MIGRATION_FILES=(
   "databases/sprint-r27/auth-system-config.sql"
   "databases/sprint-r39/sync-command-types.sql"
   "databases/sprint-r41/audit-hash-chain.sql"
+  "databases/sprint-r83.1/01-department-receipt-tables.sql"
 )
 
 log_step "执行当前版本 DDL patch..."
