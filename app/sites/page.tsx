@@ -113,6 +113,27 @@ export default function Page() {
   const [checking, setChecking] = useState(false)
   const [showConsistencyResult, setShowConsistencyResult] = useState(false)
   const [consistencyReport, setConsistencyReport] = useState<any>(null)
+  const [showOrphanDetail, setShowOrphanDetail] = useState(false)
+  const [orphanDetail, setOrphanDetail] = useState<Array<{ site_code: string; sources: { tasks: number; devices: number; volumes: number; packages: number } }>>([])
+  const [orphanLoading, setOrphanLoading] = useState(false)
+
+  const loadOrphanDetail = async () => {
+    setOrphanLoading(true)
+    try {
+      const res = await fetch("/api/sites/orphans", { cache: "no-store" })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setOrphanDetail(Array.isArray(json.data) ? json.data : [])
+    } catch (e) {
+      setOrphanDetail([])
+    } finally {
+      setOrphanLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (showOrphanDetail) loadOrphanDetail()
+  }, [showOrphanDetail])
 
   // 真实加载 /api/sites
   const loadSites = async () => {
@@ -264,9 +285,20 @@ export default function Page() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
         {dataSourceBadge}
         {meta?.orphanSiteCodes && meta.orphanSiteCodes.length > 0 && (
-          <span className="text-xs text-slate-500">
-            检测到 {meta.orphanSiteCodes.length} 个未注册历史 siteCode，未计入站点总数
-          </span>
+          <>
+            <span className="text-xs text-slate-500">
+              检测到 {meta.orphanSiteCodes.length} 个未注册历史 siteCode，未计入站点总数
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              data-testid="orphan-detail-trigger"
+              onClick={() => setShowOrphanDetail(true)}
+            >
+              查看明细
+            </Button>
+          </>
         )}
         {meta?.requirement && (
           <span className="text-xs text-slate-400">
@@ -548,6 +580,45 @@ export default function Page() {
           </div>
           <DialogFooter>
             <Button onClick={() => setShowConsistencyResult(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showOrphanDetail} onOpenChange={setShowOrphanDetail}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>未注册 siteCode 明细</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {orphanLoading ? (
+              <p className="text-sm text-slate-500">加载中…</p>
+            ) : orphanDetail.length === 0 ? (
+              <div className="text-center py-6 text-emerald-600 dark:text-emerald-300">
+                <ShieldCheck className="h-12 w-12 mx-auto mb-2" />
+                <p className="font-medium">无未注册 siteCode</p>
+                <p className="text-xs text-slate-500 mt-1">中心库业务表与 sync_sites 注册表完全一致</p>
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto space-y-1">
+                {orphanDetail.map((o) => (
+                  <div key={o.site_code} className="flex items-center justify-between p-2 rounded border border-slate-100 dark:border-slate-800 text-xs">
+                    <span className="font-mono font-medium">{o.site_code}</span>
+                    <span className="text-slate-500">
+                      tasks={o.sources.tasks} / devices={o.sources.devices} / volumes={o.sources.volumes} / packages={o.sources.packages}
+                    </span>
+                    <span className="text-red-600 dark:text-red-400 text-[10px]">未计入站点总数</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs text-slate-500">
+                清理需执行: <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">pnpm cleanup:test-pollution -- --apply</code>
+              </span>
+              <Button onClick={() => setShowOrphanDetail(false)}>关闭</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
