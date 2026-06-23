@@ -359,6 +359,283 @@ async function dispatchPlatform(input: DispatchInput): Promise<DispatchResult> {
 }
 
 // ============================================================
+// R.83.1 部门/项目/任务接收单 15 张 — inline UPSERT
+// 全部走 source_record_id 溯源(与 R.83.1 DDL §4.3 item 2 对齐)
+// ============================================================
+
+// 复合 PK: tbl_user_role (user_id, role_id) → source_record_id = "<user_id>::<role_id>"
+async function dispatchUserRole(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_user_roles', {
+    sourceIdField: '__composite__',
+    sourceIdTransform: (rec) => `${String((rec as Record<string, unknown>).user_id ?? '')}::${String((rec as Record<string, unknown>).role_id ?? '')}`,
+    columns: [
+      { source: 'user_id', target: 'user_id' },
+      { source: 'role_id', target: 'role_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_depa (depa_id) → source_record_id = String(depa_id)
+async function dispatchDepa(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_departments', {
+    sourceIdField: 'depa_id',
+    columns: [
+      { source: 'depa_id', target: 'depa_id' },
+      { source: 'depa_name', target: 'depa_name' },
+      { source: 'depa_code', target: 'depa_code' },
+      { source: 'alia_name', target: 'alia_name' },
+      { source: 'depa_enable', target: 'depa_enable' },
+      { source: 'min_optical', target: 'min_optical' },
+      { source: 'create_time', target: 'create_time' },
+      { source: 'update_time', target: 'update_time' },
+      { source: 'base', target: 'base' },
+      { source: 'del_flag', target: 'del_flag' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_workspace (ws_id) → source_record_id = String(ws_id)
+async function dispatchWorkspace(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_workspaces', {
+    sourceIdField: 'ws_id',
+    columns: [
+      { source: 'ws_id', target: 'ws_id' },
+      { source: 'depa_id', target: 'depa_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'ws_name', target: 'ws_name' },
+      { source: 'alia_name', target: 'alia_name' },
+      { source: 'ws_enable', target: 'ws_enable' },
+      { source: 'ws_type', target: 'ws_type' },
+      { source: 'ws_code', target: 'ws_code' },
+      { source: 'model_id', target: 'model_id' },
+      { source: 'tac_id', target: 'tac_id' },
+      { source: 'min_optical', target: 'min_optical' },
+      { source: 'last_optical', target: 'last_optical' },
+      { source: 'disk_sn', target: 'disk_sn' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// 复合 PK: tbl_workspace_user (ws_id, user_id)
+async function dispatchWorkspaceUser(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_workspace_users', {
+    sourceIdField: '__composite__',
+    sourceIdTransform: (rec) => `${String((rec as Record<string, unknown>).ws_id ?? '')}::${String((rec as Record<string, unknown>).user_id ?? '')}`,
+    columns: [
+      { source: 'ws_id', target: 'ws_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'permission', target: 'permission' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// 复合 PK: tbl_depa_user (depa_id, user_id)
+async function dispatchDepaUser(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_department_users', {
+    sourceIdField: '__composite__',
+    sourceIdTransform: (rec) => `${String((rec as Record<string, unknown>).depa_id ?? '')}::${String((rec as Record<string, unknown>).user_id ?? '')}`,
+    columns: [
+      { source: 'depa_id', target: 'depa_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'black_list', target: 'black_list' },
+      { source: 'white_list', target: 'white_list' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_depa_user_info (id AUTO_INCREMENT) → src_id BIGINT, source_record_id = String(id)
+async function dispatchDepaUserInfo(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_department_user_info', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'depa_id', target: 'depa_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'fuc_id', target: 'fuc_id' },
+      { source: 'create_time', target: 'create_time' },
+      { source: 'update_time', target: 'update_time' },
+      { source: 'del_status', target: 'del_status' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_project (project_id)
+async function dispatchProject(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_projects', {
+    sourceIdField: 'project_id',
+    columns: [
+      { source: 'project_id', target: 'project_id' },
+      { source: 'maintitle', target: 'maintitle' },
+      { source: 'project_title', target: 'project_title' },
+      { source: 'subtitle', target: 'subtitle' },
+      { source: 'project_dt', target: 'project_dt' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'status', target: 'status' },
+      { source: 'cmt', target: 'cmt' },
+      { source: 'project_num', target: 'project_num' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_project_site (id AUTO_INCREMENT)
+async function dispatchProjectSite(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_project_sites', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'project_id', target: 'project_id' },
+      { source: 'site_id', target: 'site_id' },
+      { source: 'start_time', target: 'start_time' },
+      { source: 'end_time', target: 'end_time' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_task_projects (id AUTO_INCREMENT)
+async function dispatchTaskProject(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_projects', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'project_id', target: 'project_id' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_task_receipts (id AUTO_INCREMENT)
+async function dispatchTaskReceipt(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_receipts', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'r_id', target: 'r_id' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_task_files (id AUTO_INCREMENT)
+async function dispatchTaskFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'close_time', target: 'close_time' },
+      { source: 'monitor_id', target: 'monitor_id' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_task_check (id AUTO_INCREMENT)
+async function dispatchTaskCheck(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_checks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'lib_id', target: 'lib_id' },
+      { source: 'driver', target: 'driver' },
+      { source: 'mode', target: 'mode' },
+      { source: 'verify_std', target: 'verify_std' },
+      { source: 'batch', target: 'batch' },
+      { source: 'aql', target: 'aql' },
+      { source: 'accept', target: 'accept' },
+      { source: 'reject', target: 'reject' },
+      { source: 'discs', target: 'discs' },
+      { source: 'ignored', target: 'ignored' },
+      { source: 'spot', target: 'spot' },
+      { source: 'person', target: 'person' },
+      { source: 'date', target: 'date' },
+      { source: 'cmt', target: 'cmt' },
+      { source: 'slot_start', target: 'slot_start' },
+      { source: 'slot_end', target: 'slot_end' },
+      { source: 'status', target: 'status' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_receipt (id AUTO_INCREMENT)
+async function dispatchReceipt(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_receipts', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'annual', target: 'annual' },
+      { source: 'batch', target: 'batch' },
+      { source: 'receive_num', target: 'receive_num' },
+      { source: 'transfer_unit', target: 'transfer_unit' },
+      { source: 'transferer', target: 'transferer' },
+      { source: 'transfer_date', target: 'transfer_date' },
+      { source: 'receive_unit', target: 'receive_unit' },
+      { source: 'receiver', target: 'receiver' },
+      { source: 'files_count', target: 'files_count' },
+      { source: 'nums', target: 'nums' },
+      { source: 'remark', target: 'remark' },
+      { source: 'status', target: 'status' },
+      { source: 'update_dt', target: 'update_dt' },
+      { source: 'create_dt', target: 'create_dt' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'ws_id', target: 'ws_id' },
+      { source: 'type', target: 'type' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// 复合 PK: tbl_receipt_check (r_file_id, check_id)
+async function dispatchReceiptCheck(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_receipt_checks', {
+    sourceIdField: '__composite__',
+    sourceIdTransform: (rec) => `${String((rec as Record<string, unknown>).r_file_id ?? '')}::${String((rec as Record<string, unknown>).check_id ?? '')}`,
+    columns: [
+      { source: 'r_file_id', target: 'r_file_id' },
+      { source: 'check_id', target: 'check_id' },
+      { source: 'result', target: 'result' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_receipt_file (id AUTO_INCREMENT)
+async function dispatchReceiptFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_receipt_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'r_id', target: 'r_id' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'path', target: 'path' },
+      { source: 'check_id', target: 'check_id' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -379,7 +656,18 @@ interface InlineUpsertConfig {
    */
   columns: Array<string | ColumnMapping>
   sourceIdTransform?: (v: unknown) => string
+  /**
+   * R.83.1: 复合主键模式。
+   * 当 sourceIdField === '__composite__' 时, 从 columns 中取同名 source 字段组合成 source_record_id (格式: a::b)
+   * 此时 sourceIdTransform 必填 (接收 raw record,返回字符串)
+   */
   skip?: boolean
+  /**
+   * R.83.1: 中心表用于溯源的主键列名。
+   * - 'source_id' (默认): 既有 unified_* 表 (R.82 及以前)
+   * - 'source_record_id': R.83.1 新增 15 张 unified_* 表的统一约定
+   */
+  sourceIdColumn?: 'source_id' | 'source_record_id'
 }
 
 /**
@@ -409,6 +697,7 @@ async function inlineUpsert(
 
   const colMaps = normalizeColumns(config.columns)
   const targetCols = colMaps.map((c) => c.target)
+  const sourceIdColumn = config.sourceIdColumn ?? 'source_id'
 
   let upserted = 0
   let inserted = 0
@@ -419,15 +708,22 @@ async function inlineUpsert(
 
   for (const record of input.records) {
     // 1. 解析 sourceId
-    const rawId = record[config.sourceIdField]
-    const sourceId = config.sourceIdTransform
-      ? config.sourceIdTransform(rawId)
-      : String(rawId ?? '')
+    //    R.83.1 复合 PK 模式: sourceIdField === '__composite__',由 sourceIdTransform 自行从 record 取多列拼装
+    let sourceId: string
+    if (config.sourceIdField === '__composite__') {
+      if (!config.sourceIdTransform) {
+        throw new Error(`inlineUpsert(${targetTable}): sourceIdField='__composite__' requires sourceIdTransform`)
+      }
+      sourceId = config.sourceIdTransform(record)
+    } else {
+      const rawId = record[config.sourceIdField]
+      sourceId = config.sourceIdTransform ? config.sourceIdTransform(rawId) : String(rawId ?? '')
+    }
 
     if (!sourceId) {
       // Sprint 2H.2: 不再静默 continue, 计为 failed
       failed++
-      const msg = `missing source id field '${config.sourceIdField}'`
+      const msg = `missing source id (mode=${config.sourceIdField === '__composite__' ? 'composite' : config.sourceIdField})`
       errorMessages.push(msg)
       console.warn(`[Dispatcher] ${input.tableName}: ${msg} (record keys: ${Object.keys(record).slice(0, 5).join(',')})`)
       continue
@@ -440,7 +736,7 @@ async function inlineUpsert(
     const placeholders = [
       '$1', // source_site_id
       '$2', // source_table
-      '$3', // source_id
+      '$3', // source_id (or source_record_id for R.83.1+ tables)
       'NOW()', // synced_at
       ...targetCols.map((_, i) => `$${i + 4}`),
       '$' + (targetCols.length + 4) + '::jsonb', // raw_data
@@ -449,18 +745,17 @@ async function inlineUpsert(
     const updateSet = [
       'synced_at = NOW()',
       ...targetCols.map((col) => `${col} = EXCLUDED.${col}`),
-      'updated_at = NOW()',
     ]
 
     const sql = `
       INSERT INTO ${targetTable} (
-        source_site_id, source_table, source_id, synced_at,
+        source_site_id, source_table, ${sourceIdColumn}, synced_at,
         ${targetCols.join(', ')},
         raw_data
       ) VALUES (
         ${placeholders.join(', ')}
       )
-      ON CONFLICT (source_site_id, source_table, source_id) DO UPDATE SET
+      ON CONFLICT (source_site_id, ${sourceIdColumn}) DO UPDATE SET
         ${updateSet.join(', ')}
       RETURNING (xmax = 0) AS is_insert
     `
@@ -535,6 +830,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_user: dispatchUser,
   tbl_site: dispatchSite,
   tbl_platform: dispatchPlatform,
+  // R.83.1 部门/项目/任务接收单 15 张
+  tbl_user_role: dispatchUserRole,
+  tbl_depa: dispatchDepa,
+  tbl_workspace: dispatchWorkspace,
+  tbl_workspace_user: dispatchWorkspaceUser,
+  tbl_depa_user: dispatchDepaUser,
+  tbl_depa_user_info: dispatchDepaUserInfo,
+  tbl_project: dispatchProject,
+  tbl_project_site: dispatchProjectSite,
+  tbl_task_projects: dispatchTaskProject,
+  tbl_task_receipts: dispatchTaskReceipt,
+  tbl_task_files: dispatchTaskFile,
+  tbl_task_check: dispatchTaskCheck,
+  tbl_receipt: dispatchReceipt,
+  tbl_receipt_check: dispatchReceiptCheck,
+  tbl_receipt_file: dispatchReceiptFile,
 }
 
 /**
