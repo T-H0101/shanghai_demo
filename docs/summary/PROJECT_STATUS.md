@@ -1,10 +1,25 @@
 # Project Status
 
-> **截至**: 2026-06-22
-> **Sprint**: Sprint card-layout-fix (R.78)
-> **当前主线**: 卡片排版整体修复,详情面板 / 抽屉 / 首页卡片内容可达,浅色模式不动,暗色模式清晰
+> **截至**: 2026-06-23
+> **Sprint**: Sprint R.83.1 center-db-governance
+> **当前主线**: 中心库统一表从 13 → 28 张(15 张新业务表),170 表治理矩阵,orphan UI,测试污染清理
 
 ---
+
+## Sprint R.83.1 — center-db-governance (2026-06-23)
+
+- `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引
+- `databases/sprint-2b0/init-docker.sh`: 新 DDL 接入 db:init 迁移链
+- `lib/sync/package-schema.ts`: ALLOWED_PACKAGE_TABLES 13 → 28
+- `lib/sync/package-dispatcher.ts`: 15 个新 dispatcher handler,inlineUpsert 支持 source_record_id 与复合 PK(`__composite__` 模式)
+- `scripts/audit/center-db-integrity.ts`: 新增 `--matrix` flag,产出 `audit/center-db-matrix.json`
+- `docs/database-analysis/r83-170-table-governance-matrix.md`: 170 张 tbl_* 逐行分类(15 R.83.1 + 13 already + 113 R.83.2+ + 29 never)
+- `scripts/cleanup/center-db-test-pollution.ts`: 幂等清理 TEST_/PKG_TEST 行(默认 dry-run,--apply 才真删,清理前 dump 到 archive/),207 行已清理
+- `app/api/sites/orphans/route.ts` + `lib/types/orphan-sites.ts`: GET orphan 详情端点(只读中心库,不连 restore)
+- `app/sites/page.tsx`: "查看明细" 按钮 + Dialog(复用现有 Dialog,不新增独立页面)
+- `README.md`: §5.3.2 finding 解读表 + §5.3.3 矩阵 JSON 字段 + §5.3.4 清理脚本 + §5.3.5 决策清单模板
+- `pnpm audit:center-db --strict --matrix`: 20 checks, 0 fail, 1 warn(140 张未分类 tbl_* 属预期,后续轮推)
+- req 状态不变(`partial`),为后续 R.83.2+ 创造前置条件
 
 ## Sprint card-layout-fix (R.78) — 卡片排版整体修复 (2026-06-22)
 
