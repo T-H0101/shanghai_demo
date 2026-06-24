@@ -34,6 +34,8 @@ import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
 import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
 import { TimeDisplay } from "@/components/shared/time-format"
+import { LOG_STATUS_OPTIONS_BY_TAB, LOG_TASK_TYPE_OPTIONS, type LogTabKey } from "@/lib/types/logs"
+import { siteProvider } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -139,6 +141,20 @@ export default function Page() {
   const [exporting, setExporting] = useState(false)
   // 去抖 timer
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Round UI-Tweaks: 站点列表 (siteCode datalist), 当前 Tab 的 status 候选
+  const [siteCodeOptions, setSiteCodeOptions] = useState<string[]>([])
+  const statusOptions = useMemo(
+    () => (activeType === "all" ? [] : (LOG_STATUS_OPTIONS_BY_TAB[activeType as LogTabKey] ?? [])),
+    [activeType],
+  )
+
+  useEffect(() => {
+    siteProvider.getAll().then((sites) => {
+      setSiteCodeOptions(sites.map((s) => s.code).filter(Boolean))
+    }).catch(() => {
+      setSiteCodeOptions([])
+    })
+  }, [])
 
   const queryString = useMemo(() => {
     const sp = new URLSearchParams()
@@ -236,8 +252,8 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteCode, status, keyword, errorCode, deviceId, taskType, dateFrom, dateTo])
 
-  // 真实导出 (走 /api/logs/export 或 /api/auth/audit/export)
-  const handleExport = async (format: "csv" | "json" | "xlsx") => {
+  // Round UI-Tweaks: XLSX 已删除, 只保留 CSV + JSON
+  const handleExport = async (format: "csv" | "json") => {
     if (items.length === 0) {
       toast({ title: "无数据可导出", description: "请先调整检索条件获取日志", variant: "destructive" })
       return
@@ -247,7 +263,7 @@ export default function Page() {
       // Sprint R.27: 登录审计走独立导出 API
       if (activeType === "login_audit") {
         const sp = new URLSearchParams()
-        sp.set("format", format === "xlsx" ? "csv" : format)
+        sp.set("format", format)
         if (keyword) sp.set("username", keyword)
         if (status) sp.set("result", status)
         if (siteCode) sp.set("siteCode", siteCode)
@@ -260,7 +276,7 @@ export default function Page() {
         const sha256 = res.headers.get("x-sha256") ?? ""
         const cd = res.headers.get("content-disposition") ?? ""
         const m = /filename="([^"]+)"/.exec(cd)
-        const filename = m?.[1] ?? `login-audit.${format === "xlsx" ? "csv" : format}`
+        const filename = m?.[1] ?? `login-audit.${format}`
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
@@ -268,7 +284,7 @@ export default function Page() {
         a.click()
         URL.revokeObjectURL(url)
         toast({
-          title: "导出完成",
+          title: "导出请求已提交",
           description: `${recordCount} 条登录审计记录 SHA-256=${sha256.slice(0, 12)}...`,
         })
         return
@@ -312,7 +328,7 @@ export default function Page() {
       a.click()
       URL.revokeObjectURL(url)
       toast({
-        title: "导出完成",
+        title: "导出请求已提交",
         description: `${recordCount} 条 (${format.toUpperCase()}, ${ds}) SHA-256=${sha256.slice(0, 12)}...`,
       })
     } catch (e) {
@@ -402,13 +418,11 @@ export default function Page() {
               variant="outline"
               size="sm"
               className="h-8"
-              onClick={() => handleExport("xlsx")}
+              onClick={() => handleExport("json")}
               disabled={exporting || items.length === 0}
-              data-testid="logs-export-xlsx"
-              title="Excel 导出暂未接入，点击会提示"
             >
-              <Download className="h-4 w-4 mr-1" />
-              XLSX (未接入)
+              {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+              JSON
             </Button>
           </div>
         }
@@ -460,62 +474,126 @@ export default function Page() {
           </Tabs>
         </CardHeader>
         <CardContent className="pt-4">
-          {/* 筛选条 (REQ-5.1.3: 关键字 / 错误码 / 设备ID / 任务类型 + 基础条件) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 mb-4">
-            <Input
-              placeholder="siteCode (如 SH01)"
-              className="h-9"
-              value={siteCode}
-              onChange={(e) => setSiteCode(e.target.value)}
-            />
-            <Input
-              placeholder="状态 (如 success/failed)"
-              className="h-9"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            />
-            <Input
-              placeholder="关键字 (batchId/commandNo)"
-              className="h-9"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-            />
-            <Input
-              placeholder="错误码 / 错误文本"
-              className="h-9"
-              value={errorCode}
-              onChange={(e) => setErrorCode(e.target.value)}
-              data-testid="logs-filter-error-code"
-            />
-            <Input
-              placeholder="设备ID / targetId"
-              className="h-9"
-              value={deviceId}
-              onChange={(e) => setDeviceId(e.target.value)}
-              data-testid="logs-filter-device-id"
-            />
-            <Input
-              placeholder="任务类型 (刻录/回迁/控制)"
-              className="h-9"
-              value={taskType}
-              onChange={(e) => setTaskType(e.target.value)}
-              data-testid="logs-filter-task-type"
-            />
-            <Input
-              type="datetime-local"
-              className="h-9"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value ? new Date(e.target.value).toISOString() : "")}
-              title="起始时间"
-            />
-            <Input
-              type="datetime-local"
-              className="h-9"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value ? new Date(e.target.value).toISOString() : "")}
-              title="结束时间"
-            />
-            <div className="flex gap-2 items-center text-xs text-slate-500">
+          {/* 筛选条 (REQ-5.1.3: siteCode/status/taskType 改 Select, 其余 Input + datalist 模糊搜索)
+              Round UI-Tweaks: 审计日志筛选下拉化 */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">站点</span>
+              <Input
+                list="logs-sitecode-list"
+                placeholder="siteCode (如 SH01)"
+                className="h-9"
+                value={siteCode}
+                onChange={(e) => setSiteCode(e.target.value)}
+                aria-label="按站点编码筛选"
+              />
+              <datalist id="logs-sitecode-list">
+                {siteCodeOptions.map((sc) => (
+                  <option key={sc} value={sc} />
+                ))}
+              </datalist>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">状态</span>
+              <Select
+                value={status || "all"}
+                onValueChange={(v) => setStatus(v === "all" ? "" : v)}
+              >
+                <SelectTrigger className="h-9" aria-label="按状态筛选">
+                  <SelectValue placeholder="全部状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部状态</SelectItem>
+                  {statusOptions.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">关键字</span>
+              <Input
+                placeholder="batchId / commandNo"
+                className="h-9"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                aria-label="按关键字模糊搜索"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">错误码</span>
+              <Input
+                list="logs-errorcode-list"
+                placeholder="错误码 / 错误文本"
+                className="h-9"
+                value={errorCode}
+                onChange={(e) => setErrorCode(e.target.value)}
+                data-testid="logs-filter-error-code"
+                aria-label="按错误码筛选"
+              />
+              <datalist id="logs-errorcode-list">
+                {Array.from(
+                  new Set(
+                    items.map((it) => it.error_code).filter((c): c is string => Boolean(c))
+                  )
+                )
+                  .slice(0, 50)
+                  .map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+              </datalist>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">设备</span>
+              <Input
+                placeholder="设备ID / targetId"
+                className="h-9"
+                value={deviceId}
+                onChange={(e) => setDeviceId(e.target.value)}
+                data-testid="logs-filter-device-id"
+                aria-label="按设备 ID 筛选"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">任务类型</span>
+              <Select
+                value={taskType || "all"}
+                onValueChange={(v) => setTaskType(v === "all" ? "" : v)}
+              >
+                <SelectTrigger className="h-9" data-testid="logs-filter-task-type" aria-label="按任务类型筛选">
+                  <SelectValue placeholder="全部类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部类型</SelectItem>
+                  {LOG_TASK_TYPE_OPTIONS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">起始时间</span>
+              <Input
+                type="datetime-local"
+                className="h-9"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value ? new Date(e.target.value).toISOString() : "")}
+                title="起始时间"
+                aria-label="起始时间"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">结束时间</span>
+              <Input
+                type="datetime-local"
+                className="h-9"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value ? new Date(e.target.value).toISOString() : "")}
+                title="结束时间"
+                aria-label="结束时间"
+              />
+            </div>
+            <div className="flex items-end gap-2 col-span-2 md:col-span-3 xl:col-span-2 text-xs text-slate-500">
               <span>共 {total} 条</span>
               {dataSource === "loading" && <Loader2 className="h-3 w-3 animate-spin" />}
             </div>

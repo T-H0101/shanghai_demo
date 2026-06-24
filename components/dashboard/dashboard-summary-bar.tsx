@@ -23,7 +23,7 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
-import { formatBeijingTime } from "@/components/shared/time-format"
+import { formatBeijingTime, formatBeijingTimeOnly } from "@/components/shared/time-format"
 import { isApiMode } from "@/lib/api"
 import {
   fetchDashboardSummary,
@@ -192,7 +192,7 @@ export function DashboardSummaryBar() {
           </Badge>
         </div>
         <span className="text-[10px] text-slate-400">
-          {loading ? "加载中..." : `刷新于 ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`}
+          {loading ? "加载中..." : `刷新于 ${formatBeijingTimeOnly(new Date())}`}
         </span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

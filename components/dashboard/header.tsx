@@ -11,6 +11,10 @@ import {
   Activity,
   Settings,
   ChevronDown,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
 } from "lucide-react"
 import { clearSession, getSession } from "@/lib/auth/session"
 import type { AuthSession } from "@/lib/types/auth"
@@ -274,7 +278,15 @@ export function Header({ onMenuClick }: HeaderProps) {
                         >
                           <div className="flex items-start gap-3">
                             <div className={`mt-0.5 p-1.5 rounded-full ${typeColors[notif.type]}`}>
-                              <span className="text-xs">{notif.type === 'error' ? '!' : notif.type === 'warning' ? '⚠' : notif.type === 'success' ? '✓' : 'i'}</span>
+                              {notif.type === 'error' ? (
+                                <AlertCircle className="h-3.5 w-3.5 text-red-600" />
+                              ) : notif.type === 'warning' ? (
+                                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                              ) : notif.type === 'success' ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                              ) : (
+                                <Info className="h-3.5 w-3.5 text-blue-600" />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">

@@ -413,7 +413,7 @@ export default function SyncCenterPage() {
       URL.revokeObjectURL(url)
 
       toast({
-        title: '导出完成',
+        title: '导出请求已提交',
         description: `${recordCount} 条真实记录, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
       })
     } catch {
