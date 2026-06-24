@@ -96,7 +96,8 @@
     "cleanup:test-pollution": "tsx scripts/cleanup/center-db-test-pollution.ts",
     "test:cleanup": "tsx scripts/cleanup/__tests__/cleanup-self-check.ts",
     "test:r83.2-whitelist": "tsx scripts/test-r83.2-whitelist.ts",
-    "test:r83.2-api": "tsx app/api/rbac/__tests__/self-check.ts"
+    "test:r83.2-api": "tsx app/api/rbac/__tests__/self-check.ts",
+    "test:r83.2-ui": "tsx components/rbac/__tests__/self-check.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

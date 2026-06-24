@@ -14,6 +14,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { formatBeijingTime } from "@/components/shared/time-format"
+import { RolePermissionsTab } from "@/components/rbac/role-permissions-tab"
+import { DictionariesTab } from "@/components/rbac/dictionaries-tab"
+import { LogsCredentialsTab } from "@/components/rbac/logs-credentials-tab"
 
 interface UserRecord {
   id: string
@@ -58,7 +61,7 @@ export default function Page() {
 
   // Sprint R.27: Auth 账号状态
   const [authAccounts, setAuthAccounts] = useState<AuthAccount[]>([])
-  const [authTab, setAuthTab] = useState<"unified" | "auth">("unified")
+  const [authTab, setAuthTab] = useState<"unified" | "auth" | "rbac" | "dict" | "logs">("unified")
   const [unlocking, setUnlocking] = useState<string | null>(null)
 
   const loadAuthAccounts = useCallback(async () => {
@@ -238,10 +241,13 @@ export default function Page() {
         <StatCard title="Auth 账号" value={authAccounts.length} icon={Lock} />
       </div>
 
-      <Tabs value={authTab} onValueChange={(v) => setAuthTab(v as "unified" | "auth")}>
+      <Tabs value={authTab} onValueChange={(v) => setAuthTab(v as "unified" | "auth" | "rbac" | "dict" | "logs")}>
         <TabsList className="h-9">
           <TabsTrigger value="unified" className="text-xs">统一用户视图</TabsTrigger>
           <TabsTrigger value="auth" className="text-xs">Auth 账号管理</TabsTrigger>
+          <TabsTrigger value="rbac" className="text-xs">角色权限</TabsTrigger>
+          <TabsTrigger value="dict" className="text-xs">字典</TabsTrigger>
+          <TabsTrigger value="logs" className="text-xs">日志与凭据</TabsTrigger>
         </TabsList>
 
         <TabsContent value="unified" className="mt-4">
@@ -405,6 +411,16 @@ export default function Page() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="rbac" className="mt-4">
+          <RolePermissionsTab />
+        </TabsContent>
+        <TabsContent value="dict" className="mt-4">
+          <DictionariesTab />
+        </TabsContent>
+        <TabsContent value="logs" className="mt-4">
+          <LogsCredentialsTab />
         </TabsContent>
       </Tabs>
     </AppShell>
