@@ -687,7 +687,8 @@ console.log('严格完成:', c, '/', rows.length, '=', (c/rows.length*100).toFix
 ```bash
 # 数据库连接串（都是 PostgreSQL 直连连接串，不是 HTTP API 地址）
 DATABASE_URL=...               # 中心库连接串：总控服务读写 unified_disc_platform
-DB_PASSWORD=...                # 必须与 DATABASE_URL 内嵌密码一致
+POSTGRES_PASSWORD=...          # docker compose 初始化中心库密码；仅首次创建 volume 时生效
+DB_PASSWORD=...                # e2e/维护脚本使用；必须与 DATABASE_URL 内嵌密码、POSTGRES_PASSWORD 一致
 
 # 同步来源连接串
 SOURCE_DATABASE_URL=...        # 本地开发/restore 测试库连接串；用于导出/导入脚本
@@ -1176,7 +1177,7 @@ sudo certbot --nginx -d platform.example.com   # 自动配 HTTPS
 | 报错 / 现象 | 原因 | 解决 |
 |---|---|---|
 | `Error: connect ECONNREFUSED 127.0.0.1:5432` | postgres 没起 / 端口没监听 | `pnpm db:up` 或 `docker compose ps` 看 postgres 状态;等 healthy |
-| `Error: password authentication failed for user "unified"` | DATABASE_URL 密码与实际不符 | 看 `.env.local` 里 `DATABASE_URL` 和 docker-compose.yml 里 `POSTGRES_PASSWORD` 是否一致 |
+| `Error: password authentication failed for user "unified"` | `DATABASE_URL` 里的密码与 PostgreSQL 数据卷内实际密码不一致；常见于旧 `postgres_data` volume 已用旧密码初始化，后来又改了 `.env.local` / `POSTGRES_PASSWORD` | 先确认三处一致：`DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD`。如果是新环境且可删库，执行 `pnpm db:down:volumes && pnpm db:up && pnpm db:init`；如果不能删数据，用当前能登录的密码进入容器后执行 `ALTER USER unified WITH PASSWORD '<new-password>';` |
 | `Error: listen EADDRINUSE :::3000` | 3000 端口被占 | `lsof -i :3000` 找到占用进程 kill;或改 `PORT=3001 pnpm dev` |
 | `Error: Cannot find module 'next/dist/...'` | node_modules 损坏 | `rm -rf node_modules pnpm-lock.yaml && pnpm install` |
 | `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 20 LTS (项目用 next-themes + React 19 需要) |
