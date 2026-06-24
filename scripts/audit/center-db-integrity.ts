@@ -281,13 +281,63 @@ async function main() {
       } catch {
         // doc not yet generated; emit warning
       }
-      const entries = unified.map((t) => ({
-        unified_table: t,
-        source_table: t.replace(/^unified_/, "tbl_"),
-        classification: "pg17_small",
-        blocker: "none",
-        round: docRef.includes(t) ? "R.83.1" : "R.83.2+",
-      }))
+      // R.83.2: derive round from canonical ALLOWED_PACKAGE_TABLES (whitelist position lookup)
+      // + docs round-tag override (manual corrections in governance matrix take priority)
+      const ROUND_BY_SOURCE: Record<string, string> = {}
+      ALLOWED_PACKAGE_TABLES.forEach((src, i) => {
+        if (i < 13) ROUND_BY_SOURCE[src] = "already"
+        else if (i < 28) ROUND_BY_SOURCE[src] = "R.83.1"
+        else if (i < 43) ROUND_BY_SOURCE[src] = "R.83.2"
+      })
+
+      // Map each known unified_* table to its canonical singular source table
+      // (as it appears in ALLOWED_PACKAGE_TABLES). Some unified names are
+      // irregular plurals or rename to a different stem (e.g. unified_departments
+      // ← tbl_depa), so this map is built explicitly.
+      const UNIFIED_TO_SOURCE: Record<string, string> = {}
+      for (const src of ALLOWED_PACKAGE_TABLES) {
+        const stem = src.replace(/^tbl_/, "")
+        // Convention: unified_<stem> and unified_<stem>s are the typical variants
+        UNIFIED_TO_SOURCE[`unified_${stem}`] = src
+        UNIFIED_TO_SOURCE[`unified_${stem}s`] = src
+      }
+      // Explicit overrides for irregular plurals / renames observed in the DDL
+      const IRREGULAR_UNIFIED_TO_SOURCE: Record<string, string> = {
+        unified_departments: "tbl_depa",
+        unified_department_users: "tbl_depa_user",
+        unified_department_user_info: "tbl_depa_user_info",
+        unified_dict_categories: "tbl_dict_category",
+        unified_credible_verifies: "tbl_credible_verify",
+        unified_dict_items: "tbl_dict_item",
+      }
+      for (const [u, s] of Object.entries(IRREGULAR_UNIFIED_TO_SOURCE)) {
+        UNIFIED_TO_SOURCE[u] = s
+      }
+
+      // Doc round-tag override: match lines like
+      //   | 1 | tbl_dict | 16 kB | pg17_small | unified_dict | none | R.83.2+ | note |
+      // Capture the source table (col 2) and round tag (col 7).
+      const ROUND_TAG_RE =
+        /\|\s*\d+\s*\|\s*(\w+)\s*\|.*?\|\s*(R\.\d+(\.\d+)?|already|deferred|never)\s*\|/
+      const docRoundBySource = new Map<string, string>()
+      for (const line of docRef.split("\n")) {
+        const m = line.match(ROUND_TAG_RE)
+        if (m && m[1] && m[2]) {
+          docRoundBySource.set(m[1], m[2])
+        }
+      }
+
+      const entries = unified.map((t) => {
+        const src = UNIFIED_TO_SOURCE[t] ?? t.replace(/^unified_/, "tbl_")
+        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.3+"
+        return {
+          unified_table: t,
+          source_table: src,
+          classification: "pg17_small",
+          blocker: "none",
+          round,
+        }
+      })
       await fs.mkdir("audit", { recursive: true })
       await fs.writeFile(
         "audit/center-db-matrix.json",
