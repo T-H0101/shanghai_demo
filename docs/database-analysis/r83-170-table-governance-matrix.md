@@ -31,8 +31,9 @@
 | 桶 | 计数 | 说明 |
 |---|---:|---|
 | `R.83.1` | 15 | Sprint R.83.1 已落地 (部门/项目/接收单 15 张) |
+| `R.83.2` | 15 | Sprint R.83.2 已落地 (RBAC + 字典 + 日志 + 凭据 15 张) |
 | `already` | 13 | R.83.1 之前的 13 张白名单 |
-| `R.83.2+` | 113 | 候选业务表 (小/中,后续 Sprint 评估) |
+| `R.83.3+` | 98 | 剩余业务表候选 (113 - 15 = 98 张,R.83.3+ 评估) |
 | `deferred` | 0 | 大表 (≥10MB),走 ES,需外部系统接入 |
 | `never` | 29 | tbl_file* / tbl_folder* 已锁定不进 PG |
 | **合计** | **170** | **= star_storage_db 全部 tbl_* 表** |
@@ -41,10 +42,10 @@
 
 | # | src_table | size | target_storage | unified_table | blocker | round | notes |
 |---:|---|---|---|---|---|---|---|
-| 1 | tbl_api_interface | 16 kB | pg17_small | unified_api_interface | none | R.83.2+ | 业务小表 (候选接入) |
-| 2 | tbl_api_log | 16 kB | pg17_small | unified_api_log | none | R.83.2+ | 业务小表 (候选接入) |
-| 3 | tbl_archives_level | 16 kB | pg17_small | unified_archives_level | none | R.83.2+ | 业务小表 (候选接入) |
-| 4 | tbl_archives_type | 16 kB | pg17_small | unified_archives_type | none | R.83.2+ | 业务小表 (候选接入) |
+| 1 | tbl_api_interface | 16 kB | pg17_small | unified_api_interface | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
+| 2 | tbl_api_log | 16 kB | pg17_small | unified_api_log | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
+| 3 | tbl_archives_level | 16 kB | pg17_small | unified_archives_level | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
+| 4 | tbl_archives_type | 16 kB | pg17_small | unified_archives_type | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 5 | tbl_back_window | 16 kB | pg17_small | unified_back_window | none | R.83.2+ | 业务小表 (候选接入) |
 | 6 | tbl_backup_db | 32 kB | pg17_small | unified_backup_db | none | R.83.2+ | 业务表 (中等,候选) |
 | 7 | tbl_buffer_dir | 16 kB | pg17_small | unified_buffer_dir | none | R.83.2+ | 业务小表 (候选接入) |
@@ -64,8 +65,8 @@
 | 21 | tbl_check_task_file | 16 kB | pg17_small | unified_check_task_file | none | R.83.2+ | 业务小表 (候选接入) |
 | 22 | tbl_check_task_item | 24 kB | pg17_small | unified_check_task_item | none | R.83.2+ | 业务小表 (候选接入) |
 | 23 | tbl_check_template | 16 kB | pg17_small | unified_check_template | none | R.83.2+ | 业务小表 (候选接入) |
-| 24 | tbl_credible_prove | 16 kB | pg17_small | unified_credible_prove | none | R.83.2+ | 业务小表 (候选接入) |
-| 25 | tbl_credible_verify | 16 kB | pg17_small | unified_credible_verify | none | R.83.2+ | 业务小表 (候选接入) |
+| 24 | tbl_credible_prove | 16 kB | pg17_small | unified_credible_prove | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
+| 25 | tbl_credible_verify | 16 kB | pg17_small | unified_credible_verify | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 26 | tbl_csv_details | 16 kB | pg17_small | unified_csv_details | none | R.83.2+ | 业务小表 (候选接入) |
 | 27 | tbl_data_classification | 64 kB | pg17_small | unified_data_classification | none | R.83.2+ | 业务表 (中等,候选) |
 | 28 | tbl_data_receive_list | 16 kB | pg17_small | unified_data_receive_list | none | R.83.2+ | 业务小表 (候选接入) |
@@ -75,9 +76,9 @@
 | 32 | tbl_depa_user | 16 kB | pg17_small | unified_depa_user | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
 | 33 | tbl_depa_user_info | 8192 bytes | pg17_small | unified_depa_user_info | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
 | 34 | tbl_device_device | 16 kB | pg17_small | unified_device_device | none | R.83.2+ | 业务小表 (候选接入) |
-| 35 | tbl_dict | 16 kB | pg17_small | unified_dict | none | R.83.2+ | 业务小表 (候选接入) |
-| 36 | tbl_dict_category | 16 kB | pg17_small | unified_dict_category | none | R.83.2+ | 业务小表 (候选接入) |
-| 37 | tbl_dict_item | 16 kB | pg17_small | unified_dict_item | none | R.83.2+ | 业务小表 (候选接入) |
+| 35 | tbl_dict | 16 kB | pg17_small | unified_dict | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
+| 36 | tbl_dict_category | 16 kB | pg17_small | unified_dict_category | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
+| 37 | tbl_dict_item | 16 kB | pg17_small | unified_dict_item | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 38 | tbl_disc | 88 kB | pg17_small | unified_disc | none | already | 既有白名单 |
 | 39 | tbl_disc_inspect | 16 kB | pg17_small | unified_disc_inspect | none | R.83.2+ | 业务小表 (候选接入) |
 | 40 | tbl_disc_lib | 64 kB | pg17_small | unified_disc_lib | none | already | 既有白名单 |
@@ -128,7 +129,7 @@
 | 85 | tbl_folder_3 | 848 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
 | 86 | tbl_ft_file | 24 kB | pg17_small | unified_ft_file | none | R.83.2+ | 业务小表 (候选接入) |
 | 87 | tbl_ft_sys | 88 kB | pg17_small | unified_ft_sys | none | R.83.2+ | 业务表 (中等,候选) |
-| 88 | tbl_fuc | 32 kB | pg17_small | unified_fuc | none | R.83.2+ | 业务表 (中等,候选) |
+| 88 | tbl_fuc | 32 kB | pg17_small | unified_fuc | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 89 | tbl_hd_info | 152 kB | pg17_small | unified_hd_info | none | already | 既有白名单 |
 | 90 | tbl_hd_manager | 32 kB | pg17_small | unified_hd_manager | none | R.83.2+ | 业务表 (中等,候选) |
 | 91 | tbl_hd_power | 16 kB | pg17_small | unified_hd_power | none | R.83.2+ | 业务小表 (候选接入) |
@@ -149,7 +150,7 @@
 | 106 | tbl_mount_dir | 16 kB | pg17_small | unified_mount_dir | none | R.83.2+ | 业务小表 (候选接入) |
 | 107 | tbl_platform | 16 kB | pg17_small | unified_platform | none | already | 既有白名单 |
 | 108 | tbl_platform_monitor | 16 kB | pg17_small | unified_platform_monitor | none | R.83.2+ | 业务小表 (候选接入) |
-| 109 | tbl_platform_type | 32 kB | pg17_small | unified_platform_type | none | R.83.2+ | 业务表 (中等,候选) |
+| 109 | tbl_platform_type | 32 kB | pg17_small | unified_platform_type | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 110 | tbl_project | 16 kB | pg17_small | unified_project | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
 | 111 | tbl_project_monitor_files | 24 kB | pg17_small | unified_project_monitor_files | none | R.83.2+ | 业务小表 (候选接入) |
 | 112 | tbl_project_site | 16 kB | pg17_small | unified_project_site | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
@@ -160,8 +161,8 @@
 | 117 | tbl_receipt_file_detail | 24 kB | pg17_small | unified_receipt_file_detail | none | R.83.2+ | 业务小表 (候选接入) |
 | 118 | tbl_register_management | 16 kB | pg17_small | unified_register_management | none | R.83.2+ | 业务小表 (候选接入) |
 | 119 | tbl_remote_backup | 32 kB | pg17_small | unified_remote_backup | none | R.83.2+ | 业务表 (中等,候选) |
-| 120 | tbl_role | 32 kB | pg17_small | unified_role | none | R.83.2+ | 业务表 (中等,候选) |
-| 121 | tbl_role_fuc | 24 kB | pg17_small | unified_role_fuc | none | R.83.2+ | 业务小表 (候选接入) |
+| 120 | tbl_role | 32 kB | pg17_small | unified_role | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
+| 121 | tbl_role_fuc | 24 kB | pg17_small | unified_role_fuc | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 122 | tbl_schedule_job | 16 kB | pg17_small | unified_schedule_job | none | R.83.2+ | 业务小表 (候选接入) |
 | 123 | tbl_site | 16 kB | pg17_small | unified_site | none | already | 既有白名单 |
 | 124 | tbl_site_monitor | 16 kB | pg17_small | unified_site_monitor | none | R.83.2+ | 业务小表 (候选接入) |
@@ -181,7 +182,7 @@
 | 138 | tbl_slots_part | 32 kB | pg17_small | unified_slots_part | none | R.83.2+ | 业务表 (中等,候选) |
 | 139 | tbl_sys | 16 kB | pg17_small | unified_sys | none | R.83.2+ | 业务小表 (候选接入) |
 | 140 | tbl_sys_env | 16 kB | pg17_small | unified_sys_env | none | R.83.2+ | 业务小表 (候选接入) |
-| 141 | tbl_sys_log | 64 kB | pg17_small | unified_sys_log | none | R.83.2+ | 业务表 (中等,候选) |
+| 141 | tbl_sys_log | 64 kB | pg17_small | unified_sys_log | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 142 | tbl_task | 72 kB | pg17_small | unified_task | none | already | 既有白名单 |
 | 143 | tbl_task_certif_status | 16 kB | pg17_small | unified_task_certif_status | none | R.83.2+ | 业务小表 (候选接入) |
 | 144 | tbl_task_check | 16 kB | pg17_small | unified_task_check | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
@@ -195,7 +196,7 @@
 | 152 | tbl_upload_details | 16 kB | pg17_small | unified_upload_details | none | R.83.2+ | 业务小表 (候选接入) |
 | 153 | tbl_upload_record | 16 kB | pg17_small | unified_upload_record | none | R.83.2+ | 业务小表 (候选接入) |
 | 154 | tbl_user | 32 kB | pg17_small | unified_user | none | already | 既有白名单 |
-| 155 | tbl_user_mfa | 16 kB | pg17_small | unified_user_mfa | none | R.83.2+ | 业务小表 (候选接入) |
+| 155 | tbl_user_mfa | 16 kB | pg17_small | unified_user_mfa | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 156 | tbl_user_role | 8192 bytes | pg17_small | unified_user_role | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
 | 157 | tbl_user_task | 32 kB | pg17_small | unified_user_task | none | already | 既有白名单 |
 | 158 | tbl_verify_details | 16 kB | pg17_small | unified_verify_details | none | R.83.2+ | 业务小表 (候选接入) |
