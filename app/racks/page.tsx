@@ -39,6 +39,7 @@ import {
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { formatBeijingTime } from "@/components/shared/time-format"
+import { LOG_LEVEL_COLORS } from "@/lib/types/colors"
 
 type DeviceCategory = "all" | "hdd" | "optical" | "offline" | "nas" | "abnormal"
 type ApiRacksDataSource = "database" | "empty" | "error"
@@ -58,9 +59,8 @@ const slotStatusColor: Record<string, { bg: string; text: string; border: string
   empty:  { bg: "bg-slate-50",   text: "text-slate-300", border: "border-dashed border-slate-300" },
 }
 
-const logLevelColor: Record<string, string> = {
-  info: "bg-slate-50 text-slate-700", warn: "bg-amber-50 text-amber-800", error: "bg-red-50 text-red-800",
-}
+// P1-1: logLevelColor 收敛到 lib/types/colors
+const logLevelColor = LOG_LEVEL_COLORS
 
 interface TreeNode {
   id: DeviceCategory
@@ -493,7 +493,7 @@ export default function Page() {
       }
       await rackProvider.syncRacks()
       await loadRacks()
-      toast({ title: "同步完成", description: "所有设备同步时间已更新" })
+      toast({ title: "设备列表已刷新", description: "所有设备同步时间已更新" })
     } catch { toast({ title: "同步失败", variant: "destructive" }) }
     finally { setSyncing(false) }
   }
@@ -527,7 +527,7 @@ export default function Page() {
       URL.revokeObjectURL(url)
 
       toast({
-        title: "导出完成",
+        title: "导出请求已提交",
         description: `${recordCount} 条真实设备记录, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
       })
     } catch {
@@ -726,7 +726,7 @@ export default function Page() {
             >
               <Download className="h-4 w-4 mr-1" />{exporting ? "导出中" : `导出 ${exportFormat.toUpperCase()}`}
             </Button>
-            <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={handleSync} disabled={syncing}>
+            <Button size="sm" className="h-8" onClick={handleSync} disabled={syncing}>
               <RefreshCw className={cn("h-4 w-4 mr-1", syncing && "animate-spin")} />同步
             </Button>
           </div>
@@ -805,7 +805,7 @@ export default function Page() {
               <div className="flex items-center gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input placeholder="搜索设备名称 / IP / 类型..." className="pl-9 h-9" value={keyword} onChange={e => setKeyword(e.target.value)} />
+                  <Input placeholder="搜索设备名称 / IP / 类型..." className="pl-9 h-9" value={keyword} onChange={e => setKeyword(e.target.value)} aria-label="搜索设备" />
                 </div>
                 <span className="text-xs text-slate-400 shrink-0">{filtered.length} 台设备</span>
               </div>
@@ -882,8 +882,8 @@ export default function Page() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-0.5 justify-end" onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="查看任务" onClick={() => handleViewTasks(r)}><ListChecks className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="扫描" onClick={e => handleScan(r, e)}><ScanIcon className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="查看任务" aria-label="查看机架相关任务" onClick={() => handleViewTasks(r)}><ListChecks className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="扫描" aria-label="扫描机架" onClick={e => handleScan(r, e)}><ScanIcon className="h-3.5 w-3.5" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1160,7 +1160,7 @@ export default function Page() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddMedia(false)}>取消</Button>
-            <Button onClick={handleAddMedia} className="bg-blue-600 hover:bg-blue-700">确认添加</Button>
+            <Button onClick={handleAddMedia}>确认添加</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1262,7 +1262,7 @@ export default function Page() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMount(false)}>取消</Button>
-            <Button onClick={handleMount} className="bg-blue-600 hover:bg-blue-700"><Plug className="h-4 w-4 mr-1" />挂载</Button>
+            <Button onClick={handleMount}><Plug className="h-4 w-4 mr-1" />挂载</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1291,7 +1291,7 @@ export default function Page() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateTask(false)}>取消</Button>
-            <Button onClick={handleCreateTaskFromDevice} className="bg-blue-600 hover:bg-blue-700">生成任务</Button>
+            <Button onClick={handleCreateTaskFromDevice}>生成任务</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1521,7 +1521,7 @@ export default function Page() {
                       </div>
 
                       <Button
-                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        className="w-full"
                         disabled={restoreList.length === 0 || !targetPath || isCapacityInsufficient() || restoreSubmitting}
                         onClick={handleRestoreSubmit}
                       >

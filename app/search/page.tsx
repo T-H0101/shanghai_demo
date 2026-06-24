@@ -160,7 +160,7 @@ export default function Page() {
       a.download = filename
       a.click()
       URL.revokeObjectURL(url)
-      toast({ title: "导出完成", description: `已生成 ${exportCount} 条检索结果 (${exportOptions.format})` })
+      toast({ title: "导出请求已提交", description: `已生成 ${exportCount} 条检索结果 (${exportOptions.format})` })
     } catch {
       toast({ title: "导出失败", description: "检索导出服务暂未接入。", variant: "destructive" })
     }
@@ -225,7 +225,7 @@ export default function Page() {
         <CardContent className="pt-0 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <Input placeholder="全局搜索..." className="pl-11 h-11" value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1) }} data-testid="search-keyword" />
+            <Input placeholder="全局搜索..." className="pl-11 h-11" value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1) }} data-testid="search-keyword" aria-label="全局搜索" />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <Select value={siteFilter} onValueChange={(v) => { setSiteFilter(v); setPage(1) }}>
@@ -252,7 +252,7 @@ export default function Page() {
               <AppTooltip content="执行跨站点全文检索；未接入时会显示限制说明">
                 <Button
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors"
+                  className="cursor-pointer transition-colors"
                   onClick={handleSearch}
                   data-testid="search-submit"
                   disabled={searching}
@@ -426,7 +426,7 @@ export default function Page() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowExport(false)}>取消</Button>
-            <Button onClick={handleConfirmExport} className="bg-blue-600 hover:bg-blue-700" data-testid="search-confirm-export">确认导出</Button>
+            <Button onClick={handleConfirmExport} data-testid="search-confirm-export">确认导出</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

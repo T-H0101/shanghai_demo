@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { cn } from "@/lib/utils"
+import { formatBeijingTimeOnly } from "@/components/shared/time-format"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
@@ -291,7 +292,7 @@ export function GlobalControlBall() {
   }
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('zh-CN', { hour12: false })
+    return formatBeijingTimeOnly(date)
   }
 
   const groupedNavItems = NAV_ITEMS.reduce((acc, item) => {

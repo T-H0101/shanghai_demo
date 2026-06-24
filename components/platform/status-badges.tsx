@@ -18,7 +18,7 @@ const taskStatusMap: Record<TaskStatus, { label: string; className: string }> = 
   pending_dispatch: { label: "待下发", className: "text-purple-600" },
   dispatched: { label: "已下发", className: "text-violet-600" },
   running: { label: "运行中", className: "text-emerald-600" },
-  paused: { label: "已暂停", className: "text-amber-600" },
+  paused: { label: "暂停命令已提交", className: "text-amber-600 dark:text-amber-300" },
   completed: { label: "已完成", className: "text-slate-600" },
   failed: { label: "失败", className: "text-red-600" },
   queued: { label: "排队中", className: "text-blue-600" },

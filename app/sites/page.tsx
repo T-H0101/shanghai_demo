@@ -253,7 +253,7 @@ export default function Page() {
             <AppTooltip content="站点登记功能未接入, 后续 Sprint 解锁">
               <Button
                 size="sm"
-                className="h-8 bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors"
+                className="h-8 cursor-pointer transition-colors"
                 onClick={() => handleUnsupported("注册新站点")}
                 data-testid="sites-register"
               >
@@ -343,7 +343,7 @@ export default function Page() {
                 </Select>
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input placeholder="搜索站点、编码、机房..." className="pl-9 h-9" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+                  <Input placeholder="搜索站点、编码、机房..." className="pl-9 h-9" value={keyword} onChange={(e) => setKeyword(e.target.value)} aria-label="搜索站点" />
                 </div>
               </div>
             </div>
