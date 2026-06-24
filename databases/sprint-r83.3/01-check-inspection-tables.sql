@@ -156,3 +156,174 @@ COMMENT ON TABLE unified_check_task_items IS 'Unified mirror of source tbl_check
 COMMENT ON COLUMN unified_check_task_items.src_task_item_id IS '自增任务项ID';
 CREATE INDEX IF NOT EXISTS idx_unified_check_task_items_site ON unified_check_task_items (source_site_id);
 CREATE INDEX IF NOT EXISTS idx_unified_check_task_items_raw_gin ON unified_check_task_items USING GIN (raw_data jsonb_path_ops);
+
+-- ============================================================
+-- 第二段: 8 张 (含任务文件 / 检查文件 _2 _pl / 日志 / 巡检族 4 张)
+-- ============================================================
+
+-- 8. unified_check_task_files ← tbl_check_task_file (id)
+CREATE TABLE IF NOT EXISTS unified_check_task_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_task_file',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_task_file_id BIGINT,
+  task_id BIGINT,
+  file_name VARCHAR(500),
+  file_path VARCHAR(1000),
+  file_size BIGINT,
+  uploaded_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_task_files_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_task_files IS 'Unified mirror of source tbl_check_task_file';
+COMMENT ON COLUMN unified_check_task_files.src_task_file_id IS '自增任务文件ID';
+CREATE INDEX IF NOT EXISTS idx_unified_check_task_files_site ON unified_check_task_files (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_task_files_raw_gin ON unified_check_task_files USING GIN (raw_data jsonb_path_ops);
+
+-- 9. unified_check_files_2 ← tbl_check_file (id, 单数)
+-- 命名冲突: unified_check_files 已被 R.83.1 占用
+CREATE TABLE IF NOT EXISTS unified_check_files_2 (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_file',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_check_file_id BIGINT,
+  check_id BIGINT,
+  file_name VARCHAR(500),
+  file_path VARCHAR(1000),
+  file_size BIGINT,
+  uploaded_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_files_2_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_files_2 IS 'Unified mirror of source tbl_check_file (singular); suffix _2 to avoid conflict with R.83.1 unified_check_files';
+COMMENT ON COLUMN unified_check_files_2.src_check_file_id IS '自增检查文件ID(单数)';
+CREATE INDEX IF NOT EXISTS idx_unified_check_files_2_site ON unified_check_files_2 (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_files_2_raw_gin ON unified_check_files_2 USING GIN (raw_data jsonb_path_ops);
+
+-- 10. unified_check_files_pl ← tbl_check_files (id, 复数)
+CREATE TABLE IF NOT EXISTS unified_check_files_pl (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_files',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_check_file_id BIGINT,
+  check_id BIGINT,
+  file_name VARCHAR(500),
+  file_path VARCHAR(1000),
+  file_size BIGINT,
+  uploaded_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_files_pl_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_files_pl IS 'Unified mirror of source tbl_check_files (plural); suffix _pl to avoid conflict with R.83.1 unified_check_files';
+COMMENT ON COLUMN unified_check_files_pl.src_check_file_id IS '自增检查文件ID(复数)';
+CREATE INDEX IF NOT EXISTS idx_unified_check_files_pl_site ON unified_check_files_pl (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_files_pl_raw_gin ON unified_check_files_pl USING GIN (raw_data jsonb_path_ops);
+
+-- 11. unified_check_logs ← tbl_check_log (id)
+CREATE TABLE IF NOT EXISTS unified_check_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_log',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_log_id BIGINT,
+  task_id BIGINT,
+  log_level VARCHAR(20),
+  message TEXT,
+  logged_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_logs_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_logs IS 'Unified mirror of source tbl_check_log';
+COMMENT ON COLUMN unified_check_logs.src_log_id IS '自增检查日志ID';
+CREATE INDEX IF NOT EXISTS idx_unified_check_logs_site ON unified_check_logs (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_logs_raw_gin ON unified_check_logs USING GIN (raw_data jsonb_path_ops);
+
+-- 12. unified_check_patrol_strategies ← tbl_check_patrol_strategy (id)
+CREATE TABLE IF NOT EXISTS unified_check_patrol_strategies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_patrol_strategy',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_strategy_id BIGINT,
+  strategy_name VARCHAR(200),
+  cron_expression VARCHAR(100),
+  task_template_id BIGINT,
+  enabled SMALLINT DEFAULT 1,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_patrol_strategies_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_patrol_strategies IS 'Unified mirror of source tbl_check_patrol_strategy';
+COMMENT ON COLUMN unified_check_patrol_strategies.src_strategy_id IS '自增巡检策略ID';
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_strategies_site ON unified_check_patrol_strategies (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_strategies_raw_gin ON unified_check_patrol_strategies USING GIN (raw_data jsonb_path_ops);
+
+-- 13. unified_check_patrol_tasks ← tbl_check_patrol_task (id)
+CREATE TABLE IF NOT EXISTS unified_check_patrol_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_patrol_task',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_patrol_task_id BIGINT,
+  strategy_id BIGINT,
+  task_name VARCHAR(200),
+  status VARCHAR(20),
+  scheduled_at TIMESTAMPTZ,
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_patrol_tasks_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_patrol_tasks IS 'Unified mirror of source tbl_check_patrol_task';
+COMMENT ON COLUMN unified_check_patrol_tasks.src_patrol_task_id IS '自增巡检任务ID';
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_tasks_site ON unified_check_patrol_tasks (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_tasks_raw_gin ON unified_check_patrol_tasks USING GIN (raw_data jsonb_path_ops);
+
+-- 14. unified_check_patrol_task_items ← tbl_check_patrol_task_item (id)
+CREATE TABLE IF NOT EXISTS unified_check_patrol_task_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_patrol_task_item',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_patrol_task_item_id BIGINT,
+  patrol_task_id BIGINT,
+  sector_id BIGINT,
+  result VARCHAR(20),
+  remark TEXT,
+  checked_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_patrol_task_items_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_patrol_task_items IS 'Unified mirror of source tbl_check_patrol_task_item';
+COMMENT ON COLUMN unified_check_patrol_task_items.src_patrol_task_item_id IS '自增巡检任务项ID';
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_task_items_site ON unified_check_patrol_task_items (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_task_items_raw_gin ON unified_check_patrol_task_items USING GIN (raw_data jsonb_path_ops);
+
+-- 15. unified_check_patrol_logs ← tbl_check_patrol_log (id)
+CREATE TABLE IF NOT EXISTS unified_check_patrol_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_patrol_log',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_patrol_log_id BIGINT,
+  patrol_task_id BIGINT,
+  log_level VARCHAR(20),
+  message TEXT,
+  logged_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_check_patrol_logs_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_check_patrol_logs IS 'Unified mirror of source tbl_check_patrol_log';
+COMMENT ON COLUMN unified_check_patrol_logs.src_patrol_log_id IS '自增巡检日志ID';
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_logs_site ON unified_check_patrol_logs (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_patrol_logs_raw_gin ON unified_check_patrol_logs USING GIN (raw_data jsonb_path_ops);
