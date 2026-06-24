@@ -1,10 +1,38 @@
 # Project Status
 
-> **截至**: 2026-06-23
-> **Sprint**: Sprint R.83.1 center-db-governance
-> **当前主线**: 中心库统一表从 13 → 28 张(15 张新业务表),170 表治理矩阵,orphan UI,测试污染清理
+> **截至**: 2026-06-24
+> **Sprint**: Sprint R.83.2 RBAC + 字典 + 日志 15 张业务表接入
+> **当前主线**: 中心库统一表 28 → 43 张(15 张 RBAC/字典/日志/凭据),5 个 CRUD API,3 个 /users Tabs,audit matrix round 字段升级
 
 ---
+
+## Sprint R.83.2 — RBAC + 字典 + 日志 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 业务表从 28 张扩展到 43 张,新增 RBAC/字典/日志/凭据族,落地 CRUD API + UI Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.2/01-rbac-dict-log-tables.sql`)— Task 1+2,commit `689d1ae` `03ba03e`
+- 白名单 28→43 + self-check — Task 3,commit `84b79d8`
+- 15 个新 dispatcher handler — Task 3(含)、Task 4 commit
+- 5 个 CRUD API(`/api/rbac/{roles,dicts,logs,credentials,users-mfa}`)+ self-check — Task 5,commit `ab2b340`
+- 3 个 UI Tabs(`/users` 页 角色权限/字典/日志与凭据)+ self-check — Task 6,commit `d6cadf2`
+- audit matrix round 字段实时查仓储 — Task 7,commit `d407dcb`
+- 治理矩阵文档 15 行 R.83.2 标记 + 桶分布表更新 — Task 8,commit `82dfe8a`
+- README §5.3.6 + PROJECT_STATUS + ROADMAP — Task 9(本任务)
+
+**测试结果**:
+- `pnpm exec tsc --noEmit` — clean
+- `pnpm smoke:sync` — pass
+- `pnpm test:r83.2-whitelist` — pass
+- `pnpm test:r83.2-api` — pass
+- `pnpm test:r83.2-ui` — pass
+- `pnpm test:matrix-round` — pass
+- `pnpm audit:center-db --strict --matrix` — pass(unifiedCount=43)
+
+**已知遗留**(非本 Sprint 范围,已记入 requirements review):
+- `e2e:site-agent-sync` HTTP 207 partial 失败(pre-existing,无关本 Sprint)
+- 大表 `tbl_file_*` / `tbl_folder_*` 仍 `blocked_by_external_system`
+- 剩余 98 张 `R.83.3+` 业务表待后续 Sprint 推
 
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 

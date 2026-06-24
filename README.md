@@ -536,6 +536,34 @@ pnpm cleanup:test-pollution -- --apply
 | 提供真站点 API 文档 | 站点 | swagger / openapi.yml 提交到 `docs/source/site-api-spec.md` | 站点架构师 |
 ```
 
+#### §5.3.6 R.83.2 RBAC + 字典 + 日志 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 28 张扩到 43 张,新增 5 个 CRUD API 端点,在 `/users` 页加 3 个 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.2/01-rbac-dict-log-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 28→43(`lib/sync/package-schema.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 5 个 CRUD API:`/api/rbac/{roles,dicts,logs,credentials,users-mfa}`
+  - `logs` 仅 GET(只读),其余 4 端点支持 GET/POST/PUT/DELETE
+- 3 个 UI Tabs(角色权限 / 字典 / 日志与凭据)在 `/users` 页(read-only display)
+- audit matrix round 字段升级为实时查 `ALLOWED_PACKAGE_TABLES` 仓储 + doc round-tag override
+
+**测试**:
+- `pnpm test:r83.2-whitelist`(≥38 checks)
+- `pnpm test:r83.2-api`(≥26 checks)
+- `pnpm test:r83.2-ui`(≥25 checks)
+- `pnpm test:matrix-round`(14 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 43)
+
+**不变量**:
+- `unified_*` ≥ 43 张
+- ALLOWED_PACKAGE_TABLES 数 = 43
+- 任何 `app/api/rbac/**` 不引用 `SOURCE_DATABASE_URL` / `SITE_DATABASE_URL`
+- 主分支未污染
+
+**审计**: `docs/database-analysis/sprint-r83.2-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash

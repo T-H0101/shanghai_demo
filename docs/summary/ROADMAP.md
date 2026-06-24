@@ -843,3 +843,26 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - 运维告警 (容量/温度/失败)
 - 多站点策略 (隔离/聚合/对比)
 - SSO
+
+## R.83 中心库治理
+
+### R.83.1 center-db-governance (2026-06-23 完成)
+
+- [x] 中心库 `unified_*` 13 → 28 张(15 张新业务表:部门/工作区/项目/接收单/任务文件级/任务校验/任务-项目关系)
+- [x] `ALLOWED_PACKAGE_TABLES` 13 → 28
+- [x] 170 张 `tbl_*` 治理矩阵(15 R.83.1 + 13 already + 113 R.83.2+ + 29 never)
+- [x] audit matrix `--matrix` flag 产出 `audit/center-db-matrix.json`
+- [x] 测试污染清理(`pnpm cleanup:test-pollution` 幂等)
+- [x] orphan 站点 UI(Dialog 复用)
+- [x] README §5.3.1 - §5.3.5
+
+### R.83.2 RBAC + 字典 + 日志 15 张业务表接入 (2026-06-24 完成)
+
+- [x] 中心库 `unified_*` 28 → 43 张(15 张 RBAC/字典/日志/凭据族)
+- [x] `ALLOWED_PACKAGE_TABLES` 28 → 43
+- [x] 15 个新 dispatcher handler
+- [x] 5 个 CRUD API:`/api/rbac/{roles,dicts,logs,credentials,users-mfa}`(`logs` 仅 GET)
+- [x] 3 个 UI Tabs 在 `/users`(角色权限 / 字典 / 日志与凭据)
+- [x] audit matrix `round` 字段升级为实时查 `ALLOWED_PACKAGE_TABLES`
+- [x] README §5.3.6
+- [ ] 剩余 98 张 `R.83.3+` 业务表待推
