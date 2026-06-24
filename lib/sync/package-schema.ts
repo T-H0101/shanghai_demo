@@ -14,7 +14,8 @@ export type TableLogStatus = 'success' | 'failed' | 'skipped' | 'duplicated'
  * 白名单：当前 package 接收的源表
  * Sprint 2D.3: 扩展到 10 张已接入小表
  * Sprint 2E.2: 扩展到 13 张 (含 tbl_user / tbl_site / tbl_platform)
- * Sprint R.83.1: 扩展到 28 张 (含 tbl_user_role / tbl_depa / tbl_workspace / ... / tbl_receipt_file)
+ * R.83.1: 扩展到 28 张 (部门/项目/接收单 15 张)
+ * R.83.2: 扩展到 43 张 (RBAC + 字典 + 日志 + 凭据 15 张)
  * 严禁加入 tbl_file / tbl_folder
  */
 export const ALLOWED_PACKAGE_TABLES = [
@@ -47,6 +48,22 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_receipt',
   'tbl_receipt_check',
   'tbl_receipt_file',
+  // R.83.2 RBAC + 字典 + 日志 + 凭据 15 张
+  'tbl_role',
+  'tbl_role_fuc',
+  'tbl_fuc',
+  'tbl_dict_category',
+  'tbl_dict',
+  'tbl_dict_item',
+  'tbl_sys_log',
+  'tbl_api_log',
+  'tbl_api_interface',
+  'tbl_user_mfa',
+  'tbl_archives_type',
+  'tbl_archives_level',
+  'tbl_platform_type',
+  'tbl_credible_prove',
+  'tbl_credible_verify',
 ] as const
 export type AllowedPackageTable = (typeof ALLOWED_PACKAGE_TABLES)[number]
 

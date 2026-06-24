@@ -27,7 +27,7 @@ const R831_NEW = [
 console.log("=== R.83.1 sync whitelist self-check ===")
 
 // 1. 总条数 = 28
-check("白名单总条数 = 28", ALLOWED_PACKAGE_TABLES.length === 28, `actual: ${ALLOWED_PACKAGE_TABLES.length}`)
+check("白名单总条数 = 28", (ALLOWED_PACKAGE_TABLES as readonly string[]).length === 28, `actual: ${ALLOWED_PACKAGE_TABLES.length}`)
 
 // 2. R.83.1 新增 15 项全部命中
 for (const t of R831_NEW) {

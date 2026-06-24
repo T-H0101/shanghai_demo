@@ -94,7 +94,8 @@
     "sync:dump:ingest": "tsx scripts/sync/ingest-dump.ts",
     "e2e:all": "tsx scripts/e2e/run-all.ts",
     "cleanup:test-pollution": "tsx scripts/cleanup/center-db-test-pollution.ts",
-    "test:cleanup": "tsx scripts/cleanup/__tests__/cleanup-self-check.ts"
+    "test:cleanup": "tsx scripts/cleanup/__tests__/cleanup-self-check.ts",
+    "test:r83.2-whitelist": "tsx scripts/test-r83.2-whitelist.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

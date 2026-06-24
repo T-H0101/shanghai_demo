@@ -636,6 +636,191 @@ async function dispatchReceiptFile(input: DispatchInput): Promise<DispatchResult
 }
 
 // ============================================================
+// R.83.2 stub dispatchers
+// RBAC + 字典 + 日志 + 凭据 15 张
+// 这些表已建 unified_* (Tasks 1+2), 但 dispatcher 暂为最小占位:
+// - 仅同步主键 + 必要通用列
+// - 不做复杂列映射 (后续 Sprint 按 source schema 演进)
+// - 站点不上报时 inlineUpsert 接收 0 行,直接 success (不写入)
+// ============================================================
+
+async function dispatchRole(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_roles', {
+    sourceIdField: 'role_id',
+    columns: [
+      { source: 'role_id', target: 'role_id' },
+      { source: 'role_name', target: 'role_name' },
+      { source: 'role_code', target: 'role_code' },
+      { source: 'role_enable', target: 'role_enable' },
+    ],
+  })
+}
+
+async function dispatchRoleFuc(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_role_fucs', {
+    sourceIdField: '__composite__',
+    sourceIdTransform: (rec) => `${String((rec as Record<string, unknown>).role_id ?? '')}::${String((rec as Record<string, unknown>).fuc_id ?? '')}`,
+    columns: [
+      { source: 'role_id', target: 'role_id' },
+      { source: 'fuc_id', target: 'fuc_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchFuc(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_fucs', {
+    sourceIdField: 'fuc_id',
+    columns: [
+      { source: 'fuc_id', target: 'fuc_id' },
+      { source: 'fuc_name', target: 'fuc_name' },
+      { source: 'fuc_code', target: 'fuc_code' },
+      { source: 'parent_id', target: 'parent_id' },
+    ],
+  })
+}
+
+async function dispatchDictCategory(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_dict_categories', {
+    sourceIdField: 'category_id',
+    columns: [
+      { source: 'category_id', target: 'category_id' },
+      { source: 'category_name', target: 'category_name' },
+      { source: 'category_code', target: 'category_code' },
+    ],
+  })
+}
+
+async function dispatchDict(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_dicts', {
+    sourceIdField: 'dict_id',
+    columns: [
+      { source: 'dict_id', target: 'dict_id' },
+      { source: 'category_id', target: 'category_id' },
+      { source: 'dict_name', target: 'dict_name' },
+      { source: 'dict_code', target: 'dict_code' },
+    ],
+  })
+}
+
+async function dispatchDictItem(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_dict_items', {
+    sourceIdField: 'item_id',
+    columns: [
+      { source: 'item_id', target: 'item_id' },
+      { source: 'dict_id', target: 'dict_id' },
+      { source: 'item_name', target: 'item_name' },
+      { source: 'item_value', target: 'item_value' },
+    ],
+  })
+}
+
+async function dispatchSysLog(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_sys_logs', {
+    sourceIdField: 'log_id',
+    columns: [
+      { source: 'log_id', target: 'log_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'log_type', target: 'log_type' },
+      { source: 'log_time', target: 'log_time' },
+    ],
+  })
+}
+
+async function dispatchApiLog(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_api_logs', {
+    sourceIdField: 'api_log_id',
+    columns: [
+      { source: 'api_log_id', target: 'api_log_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'api_path', target: 'api_path' },
+      { source: 'api_time', target: 'api_time' },
+    ],
+  })
+}
+
+async function dispatchApiInterface(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_api_interfaces', {
+    sourceIdField: 'interface_id',
+    columns: [
+      { source: 'interface_id', target: 'interface_id' },
+      { source: 'interface_name', target: 'interface_name' },
+      { source: 'interface_path', target: 'interface_path' },
+      { source: 'interface_method', target: 'interface_method' },
+    ],
+  })
+}
+
+async function dispatchUserMfa(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_user_mfa', {
+    sourceIdField: 'mfa_id',
+    columns: [
+      { source: 'mfa_id', target: 'mfa_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'mfa_type', target: 'mfa_type' },
+      { source: 'mfa_enable', target: 'mfa_enable' },
+    ],
+  })
+}
+
+async function dispatchArchivesType(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_archives_types', {
+    sourceIdField: 'archives_type_id',
+    columns: [
+      { source: 'archives_type_id', target: 'archives_type_id' },
+      { source: 'archives_type_name', target: 'archives_type_name' },
+      { source: 'archives_type_code', target: 'archives_type_code' },
+    ],
+  })
+}
+
+async function dispatchArchivesLevel(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_archives_levels', {
+    sourceIdField: 'archives_level_id',
+    columns: [
+      { source: 'archives_level_id', target: 'archives_level_id' },
+      { source: 'archives_level_name', target: 'archives_level_name' },
+      { source: 'archives_level_code', target: 'archives_level_code' },
+    ],
+  })
+}
+
+async function dispatchPlatformType(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_platform_types', {
+    sourceIdField: 'platform_type_id',
+    columns: [
+      { source: 'platform_type_id', target: 'platform_type_id' },
+      { source: 'platform_type_name', target: 'platform_type_name' },
+      { source: 'platform_type_code', target: 'platform_type_code' },
+    ],
+  })
+}
+
+async function dispatchCredibleProve(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_credible_proves', {
+    sourceIdField: 'prove_id',
+    columns: [
+      { source: 'prove_id', target: 'prove_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'prove_type', target: 'prove_type' },
+      { source: 'prove_status', target: 'prove_status' },
+    ],
+  })
+}
+
+async function dispatchCredibleVerify(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_credible_verifies', {
+    sourceIdField: 'verify_id',
+    columns: [
+      { source: 'verify_id', target: 'verify_id' },
+      { source: 'prove_id', target: 'prove_id' },
+      { source: 'verify_status', target: 'verify_status' },
+      { source: 'verify_time', target: 'verify_time' },
+    ],
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -846,6 +1031,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_receipt: dispatchReceipt,
   tbl_receipt_check: dispatchReceiptCheck,
   tbl_receipt_file: dispatchReceiptFile,
+  // R.83.2 RBAC + 字典 + 日志 + 凭据 15 张
+  tbl_role: dispatchRole,
+  tbl_role_fuc: dispatchRoleFuc,
+  tbl_fuc: dispatchFuc,
+  tbl_dict_category: dispatchDictCategory,
+  tbl_dict: dispatchDict,
+  tbl_dict_item: dispatchDictItem,
+  tbl_sys_log: dispatchSysLog,
+  tbl_api_log: dispatchApiLog,
+  tbl_api_interface: dispatchApiInterface,
+  tbl_user_mfa: dispatchUserMfa,
+  tbl_archives_type: dispatchArchivesType,
+  tbl_archives_level: dispatchArchivesLevel,
+  tbl_platform_type: dispatchPlatformType,
+  tbl_credible_prove: dispatchCredibleProve,
+  tbl_credible_verify: dispatchCredibleVerify,
 }
 
 /**
