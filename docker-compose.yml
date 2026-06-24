@@ -9,21 +9,27 @@
 #   - 不连接真实源库，不同步真实数据
 #
 # 使用方法：
-#   docker compose up -d postgres
-#   docker compose logs postgres
-#   docker compose down -v  # 停止并删除数据卷
+#   pnpm db:up
+#   pnpm db:logs
+#   pnpm db:down:volumes  # 停止并删除数据卷
+#
+# 如果直接使用 docker compose, 必须显式加载 .env.local:
+#   docker compose --env-file .env.local up -d postgres
+#   docker compose --env-file .env.local logs postgres
+#   docker compose --env-file .env.local down -v
 #
 # 密码：
 #   - 默认 dev (Sprint 2B.1)
+#   - pnpm db:* 已统一读取 .env.local
 #   - 生产/真实环境必须 POSTGRES_PASSWORD env 注入 (强密码)
 #   - 轮换流程见 docs/secrets/SECRETS.md (gitignored)
 # ============================================================
-name: unified-disc-platform
+name: ${COMPOSE_PROJECT_NAME:-unified-disc-platform}
 
 services:
   postgres:
     image: postgres:17
-    container_name: unified_disc_postgres
+    container_name: ${POSTGRES_CONTAINER_NAME:-unified_disc_postgres}
     restart: unless-stopped
     environment:
       POSTGRES_USER: unified
@@ -31,7 +37,7 @@ services:
       POSTGRES_DB: unified_disc_platform
       POSTGRES_INITDB_ARGS: "-E UTF8"
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

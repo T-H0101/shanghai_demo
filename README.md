@@ -65,7 +65,15 @@ pnpm install
 
 `pnpm install` 会下载前端依赖（Next.js、React、Tailwind 等）。如果装不上，删掉 `node_modules` 重新试一次。
 
-### 1.3 起数据库
+### 1.3 准备环境变量
+
+```bash
+cp -n .env.example .env.local
+```
+
+`.env.local` 不会被提交到 git。默认本地开发密码是 `unified123`，必须保持 `DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD` 三处一致。
+
+### 1.4 起数据库
 
 项目用 PostgreSQL 17 存中心数据。docker-compose 已经写好了，直接起：
 
@@ -80,14 +88,6 @@ pnpm db:up
 ```bash
 pnpm db:logs
 ```
-
-### 1.4 准备环境变量
-
-```bash
-cp .env.example .env.local
-```
-
-`.env.local` 不会被提交到 git。示例文件默认使用真实 API 模式；本地开发只需要按需替换连接地址和密钥引用。
 
 ### 1.5 初始化中心库（首次启动）
 
@@ -111,9 +111,9 @@ pnpm dev
 
 第一次进入会看到首页有 4 大通道：同步、控制、检索、安全。如果哪个通道显示「待接入」或「阻塞」，是正常的——本地环境没有对接外部服务（详见 [第 8 节](#8-需要外部提供的依赖)）。
 
-### 1.7 跑通完整链路（可选但推荐）
+### 1.7 验证本地空白部署
 
-下面这串命令依次跑完，验证整个项目能跑：
+下面这串命令不依赖 restore 库 / 170 表站点库，适合同事首次拉代码后验证“项目能启动、能登录、中心同步入口能写库”：
 
 ```bash
 # ⚠️ set -a 仅适合本地开发,把 .env.local 的 key 注入当前 shell
@@ -122,12 +122,11 @@ set -a && source .env.local && set +a
 pnpm exec tsc --noEmit        # TypeScript 类型检查
 pnpm build                    # 生产构建
 pnpm smoke:sync               # 同步链路冒烟测试
-pnpm check:sync-consistency -- --siteCode=SH01
-                                # 一致性检查
-pnpm baseline:check           # 项目基线冻结检查
 ```
 
-全过才算 OK。任何一步出错，停下来看错误信息——通常是数据库没起、env 没 load、或端口被占。
+再打开 <http://localhost:3000>，用 `admin / admin` 登录。
+
+`pnpm check:sync-consistency -- --siteCode=SH01` 和 `pnpm baseline:check` 是 requirements 验收环境检查，需要已配置 restore/站点库并跑过 SH01 同步，不属于空白本地部署必跑项。
 
 ---
 
@@ -405,6 +404,8 @@ pnpm build                     # 生产构建（提交前必跑）
 
 ### 5.2 数据库相关
 
+> `pnpm db:*` 会显式读取 `.env.local`。不要裸跑 `docker compose up -d postgres`，否则 Docker 可能读取不到与应用一致的密码配置。
+
 ```bash
 pnpm db:up                     # 起 PostgreSQL
 pnpm db:down                   # 停 PostgreSQL（保留数据）
@@ -438,13 +439,14 @@ pnpm import:tasks              # 单表导入
 
 ### 5.3.1 中心库真实性自检
 
-部署或接入新站点后，不要只看页面判断数据库是否正确，先跑：
+部署或接入新站点 / restore 测试库后，不要只看页面判断数据库是否正确，先跑：
 
 ```bash
 set -a && source .env.local && set +a
 pnpm audit:center-db
 pnpm smoke:sync
 pnpm check:sync-consistency -- --siteCode=SH01
+pnpm baseline:check
 ```
 
 判断标准：
@@ -688,6 +690,9 @@ console.log('严格完成:', c, '/', rows.length, '=', (c/rows.length*100).toFix
 # 数据库连接串（都是 PostgreSQL 直连连接串，不是 HTTP API 地址）
 DATABASE_URL=...               # 中心库连接串：总控服务读写 unified_disc_platform
 POSTGRES_PASSWORD=...          # docker compose 初始化中心库密码；仅首次创建 volume 时生效
+COMPOSE_PROJECT_NAME=...       # 本地 Docker compose project，默认 unified-disc-platform
+POSTGRES_CONTAINER_NAME=...    # 本地 Docker 容器名，默认 unified_disc_postgres
+POSTGRES_PORT=...              # 本地 Docker 映射端口，默认 5432；改端口时 DATABASE_URL 也要同步
 DB_PASSWORD=...                # e2e/维护脚本使用；必须与 DATABASE_URL 内嵌密码、POSTGRES_PASSWORD 一致
 
 # 同步来源连接串
@@ -1177,7 +1182,7 @@ sudo certbot --nginx -d platform.example.com   # 自动配 HTTPS
 | 报错 / 现象 | 原因 | 解决 |
 |---|---|---|
 | `Error: connect ECONNREFUSED 127.0.0.1:5432` | postgres 没起 / 端口没监听 | `pnpm db:up` 或 `docker compose ps` 看 postgres 状态;等 healthy |
-| `Error: password authentication failed for user "unified"` | `DATABASE_URL` 里的密码与 PostgreSQL 数据卷内实际密码不一致；常见于旧 `postgres_data` volume 已用旧密码初始化，后来又改了 `.env.local` / `POSTGRES_PASSWORD` | 先确认三处一致：`DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD`。如果是新环境且可删库，执行 `pnpm db:down:volumes && pnpm db:up && pnpm db:init`；如果不能删数据，用当前能登录的密码进入容器后执行 `ALTER USER unified WITH PASSWORD '<new-password>';` |
+| `Error: password authentication failed for user "unified"` | `DATABASE_URL` 里的密码与 PostgreSQL 数据卷内实际密码不一致；常见于旧 `postgres_data` volume 已用旧密码初始化，后来又改了 `.env.local` / `POSTGRES_PASSWORD` | 先确认三处一致：`DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD`。新开发环境直接执行 `pnpm db:down:volumes && pnpm db:up && pnpm db:init && pnpm db:health`；不能删数据时，用当前能登录的密码进入数据库后执行 `ALTER USER unified WITH PASSWORD '<new-password>';` |
 | `Error: listen EADDRINUSE :::3000` | 3000 端口被占 | `lsof -i :3000` 找到占用进程 kill;或改 `PORT=3001 pnpm dev` |
 | `Error: Cannot find module 'next/dist/...'` | node_modules 损坏 | `rm -rf node_modules pnpm-lock.yaml && pnpm install` |
 | `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 20 LTS (项目用 next-themes + React 19 需要) |
@@ -1191,6 +1196,24 @@ sudo certbot --nginx -d platform.example.com   # 自动配 HTTPS
 | `pnpm build` OOM | next build 大项目吃内存 | 同上加 `--max-old-space-size=2048` |
 | docker 容器启动后立刻退出 | 缺 .env 或 DATABASE_URL | `docker compose logs app` 看 stderr,通常是 env 没注入 |
 | `pnpm db:init` 卡住 / 报 "already exists" | 数据库已初始化过 | 想重置:`pnpm db:down:volumes && pnpm db:up && pnpm db:init` |
+
+同事首次拉取或密码报错后的本地重启流程：
+
+```bash
+git pull origin main
+pnpm install
+cp -n .env.example .env.local
+
+# 核对 DATABASE_URL / POSTGRES_PASSWORD / DB_PASSWORD 三处密码一致
+grep -E "^(DATABASE_URL|POSTGRES_PASSWORD|DB_PASSWORD)=" .env.local
+
+# 新开发环境可重置本地库；会删除本机 Docker 数据卷
+pnpm db:down:volumes
+pnpm db:up
+pnpm db:init
+pnpm db:health
+pnpm dev
+```
 
 **通用排查套路**:
 ```bash

@@ -91,7 +91,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Docker 配置
-CONTAINER_NAME="unified_disc_postgres"
+CONTAINER_NAME="${POSTGRES_CONTAINER_NAME:-unified_disc_postgres}"
 DB_NAME="unified_disc_platform"
 DB_USER="unified"
 
@@ -237,11 +237,16 @@ fi
 
 # 7. 执行当前版本 DDL patch
 MIGRATION_FILES=(
+  "databases/sprint-2b6/ingest-batch-log.sql"
+  "databases/sprint-2c2/add-used-slots.sql"
+  "databases/sprint-2c9/unified-disc-media.sql"
   "databases/sprint-2c17/sync-package-log.sql"
   "databases/sprint-2c18/file-index-schema.sql"
   "databases/sprint-2e2/unified-user-site-platform.sql"
+  "databases/sprint-2f1/unified-task-runtime-fields.sql"
   "databases/sprint-4.5/control-command.sql"
   "databases/sprint-4.8/audit-log.sql"
+  "databases/sprint-r7/sync-consistency-log.sql"
   "databases/sprint-r19/site-agent-runtime.sql"
   "databases/sprint-r.26/auth-foundation.sql"
   "databases/sprint-r27/auth-system-config.sql"
