@@ -186,3 +186,162 @@ COMMENT ON TABLE unified_archives_types IS 'Unified mirror of source tbl_archive
 COMMENT ON COLUMN unified_archives_types.src_archives_type_id IS '自增档案类型ID';
 CREATE INDEX IF NOT EXISTS idx_unified_archives_types_site ON unified_archives_types (source_site_id);
 CREATE INDEX IF NOT EXISTS idx_unified_archives_types_raw_gin ON unified_archives_types USING GIN (raw_data jsonb_path_ops);
+
+-- ============================================================
+-- 第二段: 7 张 (含角色族 / 凭据族 / 字典扩展)
+-- ============================================================
+
+-- 9. unified_archives_levels ← tbl_archives_level
+CREATE TABLE IF NOT EXISTS unified_archives_levels (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_archives_level',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_archives_level_id BIGINT,
+  level_code VARCHAR(50),
+  level_name VARCHAR(100),
+  retention_years INTEGER,
+  enabled SMALLINT DEFAULT 1,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_archives_levels_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_archives_levels IS 'Unified mirror of source tbl_archives_level';
+COMMENT ON COLUMN unified_archives_levels.src_archives_level_id IS '自增档案级别ID';
+COMMENT ON COLUMN unified_archives_levels.level_code IS '级别编码';
+COMMENT ON COLUMN unified_archives_levels.retention_years IS '保留年限';
+CREATE INDEX IF NOT EXISTS idx_unified_archives_levels_site ON unified_archives_levels (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_archives_levels_raw_gin ON unified_archives_levels USING GIN (raw_data jsonb_path_ops);
+
+-- 10. unified_platform_types ← tbl_platform_type
+CREATE TABLE IF NOT EXISTS unified_platform_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_platform_type',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_platform_type_id BIGINT,
+  type_code VARCHAR(50),
+  type_name VARCHAR(100),
+  description TEXT,
+  enabled SMALLINT DEFAULT 1,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_platform_types_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_platform_types IS 'Unified mirror of source tbl_platform_type';
+COMMENT ON COLUMN unified_platform_types.src_platform_type_id IS '自增平台类型ID';
+COMMENT ON COLUMN unified_platform_types.type_code IS '平台类型编码';
+CREATE INDEX IF NOT EXISTS idx_unified_platform_types_site ON unified_platform_types (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_platform_types_raw_gin ON unified_platform_types USING GIN (raw_data jsonb_path_ops);
+
+-- 11. unified_fucs ← tbl_fuc
+CREATE TABLE IF NOT EXISTS unified_fucs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_fuc',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_fuc_id BIGINT,
+  fuc_code VARCHAR(100),
+  fuc_name VARCHAR(200),
+  parent_id BIGINT,
+  path VARCHAR(500),
+  sort_order INTEGER,
+  enabled SMALLINT DEFAULT 1,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_fucs_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_fucs IS 'Unified mirror of source tbl_fuc';
+COMMENT ON COLUMN unified_fucs.src_fuc_id IS '自增功能/权限点ID';
+COMMENT ON COLUMN unified_fucs.fuc_code IS '权限点编码';
+COMMENT ON COLUMN unified_fucs.parent_id IS '父级功能ID(支持权限树)';
+CREATE INDEX IF NOT EXISTS idx_unified_fucs_site ON unified_fucs (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_fucs_raw_gin ON unified_fucs USING GIN (raw_data jsonb_path_ops);
+
+-- 12. unified_roles ← tbl_role
+CREATE TABLE IF NOT EXISTS unified_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_role',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_role_id BIGINT,
+  role_code VARCHAR(50),
+  role_name VARCHAR(100),
+  description TEXT,
+  enabled SMALLINT DEFAULT 1,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_roles_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_roles IS 'Unified mirror of source tbl_role';
+COMMENT ON COLUMN unified_roles.src_role_id IS '自增角色ID';
+COMMENT ON COLUMN unified_roles.role_code IS '角色编码';
+COMMENT ON COLUMN unified_roles.role_name IS '角色名称';
+CREATE INDEX IF NOT EXISTS idx_unified_roles_site ON unified_roles (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_roles_raw_gin ON unified_roles USING GIN (raw_data jsonb_path_ops);
+
+-- 13. unified_role_fucs ← tbl_role_fuc (复合 PK role_id+fuc_id)
+-- source_record_id 格式: "<role_id>::<fuc_id>"
+CREATE TABLE IF NOT EXISTS unified_role_fucs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_role_fuc',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  role_id BIGINT,
+  fuc_id BIGINT,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_role_fucs_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_role_fucs IS 'Unified mirror of source tbl_role_fuc; composite PK (role_id, fuc_id) flattened to "<role_id>::<fuc_id>"';
+COMMENT ON COLUMN unified_role_fucs.role_id IS '角色ID';
+COMMENT ON COLUMN unified_role_fucs.fuc_id IS '功能/权限点ID';
+CREATE INDEX IF NOT EXISTS idx_unified_role_fucs_site ON unified_role_fucs (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_role_fucs_role ON unified_role_fucs (source_site_id, role_id);
+CREATE INDEX IF NOT EXISTS idx_unified_role_fucs_raw_gin ON unified_role_fucs USING GIN (raw_data jsonb_path_ops);
+
+-- 14. unified_credible_proves ← tbl_credible_prove
+CREATE TABLE IF NOT EXISTS unified_credible_proves (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_credible_prove',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_prove_id BIGINT,
+  user_id BIGINT,
+  prove_type VARCHAR(50),
+  prove_value TEXT,
+  issued_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  enabled SMALLINT DEFAULT 1,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_credible_proves_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_credible_proves IS 'Unified mirror of source tbl_credible_prove';
+COMMENT ON COLUMN unified_credible_proves.src_prove_id IS '自增凭据证明ID';
+COMMENT ON COLUMN unified_credible_proves.prove_type IS '凭据类型(ID_CARD/PASSPORT)';
+COMMENT ON COLUMN unified_credible_proves.prove_value IS '凭据值(本轮不加密,后续 Sprint 改造)';
+CREATE INDEX IF NOT EXISTS idx_unified_credible_proves_site ON unified_credible_proves (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_credible_proves_raw_gin ON unified_credible_proves USING GIN (raw_data jsonb_path_ops);
+
+-- 15. unified_credible_verifies ← tbl_credible_verify
+CREATE TABLE IF NOT EXISTS unified_credible_verifies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_site_id VARCHAR(50) NOT NULL,
+  source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_credible_verify',
+  source_record_id TEXT NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  src_verify_id BIGINT,
+  prove_id BIGINT,
+  verifier_user_id BIGINT,
+  verify_result SMALLINT,
+  verify_remark TEXT,
+  verified_at TIMESTAMPTZ,
+  raw_data JSONB DEFAULT '{}',
+  CONSTRAINT unified_credible_verifies_site_record_uniq UNIQUE (source_site_id, source_record_id)
+);
+COMMENT ON TABLE unified_credible_verifies IS 'Unified mirror of source tbl_credible_verify';
+COMMENT ON COLUMN unified_credible_verifies.src_verify_id IS '自增凭据验证记录ID';
+COMMENT ON COLUMN unified_credible_verifies.verify_result IS '验证结果 0=未通过 1=通过';
+CREATE INDEX IF NOT EXISTS idx_unified_credible_verifies_site ON unified_credible_verifies (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_credible_verifies_raw_gin ON unified_credible_verifies USING GIN (raw_data jsonb_path_ops);
