@@ -830,6 +830,253 @@ async function dispatchCredibleVerify(input: DispatchInput): Promise<DispatchRes
 }
 
 // ============================================================
+// R.83.3 检查巡检族 15 张 — inline UPSERT
+// 全部走 source_record_id 溯源
+// ============================================================
+
+// tbl_check_category (id)
+async function dispatchCheckCategory(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_categories', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_category_id' },
+      { source: 'category_code', target: 'category_code' },
+      { source: 'category_name', target: 'category_name' },
+      { source: 'parent_id', target: 'parent_id' },
+      { source: 'sort_order', target: 'sort_order' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_sub_category (id)
+async function dispatchCheckSubCategory(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_sub_categories', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_sub_category_id' },
+      { source: 'category_id', target: 'category_id' },
+      { source: 'sub_category_code', target: 'sub_category_code' },
+      { source: 'sub_category_name', target: 'sub_category_name' },
+      { source: 'sort_order', target: 'sort_order' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_item (id)
+async function dispatchCheckItem(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_items', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_item_id' },
+      { source: 'sub_category_id', target: 'sub_category_id' },
+      { source: 'item_code', target: 'item_code' },
+      { source: 'item_name', target: 'item_name' },
+      { source: 'check_method', target: 'check_method' },
+      { source: 'pass_criteria', target: 'pass_criteria' },
+      { source: 'sort_order', target: 'sort_order' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_sector (id)
+async function dispatchCheckSector(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_sectors', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_sector_id' },
+      { source: 'sector_code', target: 'sector_code' },
+      { source: 'sector_name', target: 'sector_name' },
+      { source: 'description', target: 'description' },
+      { source: 'sort_order', target: 'sort_order' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_template (id)
+async function dispatchCheckTemplate(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_templates', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_template_id' },
+      { source: 'template_code', target: 'template_code' },
+      { source: 'template_name', target: 'template_name' },
+      { source: 'category_id', target: 'category_id' },
+      { source: 'description', target: 'description' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_task (id)
+async function dispatchCheckTask(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_tasks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_task_id' },
+      { source: 'task_name', target: 'task_name' },
+      { source: 'template_id', target: 'template_id' },
+      { source: 'sector_id', target: 'sector_id' },
+      { source: 'status', target: 'status' },
+      { source: 'scheduled_at', target: 'scheduled_at' },
+      { source: 'started_at', target: 'started_at' },
+      { source: 'finished_at', target: 'finished_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_task_item (id)
+async function dispatchCheckTaskItem(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_task_items', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_task_item_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'item_id', target: 'item_id' },
+      { source: 'result', target: 'result' },
+      { source: 'remark', target: 'remark' },
+      { source: 'checked_at', target: 'checked_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_task_file (id)
+async function dispatchCheckTaskFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_task_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_task_file_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'uploaded_at', target: 'uploaded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_file (id, singular) → unified_check_file (clean name, no suffix)
+async function dispatchCheckFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_file', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_check_file_id' },
+      { source: 'check_id', target: 'check_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'uploaded_at', target: 'uploaded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_files (id, plural) → unified_check_files (clean name)
+async function dispatchCheckFiles(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_check_file_id' },
+      { source: 'check_id', target: 'check_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'uploaded_at', target: 'uploaded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_log (id)
+async function dispatchCheckLog(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_logs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_log_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'log_level', target: 'log_level' },
+      { source: 'message', target: 'message' },
+      { source: 'logged_at', target: 'logged_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_patrol_strategy (id)
+async function dispatchCheckPatrolStrategy(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_patrol_strategies', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_strategy_id' },
+      { source: 'strategy_name', target: 'strategy_name' },
+      { source: 'cron_expression', target: 'cron_expression' },
+      { source: 'task_template_id', target: 'task_template_id' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_patrol_task (id)
+async function dispatchCheckPatrolTask(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_patrol_tasks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_patrol_task_id' },
+      { source: 'strategy_id', target: 'strategy_id' },
+      { source: 'task_name', target: 'task_name' },
+      { source: 'status', target: 'status' },
+      { source: 'scheduled_at', target: 'scheduled_at' },
+      { source: 'started_at', target: 'started_at' },
+      { source: 'finished_at', target: 'finished_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_patrol_task_item (id)
+async function dispatchCheckPatrolTaskItem(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_patrol_task_items', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_patrol_task_item_id' },
+      { source: 'patrol_task_id', target: 'patrol_task_id' },
+      { source: 'sector_id', target: 'sector_id' },
+      { source: 'result', target: 'result' },
+      { source: 'remark', target: 'remark' },
+      { source: 'checked_at', target: 'checked_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_check_patrol_log (id)
+async function dispatchCheckPatrolLog(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_check_patrol_logs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_patrol_log_id' },
+      { source: 'patrol_task_id', target: 'patrol_task_id' },
+      { source: 'log_level', target: 'log_level' },
+      { source: 'message', target: 'message' },
+      { source: 'logged_at', target: 'logged_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -1060,6 +1307,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_platform_type: dispatchPlatformType,
   tbl_credible_prove: dispatchCredibleProve,
   tbl_credible_verify: dispatchCredibleVerify,
+  // R.83.3 检查巡检族 15 张
+  tbl_check_category: dispatchCheckCategory,
+  tbl_check_sub_category: dispatchCheckSubCategory,
+  tbl_check_item: dispatchCheckItem,
+  tbl_check_sector: dispatchCheckSector,
+  tbl_check_template: dispatchCheckTemplate,
+  tbl_check_task: dispatchCheckTask,
+  tbl_check_task_item: dispatchCheckTaskItem,
+  tbl_check_task_file: dispatchCheckTaskFile,
+  tbl_check_file: dispatchCheckFile,
+  tbl_check_files: dispatchCheckFiles,
+  tbl_check_log: dispatchCheckLog,
+  tbl_check_patrol_strategy: dispatchCheckPatrolStrategy,
+  tbl_check_patrol_task: dispatchCheckPatrolTask,
+  tbl_check_patrol_task_item: dispatchCheckPatrolTaskItem,
+  tbl_check_patrol_log: dispatchCheckPatrolLog,
 }
 
 /**
