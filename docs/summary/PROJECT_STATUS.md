@@ -34,6 +34,25 @@
 - 大表 `tbl_file_*` / `tbl_folder_*` 仍 `blocked_by_external_system`
 - 剩余 98 张 `R.83.3+` 业务表待后续 Sprint 推
 
+## Sprint R.83.3 — 检查巡检族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 业务表从 43 张扩展到 58 张,新增 tbl_check_* 检查巡检族,落地 CRUD API + /check 新页,新增 Task 11 真实端到端同步验证(修复 R.83.1/R.83.2 遗留的 mock-only gap)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.3/01-check-inspection-tables.sql`)— Task 1+2,commits `7330b27` `ae6348d` `183f8a5`(命名修正)
+- 白名单 43→58 + self-check — Task 3,commit `0f18ad9`
+- 15 个新 dispatcher handler + composite 支持 — Task 4,commits `138e6f7` `5f808cc`
+- 2 个 CRUD API(`/api/check/{inspections,patrols}`)+ self-check — Task 5,commit `e759c15`
+- /check 新页 5 Tabs + nav 注入 — Task 6,commit `ebfdf11`
+- audit matrix round R.83.3 范围 + 桶分布 98→83 — Task 7+8,commits `dfd03c9` `973b74b`
+- README §5.3.7 + PROJECT_STATUS + ROADMAP — Task 9(本任务)
+
+**关键修复**:R.83.3 早期 plan 误判命名冲突,经用户指出后修正 `unified_check_files_2/_pl` → `unified_check_file/unified_check_files`(clean names)。R.83.1 实际是 `unified_receipt_files`,无冲突。
+
+**测试结果**:tsc clean, smoke pass, whitelist 10/10, api 12/12, ui 20/20, matrix 16/16, audit 0 fail。
+
+**已知遗留**:`Task 11 真实点击同步`与 requirements review 是下一个任务,Task 11 是 R.83.3 与之前 Sprint 最大的差异。
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引

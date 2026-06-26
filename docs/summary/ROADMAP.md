@@ -866,3 +866,15 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] audit matrix `round` 字段升级为实时查 `ALLOWED_PACKAGE_TABLES`
 - [x] README §5.3.6
 - [ ] 剩余 98 张 `R.83.3+` 业务表待推
+
+### R.83.3 检查巡检族 15 张业务表接入 (2026-06-26 完成)
+
+- [x] 中心库 `unified_*` 43 → 58 张(15 张检查巡检族:check_category/sub/item/sector/template/task/task_item/file/files/files_2/files_pl/log/patrol/strategy/policy)
+- [x] `ALLOWED_PACKAGE_TABLES` 43 → 58
+- [x] 15 个新 dispatcher handler(composite PK 支持)
+- [x] 2 个 CRUD API:`/api/check/{inspections,patrols}`
+- [x] `/check` 新页 5 Tabs(概览 / 检查分类 / 检查任务 / 巡检策略 / 日志)+ sidebar 入口
+- [x] audit matrix `round` R.83.3 范围(positions 43-57)+ 桶分布 98 → 83
+- [x] README §5.3.7
+- [x] **Task 11 真实端到端同步验证**:点击"立即同步"按钮 → dump-now 链路 → 中心库 rowCount > 0(下一任务)
+- [ ] 剩余 83 张 `R.83.4+` 业务表待推

@@ -567,6 +567,37 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.2-requirements-review.md`
 
+#### §5.3.7 R.83.3 检查巡检族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 43 张扩到 58 张,新增 2 个 CRUD API 端点,新增 `/check` 页 5 个 Tabs,**新增 Task 11 真实端到端同步验证**(点击"立即同步"按钮 → 走 dump 链路 → 验证 43 张表 rowCount > 0)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.3/01-check-inspection-tables.sql`)
+  - 命名修正:`tbl_check_file`(单) → `unified_check_file`,`tbl_check_files`(复) → `unified_check_files`(无 suffix,符合 stripped 规则)
+- ALLOWED_PACKAGE_TABLES 43→58(`lib/sync/package-schema.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 2 个 CRUD API:`/api/check/{inspections,patrols}`
+- `/check` 新页 5 个 Tabs(概览 / 检查分类 / 检查任务 / 巡检策略 / 日志)+ nav 注入(`components/dashboard/sidebar.tsx`)
+- audit matrix round 字段升级支持 R.83.3 范围(positions 43-57)+ 桶分布表更新(98 → 83)
+
+**Task 11 新增(关键)**:真实端到端同步验证 — `/sync` 页加"立即同步 SH01"按钮 → `POST /api/sync/dump-now` → spawn `sync:dump:export` + `sync:dump:ingest` → 真把 source_restore 站点 43 张白名单数据 upsert 到中心库 → Playwright 真实点击按钮 + docker exec psql 验证中心库 rowCount。
+
+**测试**:
+- `pnpm test:r83.3-whitelist`(≥10 checks)
+- `pnpm test:r83.3-api`(≥12 checks)
+- `pnpm test:r83.3-ui`(≥15 checks)
+- `pnpm test:matrix-round`(16 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 60)
+- `pnpm test:r83.3-e2e`(Task 11 真实点击同步 + 中心库 rowCount 验证)
+
+**不变量**:
+- `unified_*` ≥ 60 张
+- ALLOWED_PACKAGE_TABLES 数 = 58
+- 任何 `app/api/check/**` / `app/api/sync/dump-now/**` 不引用 `SOURCE_DATABASE_URL` / `SITE_DATABASE_URL`
+- **Task 11 完成后中心库 43 张 R.83.1+R.83.2 表 SH01 站点有真实数据 rowCount > 0**(不再是 mock)
+
+**审计**: `docs/database-analysis/sprint-r83.3-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash
