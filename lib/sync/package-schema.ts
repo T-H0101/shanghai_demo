@@ -16,6 +16,7 @@ export type TableLogStatus = 'success' | 'failed' | 'skipped' | 'duplicated'
  * Sprint 2E.2: 扩展到 13 张 (含 tbl_user / tbl_site / tbl_platform)
  * R.83.1: 扩展到 28 张 (部门/项目/接收单 15 张)
  * R.83.2: 扩展到 43 张 (RBAC + 字典 + 日志 + 凭据 15 张)
+ * R.83.3: 扩展到 58 张 (检查巡检族 15 张)
  * 严禁加入 tbl_file / tbl_folder
  */
 export const ALLOWED_PACKAGE_TABLES = [
@@ -64,6 +65,22 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_platform_type',
   'tbl_credible_prove',
   'tbl_credible_verify',
+  // R.83.3 检查巡检族 15 张
+  'tbl_check_category',
+  'tbl_check_sub_category',
+  'tbl_check_item',
+  'tbl_check_sector',
+  'tbl_check_template',
+  'tbl_check_task',
+  'tbl_check_task_item',
+  'tbl_check_task_file',
+  'tbl_check_file',
+  'tbl_check_files',
+  'tbl_check_log',
+  'tbl_check_patrol_strategy',
+  'tbl_check_patrol_task',
+  'tbl_check_patrol_task_item',
+  'tbl_check_patrol_log',
 ] as const
 export type AllowedPackageTable = (typeof ALLOWED_PACKAGE_TABLES)[number]
 
