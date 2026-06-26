@@ -37,7 +37,8 @@ export interface IngestPgDumpResult {
   rejected: { tableName: string; reason: string }[]
 }
 
-const TABLE_MAPPING: Record<DumpAllowedTable, string | null> = {
+const TABLE_MAPPING: Record<DumpAllowedTable, string> = {
+  // Sprint 2E.2 baseline (13)
   tbl_task: "tbl_task",
   tbl_disc_lib: "tbl_disc_lib",
   tbl_magzines: "tbl_magzines",
@@ -51,6 +52,54 @@ const TABLE_MAPPING: Record<DumpAllowedTable, string | null> = {
   tbl_user: "tbl_user",
   tbl_site: "tbl_site",
   tbl_platform: "tbl_platform",
+  // R.83.1 部门/项目/任务接收单 15 张
+  tbl_user_role: "tbl_user_role",
+  tbl_depa: "tbl_depa",
+  tbl_workspace: "tbl_workspace",
+  tbl_workspace_user: "tbl_workspace_user",
+  tbl_depa_user: "tbl_depa_user",
+  tbl_depa_user_info: "tbl_depa_user_info",
+  tbl_project: "tbl_project",
+  tbl_project_site: "tbl_project_site",
+  tbl_task_projects: "tbl_task_projects",
+  tbl_task_receipts: "tbl_task_receipts",
+  tbl_task_files: "tbl_task_files",
+  tbl_task_check: "tbl_task_check",
+  tbl_receipt: "tbl_receipt",
+  tbl_receipt_check: "tbl_receipt_check",
+  tbl_receipt_file: "tbl_receipt_file",
+  // R.83.2 RBAC + 字典 + 日志 + 凭据 15 张
+  tbl_role: "tbl_role",
+  tbl_role_fuc: "tbl_role_fuc",
+  tbl_fuc: "tbl_fuc",
+  tbl_dict_category: "tbl_dict_category",
+  tbl_dict: "tbl_dict",
+  tbl_dict_item: "tbl_dict_item",
+  tbl_sys_log: "tbl_sys_log",
+  tbl_api_log: "tbl_api_log",
+  tbl_api_interface: "tbl_api_interface",
+  tbl_user_mfa: "tbl_user_mfa",
+  tbl_archives_type: "tbl_archives_type",
+  tbl_archives_level: "tbl_archives_level",
+  tbl_platform_type: "tbl_platform_type",
+  tbl_credible_prove: "tbl_credible_prove",
+  tbl_credible_verify: "tbl_credible_verify",
+  // R.83.3 检查巡检族 15 张
+  tbl_check_category: "tbl_check_category",
+  tbl_check_sub_category: "tbl_check_sub_category",
+  tbl_check_item: "tbl_check_item",
+  tbl_check_sector: "tbl_check_sector",
+  tbl_check_template: "tbl_check_template",
+  tbl_check_task: "tbl_check_task",
+  tbl_check_task_item: "tbl_check_task_item",
+  tbl_check_task_file: "tbl_check_task_file",
+  tbl_check_file: "tbl_check_file",
+  tbl_check_files: "tbl_check_files",
+  tbl_check_log: "tbl_check_log",
+  tbl_check_patrol_strategy: "tbl_check_patrol_strategy",
+  tbl_check_patrol_task: "tbl_check_patrol_task",
+  tbl_check_patrol_task_item: "tbl_check_patrol_task_item",
+  tbl_check_patrol_log: "tbl_check_patrol_log",
 }
 
 export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDumpResult> {

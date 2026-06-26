@@ -5,9 +5,14 @@
  * Whitelist of tables that may be ingested from a pg_dump table_backup.sql.
  * Hash/cipher fields may be carried through as source ciphertext, but must
  * never be decoded or logged as secrets.
+ *
+ * R.83.1 / R.83.2 / R.83.3: extend whitelist to 58 tables so the dump
+ * path mirrors the JSON package path coverage. Forbidden tables
+ * (tbl_file, tbl_folder) remain blocked.
  */
 
 export const DUMP_ALLOWED_TABLES = [
+  // Sprint 2E.2 baseline (13)
   "tbl_task",
   "tbl_disc_lib",
   "tbl_magzines",
@@ -21,6 +26,54 @@ export const DUMP_ALLOWED_TABLES = [
   "tbl_user",
   "tbl_site",
   "tbl_platform",
+  // R.83.1 部门/项目/任务接收单 15 张
+  "tbl_user_role",
+  "tbl_depa",
+  "tbl_workspace",
+  "tbl_workspace_user",
+  "tbl_depa_user",
+  "tbl_depa_user_info",
+  "tbl_project",
+  "tbl_project_site",
+  "tbl_task_projects",
+  "tbl_task_receipts",
+  "tbl_task_files",
+  "tbl_task_check",
+  "tbl_receipt",
+  "tbl_receipt_check",
+  "tbl_receipt_file",
+  // R.83.2 RBAC + 字典 + 日志 + 凭据 15 张
+  "tbl_role",
+  "tbl_role_fuc",
+  "tbl_fuc",
+  "tbl_dict_category",
+  "tbl_dict",
+  "tbl_dict_item",
+  "tbl_sys_log",
+  "tbl_api_log",
+  "tbl_api_interface",
+  "tbl_user_mfa",
+  "tbl_archives_type",
+  "tbl_archives_level",
+  "tbl_platform_type",
+  "tbl_credible_prove",
+  "tbl_credible_verify",
+  // R.83.3 检查巡检族 15 张
+  "tbl_check_category",
+  "tbl_check_sub_category",
+  "tbl_check_item",
+  "tbl_check_sector",
+  "tbl_check_template",
+  "tbl_check_task",
+  "tbl_check_task_item",
+  "tbl_check_task_file",
+  "tbl_check_file",
+  "tbl_check_files",
+  "tbl_check_log",
+  "tbl_check_patrol_strategy",
+  "tbl_check_patrol_task",
+  "tbl_check_patrol_task_item",
+  "tbl_check_patrol_log",
 ] as const
 
 export const DUMP_FORBIDDEN_TABLES = ["tbl_file", "tbl_folder"] as const
