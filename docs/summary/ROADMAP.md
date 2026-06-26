@@ -878,3 +878,16 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] README §5.3.7
 - [x] **Task 11 真实端到端同步验证**:点击"立即同步"按钮 → dump-now 链路 → 中心库 rowCount > 0(下一任务)
 - [ ] 剩余 83 张 `R.83.4+` 业务表待推
+
+### R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张业务表接入 + 多站点真同步验证 (2026-06-26 完成)
+
+- [x] 中心库 `unified_*` 58 → 75 张(15 张业务族:volume/schedule/register/interface_task/hot_backup/hot_restore/device/driver/raid/hd_manager 等)
+- [x] `ALLOWED_PACKAGE_TABLES` 58 → 73 + `DUMP_ALLOWED_TABLES` 58 → 73
+- [x] 15 个新 dispatcher handler
+- [x] 2 个 CRUD API:`/api/volume/storage` + `/api/schedule/ops`
+- [x] `/check` 加 2 Tabs(存储卷 / 调度运维)共 7 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.4 范围(positions 58-72)+ 桶分布 83 → 68
+- [x] legacy `unified_drivers` 命名冲突透明披露 → rename 为 `_legacy` 后重建
+- [x] **多站点真同步验证**(SH01 + BJ02 + UNIQUE(source_site_id, source_record_id) 隔离)— SH01 803 rows / BJ02 47 rows
+- [x] README §5.3.8
+- [ ] 剩余 68 张 `R.83.5+` 业务表待推

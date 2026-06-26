@@ -598,6 +598,44 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.3-requirements-review.md`
 
+#### §5.3.8 R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 60 张扩到 75 张,新增 2 个 CRUD API,`/check` 加 2 个 Tabs(共 7 Tabs),**新增多站点真同步验证**(SH01 + BJ02 独立数据 + UNIQUE 约束隔离)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.4/01-storage-schedule-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 58→73(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 58→73(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 2 个 CRUD API:`/api/volume/storage` + `/api/schedule/ops`
+- `/check` 新增 2 个 Tabs:`存储卷` + `调度运维`(复用现有布局,不新建页面)
+- 多站点真同步验证:`scripts/sync/real-e2e-multi-site-test.ts`(Playwright 真实点击 SH01 + SECONDARY 站 API 验证 + UNIQUE 约束隔离校验)
+- audit matrix round 字段加 R.83.4 范围(positions 58-72)+ 桶分布表更新(83 → 68)
+
+**关键修复**:R.83.4 发现 legacy `unified_drivers` 表(R.83.1 之前 schema,`source_id` 而非 `source_record_id`),rename 为 `unified_drivers_legacy` 后按 R.83.4 标准重建。**这印证了"总控不只照搬源库"的约束** — 中心库用统一 schema,源库差异不影响多站点数据隔离。
+
+**多站点隔离验证**:
+- PRIMARY_SITE(SH01):803 rows / 73 tables / 12 tables with data
+- SECONDARY_SITE(BJ02):47 rows / 60 tables 空数据(SH01 数据未受影响)
+- 4 张表同时有 SH01 + BJ02 数据(`unified_tasks` 82+38、`unified_devices` 4+5 等) — **UNIQUE(source_site_id, source_record_id) 保证不互冲**
+
+**测试**:
+- `pnpm test:r83.4-whitelist`(11 checks)
+- `pnpm test:r83.4-api`(12 checks)
+- `pnpm test:r83.4-ui`(26 checks)
+- `pnpm test:matrix-round`(18 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 75)
+- `pnpm test:r83.4-e2e`(多站点真同步)
+
+**不变量**:
+- `unified_*` ≥ 75
+- ALLOWED_PACKAGE_TABLES = 73
+- DUMP_ALLOWED_TABLES = 73
+- 任何 `app/api/volume/**` `/api/schedule/**` 不引用 restore 库
+- 多站点 UNIQUE 隔离有效
+
+**审计**: `docs/database-analysis/sprint-r83.4-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash

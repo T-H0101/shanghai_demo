@@ -53,6 +53,28 @@
 
 **已知遗留**:`Task 11 真实点击同步`与 requirements review 是下一个任务,Task 11 是 R.83.3 与之前 Sprint 最大的差异。
 
+## Sprint R.83.4 — 存储卷 + 调度/接口 + 设备业务族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 60 → 75 张,新增 tbl_volume_* + tbl_schedule_* + tbl_register_* + tbl_interface_task + tbl_hot_backup/restore + tbl_device_device + tbl_drivers + tbl_raid_group + tbl_hd_manager,落地 2 API + 2 Tabs,**新增多站点真同步验证**。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.4/01-storage-schedule-tables.sql`)— Task 1+2,commits `9d4f0f8` `c1125e8`
+- Legacy `unified_drivers` rename 为 `_legacy`,按 R.83.4 标准重建(透明披露的命名冲突修复)
+- 白名单 58→73 + self-check + R.83.3 sanity fix — Task 3+fix,commits `1ef0153` `4b40381` `947cd75`
+- 15 个新 dispatcher handler — Task 4,commit `35d94d7`
+- 2 个 CRUD API(`/api/volume/storage` + `/api/schedule/ops`)+ self-check — Task 5,commit `4608517`
+- /check 加 2 Tabs(存储卷 + 调度运维)共 7 tabs(复用,不新建页) — Task 6,commit `2e0a318`
+- audit matrix round R.83.4 + 桶分布 83→68 — Task 7+8,commits `2e74ace` `f95056e`
+- 多站点真同步(SH01 + BJ02 + UNIQUE 隔离验证)— Task 9,commit `d1bde21`
+
+**关键修复**:
+1. R.83.4 早期 plan 误判命名冲突,经用户提醒"总控不是只照搬"后,修正 `unified_drivers` legacy 命名,符合多站点隔离原则
+2. R.83.3 sanity check 的 `=== 58` 字面量与 R.83.4 后 `length=73` 冲突,改为 `>= 58`
+
+**测试结果**:tsc clean, smoke pass, whitelist 11/11, api 12/12, ui 26/26, matrix 18/18, audit 0 fail, e2e 多站点真同步 PASS。
+
+**审计**: `docs/database-analysis/sprint-r83.4-requirements-review.md`
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引
