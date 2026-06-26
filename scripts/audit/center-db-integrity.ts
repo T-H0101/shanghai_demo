@@ -288,6 +288,7 @@ async function main() {
         if (i < 13) ROUND_BY_SOURCE[src] = "already"
         else if (i < 28) ROUND_BY_SOURCE[src] = "R.83.1"
         else if (i < 43) ROUND_BY_SOURCE[src] = "R.83.2"
+        else if (i < 58) ROUND_BY_SOURCE[src] = "R.83.3"
       })
 
       // Map each known unified_* table to its canonical singular source table
@@ -309,6 +310,10 @@ async function main() {
         unified_dict_categories: "tbl_dict_category",
         unified_credible_verifies: "tbl_credible_verify",
         unified_dict_items: "tbl_dict_item",
+        // R.83.3 irregular check_* plurals
+        unified_check_categories: "tbl_check_category",
+        unified_check_sub_categories: "tbl_check_sub_category",
+        unified_check_patrol_strategies: "tbl_check_patrol_strategy",
       }
       for (const [u, s] of Object.entries(IRREGULAR_UNIFIED_TO_SOURCE)) {
         UNIFIED_TO_SOURCE[u] = s
@@ -329,7 +334,7 @@ async function main() {
 
       const entries = unified.map((t) => {
         const src = UNIFIED_TO_SOURCE[t] ?? t.replace(/^unified_/, "tbl_")
-        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.3+"
+        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.4+"
         return {
           unified_table: t,
           source_table: src,
