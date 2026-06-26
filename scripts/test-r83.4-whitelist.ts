@@ -131,11 +131,11 @@ function check(name: string, condition: boolean, detail?: string) {
 console.log('R.83.4 Whitelist Self-Check')
 console.log('===========================\n')
 
-// 1. 总长度 === 73
+// 1. 总长度 ≥ 73 (R.83.5 已扩到 88,本测试只保证 R.83.4 之后的最小集)
 check(
-  'ALLOWED_PACKAGE_TABLES.length === 73',
-  ALLOWED_PACKAGE_TABLES.length === 73,
-  `actual=${ALLOWED_PACKAGE_TABLES.length} (expected 13+15+15+15+15=73)`
+  'ALLOWED_PACKAGE_TABLES.length >= 73 (R.83.4 baseline)',
+  ALLOWED_PACKAGE_TABLES.length >= 73,
+  `actual=${ALLOWED_PACKAGE_TABLES.length} (expected >=73; 后续 sprint 可能扩大)`
 )
 
 // 2. 15 R.83.4 表全部存在
@@ -219,16 +219,16 @@ check(
   `actual=[${tail.join(',')}] expected=[${expectedTail.join(',')}]`
 )
 
-// 11. 健全性: 13 + 15 + 15 + 15 + 15 === 当前实际长度
+// 11. 健全性: 13 + 15*4 = 当前基础集合,后续 sprint 可扩大但应 >= 73
 check(
-  'sanity: 13 original + 15 R.83.1 + 15 R.83.2 + 15 R.83.3 + 15 R.83.4 = actual length',
-  ORIGINAL_TABLES.length +
-    R831_TABLES.length +
-    R832_TABLES.length +
-    R833_TABLES.length +
-    R834_TABLES.length ===
-    ALLOWED_PACKAGE_TABLES.length,
-  `expected=${
+  'sanity: R.83.4 baseline (13+15*4) <= actual length',
+  ALLOWED_PACKAGE_TABLES.length >=
+    ORIGINAL_TABLES.length +
+      R831_TABLES.length +
+      R832_TABLES.length +
+      R833_TABLES.length +
+      R834_TABLES.length,
+  `expected >=${
     ORIGINAL_TABLES.length +
     R831_TABLES.length +
     R832_TABLES.length +

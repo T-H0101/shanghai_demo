@@ -1313,6 +1313,221 @@ async function dispatchHdManager(input: DispatchInput): Promise<DispatchResult> 
 }
 
 // ============================================================
+// R.83.5 数据接收 + 告警 + 媒体族 15 张 — inline UPSERT
+// 全部走 source_record_id 溯源
+// ============================================================
+
+async function dispatchDataReceiveList(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_data_receive_lists', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_list_id' },
+      { source: 'list_name', target: 'list_name' },
+      { source: 'description', target: 'description' },
+      { source: 'total_count', target: 'total_count' },
+      { source: 'status', target: 'status' },
+      { source: 'received_at', target: 'received_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchDataReceiveLog(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_data_receive_logs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_log_id' },
+      { source: 'list_id', target: 'list_id' },
+      { source: 'log_level', target: 'log_level' },
+      { source: 'message', target: 'message' },
+      { source: 'logged_at', target: 'logged_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchDataReceiveTask(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_data_receive_tasks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_task_id' },
+      { source: 'list_id', target: 'list_id' },
+      { source: 'task_type', target: 'task_type' },
+      { source: 'status', target: 'status' },
+      { source: 'started_at', target: 'started_at' },
+      { source: 'finished_at', target: 'finished_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchDataClassification(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_data_classifications', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_classification_id' },
+      { source: 'classification_code', target: 'classification_code' },
+      { source: 'classification_name', target: 'classification_name' },
+      { source: 'level', target: 'level' },
+      { source: 'description', target: 'description' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchEarlyWarning(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_early_warnings', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_warning_id' },
+      { source: 'warning_type', target: 'warning_type' },
+      { source: 'warning_level', target: 'warning_level' },
+      { source: 'message', target: 'message' },
+      { source: 'triggered_at', target: 'triggered_at' },
+      { source: 'resolved_at', target: 'resolved_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchEarlyWarningFeedback(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_early_warning_feedbacks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_feedback_id' },
+      { source: 'warning_id', target: 'warning_id' },
+      { source: 'feedback_type', target: 'feedback_type' },
+      { source: 'feedback_text', target: 'feedback_text' },
+      { source: 'feedback_at', target: 'feedback_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchDiscPrint(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_disc_prints', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_print_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'print_status', target: 'print_status' },
+      { source: 'printed_count', target: 'printed_count' },
+      { source: 'printed_at', target: 'printed_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchDiscInspect(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_disc_inspects', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_inspect_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'inspect_status', target: 'inspect_status' },
+      { source: 'inspect_result', target: 'inspect_result' },
+      { source: 'inspected_at', target: 'inspected_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchDiscType(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_disc_types', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_type_id' },
+      { source: 'type_code', target: 'type_code' },
+      { source: 'type_name', target: 'type_name' },
+      { source: 'capacity_mb', target: 'capacity_mb' },
+      { source: 'description', target: 'description' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchEvidenceDetail(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_evidence_details', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_detail_id' },
+      { source: 'evidence_type', target: 'evidence_type' },
+      { source: 'detail_content', target: 'detail_content' },
+      { source: 'detail_at', target: 'detail_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchEvidenceRecordDrp(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_evidence_record_drps', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_record_id' },
+      { source: 'detail_id', target: 'detail_id' },
+      { source: 'record_type', target: 'record_type' },
+      { source: 'drp_status', target: 'drp_status' },
+      { source: 'recorded_at', target: 'recorded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchVerifyDetail(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_verify_details', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_verify_id' },
+      { source: 'detail_content', target: 'detail_content' },
+      { source: 'verify_result', target: 'verify_result' },
+      { source: 'verified_at', target: 'verified_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchVerifyRecordDrp(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_verify_record_drps', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_record_id' },
+      { source: 'verify_id', target: 'verify_id' },
+      { source: 'drp_result', target: 'drp_result' },
+      { source: 'recorded_at', target: 'recorded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchDownloadRecord(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_download_records', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_record_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'downloaded_at', target: 'downloaded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+async function dispatchUploadRecord(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_upload_records', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_record_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'uploaded_at', target: 'uploaded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -1575,6 +1790,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_drivers_burn: dispatchDriverBurn,
   tbl_raid_group: dispatchRaidGroup,
   tbl_hd_manager: dispatchHdManager,
+  // R.83.5 数据接收 + 告警 + 媒体族 15 张
+  tbl_data_receive_list: dispatchDataReceiveList,
+  tbl_data_receive_log: dispatchDataReceiveLog,
+  tbl_data_receive_tasks: dispatchDataReceiveTask,
+  tbl_data_classification: dispatchDataClassification,
+  tbl_early_warning: dispatchEarlyWarning,
+  tbl_early_warning_feedback: dispatchEarlyWarningFeedback,
+  tbl_disc_print: dispatchDiscPrint,
+  tbl_disc_inspect: dispatchDiscInspect,
+  tbl_disc_type: dispatchDiscType,
+  tbl_evidence_details: dispatchEvidenceDetail,
+  tbl_evidence_record_drp: dispatchEvidenceRecordDrp,
+  tbl_verify_details: dispatchVerifyDetail,
+  tbl_verify_record_drp: dispatchVerifyRecordDrp,
+  tbl_download_record: dispatchDownloadRecord,
+  tbl_upload_record: dispatchUploadRecord,
 }
 
 /**
