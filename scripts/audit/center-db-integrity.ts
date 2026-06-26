@@ -290,7 +290,23 @@ async function main() {
         else if (i < 43) ROUND_BY_SOURCE[src] = "R.83.2"
         else if (i < 58) ROUND_BY_SOURCE[src] = "R.83.3"
         else if (i < 73) ROUND_BY_SOURCE[src] = "R.83.4"
+        else if (i < 88) ROUND_BY_SOURCE[src] = "R.83.5"
       })
+
+      // R.83.5 irregular plural / rename overrides (data + warning + media family)
+      if (ROUND_BY_SOURCE["tbl_data_receive_list"]) ROUND_BY_SOURCE["tbl_data_receive_list"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_data_receive_log"]) ROUND_BY_SOURCE["tbl_data_receive_log"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_data_receive_tasks"]) ROUND_BY_SOURCE["tbl_data_receive_tasks"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_data_classification"]) ROUND_BY_SOURCE["tbl_data_classification"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_early_warning"]) ROUND_BY_SOURCE["tbl_early_warning"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_early_warning_feedback"]) ROUND_BY_SOURCE["tbl_early_warning_feedback"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_disc_print"]) ROUND_BY_SOURCE["tbl_disc_print"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_disc_inspect"]) ROUND_BY_SOURCE["tbl_disc_inspect"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_disc_type"]) ROUND_BY_SOURCE["tbl_disc_type"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_evidence_record_drp"]) ROUND_BY_SOURCE["tbl_evidence_record_drp"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_verify_record_drp"]) ROUND_BY_SOURCE["tbl_verify_record_drp"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_download_record"]) ROUND_BY_SOURCE["tbl_download_record"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_upload_record"]) ROUND_BY_SOURCE["tbl_upload_record"] = "R.83.5"
 
       // Map each known unified_* table to its canonical singular source table
       // (as it appears in ALLOWED_PACKAGE_TABLES). Some unified names are
@@ -342,7 +358,7 @@ async function main() {
 
       const entries = unified.map((t) => {
         const src = UNIFIED_TO_SOURCE[t] ?? t.replace(/^unified_/, "tbl_")
-        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.5+"
+        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.6+"
         return {
           unified_table: t,
           source_table: src,
