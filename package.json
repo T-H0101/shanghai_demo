@@ -98,6 +98,7 @@
     "test:cleanup": "tsx scripts/cleanup/__tests__/cleanup-self-check.ts",
     "test:r83.2-whitelist": "tsx scripts/test-r83.2-whitelist.ts",
     "test:r83.3-whitelist": "tsx scripts/test-r83.3-whitelist.ts",
+    "test:r83.4-whitelist": "tsx scripts/test-r83.4-whitelist.ts",
     "test:r83.2-api": "tsx app/api/rbac/__tests__/self-check.ts",
     "test:r83.2-ui": "tsx components/rbac/__tests__/self-check.ts",
     "test:r83.3-api": "tsx app/api/check/__tests__/self-check.ts",

@@ -17,6 +17,7 @@ export type TableLogStatus = 'success' | 'failed' | 'skipped' | 'duplicated'
  * R.83.1: 扩展到 28 张 (部门/项目/接收单 15 张)
  * R.83.2: 扩展到 43 张 (RBAC + 字典 + 日志 + 凭据 15 张)
  * R.83.3: 扩展到 58 张 (检查巡检族 15 张)
+ * R.83.4: 扩展到 73 张 (存储卷 + 调度/接口 + 设备业务族 15 张)
  * 严禁加入 tbl_file / tbl_folder
  */
 export const ALLOWED_PACKAGE_TABLES = [
@@ -81,6 +82,22 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_check_patrol_task',
   'tbl_check_patrol_task_item',
   'tbl_check_patrol_log',
+  // R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张
+  'tbl_volume_group',
+  'tbl_volume_dataclass',
+  'tbl_volume_depa',
+  'tbl_volume_user',
+  'tbl_volume_workspace',
+  'tbl_schedule_job',
+  'tbl_register_management',
+  'tbl_interface_task',
+  'tbl_hot_backup_record',
+  'tbl_hot_restore_record',
+  'tbl_device_device',
+  'tbl_drivers',
+  'tbl_drivers_burn',
+  'tbl_raid_group',
+  'tbl_hd_manager',
 ] as const
 export type AllowedPackageTable = (typeof ALLOWED_PACKAGE_TABLES)[number]
 
