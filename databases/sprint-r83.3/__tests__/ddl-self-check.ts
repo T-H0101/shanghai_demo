@@ -31,8 +31,8 @@ const EXPECTED_TABLES = [
   "unified_check_task_items",
   // Second batch — Task 2 will create these (expect FAIL in this task)
   "unified_check_task_files",
-  "unified_check_files_2",
-  "unified_check_files_pl",
+  "unified_check_file",
+  "unified_check_files",
   "unified_check_logs",
   "unified_check_patrol_strategies",
   "unified_check_patrol_tasks",

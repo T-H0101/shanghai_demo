@@ -182,9 +182,8 @@ COMMENT ON COLUMN unified_check_task_files.src_task_file_id IS '自增任务文�
 CREATE INDEX IF NOT EXISTS idx_unified_check_task_files_site ON unified_check_task_files (source_site_id);
 CREATE INDEX IF NOT EXISTS idx_unified_check_task_files_raw_gin ON unified_check_task_files USING GIN (raw_data jsonb_path_ops);
 
--- 9. unified_check_files_2 ← tbl_check_file (id, 单数)
--- 命名冲突: unified_check_files 已被 R.83.1 占用
-CREATE TABLE IF NOT EXISTS unified_check_files_2 (
+-- 9. unified_check_file ← tbl_check_file (id, 单数)
+CREATE TABLE IF NOT EXISTS unified_check_file (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_file',
@@ -197,15 +196,15 @@ CREATE TABLE IF NOT EXISTS unified_check_files_2 (
   file_size BIGINT,
   uploaded_at TIMESTAMPTZ,
   raw_data JSONB DEFAULT '{}',
-  CONSTRAINT unified_check_files_2_site_record_uniq UNIQUE (source_site_id, source_record_id)
+  CONSTRAINT unified_check_file_site_record_uniq UNIQUE (source_site_id, source_record_id)
 );
-COMMENT ON TABLE unified_check_files_2 IS 'Unified mirror of source tbl_check_file (singular); suffix _2 to avoid conflict with R.83.1 unified_check_files';
-COMMENT ON COLUMN unified_check_files_2.src_check_file_id IS '自增检查文件ID(单数)';
-CREATE INDEX IF NOT EXISTS idx_unified_check_files_2_site ON unified_check_files_2 (source_site_id);
-CREATE INDEX IF NOT EXISTS idx_unified_check_files_2_raw_gin ON unified_check_files_2 USING GIN (raw_data jsonb_path_ops);
+COMMENT ON TABLE unified_check_file IS 'Unified mirror of source tbl_check_file (singular)';
+COMMENT ON COLUMN unified_check_file.src_check_file_id IS '自增检查文件ID(单数)';
+CREATE INDEX IF NOT EXISTS idx_unified_check_file_site ON unified_check_file (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_file_raw_gin ON unified_check_file USING GIN (raw_data jsonb_path_ops);
 
--- 10. unified_check_files_pl ← tbl_check_files (id, 复数)
-CREATE TABLE IF NOT EXISTS unified_check_files_pl (
+-- 10. unified_check_files ← tbl_check_files (id, 复数)
+CREATE TABLE IF NOT EXISTS unified_check_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_site_id VARCHAR(50) NOT NULL,
   source_table VARCHAR(100) NOT NULL DEFAULT 'tbl_check_files',
@@ -218,12 +217,12 @@ CREATE TABLE IF NOT EXISTS unified_check_files_pl (
   file_size BIGINT,
   uploaded_at TIMESTAMPTZ,
   raw_data JSONB DEFAULT '{}',
-  CONSTRAINT unified_check_files_pl_site_record_uniq UNIQUE (source_site_id, source_record_id)
+  CONSTRAINT unified_check_files_site_record_uniq UNIQUE (source_site_id, source_record_id)
 );
-COMMENT ON TABLE unified_check_files_pl IS 'Unified mirror of source tbl_check_files (plural); suffix _pl to avoid conflict with R.83.1 unified_check_files';
-COMMENT ON COLUMN unified_check_files_pl.src_check_file_id IS '自增检查文件ID(复数)';
-CREATE INDEX IF NOT EXISTS idx_unified_check_files_pl_site ON unified_check_files_pl (source_site_id);
-CREATE INDEX IF NOT EXISTS idx_unified_check_files_pl_raw_gin ON unified_check_files_pl USING GIN (raw_data jsonb_path_ops);
+COMMENT ON TABLE unified_check_files IS 'Unified mirror of source tbl_check_files (plural)';
+COMMENT ON COLUMN unified_check_files.src_check_file_id IS '自增检查文件ID(复数)';
+CREATE INDEX IF NOT EXISTS idx_unified_check_files_site ON unified_check_files (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_check_files_raw_gin ON unified_check_files USING GIN (raw_data jsonb_path_ops);
 
 -- 11. unified_check_logs ← tbl_check_log (id)
 CREATE TABLE IF NOT EXISTS unified_check_logs (
