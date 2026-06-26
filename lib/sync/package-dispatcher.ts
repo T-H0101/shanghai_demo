@@ -1077,6 +1077,242 @@ async function dispatchCheckPatrolLog(input: DispatchInput): Promise<DispatchRes
 }
 
 // ============================================================
+// R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张 — inline UPSERT
+// 全部走 source_record_id 溯源
+// ============================================================
+
+// tbl_volume_group (id)
+async function dispatchVolumeGroup(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_volume_groups', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_group_id' },
+      { source: 'group_name', target: 'group_name' },
+      { source: 'description', target: 'description' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_volume_dataclass (id)
+async function dispatchVolumeDataclass(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_volume_dataclasses', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_dataclass_id' },
+      { source: 'class_name', target: 'class_name' },
+      { source: 'retention_days', target: 'retention_days' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_volume_depa (id)
+async function dispatchVolumeDepa(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_volume_depas', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_depa_id' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'depa_id', target: 'depa_id' },
+      { source: 'permission', target: 'permission' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_volume_user (id)
+async function dispatchVolumeUser(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_volume_users', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_user_id' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'permission', target: 'permission' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_volume_workspace (id)
+async function dispatchVolumeWorkspace(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_volume_workspaces', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_workspace_id' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'workspace_id', target: 'workspace_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_schedule_job (id)
+async function dispatchScheduleJob(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_schedule_jobs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_job_id' },
+      { source: 'job_name', target: 'job_name' },
+      { source: 'cron_expression', target: 'cron_expression' },
+      { source: 'job_class', target: 'job_class' },
+      { source: 'enabled', target: 'enabled' },
+      { source: 'last_run_at', target: 'last_run_at' },
+      { source: 'next_run_at', target: 'next_run_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_register_management (id)
+async function dispatchRegisterManagement(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_register_managements', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_register_id' },
+      { source: 'register_type', target: 'register_type' },
+      { source: 'register_name', target: 'register_name' },
+      { source: 'registered_at', target: 'registered_at' },
+      { source: 'expires_at', target: 'expires_at' },
+      { source: 'status', target: 'status' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_interface_task (id)
+async function dispatchInterfaceTask(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_interface_tasks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_task_id' },
+      { source: 'interface_code', target: 'interface_code' },
+      { source: 'task_type', target: 'task_type' },
+      { source: 'request_payload', target: 'request_payload' },
+      { source: 'response_payload', target: 'response_payload' },
+      { source: 'status', target: 'status' },
+      { source: 'started_at', target: 'started_at' },
+      { source: 'finished_at', target: 'finished_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_hot_backup_record (id)
+async function dispatchHotBackupRecord(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_hot_backup_records', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_record_id' },
+      { source: 'target_volume_id', target: 'target_volume_id' },
+      { source: 'backup_type', target: 'backup_type' },
+      { source: 'status', target: 'status' },
+      { source: 'started_at', target: 'started_at' },
+      { source: 'finished_at', target: 'finished_at' },
+      { source: 'file_count', target: 'file_count' },
+      { source: 'total_size', target: 'total_size' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_hot_restore_record (id)
+async function dispatchHotRestoreRecord(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_hot_restore_records', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_record_id' },
+      { source: 'source_backup_id', target: 'source_backup_id' },
+      { source: 'target_path', target: 'target_path' },
+      { source: 'status', target: 'status' },
+      { source: 'started_at', target: 'started_at' },
+      { source: 'finished_at', target: 'finished_at' },
+      { source: 'file_count', target: 'file_count' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_device_device (id)
+async function dispatchDeviceDevice(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_device_devices', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_device_id' },
+      { source: 'device_name', target: 'device_name' },
+      { source: 'device_type', target: 'device_type' },
+      { source: 'device_sn', target: 'device_sn' },
+      { source: 'status', target: 'status' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_drivers (id)
+async function dispatchDriver(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_drivers', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_driver_id' },
+      { source: 'driver_name', target: 'driver_name' },
+      { source: 'driver_version', target: 'driver_version' },
+      { source: 'device_type', target: 'device_type' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_drivers_burn (id, plural)
+async function dispatchDriverBurn(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_drivers_burns', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_burn_id' },
+      { source: 'driver_id', target: 'driver_id' },
+      { source: 'device_id', target: 'device_id' },
+      { source: 'status', target: 'status' },
+      { source: 'started_at', target: 'started_at' },
+      { source: 'finished_at', target: 'finished_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_raid_group (id)
+async function dispatchRaidGroup(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_raid_groups', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_raid_id' },
+      { source: 'raid_level', target: 'raid_level' },
+      { source: 'device_count', target: 'device_count' },
+      { source: 'total_capacity', target: 'total_capacity' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_hd_manager (id)
+async function dispatchHdManager(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_hd_managers', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_manager_id' },
+      { source: 'manager_name', target: 'manager_name' },
+      { source: 'device_count', target: 'device_count' },
+      { source: 'total_capacity', target: 'total_capacity' },
+      { source: 'used_capacity', target: 'used_capacity' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -1323,6 +1559,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_check_patrol_task: dispatchCheckPatrolTask,
   tbl_check_patrol_task_item: dispatchCheckPatrolTaskItem,
   tbl_check_patrol_log: dispatchCheckPatrolLog,
+  // R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张
+  tbl_volume_group: dispatchVolumeGroup,
+  tbl_volume_dataclass: dispatchVolumeDataclass,
+  tbl_volume_depa: dispatchVolumeDepa,
+  tbl_volume_user: dispatchVolumeUser,
+  tbl_volume_workspace: dispatchVolumeWorkspace,
+  tbl_schedule_job: dispatchScheduleJob,
+  tbl_register_management: dispatchRegisterManagement,
+  tbl_interface_task: dispatchInterfaceTask,
+  tbl_hot_backup_record: dispatchHotBackupRecord,
+  tbl_hot_restore_record: dispatchHotRestoreRecord,
+  tbl_device_device: dispatchDeviceDevice,
+  tbl_drivers: dispatchDriver,
+  tbl_drivers_burn: dispatchDriverBurn,
+  tbl_raid_group: dispatchRaidGroup,
+  tbl_hd_manager: dispatchHdManager,
 }
 
 /**
