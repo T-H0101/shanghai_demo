@@ -98,6 +98,22 @@ const TABLE_MAPPING: Array<{ src: string; unified: string }> = [
   { src: "tbl_drivers_burn", unified: "unified_drivers_burns" },
   { src: "tbl_raid_group", unified: "unified_raid_groups" },
   { src: "tbl_hd_manager", unified: "unified_hd_managers" },
+  // R.83.5 (15) — 数据接收 + 告警 + 媒体族
+  { src: "tbl_data_receive_list", unified: "unified_data_receive_lists" },
+  { src: "tbl_data_receive_log", unified: "unified_data_receive_logs" },
+  { src: "tbl_data_receive_tasks", unified: "unified_data_receive_tasks" },
+  { src: "tbl_data_classification", unified: "unified_data_classifications" },
+  { src: "tbl_early_warning", unified: "unified_early_warnings" },
+  { src: "tbl_early_warning_feedback", unified: "unified_early_warning_feedbacks" },
+  { src: "tbl_disc_print", unified: "unified_disc_prints" },
+  { src: "tbl_disc_inspect", unified: "unified_disc_inspects" },
+  { src: "tbl_disc_type", unified: "unified_disc_types" },
+  { src: "tbl_evidence_details", unified: "unified_evidence_details" },
+  { src: "tbl_evidence_record_drp", unified: "unified_evidence_record_drps" },
+  { src: "tbl_verify_details", unified: "unified_verify_details" },
+  { src: "tbl_verify_record_drp", unified: "unified_verify_record_drps" },
+  { src: "tbl_download_record", unified: "unified_download_records" },
+  { src: "tbl_upload_record", unified: "unified_upload_records" },
 ]
 
 async function snapshotRows(client: Client, siteCode: string): Promise<Record<string, number>> {

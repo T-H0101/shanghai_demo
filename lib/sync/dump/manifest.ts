@@ -10,6 +10,7 @@
  * path mirrors the JSON package path coverage. Forbidden tables
  * (tbl_file, tbl_folder) remain blocked.
  * R.83.4: extend whitelist to 73 tables (存储卷 + 调度/接口 + 设备业务族 15 张)
+ * R.83.5: extend whitelist to 88 tables (数据接收 + 告警 + 媒体族 15 张)
  */
 
 export const DUMP_ALLOWED_TABLES = [
@@ -91,6 +92,22 @@ export const DUMP_ALLOWED_TABLES = [
   "tbl_drivers_burn",
   "tbl_raid_group",
   "tbl_hd_manager",
+  // R.83.5 数据接收 + 告警 + 媒体族 15 张
+  "tbl_data_receive_list",
+  "tbl_data_receive_log",
+  "tbl_data_receive_tasks",
+  "tbl_data_classification",
+  "tbl_early_warning",
+  "tbl_early_warning_feedback",
+  "tbl_disc_print",
+  "tbl_disc_inspect",
+  "tbl_disc_type",
+  "tbl_evidence_details",
+  "tbl_evidence_record_drp",
+  "tbl_verify_details",
+  "tbl_verify_record_drp",
+  "tbl_download_record",
+  "tbl_upload_record",
 ] as const
 
 export const DUMP_FORBIDDEN_TABLES = ["tbl_file", "tbl_folder"] as const

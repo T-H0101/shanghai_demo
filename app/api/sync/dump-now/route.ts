@@ -39,6 +39,13 @@ const ALLOWED_PACKAGE_TABLES = [
   "tbl_schedule_job", "tbl_register_management", "tbl_interface_task",
   "tbl_hot_backup_record", "tbl_hot_restore_record",
   "tbl_device_device", "tbl_drivers", "tbl_drivers_burn", "tbl_raid_group", "tbl_hd_manager",
+  // R.83.5 数据接收 + 告警 + 媒体族 15 张
+  "tbl_data_receive_list", "tbl_data_receive_log", "tbl_data_receive_tasks",
+  "tbl_data_classification", "tbl_early_warning", "tbl_early_warning_feedback",
+  "tbl_disc_print", "tbl_disc_inspect", "tbl_disc_type",
+  "tbl_evidence_details", "tbl_evidence_record_drp",
+  "tbl_verify_details", "tbl_verify_record_drp",
+  "tbl_download_record", "tbl_upload_record",
 ]
 
 function srcToUnified(src: string): string {
@@ -100,6 +107,22 @@ function srcToUnified(src: string): string {
   if (src === "tbl_drivers_burn") u = "unified_drivers_burns"
   if (src === "tbl_raid_group") u = "unified_raid_groups"
   if (src === "tbl_hd_manager") u = "unified_hd_managers"
+  // R.83.5 数据接收 + 告警 + 媒体族 15 张
+  if (src === "tbl_data_receive_list") u = "unified_data_receive_lists"
+  if (src === "tbl_data_receive_log") u = "unified_data_receive_logs"
+  if (src === "tbl_data_receive_tasks") u = "unified_data_receive_tasks"
+  if (src === "tbl_data_classification") u = "unified_data_classifications"
+  if (src === "tbl_early_warning") u = "unified_early_warnings"
+  if (src === "tbl_early_warning_feedback") u = "unified_early_warning_feedbacks"
+  if (src === "tbl_disc_print") u = "unified_disc_prints"
+  if (src === "tbl_disc_inspect") u = "unified_disc_inspects"
+  if (src === "tbl_disc_type") u = "unified_disc_types"
+  if (src === "tbl_evidence_details") u = "unified_evidence_details"
+  if (src === "tbl_evidence_record_drp") u = "unified_evidence_record_drps"
+  if (src === "tbl_verify_details") u = "unified_verify_details"
+  if (src === "tbl_verify_record_drp") u = "unified_verify_record_drps"
+  if (src === "tbl_download_record") u = "unified_download_records"
+  if (src === "tbl_upload_record") u = "unified_upload_records"
   return u
 }
 

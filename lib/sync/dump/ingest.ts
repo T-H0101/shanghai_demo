@@ -116,6 +116,22 @@ const TABLE_MAPPING: Record<DumpAllowedTable, string> = {
   tbl_drivers_burn: "tbl_drivers_burn",
   tbl_raid_group: "tbl_raid_group",
   tbl_hd_manager: "tbl_hd_manager",
+  // R.83.5 数据接收 + 告警 + 媒体族 15 张
+  tbl_data_receive_list: "tbl_data_receive_list",
+  tbl_data_receive_log: "tbl_data_receive_log",
+  tbl_data_receive_tasks: "tbl_data_receive_tasks",
+  tbl_data_classification: "tbl_data_classification",
+  tbl_early_warning: "tbl_early_warning",
+  tbl_early_warning_feedback: "tbl_early_warning_feedback",
+  tbl_disc_print: "tbl_disc_print",
+  tbl_disc_inspect: "tbl_disc_inspect",
+  tbl_disc_type: "tbl_disc_type",
+  tbl_evidence_details: "tbl_evidence_details",
+  tbl_evidence_record_drp: "tbl_evidence_record_drp",
+  tbl_verify_details: "tbl_verify_details",
+  tbl_verify_record_drp: "tbl_verify_record_drp",
+  tbl_download_record: "tbl_download_record",
+  tbl_upload_record: "tbl_upload_record",
 }
 
 export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDumpResult> {
