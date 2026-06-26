@@ -91,9 +91,11 @@ console.log('R.83.2 Whitelist Self-Check')
 console.log('===========================\n')
 
 // 1. 总长度 === 43
+//    注: R.83.3 扩展后实际是 58, 此测试在 R.83.3 之后必失败 (by design — R.83.2 锁定历史基线)
+//    用 Number() 强制打破 TS literal type narrowing, 让脚本能在 R.83.3+ 继续 tsx 跑出预期 FAIL
 check(
   'ALLOWED_PACKAGE_TABLES.length === 43',
-  ALLOWED_PACKAGE_TABLES.length === 43,
+  Number(ALLOWED_PACKAGE_TABLES.length) === 43,
   `actual=${ALLOWED_PACKAGE_TABLES.length} (expected 13+15+15=43)`
 )
 
