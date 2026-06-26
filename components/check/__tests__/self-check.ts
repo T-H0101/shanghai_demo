@@ -1,21 +1,23 @@
 /**
- * Sprint R.83.3 Task 6 — /check page UI self-check
+ * Sprint R.83.4 Task 6 — /check page UI self-check (extends R.83.3 Task 6)
  *
  * Verifies:
- *   - /check page renders 5 tab triggers (概览/检查分类/检查任务/巡检策略/日志)
+ *   - /check page renders 7 tab triggers
+ *     (概览/检查分类/检查任务/巡检策略/日志/存储卷/调度运维)
  *   - 2 check API endpoints return 200 with envelope { code: 0, data: { items, total, sourceTables } }
+ *   - 2 new R.83.4 API endpoints (volume/storage, schedule/ops) return 200 with same envelope
  *   - 3 forbidden patterns are absent from components/check/:
  *       SOURCE_DATABASE_URL, SITE_DATABASE_URL, site_restore_full
  *   - 5 misleading copy terms are absent from components/check/:
  *       已禁用 / 已暂停 / 已修复 / 控制成功 / 暂停成功
  *
- * Total checks (≥15):
- *   a) HTTP /check page (browser-rendered)  5
- *   b) API smoke                            2
- *   c) Tab structure (browser-rendered)     5 (the same 5 tab labels above)
- *   d) No restore DB refs                   3
- *   e) No misleading copy                   5
- *                                                  = 20
+ * Total checks (≥25):
+ *   a) HTTP /check page (browser-rendered)         7
+ *   b) API smoke (4 endpoints)                    4
+ *   c) Tab structure (browser-rendered)           7 (the same 7 tab labels)
+ *   d) No restore DB refs                         3
+ *   e) No misleading copy                         5
+ *                                                  = 26
  *
  * Usage:
  *   pnpm exec tsx components/check/__tests__/self-check.ts
@@ -168,15 +170,30 @@ async function main() {
       // continue; checks below will fail
     }
 
-    // a) HTML content / tab label present (5)
-    const requiredLabels = ["检查分类", "检查任务", "巡检策略", "日志"]
+    // a) HTML content / tab label present (7)
+    const requiredLabels = [
+      "检查分类",
+      "检查任务",
+      "巡检策略",
+      "日志",
+      "存储卷",
+      "调度运维",
+    ]
     for (const label of requiredLabels) {
       const found = await page.locator(`button[role="tab"]:has-text("${label}")`).count()
       record(`HTML contains ${label}`, found > 0, `count=${found}`)
     }
 
-    // c) Tab structure (5 tab labels)
-    const requiredTabs = ["概览", "检查分类", "检查任务", "巡检策略", "日志"]
+    // c) Tab structure (7 tab labels)
+    const requiredTabs = [
+      "概览",
+      "检查分类",
+      "检查任务",
+      "巡检策略",
+      "日志",
+      "存储卷",
+      "调度运维",
+    ]
     for (const t of requiredTabs) {
       const found = await page.locator(`button[role="tab"]:has-text("${t}")`).count()
       record(`Tab text present: ${t}`, found > 0, `count=${found}`)
@@ -185,9 +202,14 @@ async function main() {
     await browser.close()
   }
 
-  console.log(`\n=== b) API smoke (2 checks) ===`)
-  for (const resource of ["inspections", "patrols"]) {
-    const r = await httpJson("GET", `/api/check/${resource}`)
+  console.log(`\n=== b) API smoke (4 checks) ===`)
+  for (const resource of [
+    "check/inspections",
+    "check/patrols",
+    "volume/storage",
+    "schedule/ops",
+  ]) {
+    const r = await httpJson("GET", `/api/${resource}`)
     if (r.status !== 200) {
       record(`[${resource}] API 200`, false, `status=${r.status}`)
       continue

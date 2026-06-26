@@ -133,6 +133,12 @@ export default function CheckPage() {
             <TabsTrigger value="logs" className="text-xs">
               日志
             </TabsTrigger>
+            <TabsTrigger value="volume" className="text-xs">
+              存储卷
+            </TabsTrigger>
+            <TabsTrigger value="ops" className="text-xs">
+              调度运维
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <Card>
@@ -193,6 +199,37 @@ export default function CheckPage() {
               endpoint="/api/check/inspections?limit=100"
               title="检查日志"
               sourceTables={["unified_check_logs", "unified_check_patrol_logs"]}
+            />
+          </TabsContent>
+          <TabsContent value="volume" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/volume/storage?limit=100"
+              title="存储卷"
+              sourceTables={[
+                "unified_volume_groups",
+                "unified_volume_dataclasses",
+                "unified_volume_depas",
+                "unified_volume_users",
+                "unified_volume_workspaces",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="ops" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/schedule/ops?limit=100"
+              title="调度运维"
+              sourceTables={[
+                "unified_schedule_jobs",
+                "unified_register_managements",
+                "unified_interface_tasks",
+                "unified_hot_backup_records",
+                "unified_hot_restore_records",
+                "unified_device_devices",
+                "unified_drivers",
+                "unified_drivers_burns",
+                "unified_raid_groups",
+                "unified_hd_managers",
+              ]}
             />
           </TabsContent>
         </Tabs>
