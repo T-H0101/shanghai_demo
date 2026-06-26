@@ -100,6 +100,22 @@ const TABLE_MAPPING: Record<DumpAllowedTable, string> = {
   tbl_check_patrol_task: "tbl_check_patrol_task",
   tbl_check_patrol_task_item: "tbl_check_patrol_task_item",
   tbl_check_patrol_log: "tbl_check_patrol_log",
+  // R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张
+  tbl_volume_group: "tbl_volume_group",
+  tbl_volume_dataclass: "tbl_volume_dataclass",
+  tbl_volume_depa: "tbl_volume_depa",
+  tbl_volume_user: "tbl_volume_user",
+  tbl_volume_workspace: "tbl_volume_workspace",
+  tbl_schedule_job: "tbl_schedule_job",
+  tbl_register_management: "tbl_register_management",
+  tbl_interface_task: "tbl_interface_task",
+  tbl_hot_backup_record: "tbl_hot_backup_record",
+  tbl_hot_restore_record: "tbl_hot_restore_record",
+  tbl_device_device: "tbl_device_device",
+  tbl_drivers: "tbl_drivers",
+  tbl_drivers_burn: "tbl_drivers_burn",
+  tbl_raid_group: "tbl_raid_group",
+  tbl_hd_manager: "tbl_hd_manager",
 }
 
 export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDumpResult> {

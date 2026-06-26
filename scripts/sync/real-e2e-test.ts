@@ -77,6 +77,22 @@ const TABLE_MAPPING: Array<{ src: string; unified: string }> = [
   { src: "tbl_check_patrol_task", unified: "unified_check_patrol_tasks" },
   { src: "tbl_check_patrol_task_item", unified: "unified_check_patrol_task_items" },
   { src: "tbl_check_patrol_log", unified: "unified_check_patrol_logs" },
+  // R.83.4 (15) — 存储卷 + 调度/接口 + 设备业务族
+  { src: "tbl_volume_group", unified: "unified_volume_groups" },
+  { src: "tbl_volume_dataclass", unified: "unified_volume_dataclasses" },
+  { src: "tbl_volume_depa", unified: "unified_volume_depas" },
+  { src: "tbl_volume_user", unified: "unified_volume_users" },
+  { src: "tbl_volume_workspace", unified: "unified_volume_workspaces" },
+  { src: "tbl_schedule_job", unified: "unified_schedule_jobs" },
+  { src: "tbl_register_management", unified: "unified_register_managements" },
+  { src: "tbl_interface_task", unified: "unified_interface_tasks" },
+  { src: "tbl_hot_backup_record", unified: "unified_hot_backup_records" },
+  { src: "tbl_hot_restore_record", unified: "unified_hot_restore_records" },
+  { src: "tbl_device_device", unified: "unified_device_devices" },
+  { src: "tbl_drivers", unified: "unified_drivers" },
+  { src: "tbl_drivers_burn", unified: "unified_drivers_burns" },
+  { src: "tbl_raid_group", unified: "unified_raid_groups" },
+  { src: "tbl_hd_manager", unified: "unified_hd_managers" },
 ]
 
 async function snapshotRowCounts(client: Client, siteCode: string): Promise<Record<string, number>> {

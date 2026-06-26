@@ -34,6 +34,11 @@ const ALLOWED_PACKAGE_TABLES = [
   "tbl_check_file", "tbl_check_files", "tbl_check_log",
   "tbl_check_patrol_strategy", "tbl_check_patrol_task", "tbl_check_patrol_task_item",
   "tbl_check_patrol_log",
+  // R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张
+  "tbl_volume_group", "tbl_volume_dataclass", "tbl_volume_depa", "tbl_volume_user", "tbl_volume_workspace",
+  "tbl_schedule_job", "tbl_register_management", "tbl_interface_task",
+  "tbl_hot_backup_record", "tbl_hot_restore_record",
+  "tbl_device_device", "tbl_drivers", "tbl_drivers_burn", "tbl_raid_group", "tbl_hd_manager",
 ]
 
 function srcToUnified(src: string): string {
@@ -79,6 +84,22 @@ function srcToUnified(src: string): string {
   if (src === "tbl_check_patrol_task") u = "unified_check_patrol_tasks"
   if (src === "tbl_check_patrol_task_item") u = "unified_check_patrol_task_items"
   if (src === "tbl_check_patrol_log") u = "unified_check_patrol_logs"
+  // R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张
+  if (src === "tbl_volume_group") u = "unified_volume_groups"
+  if (src === "tbl_volume_dataclass") u = "unified_volume_dataclasses"
+  if (src === "tbl_volume_depa") u = "unified_volume_depas"
+  if (src === "tbl_volume_user") u = "unified_volume_users"
+  if (src === "tbl_volume_workspace") u = "unified_volume_workspaces"
+  if (src === "tbl_schedule_job") u = "unified_schedule_jobs"
+  if (src === "tbl_register_management") u = "unified_register_managements"
+  if (src === "tbl_interface_task") u = "unified_interface_tasks"
+  if (src === "tbl_hot_backup_record") u = "unified_hot_backup_records"
+  if (src === "tbl_hot_restore_record") u = "unified_hot_restore_records"
+  if (src === "tbl_device_device") u = "unified_device_devices"
+  if (src === "tbl_drivers") u = "unified_drivers"
+  if (src === "tbl_drivers_burn") u = "unified_drivers_burns"
+  if (src === "tbl_raid_group") u = "unified_raid_groups"
+  if (src === "tbl_hd_manager") u = "unified_hd_managers"
   return u
 }
 
