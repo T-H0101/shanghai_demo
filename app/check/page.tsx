@@ -139,6 +139,12 @@ export default function CheckPage() {
             <TabsTrigger value="ops" className="text-xs">
               调度运维
             </TabsTrigger>
+            <TabsTrigger value="data" className="text-xs">
+              数据接收
+            </TabsTrigger>
+            <TabsTrigger value="warning" className="text-xs">
+              告警媒体
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <Card>
@@ -229,6 +235,36 @@ export default function CheckPage() {
                 "unified_drivers_burns",
                 "unified_raid_groups",
                 "unified_hd_managers",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="data" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/data/receive?limit=100"
+              title="数据接收"
+              sourceTables={[
+                "unified_data_receive_lists",
+                "unified_data_receive_logs",
+                "unified_data_receive_tasks",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="warning" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/early-warning?limit=100"
+              title="告警媒体"
+              sourceTables={[
+                "unified_early_warnings",
+                "unified_early_warning_feedbacks",
+                "unified_disc_prints",
+                "unified_disc_inspects",
+                "unified_disc_types",
+                "unified_evidence_details",
+                "unified_evidence_record_drps",
+                "unified_verify_details",
+                "unified_verify_record_drps",
+                "unified_download_records",
+                "unified_upload_records",
               ]}
             />
           </TabsContent>

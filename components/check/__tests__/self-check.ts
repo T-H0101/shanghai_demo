@@ -1,23 +1,23 @@
 /**
- * Sprint R.83.4 Task 6 — /check page UI self-check (extends R.83.3 Task 6)
+ * Sprint R.83.5 Task 6 — /check page UI self-check (extends R.83.4 Task 6)
  *
  * Verifies:
- *   - /check page renders 7 tab triggers
- *     (概览/检查分类/检查任务/巡检策略/日志/存储卷/调度运维)
+ *   - /check page renders 9 tab triggers
+ *     (概览/检查分类/检查任务/巡检策略/日志/存储卷/调度运维/数据接收/告警媒体)
  *   - 2 check API endpoints return 200 with envelope { code: 0, data: { items, total, sourceTables } }
- *   - 2 new R.83.4 API endpoints (volume/storage, schedule/ops) return 200 with same envelope
+ *   - 4 R.83.4 + R.83.5 API endpoints return 200 with same envelope
  *   - 3 forbidden patterns are absent from components/check/:
  *       SOURCE_DATABASE_URL, SITE_DATABASE_URL, site_restore_full
  *   - 5 misleading copy terms are absent from components/check/:
  *       已禁用 / 已暂停 / 已修复 / 控制成功 / 暂停成功
  *
- * Total checks (≥25):
- *   a) HTTP /check page (browser-rendered)         7
- *   b) API smoke (4 endpoints)                    4
- *   c) Tab structure (browser-rendered)           7 (the same 7 tab labels)
- *   d) No restore DB refs                         3
- *   e) No misleading copy                         5
- *                                                  = 26
+ * Total checks (≥27):
+ *   a) HTML content / tab label present (8)
+ *   b) API smoke (6 endpoints)
+ *   c) Tab structure (9 tab labels)
+ *   d) No restore DB refs (3)
+ *   e) No misleading copy (5)
+ *                                                  = 31
  *
  * Usage:
  *   pnpm exec tsx components/check/__tests__/self-check.ts
@@ -144,7 +144,7 @@ async function main() {
     process.exit(2)
   }
 
-  console.log(`\n=== a + c) Browser-rendered /check page (10 checks) ===`)
+  console.log(`\n=== a + c) Browser-rendered /check page (9 + 8 = 17 checks) ===`)
   // /check page is auth-gated by RouteGuard (AppShell wrapper). Login first.
   const browser = await chromium.launch({ headless: true })
   try {
@@ -170,7 +170,7 @@ async function main() {
       // continue; checks below will fail
     }
 
-    // a) HTML content / tab label present (7)
+    // a) HTML content / tab label present (8 — add R.83.5)
     const requiredLabels = [
       "检查分类",
       "检查任务",
@@ -178,13 +178,15 @@ async function main() {
       "日志",
       "存储卷",
       "调度运维",
+      "数据接收",
+      "告警媒体",
     ]
     for (const label of requiredLabels) {
       const found = await page.locator(`button[role="tab"]:has-text("${label}")`).count()
       record(`HTML contains ${label}`, found > 0, `count=${found}`)
     }
 
-    // c) Tab structure (7 tab labels)
+    // c) Tab structure (9 tab labels — 7 from R.83.4 + 2 R.83.5)
     const requiredTabs = [
       "概览",
       "检查分类",
@@ -193,6 +195,8 @@ async function main() {
       "日志",
       "存储卷",
       "调度运维",
+      "数据接收",
+      "告警媒体",
     ]
     for (const t of requiredTabs) {
       const found = await page.locator(`button[role="tab"]:has-text("${t}")`).count()
@@ -202,12 +206,14 @@ async function main() {
     await browser.close()
   }
 
-  console.log(`\n=== b) API smoke (4 checks) ===`)
+  console.log(`\n=== b) API smoke (6 checks) ===`)
   for (const resource of [
     "check/inspections",
     "check/patrols",
     "volume/storage",
     "schedule/ops",
+    "data/receive",
+    "early-warning",
   ]) {
     const r = await httpJson("GET", `/api/${resource}`)
     if (r.status !== 200) {
