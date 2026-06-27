@@ -146,6 +146,22 @@ const TABLE_MAPPING: Array<{ src: string; unified: string }> = [
   { src: "tbl_site_monitor", unified: "unified_site_monitors" },
   { src: "tbl_project_monitor_files", unified: "unified_project_monitor_files" },
   { src: "tbl_task_folder", unified: "unified_task_folders" },
+  // R.83.8 任务详情 + 槽位管理族 15 张
+  { src: "tbl_task_items", unified: "unified_task_items" },
+  { src: "tbl_task_print", unified: "unified_task_prints" },
+  { src: "tbl_task_certif_status", unified: "unified_task_certif_statuses" },
+  { src: "tbl_slot_file_1000000", unified: "unified_slot_file_1000000" },
+  { src: "tbl_slot_file_12", unified: "unified_slot_file_12" },
+  { src: "tbl_slot_file_13", unified: "unified_slot_file_13" },
+  { src: "tbl_slot_file_15", unified: "unified_slot_file_15" },
+  { src: "tbl_slot_file_30", unified: "unified_slot_file_30" },
+  { src: "tbl_slot_file_31", unified: "unified_slot_file_31" },
+  { src: "tbl_slot_folder_1000000", unified: "unified_slot_folder_1000000" },
+  { src: "tbl_slot_folder_12", unified: "unified_slot_folder_12" },
+  { src: "tbl_slot_folder_13", unified: "unified_slot_folder_13" },
+  { src: "tbl_slot_folder_15", unified: "unified_slot_folder_15" },
+  { src: "tbl_slot_folder_30", unified: "unified_slot_folder_30" },
+  { src: "tbl_slot_folder_31", unified: "unified_slot_folder_31" },
 ]
 
 async function snapshotRows(client: Client, siteCode: string): Promise<Record<string, number>> {

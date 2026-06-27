@@ -191,11 +191,11 @@ function check(name: string, condition: boolean, detail?: string) {
 console.log('R.83.7 Whitelist Self-Check')
 console.log('===========================\n')
 
-// 1. 总长度 === 118
+// 1. 总长度 >= 118 (R.83.7 基线; R.83.8+ 持续扩展)
 check(
-  'ALLOWED_PACKAGE_TABLES.length === 118',
-  ALLOWED_PACKAGE_TABLES.length === 118,
-  `actual=${ALLOWED_PACKAGE_TABLES.length} (expected 13+15+15+15+15+15+15+15=118)`
+  'ALLOWED_PACKAGE_TABLES.length >= 118',
+  ALLOWED_PACKAGE_TABLES.length >= 118,
+  `actual=${ALLOWED_PACKAGE_TABLES.length} (expected >= 118)`
 )
 
 // 2. 15 R.83.7 表全部存在

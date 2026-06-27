@@ -1995,6 +1995,355 @@ async function dispatchTaskFolder(input: DispatchInput): Promise<DispatchResult>
 }
 
 // ============================================================
+// R.83.8 任务详情 + 槽位管理族 15 张 dispatchers
+// ============================================================
+
+// tbl_task_items (id) → unified_task_items
+async function dispatchTaskItems(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_items', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_task_item_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'root_path', target: 'root_path' },
+      { source: 'original_path', target: 'original_path' },
+      { source: 'item_name', target: 'item_name' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'lib_parent_folder', target: 'lib_parent_folder' },
+      { source: 'is_folder', target: 'is_folder' },
+      { source: 'slot_id', target: 'slot_id' },
+      { source: 'status', target: 'status' },
+      { source: 'project_id', target: 'project_id' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_task_print (id) → unified_task_prints
+async function dispatchTaskPrint(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_prints', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_print_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'title', target: 'title' },
+      { source: 'subtitle', target: 'subtitle' },
+      { source: 'disc_tip', target: 'disc_tip' },
+      { source: 'data_compare', target: 'data_compare' },
+      { source: 'print_qrcode', target: 'print_qrcode' },
+      { source: 'print_style', target: 'print_style' },
+      { source: 'print_label', target: 'print_label' },
+      { source: 'print_publisher', target: 'print_publisher' },
+      { source: 'print_copies', target: 'print_copies' },
+      { source: 'out_stacker', target: 'out_stacker' },
+      { source: 'in_stacker', target: 'in_stacker' },
+      { source: 'print_session', target: 'print_session' },
+      { source: 'cmt', target: 'cmt' },
+      { source: 'print_date', target: 'print_date' },
+      { source: 'print_img', target: 'print_img' },
+      { source: 'publisher_type', target: 'publisher_type' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_task_certif_status (id) → unified_task_certif_statuses
+async function dispatchTaskCertifStatus(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_certif_statuses', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_status_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'task_item_id', target: 'task_item_id' },
+      { source: 'task_type', target: 'task_type' },
+      { source: 'task_mode', target: 'task_mode' },
+      { source: 'status', target: 'status' },
+      { source: 'create_time', target: 'create_time' },
+      { source: 'update_time', target: 'update_time' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_file_1000000 (id) → unified_slot_file_1000000
+async function dispatchSlotFile1000000(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_file_1000000', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'uuid', target: 'uuid' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_disc_name', target: 'file_disc_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'items_id', target: 'items_id' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'slot_id', target: 'slot_id' },
+      { source: 'content_type', target: 'content_type' },
+      { source: 'storage_class', target: 'storage_class' },
+      { source: 'thumbs', target: 'thumbs' },
+      { source: 'meta_data', target: 'meta_data' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_file_12 (id) → unified_slot_file_12
+async function dispatchSlotFile12(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_file_12', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'uuid', target: 'uuid' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_disc_name', target: 'file_disc_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'items_id', target: 'items_id' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'slot_id', target: 'slot_id' },
+      { source: 'content_type', target: 'content_type' },
+      { source: 'storage_class', target: 'storage_class' },
+      { source: 'thumbs', target: 'thumbs' },
+      { source: 'meta_data', target: 'meta_data' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_file_13 (id) → unified_slot_file_13
+async function dispatchSlotFile13(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_file_13', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'uuid', target: 'uuid' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_disc_name', target: 'file_disc_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'items_id', target: 'items_id' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'slot_id', target: 'slot_id' },
+      { source: 'content_type', target: 'content_type' },
+      { source: 'storage_class', target: 'storage_class' },
+      { source: 'thumbs', target: 'thumbs' },
+      { source: 'meta_data', target: 'meta_data' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_file_15 (id) → unified_slot_file_15
+async function dispatchSlotFile15(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_file_15', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'uuid', target: 'uuid' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_disc_name', target: 'file_disc_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'items_id', target: 'items_id' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'slot_id', target: 'slot_id' },
+      { source: 'content_type', target: 'content_type' },
+      { source: 'storage_class', target: 'storage_class' },
+      { source: 'thumbs', target: 'thumbs' },
+      { source: 'meta_data', target: 'meta_data' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_file_30 (id) → unified_slot_file_30
+async function dispatchSlotFile30(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_file_30', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'uuid', target: 'uuid' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_disc_name', target: 'file_disc_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'items_id', target: 'items_id' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'slot_id', target: 'slot_id' },
+      { source: 'content_type', target: 'content_type' },
+      { source: 'storage_class', target: 'storage_class' },
+      { source: 'thumbs', target: 'thumbs' },
+      { source: 'meta_data', target: 'meta_data' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_file_31 (id) → unified_slot_file_31
+async function dispatchSlotFile31(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_file_31', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'uuid', target: 'uuid' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_disc_name', target: 'file_disc_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'items_id', target: 'items_id' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'slot_id', target: 'slot_id' },
+      { source: 'content_type', target: 'content_type' },
+      { source: 'storage_class', target: 'storage_class' },
+      { source: 'thumbs', target: 'thumbs' },
+      { source: 'meta_data', target: 'meta_data' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_folder_1000000 (id) → unified_slot_folder_1000000
+async function dispatchSlotFolder1000000(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_folder_1000000', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_folder_id' },
+      { source: 'name', target: 'folder_name' },
+      { source: 'folder_path', target: 'folder_path' },
+      { source: 'disc_path', target: 'disc_path' },
+      { source: 's_level', target: 's_level' },
+      { source: 'parent', target: 'parent' },
+      { source: 'sum_files', target: 'sum_files' },
+      { source: 'files', target: 'files' },
+      { source: 'subs', target: 'subs' },
+      { source: 'slot_id', target: 'slot_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_folder_12 (id) → unified_slot_folder_12
+async function dispatchSlotFolder12(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_folder_12', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_folder_id' },
+      { source: 'name', target: 'folder_name' },
+      { source: 'folder_path', target: 'folder_path' },
+      { source: 'disc_path', target: 'disc_path' },
+      { source: 's_level', target: 's_level' },
+      { source: 'parent', target: 'parent' },
+      { source: 'sum_files', target: 'sum_files' },
+      { source: 'files', target: 'files' },
+      { source: 'subs', target: 'subs' },
+      { source: 'slot_id', target: 'slot_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_folder_13 (id) → unified_slot_folder_13
+async function dispatchSlotFolder13(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_folder_13', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_folder_id' },
+      { source: 'name', target: 'folder_name' },
+      { source: 'folder_path', target: 'folder_path' },
+      { source: 'disc_path', target: 'disc_path' },
+      { source: 's_level', target: 's_level' },
+      { source: 'parent', target: 'parent' },
+      { source: 'sum_files', target: 'sum_files' },
+      { source: 'files', target: 'files' },
+      { source: 'subs', target: 'subs' },
+      { source: 'slot_id', target: 'slot_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_folder_15 (id) → unified_slot_folder_15
+async function dispatchSlotFolder15(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_folder_15', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_folder_id' },
+      { source: 'name', target: 'folder_name' },
+      { source: 'folder_path', target: 'folder_path' },
+      { source: 'disc_path', target: 'disc_path' },
+      { source: 's_level', target: 's_level' },
+      { source: 'parent', target: 'parent' },
+      { source: 'sum_files', target: 'sum_files' },
+      { source: 'files', target: 'files' },
+      { source: 'subs', target: 'subs' },
+      { source: 'slot_id', target: 'slot_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_folder_30 (id) → unified_slot_folder_30
+async function dispatchSlotFolder30(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_folder_30', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_folder_id' },
+      { source: 'name', target: 'folder_name' },
+      { source: 'folder_path', target: 'folder_path' },
+      { source: 'disc_path', target: 'disc_path' },
+      { source: 's_level', target: 's_level' },
+      { source: 'parent', target: 'parent' },
+      { source: 'sum_files', target: 'sum_files' },
+      { source: 'files', target: 'files' },
+      { source: 'subs', target: 'subs' },
+      { source: 'slot_id', target: 'slot_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slot_folder_31 (id) → unified_slot_folder_31
+async function dispatchSlotFolder31(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slot_folder_31', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_folder_id' },
+      { source: 'name', target: 'folder_name' },
+      { source: 'folder_path', target: 'folder_path' },
+      { source: 'disc_path', target: 'disc_path' },
+      { source: 's_level', target: 's_level' },
+      { source: 'parent', target: 'parent' },
+      { source: 'sum_files', target: 'sum_files' },
+      { source: 'files', target: 'files' },
+      { source: 'subs', target: 'subs' },
+      { source: 'slot_id', target: 'slot_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -2305,6 +2654,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_site_monitor: dispatchSiteMonitor,
   tbl_project_monitor_files: dispatchProjectMonitorFile,
   tbl_task_folder: dispatchTaskFolder,
+  // R.83.8 任务详情 + 槽位管理族 15 张
+  tbl_task_items: dispatchTaskItems,
+  tbl_task_print: dispatchTaskPrint,
+  tbl_task_certif_status: dispatchTaskCertifStatus,
+  tbl_slot_file_1000000: dispatchSlotFile1000000,
+  tbl_slot_file_12: dispatchSlotFile12,
+  tbl_slot_file_13: dispatchSlotFile13,
+  tbl_slot_file_15: dispatchSlotFile15,
+  tbl_slot_file_30: dispatchSlotFile30,
+  tbl_slot_file_31: dispatchSlotFile31,
+  tbl_slot_folder_1000000: dispatchSlotFolder1000000,
+  tbl_slot_folder_12: dispatchSlotFolder12,
+  tbl_slot_folder_13: dispatchSlotFolder13,
+  tbl_slot_folder_15: dispatchSlotFolder15,
+  tbl_slot_folder_30: dispatchSlotFolder30,
+  tbl_slot_folder_31: dispatchSlotFolder31,
 }
 
 /**

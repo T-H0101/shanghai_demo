@@ -164,6 +164,22 @@ const TABLE_MAPPING: Record<DumpAllowedTable, string> = {
   tbl_site_monitor: "tbl_site_monitor",
   tbl_project_monitor_files: "tbl_project_monitor_files",
   tbl_task_folder: "tbl_task_folder",
+  // R.83.8 任务详情 + 槽位管理族 15 张
+  tbl_task_items: "tbl_task_items",
+  tbl_task_print: "tbl_task_print",
+  tbl_task_certif_status: "tbl_task_certif_status",
+  tbl_slot_file_1000000: "tbl_slot_file_1000000",
+  tbl_slot_file_12: "tbl_slot_file_12",
+  tbl_slot_file_13: "tbl_slot_file_13",
+  tbl_slot_file_15: "tbl_slot_file_15",
+  tbl_slot_file_30: "tbl_slot_file_30",
+  tbl_slot_file_31: "tbl_slot_file_31",
+  tbl_slot_folder_1000000: "tbl_slot_folder_1000000",
+  tbl_slot_folder_12: "tbl_slot_folder_12",
+  tbl_slot_folder_13: "tbl_slot_folder_13",
+  tbl_slot_folder_15: "tbl_slot_folder_15",
+  tbl_slot_folder_30: "tbl_slot_folder_30",
+  tbl_slot_folder_31: "tbl_slot_folder_31",
 }
 
 export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDumpResult> {
