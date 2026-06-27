@@ -257,6 +257,7 @@ MIGRATION_FILES=(
   "databases/sprint-r83.3/01-check-inspection-tables.sql"
   "databases/sprint-r83.4/01-storage-schedule-tables.sql"
   "databases/sprint-r83.5/01-data-warning-media-tables.sql"
+  "databases/sprint-r83.6/01-iso-meta-system-tables.sql"
 )
 
 log_step "执行当前版本 DDL patch..."
