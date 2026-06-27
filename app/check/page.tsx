@@ -145,6 +145,12 @@ export default function CheckPage() {
             <TabsTrigger value="warning" className="text-xs">
               告警媒体
             </TabsTrigger>
+            <TabsTrigger value="sysconfig" className="text-xs">
+              系统配置
+            </TabsTrigger>
+            <TabsTrigger value="iso" className="text-xs">
+              ISO 与文件
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <Card>
@@ -265,6 +271,29 @@ export default function CheckPage() {
                 "unified_verify_record_drps",
                 "unified_download_records",
                 "unified_upload_records",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="sysconfig" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/system-config?limit=100"
+              title="系统配置"
+              sourceTables={[
+                "unified_sys_configs",
+                "unified_sys_envs",
+                "unified_meta_datas",
+                "unified_lib_groups",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="iso" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/iso?limit=100"
+              title="ISO 与文件"
+              sourceTables={[
+                "unified_iso_locations",
+                "unified_iso_task_syncs",
+                "unified_back_windows",
               ]}
             />
           </TabsContent>
