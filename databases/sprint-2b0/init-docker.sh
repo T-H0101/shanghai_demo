@@ -259,6 +259,7 @@ MIGRATION_FILES=(
   "databases/sprint-r83.5/01-data-warning-media-tables.sql"
   "databases/sprint-r83.6/01-iso-meta-system-tables.sql"
   "databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql"
+  "databases/sprint-r83.8/01-task-slot-tables.sql"
 )
 
 log_step "执行当前版本 DDL patch..."
