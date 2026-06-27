@@ -19,6 +19,7 @@ export type TableLogStatus = 'success' | 'failed' | 'skipped' | 'duplicated'
  * R.83.3: 扩展到 58 张 (检查巡检族 15 张)
  * R.83.4: 扩展到 73 张 (存储卷 + 调度/接口 + 设备业务族 15 张)
  * R.83.5: 扩展到 88 张 (数据接收 + 告警 + 媒体族 15 张)
+ * R.83.6: 扩展到 103 张 (ISO + 元数据 + 系统族 15 张)
  * 严禁加入 tbl_file / tbl_folder
  */
 export const ALLOWED_PACKAGE_TABLES = [
@@ -115,6 +116,22 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_verify_record_drp',
   'tbl_download_record',
   'tbl_upload_record',
+  // R.83.6 ISO + 元数据 + 系统族 15 张
+  'tbl_iso_location',
+  'tbl_iso_task_sync',
+  'tbl_meta_data',
+  'tbl_sys',
+  'tbl_sys_env',
+  'tbl_mount_dir',
+  'tbl_buffer_dir',
+  'tbl_cd_cabinet',
+  'tbl_film_operat',
+  'tbl_ft_file',
+  'tbl_ft_sys',
+  'tbl_back_window',
+  'tbl_zip_file',
+  'tbl_temp_slots',
+  'tbl_lib_group',
 ] as const
 export type AllowedPackageTable = (typeof ALLOWED_PACKAGE_TABLES)[number]
 
