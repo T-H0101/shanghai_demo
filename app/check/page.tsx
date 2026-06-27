@@ -157,6 +157,12 @@ export default function CheckPage() {
             <TabsTrigger value="monitor" className="text-xs">
               监控运维
             </TabsTrigger>
+            <TabsTrigger value="taskdetail" className="text-xs">
+              任务详情
+            </TabsTrigger>
+            <TabsTrigger value="slot" className="text-xs">
+              槽位管理
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <Card>
@@ -328,6 +334,37 @@ export default function CheckPage() {
                 "unified_site_monitors",
                 "unified_project_monitor_files",
                 "unified_task_folders",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="taskdetail" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/task-detail?limit=100"
+              title="任务详情"
+              sourceTables={[
+                "unified_task_items",
+                "unified_task_prints",
+                "unified_task_certif_statuses",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="slot" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/slot-files?limit=100"
+              title="槽位管理"
+              sourceTables={[
+                "unified_slot_file_1000000",
+                "unified_slot_file_12",
+                "unified_slot_file_13",
+                "unified_slot_file_15",
+                "unified_slot_file_30",
+                "unified_slot_file_31",
+                "unified_slot_folder_1000000",
+                "unified_slot_folder_12",
+                "unified_slot_folder_13",
+                "unified_slot_folder_15",
+                "unified_slot_folder_30",
+                "unified_slot_folder_31",
               ]}
             />
           </TabsContent>
