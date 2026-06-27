@@ -75,6 +75,23 @@
 
 **审计**: `docs/database-analysis/sprint-r83.4-requirements-review.md`
 
+## Sprint R.83.5 — 数据接收 + 告警 + 媒体族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 75 → 90 张,新增 tbl_data_receive_* + tbl_early_warning_* + tbl_disc_* + tbl_evidence_* + tbl_verify_* + tbl_download/upload,落地 6 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.5/01-data-warning-media-tables.sql`)— Task 1+2,commit `b3029f0`
+- 白名单 73→88 + self-check — Task 3,commits `d56bf6a` `e9106fe` `6836be9`(包括 R.83.4 test literal 修复)
+- 15 个新 dispatcher handler — Task 4,commit `6836be9`
+- 6 个 CRUD API(`/api/data/{receive,classification}` + `/api/early-warning` + `/api/media/disc` + `/api/evidence-verify` + `/api/transfer`)+ self-check — Task 5,commit `1de4bb9`
+- /check 加 2 Tabs(数据接收 + 告警媒体)共 9 tabs(复用)— Task 6,commit `73ebe73`
+- audit matrix round R.83.5 + 13 irregular plural overrides — Task 7,commit `bebc436`
+- 治理矩阵文档 15 行 R.83.5 标记 + 桶分布 68→53 — Task 8,commit `75451c1`
+
+**命名一致性**:R.83.5 spec 用复数命名(`unified_data_receive_lists` 等),与 R.83.3/R.83.4 clean plural pattern 一致;矩阵文档 row 列同步更新到复数。
+
+**审计**: `docs/database-analysis/sprint-r83.5-requirements-review.md`
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引

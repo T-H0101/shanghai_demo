@@ -890,4 +890,16 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] legacy `unified_drivers` 命名冲突透明披露 → rename 为 `_legacy` 后重建
 - [x] **多站点真同步验证**(SH01 + BJ02 + UNIQUE(source_site_id, source_record_id) 隔离)— SH01 803 rows / BJ02 47 rows
 - [x] README §5.3.8
-- [ ] 剩余 68 张 `R.83.5+` 业务表待推
+- [x] 剩余 68 张 `R.83.5+` 业务表 → R.83.5 完成 15 张,剩 53 张待 R.83.6+
+
+### R.83.5 数据接收 + 告警 + 媒体族 15 张业务表接入 (2026-06-27 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.5/01-data-warning-media-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 73 → 88 + `DUMP_ALLOWED_TABLES` 73 → 88
+- [x] 15 个新 dispatcher handler
+- [x] 6 个 CRUD API:`/api/data/receive` + `/api/data/classification` + `/api/early-warning` + `/api/media/disc` + `/api/evidence-verify` + `/api/transfer`
+- [x] `/check` 加 2 Tabs(数据接收 / 告警媒体)共 9 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.5 范围(positions 73-87)+ 13 irregular plural overrides
+- [x] 桶分布 68 → 53
+- [x] 命名一致性:R.83.5 spec 与矩阵文档均用 clean plural
+- [x] README §5.3.9

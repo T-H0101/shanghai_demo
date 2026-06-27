@@ -636,6 +636,38 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.4-requirements-review.md`
 
+#### §5.3.9 R.83.5 数据接收 + 告警 + 媒体族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 75 张扩到 90 张,新增 6 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 9 Tabs),dump manifest 扩到 88。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.5/01-data-warning-media-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 73→88(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 73→88(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 6 个 CRUD API:`/api/data/{receive,classification}` + `/api/early-warning` + `/api/media/disc` + `/api/evidence-verify` + `/api/transfer`
+- `/check` 新增 2 个 Tabs:数据接收 + 告警媒体(共 9 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.5 范围(positions 73-87)+ 13 irregular plural overrides
+- 治理矩阵文档 15 行 R.83.5 标记 + 桶分布 68→53
+
+**命名一致性**:R.83.5 spec 使用复数命名(`unified_data_receive_lists` 等),与 R.83.3/R.83.4 clean plural pattern 一致;矩阵文档 row 列同步更新到复数命名,避免单/复数混淆。
+
+**测试**:
+- `pnpm test:r83.5-whitelist`(≥12 checks)
+- `pnpm test:r83.5-api`(≥42 checks)
+- `pnpm test:r83.5-ui`(≥28 checks)
+- `pnpm test:matrix-round`(≥20 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 90)
+
+**不变量**:
+- `unified_*` ≥ 90
+- ALLOWED_PACKAGE_TABLES = 88
+- DUMP_ALLOWED_TABLES = 88
+- 任何 `app/api/{data,early-warning,media,evidence-verify,transfer}/**` 不引用 restore 库
+- 多站点 UNIQUE(source_site_id, source_record_id) 隔离
+
+**审计**: `docs/database-analysis/sprint-r83.5-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash
