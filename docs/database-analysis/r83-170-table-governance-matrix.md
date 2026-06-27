@@ -3,7 +3,7 @@
 > 实查站点:`site_restore_full_postgres.star_storage_db`
 > 维护命令:`pnpm tsx scripts/audit/generate-r83-matrix.ts`(重新生成本文档)
 > 维护人:R.83 Sprint 系列
-> 最近更新:2026-06-26 (R.83.5 桶落地: 数据接收 + 告警 + 媒体族 15 张)
+> 最近更新:2026-06-27 (R.83.6 桶落地: ISO + 元数据 + 系统族 15 张)
 
 ## 分类规则
 
@@ -14,7 +14,7 @@
 | `target_storage` | 中心库落点:`pg17_small` / `opensearch` / `clickhouse` / `forbidden` / `out_of_scope` |
 | `unified_table` | 中心库对应 `unified_<stripped>` 名;非 `pg17_small` 标 `—` |
 | `blocker` | 阻塞类型:`none` / `blocked_by_source_schema` / `blocked_by_external_system` |
-| `round` | 落地 Sprint 桶:`R.83.1` / `R.83.2` / `R.83.3` / `R.83.4` / `R.83.5` / `already` / `R.83.6+` / `deferred` / `never` |
+| `round` | 落地 Sprint 桶:`R.83.1` / `R.83.2` / `R.83.3` / `R.83.4` / `R.83.5` / `R.83.6` / `already` / `R.83.7+` / `deferred` / `never` |
 | `notes` | 简要说明 |
 
 ## 分类规则优先级 (按顺序匹配)
@@ -36,8 +36,8 @@
 | `R.83.4` | 15 | Sprint R.83.4 已落地 (存储卷 + 调度/接口 + 设备业务族 15 张) |
 | `already` | 13 | R.83.1 之前的 13 张白名单 |
 | `R.83.5` | 15 | Sprint R.83.5 已落地 (数据接收 + 告警 + 媒体族 15 张) |
-| `already` | 13 | R.83.1 之前的 13 张白名单 |
-| `R.83.6+` | 53 | 剩余业务表候选 (68 - 15 = 53 张,R.83.6+ 评估) |
+| `R.83.6` | 15 | Sprint R.83.6 已落地 (ISO + 元数据 + 系统族 15 张) |
+| `R.83.7+` | 38 | 剩余业务表候选 (53 - 15 = 38 张,R.83.7+ 评估) |
 | `deferred` | 0 | 大表 (≥10MB),走 ES,需外部系统接入 |
 | `never` | 29 | tbl_file* / tbl_folder* 已锁定不进 PG |
 | **合计** | **170** | **= star_storage_db 全部 tbl_* 表** |
@@ -50,10 +50,10 @@
 | 2 | tbl_api_log | 16 kB | pg17_small | unified_api_log | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 3 | tbl_archives_level | 16 kB | pg17_small | unified_archives_level | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 4 | tbl_archives_type | 16 kB | pg17_small | unified_archives_type | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
-| 5 | tbl_back_window | 16 kB | pg17_small | unified_back_window | none | R.83.5+ | 业务小表 (候选接入) |
+| 5 | tbl_back_window | 16 kB | pg17_small | unified_back_windows | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 6 | tbl_backup_db | 32 kB | pg17_small | unified_backup_db | none | R.83.5+ | 业务表 (中等,候选) |
-| 7 | tbl_buffer_dir | 16 kB | pg17_small | unified_buffer_dir | none | R.83.5+ | 业务小表 (候选接入) |
-| 8 | tbl_cd_cabinet | 16 kB | pg17_small | unified_cd_cabinet | none | R.83.5+ | 业务小表 (候选接入) |
+| 7 | tbl_buffer_dir | 16 kB | pg17_small | unified_buffer_dirs | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
+| 8 | tbl_cd_cabinet | 16 kB | pg17_small | unified_cd_cabinets | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 9 | tbl_check_category | 16 kB | pg17_small | unified_check_category | none | R.83.3 | 检查巡检族 (R.83.3 已落地) |
 | 10 | tbl_check_file | 24 kB | pg17_small | unified_check_file | none | R.83.3 | 检查巡检族 (R.83.3 已落地) |
 | 11 | tbl_check_files | 16 kB | pg17_small | unified_check_files | none | R.83.3 | 检查巡检族 (R.83.3 已落地) |
@@ -125,14 +125,14 @@
 | 77 | tbl_file_path_restore | 24 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
 | 78 | tbl_file_recover_info | 16 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
 | 79 | tbl_file_stat | 16 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
-| 80 | tbl_film_operat | 16 kB | pg17_small | unified_film_operat | none | R.83.5+ | 业务小表 (候选接入) |
+| 80 | tbl_film_operat | 16 kB | pg17_small | unified_film_operats | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 81 | tbl_folder | 24 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
 | 82 | tbl_folder_1 | 112 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
 | 83 | tbl_folder_10000 | 64 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
 | 84 | tbl_folder_2 | 1416 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
 | 85 | tbl_folder_3 | 848 kB | forbidden | — | blocked_by_source_schema | never | 大表 (Sprint 2D.1 + R.82 已锁定不进 PG;走 ES/ClickHouse) |
-| 86 | tbl_ft_file | 24 kB | pg17_small | unified_ft_file | none | R.83.5+ | 业务小表 (候选接入) |
-| 87 | tbl_ft_sys | 88 kB | pg17_small | unified_ft_sys | none | R.83.5+ | 业务表 (中等,候选) |
+| 86 | tbl_ft_file | 24 kB | pg17_small | unified_ft_files | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
+| 87 | tbl_ft_sys | 88 kB | pg17_small | unified_ft_systems | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 88 | tbl_fuc | 32 kB | pg17_small | unified_fuc | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 89 | tbl_hd_info | 152 kB | pg17_small | unified_hd_info | none | already | 既有白名单 |
 | 90 | tbl_hd_manager | 32 kB | pg17_small | unified_hd_manager | none | R.83.4 | 存储卷 + 调度 + 设备业务族 (R.83.4 已落地) |
@@ -143,15 +143,15 @@
 | 95 | tbl_import_folder_log | 16 kB | pg17_small | unified_import_folder_log | none | R.83.5+ | 业务小表 (候选接入) |
 | 96 | tbl_import_folder_title | 16 kB | pg17_small | unified_import_folder_title | none | R.83.5+ | 业务小表 (候选接入) |
 | 97 | tbl_interface_task | 24 kB | pg17_small | unified_interface_task | none | R.83.4 | 存储卷 + 调度 + 设备业务族 (R.83.4 已落地) |
-| 98 | tbl_iso_location | 16 kB | pg17_small | unified_iso_location | none | R.83.5+ | 业务小表 (候选接入) |
-| 99 | tbl_iso_task_sync | 8192 bytes | pg17_small | unified_iso_task_sync | none | R.83.5+ | 业务小表 (候选接入) |
-| 100 | tbl_lib_group | 16 kB | pg17_small | unified_lib_group | none | R.83.5+ | 业务小表 (候选接入) |
+| 98 | tbl_iso_location | 16 kB | pg17_small | unified_iso_locations | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
+| 99 | tbl_iso_task_sync | 8192 bytes | pg17_small | unified_iso_task_syncs | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
+| 100 | tbl_lib_group | 16 kB | pg17_small | unified_lib_groups | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 101 | tbl_lib_task | 80 kB | pg17_small | unified_lib_task | none | already | 既有白名单 |
 | 102 | tbl_logical_volume | 64 kB | pg17_small | unified_logical_volume | none | already | 既有白名单 |
 | 103 | tbl_magzines | 64 kB | pg17_small | unified_magzines | none | already | 既有白名单 |
-| 104 | tbl_meta_data | 16 kB | pg17_small | unified_meta_data | none | R.83.5+ | 业务小表 (候选接入) |
+| 104 | tbl_meta_data | 16 kB | pg17_small | unified_meta_datas | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 105 | tbl_monitor_path | 32 kB | pg17_small | unified_monitor_path | none | R.83.5+ | 业务表 (中等,候选) |
-| 106 | tbl_mount_dir | 16 kB | pg17_small | unified_mount_dir | none | R.83.5+ | 业务小表 (候选接入) |
+| 106 | tbl_mount_dir | 16 kB | pg17_small | unified_mount_dirs | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 107 | tbl_platform | 16 kB | pg17_small | unified_platform | none | already | 既有白名单 |
 | 108 | tbl_platform_monitor | 16 kB | pg17_small | unified_platform_monitor | none | R.83.5+ | 业务小表 (候选接入) |
 | 109 | tbl_platform_type | 32 kB | pg17_small | unified_platform_type | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
@@ -184,8 +184,8 @@
 | 136 | tbl_slot_folder_31 | 152 kB | pg17_small | unified_slot_folder_31 | none | R.83.5+ | 业务表 (中等,候选) |
 | 137 | tbl_slots | 104 kB | pg17_small | unified_slots | none | already | 既有白名单 |
 | 138 | tbl_slots_part | 32 kB | pg17_small | unified_slots_part | none | R.83.5+ | 业务表 (中等,候选) |
-| 139 | tbl_sys | 16 kB | pg17_small | unified_sys | none | R.83.5+ | 业务小表 (候选接入) |
-| 140 | tbl_sys_env | 16 kB | pg17_small | unified_sys_env | none | R.83.5+ | 业务小表 (候选接入) |
+| 139 | tbl_sys | 16 kB | pg17_small | unified_sys_configs | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
+| 140 | tbl_sys_env | 16 kB | pg17_small | unified_sys_envs | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 141 | tbl_sys_log | 64 kB | pg17_small | unified_sys_log | none | R.83.2 | RBAC + 字典 + 日志 + 凭据族 (R.83.2 已落地) |
 | 142 | tbl_task | 72 kB | pg17_small | unified_task | none | already | 既有白名单 |
 | 143 | tbl_task_certif_status | 16 kB | pg17_small | unified_task_certif_status | none | R.83.5+ | 业务小表 (候选接入) |
@@ -196,7 +196,7 @@
 | 148 | tbl_task_print | 24 kB | pg17_small | unified_task_print | none | R.83.5+ | 业务小表 (候选接入) |
 | 149 | tbl_task_projects | 16 kB | pg17_small | unified_task_projects | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
 | 150 | tbl_task_receipts | 16 kB | pg17_small | unified_task_receipts | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
-| 151 | tbl_temp_slots | 24 kB | pg17_small | unified_temp_slots | none | R.83.5+ | 业务小表 (候选接入) |
+| 151 | tbl_temp_slots | 24 kB | pg17_small | unified_temp_slots | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
 | 152 | tbl_upload_details | 16 kB | pg17_small | unified_upload_details | none | R.83.5+ | 业务小表 (候选接入) |
 | 153 | tbl_upload_record | 16 kB | pg17_small | unified_upload_records | none | R.83.5 | 数据接收 + 告警 + 媒体族 (R.83.5 已落地) |
 | 154 | tbl_user | 32 kB | pg17_small | unified_user | none | already | 既有白名单 |
@@ -215,4 +215,4 @@
 | 167 | tbl_wait_download_file_task | 8192 bytes | pg17_small | unified_wait_download_file_task | none | R.83.5+ | 业务小表 (候选接入) |
 | 168 | tbl_workspace | 16 kB | pg17_small | unified_workspace | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
 | 169 | tbl_workspace_user | 8192 bytes | pg17_small | unified_workspace_user | none | R.83.1 | 部门/项目/接收单 (R.83.1 已落地) |
-| 170 | tbl_zip_file | 16 kB | pg17_small | unified_zip_file | none | R.83.5+ | 业务小表 (候选接入) |
+| 170 | tbl_zip_file | 16 kB | pg17_small | unified_zip_files | none | R.83.6 | ISO + 元数据 + 系统族 (R.83.6 已落地) |
