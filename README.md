@@ -700,6 +700,38 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.6-requirements-review.md`
 
+#### §5.3.11 R.83.7 导入导出 + 监控 + 系统辅助族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 105 张扩到 120 张,新增 3 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 13 Tabs),dump manifest 扩到 118。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 103→118(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 103→118(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 3 个 CRUD API:`/api/import-export` + `/api/monitor` + `/api/system-aux`
+- `/check` 新增 2 个 Tabs:导入导出 + 监控运维(共 13 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.7 范围(positions 103-117)+ 15 irregular plural overrides
+- 治理矩阵文档 15 行 R.83.7 标记 + 桶分布 38→23 + fallback `R.83.7+` → `R.83.8+`
+
+**命名一致性**:R.83.7 spec 使用复数命名(`unified_import_folder_datas` / `unified_export_infos` / `unified_error_rates` / `unified_escapes` / `unified_remote_backups` / `unified_monitor_paths` / `unified_platform_monitors` / `unified_site_monitors` / `unified_task_folders` 等);单数保留(`unified_csv_details` / `unified_upload_details` / `unified_download_details` / `unified_project_monitor_files`,因源名已含 `details` / `files` 复数语义)。矩阵文档 row 列同步对齐到 R.83.7 chosen names。
+
+**测试**:
+- `pnpm test:r83.7-whitelist`(≥14 checks)
+- `pnpm test:r83.7-api`(≥18 checks)
+- `pnpm test:r83.6-ui`(覆盖 13 Tabs;tab 文字 + API smoke)
+- `pnpm test:matrix-round`(≥24 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 120)
+
+**不变量**:
+- `unified_*` ≥ 120
+- ALLOWED_PACKAGE_TABLES = 118
+- DUMP_ALLOWED_TABLES = 118
+- 任何 `app/api/{import-export,monitor,system-aux}/**` 不引用 restore 库
+- 多站点 UNIQUE(source_site_id, source_record_id) 隔离
+
+**审计**: `docs/database-analysis/sprint-r83.7-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash

@@ -108,6 +108,23 @@
 
 **审计**: `docs/database-analysis/sprint-r83.6-requirements-review.md`
 
+## Sprint R.83.7 — 导入导出 + 监控 + 系统辅助族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 105 → 120 张,新增 tbl_csv_details + tbl_import_folder_* + tbl_upload_details + tbl_download_details + tbl_export_info + tbl_error_rate + tbl_escape + tbl_remote_backup + tbl_monitor_path + tbl_platform_monitor + tbl_site_monitor + tbl_project_monitor_files + tbl_task_folder,落地 3 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql`)— Task 1,commit `3655843`
+- 白名单 103→118 + self-check — Task 2,commit `84533d2`
+- 15 个新 dispatcher handler — Task 2,commit `cf402f8`
+- 3 个 CRUD API(`/api/import-export` + `/api/monitor` + `/api/system-aux`)+ self-check — Task 3,commit `779599f`
+- /check 加 2 Tabs(导入导出 + 监控运维)共 13 tabs(复用)— Task 3,commit `779599f`
+- audit matrix round R.83.7 + 15 irregular plural overrides — Task 4,commit `d9b8212`
+- 治理矩阵文档 15 行 R.83.7 标记 + 桶分布 38→23 + fallback `R.83.7+` → `R.83.8+` — Task 5,commit `8328f12`
+
+**命名一致性**:R.83.7 spec 用复数命名(`unified_import_folder_datas` / `unified_export_infos` / `unified_error_rates` / `unified_escapes` / `unified_remote_backups` / `unified_monitor_paths` / `unified_platform_monitors` / `unified_site_monitors` / `unified_task_folders` 等);单数保留(`unified_csv_details` / `unified_upload_details` / `unified_download_details` / `unified_project_monitor_files`);矩阵文档 row 列同步对齐到 R.83.7 chosen names。
+
+**审计**: `docs/database-analysis/sprint-r83.7-requirements-review.md`
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引

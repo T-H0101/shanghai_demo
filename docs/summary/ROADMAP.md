@@ -890,7 +890,7 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] legacy `unified_drivers` 命名冲突透明披露 → rename 为 `_legacy` 后重建
 - [x] **多站点真同步验证**(SH01 + BJ02 + UNIQUE(source_site_id, source_record_id) 隔离)— SH01 803 rows / BJ02 47 rows
 - [x] README §5.3.8
-- [x] 剩余 68 张 `R.83.5+` 业务表 → R.83.5 完成 15 张,剩 53 张待 R.83.6+
+- [x] 剩余 68 张 `R.83.5+` 业务表 → R.83.5 完成 15 张,剩 53 张 → R.83.6 完成 15 张 → R.83.7 完成 15 张,剩 23 张待 R.83.8+
 
 ### R.83.5 数据接收 + 告警 + 媒体族 15 张业务表接入 (2026-06-27 完成)
 
@@ -915,3 +915,15 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] 桶分布 53 → 38
 - [x] 命名一致性:R.83.6 spec 与矩阵文档均用 clean plural;`tbl_sys` 语义化重命名 `unified_sys_configs`
 - [x] README §5.3.10
+
+### R.83.7 导入导出 + 监控 + 系统辅助族 15 张业务表接入 (2026-06-27 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 103 → 118 + `DUMP_ALLOWED_TABLES` 103 → 118
+- [x] 15 个新 dispatcher handler
+- [x] 3 个 CRUD API:`/api/import-export` + `/api/monitor` + `/api/system-aux`
+- [x] `/check` 加 2 Tabs(导入导出 / 监控运维)共 13 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.7 范围(positions 103-117)+ 15 irregular plural overrides
+- [x] 桶分布 38 → 23 + fallback `R.83.7+` → `R.83.8+`
+- [x] 命名一致性:R.83.7 spec 与矩阵文档均用 clean plural(单数 details/files 保留);`tbl_import_folder_data` → `unified_import_folder_datas`,`tbl_export_info` → `unified_export_infos`,`tbl_task_folder` → `unified_task_folders` 等
+- [x] README §5.3.11
