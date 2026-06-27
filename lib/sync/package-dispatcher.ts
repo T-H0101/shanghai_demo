@@ -1758,6 +1758,243 @@ async function dispatchLibGroup(input: DispatchInput): Promise<DispatchResult> {
 }
 
 // ============================================================
+// R.83.7 导入导出 + 监控 + 系统辅助族 15 张 dispatchers
+// ============================================================
+
+// tbl_csv_details (id) → unified_csv_details
+async function dispatchCsvDetails(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_csv_details', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_csv_id' },
+      { source: 'csv_name', target: 'csv_name' },
+      { source: 'csv_path', target: 'csv_path' },
+      { source: 'csv_size', target: 'csv_size' },
+      { source: 'csv_status', target: 'csv_status' },
+      { source: 'imported_at', target: 'imported_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_import_folder_data (id) → unified_import_folder_datas
+async function dispatchImportFolderData(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_import_folder_datas', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_data_id' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'imported_at', target: 'imported_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_import_folder_log (id) → unified_import_folder_logs
+async function dispatchImportFolderLog(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_import_folder_logs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_log_id' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'log_status', target: 'log_status' },
+      { source: 'log_message', target: 'log_message' },
+      { source: 'logged_at', target: 'logged_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_import_folder_title (id) → unified_import_folder_titles
+async function dispatchImportFolderTitle(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_import_folder_titles', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_title_id' },
+      { source: 'folder_id', target: 'folder_id' },
+      { source: 'title_name', target: 'title_name' },
+      { source: 'title_value', target: 'title_value' },
+      { source: 'sort_order', target: 'sort_order' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_upload_details (id) → unified_upload_details
+async function dispatchUploadDetails(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_upload_details', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_upload_id' },
+      { source: 'upload_id', target: 'upload_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'uploaded_at', target: 'uploaded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_download_details (id) → unified_download_details
+async function dispatchDownloadDetails(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_download_details', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_download_id' },
+      { source: 'download_id', target: 'download_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'downloaded_at', target: 'downloaded_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_export_info (id) → unified_export_infos
+async function dispatchExportInfo(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_export_infos', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_export_id' },
+      { source: 'export_name', target: 'export_name' },
+      { source: 'export_path', target: 'export_path' },
+      { source: 'export_format', target: 'export_format' },
+      { source: 'exported_at', target: 'exported_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_error_rate (id) → unified_error_rates
+async function dispatchErrorRate(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_error_rates', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_rate_id' },
+      { source: 'rate_name', target: 'rate_name' },
+      { source: 'error_count', target: 'error_count' },
+      { source: 'total_count', target: 'total_count' },
+      { source: 'rate_value', target: 'rate_value' },
+      { source: 'measured_at', target: 'measured_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_escape (id) → unified_escapes
+async function dispatchEscape(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_escapes', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_escape_id' },
+      { source: 'escape_code', target: 'escape_code' },
+      { source: 'escape_name', target: 'escape_name' },
+      { source: 'escape_status', target: 'escape_status' },
+      { source: 'triggered_at', target: 'triggered_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_remote_backup (id) → unified_remote_backups
+async function dispatchRemoteBackup(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_remote_backups', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_backup_id' },
+      { source: 'backup_name', target: 'backup_name' },
+      { source: 'backup_path', target: 'backup_path' },
+      { source: 'backup_size', target: 'backup_size' },
+      { source: 'backup_status', target: 'backup_status' },
+      { source: 'backed_up_at', target: 'backed_up_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_monitor_path (id) → unified_monitor_paths
+async function dispatchMonitorPath(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_monitor_paths', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_path_id' },
+      { source: 'monitor_path', target: 'monitor_path' },
+      { source: 'path_status', target: 'path_status' },
+      { source: 'interval_seconds', target: 'interval_seconds' },
+      { source: 'last_checked_at', target: 'last_checked_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_platform_monitor (id) → unified_platform_monitors
+async function dispatchPlatformMonitor(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_platform_monitors', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_monitor_id' },
+      { source: 'platform_id', target: 'platform_id' },
+      { source: 'monitor_metric', target: 'monitor_metric' },
+      { source: 'metric_value', target: 'metric_value' },
+      { source: 'monitored_at', target: 'monitored_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_site_monitor (id) → unified_site_monitors
+async function dispatchSiteMonitor(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_site_monitors', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_site_monitor_id' },
+      { source: 'site_id', target: 'site_id' },
+      { source: 'monitor_metric', target: 'monitor_metric' },
+      { source: 'metric_value', target: 'metric_value' },
+      { source: 'monitored_at', target: 'monitored_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_project_monitor_files (id) → unified_project_monitor_files
+async function dispatchProjectMonitorFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_project_monitor_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'project_id', target: 'project_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'monitor_status', target: 'monitor_status' },
+      { source: 'monitored_at', target: 'monitored_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_task_folder (id) → unified_task_folders
+async function dispatchTaskFolder(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_task_folders', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_folder_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'folder_path', target: 'folder_path' },
+      { source: 'folder_name', target: 'folder_name' },
+      { source: 'folder_status', target: 'folder_status' },
+      { source: 'created_at', target: 'created_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -2052,6 +2289,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_zip_file: dispatchZipFile,
   tbl_temp_slots: dispatchTempSlots,
   tbl_lib_group: dispatchLibGroup,
+  // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
+  tbl_csv_details: dispatchCsvDetails,
+  tbl_import_folder_data: dispatchImportFolderData,
+  tbl_import_folder_log: dispatchImportFolderLog,
+  tbl_import_folder_title: dispatchImportFolderTitle,
+  tbl_upload_details: dispatchUploadDetails,
+  tbl_download_details: dispatchDownloadDetails,
+  tbl_export_info: dispatchExportInfo,
+  tbl_error_rate: dispatchErrorRate,
+  tbl_escape: dispatchEscape,
+  tbl_remote_backup: dispatchRemoteBackup,
+  tbl_monitor_path: dispatchMonitorPath,
+  tbl_platform_monitor: dispatchPlatformMonitor,
+  tbl_site_monitor: dispatchSiteMonitor,
+  tbl_project_monitor_files: dispatchProjectMonitorFile,
+  tbl_task_folder: dispatchTaskFolder,
 }
 
 /**
