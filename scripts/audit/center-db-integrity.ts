@@ -292,6 +292,7 @@ async function main() {
         else if (i < 73) ROUND_BY_SOURCE[src] = "R.83.4"
         else if (i < 88) ROUND_BY_SOURCE[src] = "R.83.5"
         else if (i < 103) ROUND_BY_SOURCE[src] = "R.83.6"
+        else if (i < 118) ROUND_BY_SOURCE[src] = "R.83.7"
       })
 
       // R.83.5 irregular plural / rename overrides (data + warning + media family)
@@ -324,6 +325,23 @@ async function main() {
       if (ROUND_BY_SOURCE["tbl_zip_file"]) ROUND_BY_SOURCE["tbl_zip_file"] = "R.83.6"
       if (ROUND_BY_SOURCE["tbl_temp_slots"]) ROUND_BY_SOURCE["tbl_temp_slots"] = "R.83.6"
       if (ROUND_BY_SOURCE["tbl_lib_group"]) ROUND_BY_SOURCE["tbl_lib_group"] = "R.83.6"
+
+      // R.83.7 irregular plural / rename overrides (import/export + monitor + system-aux family)
+      if (ROUND_BY_SOURCE["tbl_csv_details"]) ROUND_BY_SOURCE["tbl_csv_details"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_import_folder_data"]) ROUND_BY_SOURCE["tbl_import_folder_data"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_import_folder_log"]) ROUND_BY_SOURCE["tbl_import_folder_log"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_import_folder_title"]) ROUND_BY_SOURCE["tbl_import_folder_title"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_upload_details"]) ROUND_BY_SOURCE["tbl_upload_details"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_download_details"]) ROUND_BY_SOURCE["tbl_download_details"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_export_info"]) ROUND_BY_SOURCE["tbl_export_info"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_error_rate"]) ROUND_BY_SOURCE["tbl_error_rate"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_escape"]) ROUND_BY_SOURCE["tbl_escape"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_remote_backup"]) ROUND_BY_SOURCE["tbl_remote_backup"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_monitor_path"]) ROUND_BY_SOURCE["tbl_monitor_path"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_platform_monitor"]) ROUND_BY_SOURCE["tbl_platform_monitor"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_site_monitor"]) ROUND_BY_SOURCE["tbl_site_monitor"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_project_monitor_files"]) ROUND_BY_SOURCE["tbl_project_monitor_files"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_task_folder"]) ROUND_BY_SOURCE["tbl_task_folder"] = "R.83.7"
 
       // Map each known unified_* table to its canonical singular source table
       // (as it appears in ALLOWED_PACKAGE_TABLES). Some unified names are
@@ -391,7 +409,7 @@ async function main() {
 
       const entries = unified.map((t) => {
         const src = UNIFIED_TO_SOURCE[t] ?? t.replace(/^unified_/, "tbl_")
-        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.7+"
+        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.8+"
         return {
           unified_table: t,
           source_table: src,
