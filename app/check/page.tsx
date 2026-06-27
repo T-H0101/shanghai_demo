@@ -151,6 +151,12 @@ export default function CheckPage() {
             <TabsTrigger value="iso" className="text-xs">
               ISO 与文件
             </TabsTrigger>
+            <TabsTrigger value="importexport" className="text-xs">
+              导入导出
+            </TabsTrigger>
+            <TabsTrigger value="monitor" className="text-xs">
+              监控运维
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <Card>
@@ -294,6 +300,34 @@ export default function CheckPage() {
                 "unified_iso_locations",
                 "unified_iso_task_syncs",
                 "unified_back_windows",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="importexport" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/import-export?limit=100"
+              title="导入导出"
+              sourceTables={[
+                "unified_csv_details",
+                "unified_import_folder_datas",
+                "unified_import_folder_logs",
+                "unified_import_folder_titles",
+                "unified_upload_details",
+                "unified_download_details",
+                "unified_export_infos",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="monitor" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/monitor?limit=100"
+              title="监控运维"
+              sourceTables={[
+                "unified_monitor_paths",
+                "unified_platform_monitors",
+                "unified_site_monitors",
+                "unified_project_monitor_files",
+                "unified_task_folders",
               ]}
             />
           </TabsContent>

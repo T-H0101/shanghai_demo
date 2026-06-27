@@ -3,7 +3,7 @@
  *
  * Verifies:
  *   - /check page renders 11 tab triggers
- *     (概览/检查分类/检查任务/巡检策略/日志/存储卷/调度运维/数据接收/告警媒体/系统配置/ISO与文件)
+ *     (概览/检查分类/检查任务/巡检策略/日志/存储卷/调度运维/数据接收/告警媒体/系统配置/ISO与文件/导入导出/监控运维)
  *   - 6 check API endpoints return 200 with envelope { code: 0, data: { items, total, sourceTables } }
  *   - 4 R.83.4 + R.83.5 API endpoints return 200 with same envelope
  *   - 3 R.83.6 API endpoints return 200 with same envelope
@@ -171,7 +171,7 @@ async function main() {
       // continue; checks below will fail
     }
 
-    // a) HTML content / tab label present (10 — add R.83.6)
+    // a) HTML content / tab label present (12 — add R.83.7)
     const requiredLabels = [
       "检查分类",
       "检查任务",
@@ -183,13 +183,15 @@ async function main() {
       "告警媒体",
       "系统配置",
       "ISO 与文件",
+      "导入导出",
+      "监控运维",
     ]
     for (const label of requiredLabels) {
       const found = await page.locator(`button[role="tab"]:has-text("${label}")`).count()
       record(`HTML contains ${label}`, found > 0, `count=${found}`)
     }
 
-    // c) Tab structure (11 tab labels — 7 from R.83.4 + 2 R.83.5 + 2 R.83.6)
+    // c) Tab structure (13 tab labels — 7 from R.83.4 + 2 R.83.5 + 2 R.83.6 + 2 R.83.7)
     const requiredTabs = [
       "概览",
       "检查分类",
@@ -202,6 +204,8 @@ async function main() {
       "告警媒体",
       "系统配置",
       "ISO 与文件",
+      "导入导出",
+      "监控运维",
     ]
 // Check for tab text "ISO 与文件" — its label is rendered with non-breaking spaces; use a partial match.
     for (const t of requiredTabs) {
@@ -226,6 +230,9 @@ async function main() {
     "system-config",
     "iso",
     "file-ops",
+    "import-export",
+    "monitor",
+    "system-aux",
   ]) {
     const r = await httpJson("GET", `/api/${resource}`)
     if (r.status !== 200) {
