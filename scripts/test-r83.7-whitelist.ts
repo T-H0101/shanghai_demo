@@ -1,8 +1,8 @@
 /**
- * R.83.6 Whitelist Self-Check
+ * R.83.7 Whitelist Self-Check
  *
  * 验证 lib/sync/package-schema.ts 的白名单结构：
- * - ALLOWED_PACKAGE_TABLES 共 103 张 (13 原始 + 15 R.83.1 + 15 R.83.2 + 15 R.83.3 + 15 R.83.4 + 15 R.83.5 + 15 R.83.6)
+ * - ALLOWED_PACKAGE_TABLES 共 118 张 (13 原始 + 15 R.83.1 + 15 R.83.2 + 15 R.83.3 + 15 R.83.4 + 15 R.83.5 + 15 R.83.6 + 15 R.83.7)
  * - FORBIDDEN_PACKAGE_TABLES 仍包含 tbl_file / tbl_folder
  * - 所有 entry 满足 /^tbl_[a-z0-9_]+$/
  * - 13 张原始表 (Sprint 2E.2) 全部仍存在
@@ -11,9 +11,10 @@
  * - 15 张 R.83.3 表全部仍存在
  * - 15 张 R.83.4 表全部仍存在
  * - 15 张 R.83.5 表全部仍存在
- * - 15 张 R.83.6 表全部存在 (ISO + 元数据 + 系统族)
+ * - 15 张 R.83.6 表全部仍存在
+ * - 15 张 R.83.7 表全部存在 (导入导出 + 监控 + 系统辅助族)
  * - 无重复
- * - 末尾 15 张 (positions 88-102) 顺序与内容完全匹配 R.83.6 batch
+ * - 末尾 15 张 (positions 103-117) 顺序与内容完全匹配 R.83.7 batch
  */
 
 import {
@@ -152,6 +153,25 @@ const R836_TABLES = [
   'tbl_lib_group',
 ]
 
+// 15 张 R.83.7 batch (导入导出 + 监控 + 系统辅助族)
+const R837_TABLES = [
+  'tbl_csv_details',
+  'tbl_import_folder_data',
+  'tbl_import_folder_log',
+  'tbl_import_folder_title',
+  'tbl_upload_details',
+  'tbl_download_details',
+  'tbl_export_info',
+  'tbl_error_rate',
+  'tbl_escape',
+  'tbl_remote_backup',
+  'tbl_monitor_path',
+  'tbl_platform_monitor',
+  'tbl_site_monitor',
+  'tbl_project_monitor_files',
+  'tbl_task_folder',
+]
+
 let passCount = 0
 let failCount = 0
 const failures: string[] = []
@@ -168,23 +188,23 @@ function check(name: string, condition: boolean, detail?: string) {
   }
 }
 
-console.log('R.83.6 Whitelist Self-Check')
+console.log('R.83.7 Whitelist Self-Check')
 console.log('===========================\n')
 
-// 1. 总长度 >= 103 (R.83.6 baseline; R.83.7 之后可超)
+// 1. 总长度 === 118
 check(
-  'ALLOWED_PACKAGE_TABLES.length >= 103',
-  ALLOWED_PACKAGE_TABLES.length >= 103,
-  `actual=${ALLOWED_PACKAGE_TABLES.length} (expected >=103; 13+15*6=103 baseline)`
+  'ALLOWED_PACKAGE_TABLES.length === 118',
+  ALLOWED_PACKAGE_TABLES.length === 118,
+  `actual=${ALLOWED_PACKAGE_TABLES.length} (expected 13+15+15+15+15+15+15+15=118)`
 )
 
-// 2. 15 R.83.6 表全部存在
+// 2. 15 R.83.7 表全部存在
 const allowedSet = new Set<string>(ALLOWED_PACKAGE_TABLES)
-const missing836 = R836_TABLES.filter((t) => !allowedSet.has(t))
+const missing837 = R837_TABLES.filter((t) => !allowedSet.has(t))
 check(
-  'all 15 R.83.6 tables present in ALLOWED_PACKAGE_TABLES',
-  missing836.length === 0,
-  missing836.length > 0 ? `missing=${missing836.join(',')}` : undefined
+  'all 15 R.83.7 tables present in ALLOWED_PACKAGE_TABLES',
+  missing837.length === 0,
+  missing837.length > 0 ? `missing=${missing837.join(',')}` : undefined
 )
 
 // 3. 无重复
@@ -210,7 +230,7 @@ check(
 // 5. 所有 entry 满足 /^tbl_[a-z0-9_]+$/
 const invalid = ALLOWED_PACKAGE_TABLES.filter((t) => !/^tbl_[a-z0-9_]+$/.test(t))
 check(
-  'all 103 entries match /^tbl_[a-z0-9_]+$/',
+  'all 118 entries match /^tbl_[a-z0-9_]+$/',
   invalid.length === 0,
   invalid.length > 0 ? `invalid=${invalid.join(',')}` : undefined
 )
@@ -263,28 +283,37 @@ check(
   missing835.length > 0 ? `missing=${missing835.join(',')}` : undefined
 )
 
-// 12. positions 88-102 完全是 15 张 R.83.6 表 (按顺序)
-const tail = ALLOWED_PACKAGE_TABLES.slice(88, 103)
-const expectedTail = R836_TABLES
+// 12. 15 R.83.6 表全部仍存在
+const missing836 = R836_TABLES.filter((t) => !allowedSet.has(t))
+check(
+  'all 15 R.83.6 tables still present',
+  missing836.length === 0,
+  missing836.length > 0 ? `missing=${missing836.join(',')}` : undefined
+)
+
+// 13. positions 103-117 完全是 15 张 R.83.7 表 (按顺序)
+const tail = ALLOWED_PACKAGE_TABLES.slice(103, 118)
+const expectedTail = R837_TABLES
 const tailMatch =
   tail.length === expectedTail.length &&
   tail.every((t, i) => t === expectedTail[i])
 check(
-  'positions 88-102 are exactly the 15 R.83.6 tables (in order)',
+  'positions 103-117 are exactly the 15 R.83.7 tables (in order)',
   tailMatch,
   `actual=[${tail.join(',')}] expected=[${expectedTail.join(',')}]`
 )
 
-// 13. 健全性: 13 + 15*6 === 当前实际长度
+// 14. 健全性: 13 + 15*7 === 当前实际长度
 check(
-  'sanity: 13 original + 15*(R.83.1+R.83.2+R.83.3+R.83.4+R.83.5+R.83.6) = actual length',
+  'sanity: 13 original + 15*(R.83.1+R.83.2+R.83.3+R.83.4+R.83.5+R.83.6+R.83.7) = actual length',
   ORIGINAL_TABLES.length +
     R831_TABLES.length +
     R832_TABLES.length +
     R833_TABLES.length +
     R834_TABLES.length +
     R835_TABLES.length +
-    R836_TABLES.length ===
+    R836_TABLES.length +
+    R837_TABLES.length ===
     ALLOWED_PACKAGE_TABLES.length,
   `expected=${
     ORIGINAL_TABLES.length +
@@ -293,7 +322,8 @@ check(
     R833_TABLES.length +
     R834_TABLES.length +
     R835_TABLES.length +
-    R836_TABLES.length
+    R836_TABLES.length +
+    R837_TABLES.length
   } actual=${ALLOWED_PACKAGE_TABLES.length}`
 )
 

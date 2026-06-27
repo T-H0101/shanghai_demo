@@ -52,6 +52,12 @@ const ALLOWED_PACKAGE_TABLES = [
   "tbl_mount_dir", "tbl_buffer_dir", "tbl_cd_cabinet",
   "tbl_film_operat", "tbl_ft_file", "tbl_ft_sys",
   "tbl_back_window", "tbl_zip_file", "tbl_temp_slots", "tbl_lib_group",
+  // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
+  "tbl_csv_details", "tbl_import_folder_data", "tbl_import_folder_log", "tbl_import_folder_title",
+  "tbl_upload_details", "tbl_download_details", "tbl_export_info",
+  "tbl_error_rate", "tbl_escape", "tbl_remote_backup",
+  "tbl_monitor_path", "tbl_platform_monitor", "tbl_site_monitor",
+  "tbl_project_monitor_files", "tbl_task_folder",
 ]
 
 function srcToUnified(src: string): string {
@@ -145,6 +151,22 @@ function srcToUnified(src: string): string {
   if (src === "tbl_zip_file") u = "unified_zip_files"
   if (src === "tbl_temp_slots") u = "unified_temp_slots"
   if (src === "tbl_lib_group") u = "unified_lib_groups"
+  // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
+  if (src === "tbl_csv_details") u = "unified_csv_details"
+  if (src === "tbl_import_folder_data") u = "unified_import_folder_datas"
+  if (src === "tbl_import_folder_log") u = "unified_import_folder_logs"
+  if (src === "tbl_import_folder_title") u = "unified_import_folder_titles"
+  if (src === "tbl_upload_details") u = "unified_upload_details"
+  if (src === "tbl_download_details") u = "unified_download_details"
+  if (src === "tbl_export_info") u = "unified_export_infos"
+  if (src === "tbl_error_rate") u = "unified_error_rates"
+  if (src === "tbl_escape") u = "unified_escapes"
+  if (src === "tbl_remote_backup") u = "unified_remote_backups"
+  if (src === "tbl_monitor_path") u = "unified_monitor_paths"
+  if (src === "tbl_platform_monitor") u = "unified_platform_monitors"
+  if (src === "tbl_site_monitor") u = "unified_site_monitors"
+  if (src === "tbl_project_monitor_files") u = "unified_project_monitor_files"
+  if (src === "tbl_task_folder") u = "unified_task_folders"
   return u
 }
 

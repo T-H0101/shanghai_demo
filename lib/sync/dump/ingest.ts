@@ -148,6 +148,22 @@ const TABLE_MAPPING: Record<DumpAllowedTable, string> = {
   tbl_zip_file: "tbl_zip_file",
   tbl_temp_slots: "tbl_temp_slots",
   tbl_lib_group: "tbl_lib_group",
+  // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
+  tbl_csv_details: "tbl_csv_details",
+  tbl_import_folder_data: "tbl_import_folder_data",
+  tbl_import_folder_log: "tbl_import_folder_log",
+  tbl_import_folder_title: "tbl_import_folder_title",
+  tbl_upload_details: "tbl_upload_details",
+  tbl_download_details: "tbl_download_details",
+  tbl_export_info: "tbl_export_info",
+  tbl_error_rate: "tbl_error_rate",
+  tbl_escape: "tbl_escape",
+  tbl_remote_backup: "tbl_remote_backup",
+  tbl_monitor_path: "tbl_monitor_path",
+  tbl_platform_monitor: "tbl_platform_monitor",
+  tbl_site_monitor: "tbl_site_monitor",
+  tbl_project_monitor_files: "tbl_project_monitor_files",
+  tbl_task_folder: "tbl_task_folder",
 }
 
 export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDumpResult> {

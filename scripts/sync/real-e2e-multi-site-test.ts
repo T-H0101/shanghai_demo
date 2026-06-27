@@ -130,6 +130,22 @@ const TABLE_MAPPING: Array<{ src: string; unified: string }> = [
   { src: "tbl_zip_file", unified: "unified_zip_files" },
   { src: "tbl_temp_slots", unified: "unified_temp_slots" },
   { src: "tbl_lib_group", unified: "unified_lib_groups" },
+  // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
+  { src: "tbl_csv_details", unified: "unified_csv_details" },
+  { src: "tbl_import_folder_data", unified: "unified_import_folder_datas" },
+  { src: "tbl_import_folder_log", unified: "unified_import_folder_logs" },
+  { src: "tbl_import_folder_title", unified: "unified_import_folder_titles" },
+  { src: "tbl_upload_details", unified: "unified_upload_details" },
+  { src: "tbl_download_details", unified: "unified_download_details" },
+  { src: "tbl_export_info", unified: "unified_export_infos" },
+  { src: "tbl_error_rate", unified: "unified_error_rates" },
+  { src: "tbl_escape", unified: "unified_escapes" },
+  { src: "tbl_remote_backup", unified: "unified_remote_backups" },
+  { src: "tbl_monitor_path", unified: "unified_monitor_paths" },
+  { src: "tbl_platform_monitor", unified: "unified_platform_monitors" },
+  { src: "tbl_site_monitor", unified: "unified_site_monitors" },
+  { src: "tbl_project_monitor_files", unified: "unified_project_monitor_files" },
+  { src: "tbl_task_folder", unified: "unified_task_folders" },
 ]
 
 async function snapshotRows(client: Client, siteCode: string): Promise<Record<string, number>> {

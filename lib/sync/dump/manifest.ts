@@ -12,6 +12,7 @@
  * R.83.4: extend whitelist to 73 tables (存储卷 + 调度/接口 + 设备业务族 15 张)
  * R.83.5: extend whitelist to 88 tables (数据接收 + 告警 + 媒体族 15 张)
  * R.83.6: extend whitelist to 103 tables (ISO + 元数据 + 系统族 15 张)
+ * R.83.7: extend whitelist to 118 tables (导入导出 + 监控 + 系统辅助族 15 张)
  */
 
 export const DUMP_ALLOWED_TABLES = [
@@ -125,6 +126,22 @@ export const DUMP_ALLOWED_TABLES = [
   "tbl_zip_file",
   "tbl_temp_slots",
   "tbl_lib_group",
+  // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
+  "tbl_csv_details",
+  "tbl_import_folder_data",
+  "tbl_import_folder_log",
+  "tbl_import_folder_title",
+  "tbl_upload_details",
+  "tbl_download_details",
+  "tbl_export_info",
+  "tbl_error_rate",
+  "tbl_escape",
+  "tbl_remote_backup",
+  "tbl_monitor_path",
+  "tbl_platform_monitor",
+  "tbl_site_monitor",
+  "tbl_project_monitor_files",
+  "tbl_task_folder",
 ] as const
 
 export const DUMP_FORBIDDEN_TABLES = ["tbl_file", "tbl_folder"] as const
