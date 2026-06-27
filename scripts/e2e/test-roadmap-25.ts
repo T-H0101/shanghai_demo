@@ -26,10 +26,14 @@ async function getSyncRequest(
   requestNo: string,
   headers: HeadersInit,
 ): Promise<Record<string, any> | null> {
-  const res = await fetch(`${BASE}/api/sync/trigger?siteCode=SH01&limit=50`, { headers })
-  if (!res.ok) return null
-  const body = await res.json()
-  return (body?.data?.items ?? []).find((item: any) => item.request_no === requestNo) ?? null
+  try {
+    const res = await fetch(`${BASE}/api/sync/trigger?siteCode=SH01&limit=50`, { headers })
+    if (!res.ok) return null
+    const body = await res.json()
+    return (body?.data?.items ?? []).find((item: any) => item.request_no === requestNo) ?? null
+  } catch {
+    return null
+  }
 }
 
 async function waitForFinalSyncRequest(
@@ -93,7 +97,7 @@ async function main() {
       SITE_AGENT_VERSION: "roadmap-25-e2e",
       PLATFORM_URL: BASE,
       SITE_AGENT_STATE_DIR: stateDir,
-      SITE_AGENT_CONTROL_BATCH_SIZE: "20",
+      SITE_AGENT_CONTROL_BATCH_SIZE: "100",
       SITE_AGENT_TASK_SYNC_INTERVAL_MS: "1000",
       SITE_AGENT_SNAPSHOT_SYNC_INTERVAL_MS: "5000",
     },

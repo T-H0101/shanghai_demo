@@ -160,7 +160,8 @@ pnpm smoke:sync               # 同步链路冒烟测试
 | 已写代码但需外部条件才能算严格完成 | 16 项 |
 | 总控页面路由(`app/<段>/page.tsx`,不含 /login 与 /api) | 11 个(加 /login 共 12 个) |
 | 后端 API 路由(`app/api/<段>/route.ts`) | 数十个 |
-| 同步白名单表 | 13 张(`lib/sync/dump/manifest.ts:DUMP_ALLOWED_TABLES`) |
+| Package API 白名单表 | 43 张(`lib/sync/package-schema.ts:ALLOWED_PACKAGE_TABLES`) |
+| `table_backup.sql` dump 白名单表 | 13 张(`lib/sync/dump/manifest.ts:DUMP_ALLOWED_TABLES`) |
 | 完整站点 schema 审计范围 | 170 张 |
 | 同步链路 e2e 测试 | 以当前 `pnpm e2e:all` 输出为准 |
 
@@ -274,7 +275,7 @@ pnpm smoke:sync               # 同步链路冒烟测试
 ```
 站点 PostgreSQL
     │
-    ▼  站点 Agent 用 pg_dump 导出 13 张白名单表
+    ▼  站点 Agent 用 pg_dump 导出 dump 白名单表（当前 13 张）
 table_backup.sql
     │
     ▼  中心库 ingest 接口（带 HMAC 签名）
@@ -286,7 +287,7 @@ table_backup.sql
 ```
 
 **关键点**：
-- 站点库有 170 张表，**只同步 13 张**白名单表（`tbl_task`、`tbl_user` 等控制类表）。`tbl_file` 和 `tbl_folder` 是几亿行的大表，**不进 PostgreSQL**，走 OpenSearch。
+- 站点库有 170 张表，中心同步必须走授权白名单：`/api/sync/package` 当前可接收 43 张小表，`table_backup.sql` dump ingest 当前只接收 13 张核心表。`tbl_file` 和 `tbl_folder` 是几亿行的大表，**不进 PostgreSQL**，走 OpenSearch。
 - `table_backup.sql` 是文本格式，用 `pg_dump --table=...` 生成。
 - HMAC 签名防篡改。
 - 文档里的 `DATABASE_URL` / `SITE_DATABASE_URL` / `SOURCE_DATABASE_URL` 都是 **PostgreSQL 数据库连接串**，不是 HTTP API 地址。
@@ -1394,7 +1395,7 @@ CLICKHOUSE_PASSWORD_KEY_REF=...
 | 不要做 | 原因 |
 |---|---|
 | 把 `tbl_file` / `tbl_folder` 全量导入 PostgreSQL 17 | 几亿行会撑爆，走 OpenSearch |
-| 同步未授权的表 | 只同步 13 张白名单，其他不碰 |
+| 同步未授权的表 | 只同步授权白名单(package API 43 张；dump SQL 13 张)，其他不碰 |
 | 在测试中污染站点库 | 用 `source_restore` 测试库 |
 
 ### 10.3 流程层面

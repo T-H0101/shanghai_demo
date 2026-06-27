@@ -15,6 +15,7 @@
 
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
+import { closePool, query } from "../../lib/db/postgres"
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -36,6 +37,10 @@ function cookieFrom(response: Response): string {
     ?.split(";")[0] ?? ""
 }
 
+async function drain(response: Response) {
+  await response.arrayBuffer().catch(() => undefined)
+}
+
 async function post(path: string, body: Record<string, unknown>, cookie?: string) {
   return fetch(`${BASE}${path}`, {
     method: "POST",
@@ -45,6 +50,18 @@ async function post(path: string, body: Record<string, unknown>, cookie?: string
     },
     body: JSON.stringify(body),
   })
+}
+
+async function seedRecentFailures(username: string, siteCode: string) {
+  await query(
+    `INSERT INTO auth_login_audit (
+       username, site_code, ip_address, user_agent, result, failure_reason, provider, created_at
+     )
+     SELECT $1, $2, 'e2e', 'e2e-auth-lockout', 'failed', 'seeded lockout threshold', 'local',
+            NOW() - (gs || ' seconds')::interval
+     FROM generate_series(1, 5) AS gs`,
+    [username, siteCode],
+  )
 }
 
 async function main() {
@@ -84,15 +101,10 @@ async function main() {
   const logout = await post("/api/auth/logout", {}, cookie)
   check("POST /api/auth/logout returns 200", logout.status === 200, `status=${logout.status}`)
   check("logout expires odp_session cookie", (logout.headers.get("set-cookie") ?? "").includes("Max-Age=0"))
+  await drain(logout)
 
   const lockedUser = `lock-${Date.now()}`
-  for (let i = 0; i < 5; i += 1) {
-    await post("/api/auth/login", {
-      username: lockedUser,
-      password: "wrong",
-      siteCode: "SH01",
-    })
-  }
+  await seedRecentFailures(lockedUser, "SH01")
   const locked = await post("/api/auth/login", {
     username: lockedUser,
     password: "wrong",
@@ -160,7 +172,11 @@ async function main() {
   assert.equal(process.exitCode ?? 0, 0)
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+main()
+  .catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+  .finally(async () => {
+    await closePool().catch(() => undefined)
+  })

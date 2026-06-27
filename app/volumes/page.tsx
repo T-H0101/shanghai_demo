@@ -278,7 +278,7 @@ function VolumesContent() {
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Database className="h-8 w-8 mb-2" />
-                <p className="text-sm">无数据</p>
+                <p className="text-sm">暂无数据</p>
                 {volumes.length === 0 && !loading && (
                   <p className="text-xs mt-1">{siteCode ? `站点 ${siteCode} 没有统一表数据` : "未选择站点"}</p>
                 )}

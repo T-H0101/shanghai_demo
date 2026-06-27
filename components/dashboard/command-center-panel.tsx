@@ -365,7 +365,7 @@ export function CommandCenterPanel() {
             {state.error && <Evidence icon={AlertTriangle} text={`error: ${state.error}`} danger />}
           </div>
           <div className="flex gap-2">
-            <Button asChild size="sm" className="h-8 bg-blue-500 text-white hover:bg-blue-400">
+            <Button asChild size="sm" className="h-8">
               <Link href="/sync">
                 同步中心
                 <ArrowRight className="ml-1 h-3 w-3" />

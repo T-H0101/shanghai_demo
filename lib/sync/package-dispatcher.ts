@@ -648,11 +648,13 @@ async function dispatchRole(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_roles', {
     sourceIdField: 'role_id',
     columns: [
-      { source: 'role_id', target: 'role_id' },
+      { source: 'role_id', target: 'src_role_id' },
       { source: 'role_name', target: 'role_name' },
       { source: 'role_code', target: 'role_code' },
-      { source: 'role_enable', target: 'role_enable' },
+      { source: 'role_type', target: 'description' },
+      { source: 'del_flag', target: 'enabled' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
@@ -670,13 +672,15 @@ async function dispatchRoleFuc(input: DispatchInput): Promise<DispatchResult> {
 
 async function dispatchFuc(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_fucs', {
-    sourceIdField: 'fuc_id',
+    sourceIdField: 'fun_id',
     columns: [
-      { source: 'fuc_id', target: 'fuc_id' },
-      { source: 'fuc_name', target: 'fuc_name' },
+      { source: 'fun_id', target: 'src_fuc_id' },
+      { source: 'fun_name', target: 'fuc_name' },
       { source: 'fuc_code', target: 'fuc_code' },
       { source: 'parent_id', target: 'parent_id' },
+      { source: 'fun_index', target: 'sort_order' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
@@ -717,13 +721,17 @@ async function dispatchDictItem(input: DispatchInput): Promise<DispatchResult> {
 
 async function dispatchSysLog(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_sys_logs', {
-    sourceIdField: 'log_id',
+    sourceIdField: 'id',
     columns: [
-      { source: 'log_id', target: 'log_id' },
+      { source: 'id', target: 'src_log_id' },
+      { source: 'type', target: 'log_level' },
+      { source: 'operate_type', target: 'module' },
+      { source: 'content', target: 'message' },
       { source: 'user_id', target: 'user_id' },
-      { source: 'log_type', target: 'log_type' },
-      { source: 'log_time', target: 'log_time' },
+      { source: 'ip', target: 'ip_address' },
+      { source: 'create_date', target: 'log_time' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
@@ -787,12 +795,13 @@ async function dispatchArchivesLevel(input: DispatchInput): Promise<DispatchResu
 
 async function dispatchPlatformType(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_platform_types', {
-    sourceIdField: 'platform_type_id',
+    sourceIdField: 'type_id',
     columns: [
-      { source: 'platform_type_id', target: 'platform_type_id' },
-      { source: 'platform_type_name', target: 'platform_type_name' },
-      { source: 'platform_type_code', target: 'platform_type_code' },
+      { source: 'type_id', target: 'src_platform_type_id' },
+      { source: 'type_name', target: 'type_name' },
+      { source: 'cmt', target: 'description' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
@@ -883,6 +892,10 @@ async function inlineUpsert(
   const colMaps = normalizeColumns(config.columns)
   const targetCols = colMaps.map((c) => c.target)
   const sourceIdColumn = config.sourceIdColumn ?? 'source_id'
+  const conflictColumns =
+    sourceIdColumn === 'source_id'
+      ? 'source_site_id, source_table, source_id'
+      : 'source_site_id, source_record_id'
 
   let upserted = 0
   let inserted = 0
@@ -940,7 +953,7 @@ async function inlineUpsert(
       ) VALUES (
         ${placeholders.join(', ')}
       )
-      ON CONFLICT (source_site_id, ${sourceIdColumn}) DO UPDATE SET
+      ON CONFLICT (${conflictColumns}) DO UPDATE SET
         ${updateSet.join(', ')}
       RETURNING (xmax = 0) AS is_insert
     `

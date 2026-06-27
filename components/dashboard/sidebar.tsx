@@ -62,6 +62,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           size="icon"
           className="absolute right-2 top-2 text-white hover:bg-slate-800 lg:hidden"
           onClick={onClose}
+          aria-label="关闭侧边栏"
         >
           <X className="h-5 w-5" />
         </Button>

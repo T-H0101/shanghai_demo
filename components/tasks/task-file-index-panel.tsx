@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSite } from '@/lib/site/site-context'
+import { formatBeijingTime } from '@/components/shared/time-format'
 
 interface FileIndexItem {
   id: string
@@ -139,7 +140,7 @@ export function TaskFileIndexPanel({ taskId }: TaskFileIndexPanelProps) {
               </td>
               <td className="py-2 px-2">{file.content_type ?? '-'}</td>
               <td className="py-2 px-2 text-gray-500">
-                {new Date(file.indexed_at).toLocaleString('zh-CN')}
+                {formatBeijingTime(file.indexed_at)}
               </td>
             </tr>
           ))}

@@ -10,6 +10,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db/postgres"
 import { ensureAuthSchema } from "@/lib/auth/server"
 import { createHash } from "crypto"
+import { buildXlsxExport } from "@/lib/export/xlsx"
+import { toNextResponse } from "@/lib/export/next-response"
+import { recordExport } from "@/lib/export/audit"
 
 interface AuditRow {
   id: string
@@ -28,7 +31,13 @@ export async function GET(req: NextRequest) {
   await ensureAuthSchema()
 
   const url = new URL(req.url)
-  const format = url.searchParams.get("format") ?? "csv"
+  const format = (url.searchParams.get("format") ?? "csv").toLowerCase()
+  if (format !== "csv" && format !== "json" && format !== "xlsx") {
+    return NextResponse.json(
+      { code: 400, message: "format must be csv, json, or xlsx" },
+      { status: 400 },
+    )
+  }
   const username = url.searchParams.get("username") ?? undefined
   const result = url.searchParams.get("result") ?? undefined
   const siteCode = url.searchParams.get("siteCode") ?? undefined
@@ -60,6 +69,22 @@ export async function GET(req: NextRequest) {
 
     const rows = dataResult.rows
     const sha256 = createHash("sha256").update(JSON.stringify(rows)).digest("hex")
+
+    if (format === "xlsx") {
+      type AuditRowForExport = AuditRow & Record<string, unknown>
+      const exportResult = await buildXlsxExport<AuditRowForExport>({
+        exportType: "login_audit",
+        dataSource: "auth_login_audit",
+        format: "xlsx",
+        columns: ["id", "username", "account_id", "site_code", "ip_address", "result", "failure_reason", "provider", "created_at"],
+        rows: rows as AuditRowForExport[],
+        siteCode: siteCode ?? null,
+        filters: { username, result, from, to },
+        filenamePrefix: "login-audit",
+      })
+      await recordExport(exportResult.manifest)
+      return toNextResponse(exportResult)
+    }
 
     if (format === "json") {
       const body = JSON.stringify({ data: rows, total: rows.length, sha256 }, null, 2)

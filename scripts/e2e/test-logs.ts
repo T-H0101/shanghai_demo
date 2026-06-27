@@ -32,12 +32,17 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
+async function drain(res: Response) {
+  await res.arrayBuffer().catch(() => undefined)
+}
+
 async function main() {
   console.log("=== Logs 事件 e2e (R.12) ===\n")
   await installAuthenticatedFetch(BASE)
 
   // 1. 页面能打开
   const pageRes = await fetch(`${BASE}/logs`)
+  const pageHtml = await pageRes.text()
   check("页面 /logs 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
 
   // 2. /api/logs 真实 (limit=100 提高稳定性 — e2e:all 链上 control 新行多, limit=10 易全是 control)
@@ -198,6 +203,7 @@ async function main() {
   const xlsxRes = await fetch(`${BASE}/api/logs/export?type=audit&format=xlsx&max=10`)
   const xlsxManifestB64 = xlsxRes.headers.get("x-manifest")
   const xlsxSha256 = xlsxRes.headers.get("x-sha256")
+  await drain(xlsxRes)
   let xlsxManifestOk = false
   let xlsxManifest: any = null
   try {
@@ -325,6 +331,7 @@ async function main() {
   for (const ep of endpoints) {
     const res = await fetch(`${BASE}${ep}`)
     if (res.status === 200) consistent++
+    await drain(res)
   }
   check(
     "8 个核心 API siteCode 联动 (含 /api/logs)",
@@ -351,7 +358,6 @@ async function main() {
 
   // 18. /logs HTML 渲染 (CSR 页面, SSR 仅含壳, 改为检查 build chunk + API 替代)
   // 因为 "use client" + dynamic state, HTML 仅含脚本壳; 真实验证通过 API 测试已覆盖
-  const pageHtml = await pageRes.text()
   check(
     "/logs HTML 渲染含客户端脚本 (CSR 页面 SSR 壳)",
     pageHtml.includes("__next") || pageHtml.includes("script"),

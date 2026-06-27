@@ -3,9 +3,19 @@ import { existsSync, readFileSync } from "node:fs"
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000"
 const HEALTH_URL = `${BASE_URL}/api/system/health`
+const BASE_PORT = (() => {
+  try {
+    return new URL(BASE_URL).port
+  } catch {
+    return ""
+  }
+})()
 
 const scripts = [
   "e2e:dashboard",
+  "e2e:logs",
+  "e2e:rbac",
+  "e2e:auth-audit",
   "e2e:tasks",
   "e2e:sync",
   "e2e:control",
@@ -13,12 +23,9 @@ const scripts = [
   "e2e:search",
   "e2e:settings",
   "e2e:auth",
-  "e2e:auth-audit",
-  "e2e:rbac",
   "e2e:users",
   "e2e:racks",
   "e2e:volumes",
-  "e2e:logs",
   "e2e:login",
   "e2e:command-palette",
   "e2e:exports",
@@ -43,6 +50,8 @@ const scripts = [
   "e2e:route-page-integration",
   "e2e:security-boundaries",
 ]
+
+const restartDevBefore = new Set(["e2e:users"])
 
 function loadEnvLocal() {
   const envPath = ".env.local"
@@ -81,13 +90,15 @@ function startDevServer(): ChildProcess {
   delete env.DATABASE_URL
   delete env.SOURCE_DATABASE_URL
   delete env.SITE_DATABASE_URL
+  if (BASE_PORT) {
+    env.PORT = BASE_PORT
+  }
 
   const child = spawn("pnpm", ["dev"], {
     env,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "ignore", "pipe"],
   })
 
-  child.stdout?.on("data", (buf) => process.stdout.write(`[dev] ${buf}`))
   child.stderr?.on("data", (buf) => process.stderr.write(`[dev] ${buf}`))
   return child
 }
@@ -99,6 +110,19 @@ async function waitForHealth(timeoutMs: number): Promise<boolean> {
     await new Promise((resolve) => setTimeout(resolve, 750))
   }
   return false
+}
+
+async function restartDevServer(current: ChildProcess | null): Promise<ChildProcess | null> {
+  if (!current) return current
+  if (!current.killed) current.kill("SIGTERM")
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  const next = startDevServer()
+  const ready = await waitForHealth(45_000)
+  if (!ready) {
+    next.kill("SIGTERM")
+    throw new Error(`Dev server did not become healthy at ${HEALTH_URL}`)
+  }
+  return next
 }
 
 async function main() {
@@ -122,6 +146,10 @@ async function main() {
   const startedAt = Date.now()
   try {
     for (const script of scripts) {
+      if (restartDevBefore.has(script)) {
+        console.log(`Restarting dev server before ${script} to isolate connection state.`)
+        dev = await restartDevServer(dev)
+      }
       console.log(`\n=== ${script} ===`)
       const result = spawnSync("pnpm", [script], {
         stdio: "inherit",

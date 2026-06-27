@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
+import { formatBeijingTimeOnly } from "@/components/shared/time-format"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -91,7 +92,7 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
         </div>
 
         <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0">
-          <span>最后同步: {new Date().toLocaleTimeString("zh-CN", { hour12: false })}</span>
+          <span>最后同步: {formatBeijingTimeOnly(new Date())}</span>
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> 正常
             <span className="h-1.5 w-1.5 rounded-full bg-red-500 ml-2" /> 异常

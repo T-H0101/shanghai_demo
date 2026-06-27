@@ -19,6 +19,10 @@ function check(name: string, ok: boolean, detail?: string) {
   }
 }
 
+async function drain(res: Response) {
+  await res.arrayBuffer().catch(() => undefined)
+}
+
 async function main() {
   console.log("=== Users 事件 e2e (R.10C) ===\n")
 
@@ -30,9 +34,11 @@ async function main() {
   const cookie = loginRes.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1] ?? ""
   const authHeaders: HeadersInit = cookie ? { Cookie: `odp_session=${cookie}` } : {}
   check("测试账号登录成功", loginRes.ok && Boolean(cookie), `HTTP ${loginRes.status}`)
+  await drain(loginRes)
 
   const pageRes = await fetch(`${BASE}/users`)
   check("页面 /users 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
+  await drain(pageRes)
 
   const usersRes = await fetch(`${BASE}/api/users?pageSize=100`, { headers: authHeaders })
   const users = await usersRes.json()
@@ -113,7 +119,7 @@ async function main() {
   )
 
   console.log(`\n=== Users: ${pass} pass, ${fail} fail ===`)
-  if (fail > 0) process.exit(1)
+  process.exit(fail > 0 ? 1 : 0)
 }
 
 main().catch((error) => {

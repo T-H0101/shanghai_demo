@@ -36,19 +36,11 @@ import {
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { formatBeijingTime } from "@/components/shared/time-format"
+import { formatBeijingTime, formatBeijingTimeOnly } from "@/components/shared/time-format"
+import { LOG_LEVEL_COLORS, TASK_TYPE_COLORS } from "@/lib/types/colors"
 
-const typeColors: Record<string, string> = {
-  full_scan: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300", incremental_scan: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  full_package: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300", incremental_package: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-  backup: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300", restore: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
-  migrate: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300", device_scan: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  raid_check: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300", other: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-}
-
-const logLevelColor: Record<string, string> = {
-  info: "bg-slate-50 text-slate-700 dark:bg-slate-900/50 dark:text-slate-300", warn: "bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", error: "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-}
+const typeColors = TASK_TYPE_COLORS
+const logLevelColor = LOG_LEVEL_COLORS
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -394,7 +386,7 @@ function TasksPageContent() {
 
   const hasFilters = keyword || typeFilter !== "all" || phaseFilter !== "all" || phaseGroupQuery === "running" || scopeFilter !== "all" || tab !== "all"
 
-  const nowTime = () => new Date().toLocaleTimeString("zh-CN", { hour12: false })
+  const nowTime = () => formatBeijingTimeOnly(new Date())
 
   // 辅助：获取当前任务的完整流程步骤
   const getPhases = (task: TaskItem): string[] => TASK_PHASES_BY_TYPE[task.type] ?? ["pending", "completed"]
@@ -456,7 +448,6 @@ function TasksPageContent() {
             <DataSourceBadge />
             <Button
               size="sm"
-              className="bg-blue-600"
               data-testid="task-create-open"
               disabled={!siteReady || isAllSites}
               title={
@@ -479,13 +470,13 @@ function TasksPageContent() {
         title="任务概览"
         description="当前过滤条件下的任务运行态分布, 实时更新"
       >
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
           <StatCard title="任务总数" value={allStats.total} unit="个" icon={Activity} badge={<Badge className="bg-slate-900 text-white text-[10px]">LIVE</Badge>} />
           <StatCard title="待处理" value={allStats.pending} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
           <StatCard title="进行中" value={allStats.running} icon={Play} iconBg="bg-blue-50" iconColor="text-blue-600" />
           <StatCard title="已完成" value={allStats.completed} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
           <StatCard title="已失败" value={allStats.failed} icon={AlertCircle} iconBg="bg-red-50" iconColor="text-red-600" />
-          <StatCard title="已暂停" value={allStats.paused} icon={Pause} iconBg="bg-amber-50" iconColor="text-amber-600" />
+          <StatCard title="暂停命令已提交" value={allStats.paused} icon={Pause} iconBg="bg-amber-50" iconColor="text-amber-600" />
         </div>
       </GlassPanel>
 
@@ -504,6 +495,7 @@ function TasksPageContent() {
                     value={keyword}
                     onChange={e => setKeyword(e.target.value)}
                     data-testid="tasks-search-input"
+                    aria-label="搜索任务"
                   />
                 </div>
               </AppTooltip>
@@ -654,27 +646,27 @@ function TasksPageContent() {
                   <TableCell><Badge className={cn("text-[10px]", TASK_PHASE_COLORS[t.phase])}>{TASK_PHASE_LABELS[t.phase]}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-0.5 justify-end" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
-                      {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
-                      {RUNNING_PHASES.includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="推进" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="详情" aria-label="查看任务详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
+                      {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-8 w-8" title="推进进度" aria-label="推进任务进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
+                      {RUNNING_PHASES.includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="推进" aria-label="推进任务阶段" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {RUNNING_PHASES.includes(t.phase) && (
                         <AppTooltip content="提交任务暂停命令, 等待站点 Agent 异步执行">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)} aria-label="暂停任务">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)} aria-label="提交暂停任务命令">
                             <Pause className="h-3.5 w-3.5" />
                           </Button>
                         </AppTooltip>
                       )}
                       {t.phase === "paused" && (
                         <AppTooltip content="提交任务恢复命令, 等待站点 Agent 异步执行">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)} aria-label="恢复任务">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)} aria-label="提交恢复任务命令">
                             <Play className="h-3.5 w-3.5" />
                           </Button>
                         </AppTooltip>
                       )}
-                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="重置未接入站点 Agent" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
-                      {["pending", ...RUNNING_PHASES].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
-                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-7 w-7" title="标记失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="导出" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
+                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="重置未接入站点 Agent" aria-label="重置任务 (未接入站点 Agent)" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
+                      {["pending", ...RUNNING_PHASES].includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="标记完成" aria-label="标记任务完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
+                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="标记失败" aria-label="标记任务失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="导出" aria-label="导出任务" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -897,7 +889,7 @@ function TasksPageContent() {
                   <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-slate-400" />任务操作</h4>
                   <div className="flex flex-wrap gap-2">
                     {selected.phase !== "completed" && selected.phase !== "failed" && (
-                      <Button size="sm" variant="default" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleAdvance(selected)}>
+                      <Button size="sm" variant="default" onClick={() => handleAdvance(selected)}>
                         <SkipForward className="h-3.5 w-3.5 mr-1" />推进进度
                       </Button>
                     )}

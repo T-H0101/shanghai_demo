@@ -7,7 +7,10 @@ import { SyncCoordinator, type AgentSyncTransport } from "../../lib/site-agent/s
 import { FileSyncStore } from "../../lib/site-agent/sync/file-store"
 import { PackageTransport } from "../../lib/site-agent/sync/package-transport"
 import { PgSiteSourceReader } from "../../lib/site-agent/sync/source-reader"
-import type { SyncPackagePayload } from "../../lib/sync/package-schema"
+import {
+  ALLOWED_PACKAGE_TABLES,
+  type SyncPackagePayload,
+} from "../../lib/sync/package-schema"
 
 const databaseUrl = process.env.DATABASE_URL
 const siteDatabaseUrl = process.env.SITE_DATABASE_URL
@@ -121,7 +124,11 @@ async function main() {
 
     const bootstrap = await coordinator.syncOnce({ includeSnapshots: true })
     check("bootstrap succeeds", bootstrap.status === "success", bootstrap.status)
-    check("bootstrap contains 13 tables", bootstrap.tableCount === 13, String(bootstrap.tableCount))
+    check(
+      "bootstrap contains package whitelist tables",
+      bootstrap.tableCount === ALLOWED_PACKAGE_TABLES.length,
+      `${bootstrap.tableCount}/${ALLOWED_PACKAGE_TABLES.length}`
+    )
 
     const packageRow = await center.query<{
       status: string
@@ -141,9 +148,9 @@ async function main() {
       packageRow.rows[0]?.status ?? "missing"
     )
     check(
-      "center writes 13 successful table logs",
-      packageRow.rows[0]?.table_count === 13 &&
-        packageRow.rows[0]?.success_table_count === 13,
+      "center writes successful table logs for package whitelist",
+      packageRow.rows[0]?.table_count === ALLOWED_PACKAGE_TABLES.length &&
+        packageRow.rows[0]?.success_table_count === ALLOWED_PACKAGE_TABLES.length,
       JSON.stringify(packageRow.rows[0] ?? {})
     )
 
