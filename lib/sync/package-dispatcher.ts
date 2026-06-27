@@ -1528,6 +1528,236 @@ async function dispatchUploadRecord(input: DispatchInput): Promise<DispatchResul
 }
 
 // ============================================================
+// R.83.6 ISO + 元数据 + 系统族 15 张 — inline UPSERT
+// 全部走 source_record_id 溯源
+// ============================================================
+
+// tbl_iso_location (id) → unified_iso_locations
+async function dispatchIsoLocation(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_iso_locations', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_location_id' },
+      { source: 'iso_path', target: 'iso_path' },
+      { source: 'iso_size_mb', target: 'iso_size_mb' },
+      { source: 'mounted_at', target: 'mounted_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_iso_task_sync (id) → unified_iso_task_syncs
+async function dispatchIsoTaskSync(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_iso_task_syncs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_sync_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'iso_status', target: 'iso_status' },
+      { source: 'sync_started_at', target: 'sync_started_at' },
+      { source: 'sync_finished_at', target: 'sync_finished_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_meta_data (id) → unified_meta_datas
+async function dispatchMetaData(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_meta_datas', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_meta_id' },
+      { source: 'meta_key', target: 'meta_key' },
+      { source: 'meta_value', target: 'meta_value' },
+      { source: 'description', target: 'description' },
+      { source: 'updated_at', target: 'updated_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_sys (id) → unified_sys_configs (使用 _configs 后缀避免与 R.83.2 unified_sys_logs 冲突)
+async function dispatchSys(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_sys_configs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_sys_id' },
+      { source: 'config_key', target: 'config_key' },
+      { source: 'config_value', target: 'config_value' },
+      { source: 'description', target: 'description' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_sys_env (id) → unified_sys_envs
+async function dispatchSysEnv(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_sys_envs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_env_id' },
+      { source: 'env_name', target: 'env_name' },
+      { source: 'env_value', target: 'env_value' },
+      { source: 'is_secret', target: 'is_secret' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_mount_dir (id) → unified_mount_dirs
+async function dispatchMountDir(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_mount_dirs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_mount_id' },
+      { source: 'mount_path', target: 'mount_path' },
+      { source: 'device_id', target: 'device_id' },
+      { source: 'mount_status', target: 'mount_status' },
+      { source: 'mounted_at', target: 'mounted_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_buffer_dir (id) → unified_buffer_dirs
+async function dispatchBufferDir(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_buffer_dirs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_buffer_id' },
+      { source: 'buffer_path', target: 'buffer_path' },
+      { source: 'buffer_size_mb', target: 'buffer_size_mb' },
+      { source: 'buffer_used_mb', target: 'buffer_used_mb' },
+      { source: 'buffer_status', target: 'buffer_status' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_cd_cabinet (id) → unified_cd_cabinets
+async function dispatchCdCabinet(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_cd_cabinets', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_cabinet_id' },
+      { source: 'cabinet_code', target: 'cabinet_code' },
+      { source: 'cabinet_name', target: 'cabinet_name' },
+      { source: 'location', target: 'location' },
+      { source: 'total_slots', target: 'total_slots' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_film_operat (id) → unified_film_operats (irregular plural kept as "operats")
+async function dispatchFilmOperat(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_film_operats', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_operat_id' },
+      { source: 'film_code', target: 'film_code' },
+      { source: 'film_name', target: 'film_name' },
+      { source: 'operation_type', target: 'operation_type' },
+      { source: 'operated_at', target: 'operated_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_ft_file (id) → unified_ft_files
+async function dispatchFtFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_ft_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_file_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'transfer_status', target: 'transfer_status' },
+      { source: 'transferred_at', target: 'transferred_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_ft_sys (id) → unified_ft_systems
+async function dispatchFtSys(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_ft_systems', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_ft_sys_id' },
+      { source: 'system_code', target: 'system_code' },
+      { source: 'system_name', target: 'system_name' },
+      { source: 'version', target: 'version' },
+      { source: 'enabled', target: 'enabled' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_back_window (id) → unified_back_windows
+async function dispatchBackWindow(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_back_windows', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_window_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'window_type', target: 'window_type' },
+      { source: 'window_start_at', target: 'window_start_at' },
+      { source: 'window_end_at', target: 'window_end_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_zip_file (id) → unified_zip_files
+async function dispatchZipFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_zip_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_zip_id' },
+      { source: 'zip_name', target: 'zip_name' },
+      { source: 'zip_path', target: 'zip_path' },
+      { source: 'zip_size', target: 'zip_size' },
+      { source: 'zip_status', target: 'zip_status' },
+      { source: 'created_at', target: 'created_at' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_temp_slots (id) → unified_temp_slots
+async function dispatchTempSlots(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_temp_slots', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_slot_id' },
+      { source: 'slot_code', target: 'slot_code' },
+      { source: 'slot_status', target: 'slot_status' },
+      { source: 'capacity_mb', target: 'capacity_mb' },
+      { source: 'used_mb', target: 'used_mb' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_lib_group (id) → unified_lib_groups
+async function dispatchLibGroup(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_lib_groups', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_group_id' },
+      { source: 'group_code', target: 'group_code' },
+      { source: 'group_name', target: 'group_name' },
+      { source: 'description', target: 'description' },
+      { source: 'sort_order', target: 'sort_order' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -1806,6 +2036,22 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_verify_record_drp: dispatchVerifyRecordDrp,
   tbl_download_record: dispatchDownloadRecord,
   tbl_upload_record: dispatchUploadRecord,
+  // R.83.6 ISO + 元数据 + 系统族 15 张
+  tbl_iso_location: dispatchIsoLocation,
+  tbl_iso_task_sync: dispatchIsoTaskSync,
+  tbl_meta_data: dispatchMetaData,
+  tbl_sys: dispatchSys,
+  tbl_sys_env: dispatchSysEnv,
+  tbl_mount_dir: dispatchMountDir,
+  tbl_buffer_dir: dispatchBufferDir,
+  tbl_cd_cabinet: dispatchCdCabinet,
+  tbl_film_operat: dispatchFilmOperat,
+  tbl_ft_file: dispatchFtFile,
+  tbl_ft_sys: dispatchFtSys,
+  tbl_back_window: dispatchBackWindow,
+  tbl_zip_file: dispatchZipFile,
+  tbl_temp_slots: dispatchTempSlots,
+  tbl_lib_group: dispatchLibGroup,
 }
 
 /**

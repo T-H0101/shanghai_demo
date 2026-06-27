@@ -114,6 +114,22 @@ const TABLE_MAPPING: Array<{ src: string; unified: string }> = [
   { src: "tbl_verify_record_drp", unified: "unified_verify_record_drps" },
   { src: "tbl_download_record", unified: "unified_download_records" },
   { src: "tbl_upload_record", unified: "unified_upload_records" },
+  // R.83.6 ISO + 元数据 + 系统族 15 张
+  { src: "tbl_iso_location", unified: "unified_iso_locations" },
+  { src: "tbl_iso_task_sync", unified: "unified_iso_task_syncs" },
+  { src: "tbl_meta_data", unified: "unified_meta_datas" },
+  { src: "tbl_sys", unified: "unified_sys_configs" },
+  { src: "tbl_sys_env", unified: "unified_sys_envs" },
+  { src: "tbl_mount_dir", unified: "unified_mount_dirs" },
+  { src: "tbl_buffer_dir", unified: "unified_buffer_dirs" },
+  { src: "tbl_cd_cabinet", unified: "unified_cd_cabinets" },
+  { src: "tbl_film_operat", unified: "unified_film_operats" },
+  { src: "tbl_ft_file", unified: "unified_ft_files" },
+  { src: "tbl_ft_sys", unified: "unified_ft_systems" },
+  { src: "tbl_back_window", unified: "unified_back_windows" },
+  { src: "tbl_zip_file", unified: "unified_zip_files" },
+  { src: "tbl_temp_slots", unified: "unified_temp_slots" },
+  { src: "tbl_lib_group", unified: "unified_lib_groups" },
 ]
 
 async function snapshotRows(client: Client, siteCode: string): Promise<Record<string, number>> {

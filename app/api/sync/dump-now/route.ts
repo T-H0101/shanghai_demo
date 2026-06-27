@@ -46,6 +46,12 @@ const ALLOWED_PACKAGE_TABLES = [
   "tbl_evidence_details", "tbl_evidence_record_drp",
   "tbl_verify_details", "tbl_verify_record_drp",
   "tbl_download_record", "tbl_upload_record",
+  // R.83.6 ISO + 元数据 + 系统族 15 张
+  "tbl_iso_location", "tbl_iso_task_sync", "tbl_meta_data",
+  "tbl_sys", "tbl_sys_env",
+  "tbl_mount_dir", "tbl_buffer_dir", "tbl_cd_cabinet",
+  "tbl_film_operat", "tbl_ft_file", "tbl_ft_sys",
+  "tbl_back_window", "tbl_zip_file", "tbl_temp_slots", "tbl_lib_group",
 ]
 
 function srcToUnified(src: string): string {
@@ -123,6 +129,22 @@ function srcToUnified(src: string): string {
   if (src === "tbl_verify_record_drp") u = "unified_verify_record_drps"
   if (src === "tbl_download_record") u = "unified_download_records"
   if (src === "tbl_upload_record") u = "unified_upload_records"
+  // R.83.6 ISO + 元数据 + 系统族 15 张
+  if (src === "tbl_iso_location") u = "unified_iso_locations"
+  if (src === "tbl_iso_task_sync") u = "unified_iso_task_syncs"
+  if (src === "tbl_meta_data") u = "unified_meta_datas"
+  if (src === "tbl_sys") u = "unified_sys_configs"
+  if (src === "tbl_sys_env") u = "unified_sys_envs"
+  if (src === "tbl_mount_dir") u = "unified_mount_dirs"
+  if (src === "tbl_buffer_dir") u = "unified_buffer_dirs"
+  if (src === "tbl_cd_cabinet") u = "unified_cd_cabinets"
+  if (src === "tbl_film_operat") u = "unified_film_operats"
+  if (src === "tbl_ft_file") u = "unified_ft_files"
+  if (src === "tbl_ft_sys") u = "unified_ft_systems"
+  if (src === "tbl_back_window") u = "unified_back_windows"
+  if (src === "tbl_zip_file") u = "unified_zip_files"
+  if (src === "tbl_temp_slots") u = "unified_temp_slots"
+  if (src === "tbl_lib_group") u = "unified_lib_groups"
   return u
 }
 

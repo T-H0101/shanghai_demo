@@ -11,6 +11,7 @@
  * (tbl_file, tbl_folder) remain blocked.
  * R.83.4: extend whitelist to 73 tables (存储卷 + 调度/接口 + 设备业务族 15 张)
  * R.83.5: extend whitelist to 88 tables (数据接收 + 告警 + 媒体族 15 张)
+ * R.83.6: extend whitelist to 103 tables (ISO + 元数据 + 系统族 15 张)
  */
 
 export const DUMP_ALLOWED_TABLES = [
@@ -108,6 +109,22 @@ export const DUMP_ALLOWED_TABLES = [
   "tbl_verify_record_drp",
   "tbl_download_record",
   "tbl_upload_record",
+  // R.83.6 ISO + 元数据 + 系统族 15 张
+  "tbl_iso_location",
+  "tbl_iso_task_sync",
+  "tbl_meta_data",
+  "tbl_sys",
+  "tbl_sys_env",
+  "tbl_mount_dir",
+  "tbl_buffer_dir",
+  "tbl_cd_cabinet",
+  "tbl_film_operat",
+  "tbl_ft_file",
+  "tbl_ft_sys",
+  "tbl_back_window",
+  "tbl_zip_file",
+  "tbl_temp_slots",
+  "tbl_lib_group",
 ] as const
 
 export const DUMP_FORBIDDEN_TABLES = ["tbl_file", "tbl_folder"] as const
