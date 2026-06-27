@@ -668,6 +668,38 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.5-requirements-review.md`
 
+#### §5.3.10 R.83.6 ISO + 元数据 + 系统族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 90 张扩到 105 张,新增 3 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 11 Tabs),dump manifest 扩到 103。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.6/01-iso-meta-system-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 88→103(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 88→103(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 3 个 CRUD API:`/api/system-config` + `/api/iso` + `/api/file-ops`
+- `/check` 新增 2 个 Tabs:系统配置 + ISO 与文件(共 11 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.6 范围(positions 88-102)+ 14 irregular plural overrides
+- 治理矩阵文档 15 行 R.83.6 标记 + 桶分布 53→38
+
+**命名一致性**:R.83.6 spec 使用复数命名(`unified_iso_locations` / `unified_sys_configs` / `unified_back_windows` 等),与 R.83.3/R.83.4/R.83.5 clean plural pattern 一致;矩阵文档 row 列同步更新到复数命名,避免单/复数混淆。`tbl_sys` 映射到 `unified_sys_configs`(语义化重命名,而非 `unified_sys`)。
+
+**测试**:
+- `pnpm test:r83.6-whitelist`(≥12 checks)
+- `pnpm test:r83.6-api`(≥18 checks)
+- `pnpm test:r83.6-ui`(≥27 checks)
+- `pnpm test:matrix-round`(≥22 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 105)
+
+**不变量**:
+- `unified_*` ≥ 105
+- ALLOWED_PACKAGE_TABLES = 103
+- DUMP_ALLOWED_TABLES = 103
+- 任何 `app/api/{system-config,iso,file-ops}/**` 不引用 restore 库
+- 多站点 UNIQUE(source_site_id, source_record_id) 隔离
+
+**审计**: `docs/database-analysis/sprint-r83.6-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash

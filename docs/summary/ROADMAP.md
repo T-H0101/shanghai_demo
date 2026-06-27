@@ -903,3 +903,15 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] 桶分布 68 → 53
 - [x] 命名一致性:R.83.5 spec 与矩阵文档均用 clean plural
 - [x] README §5.3.9
+
+### R.83.6 ISO + 元数据 + 系统族 15 张业务表接入 (2026-06-27 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.6/01-iso-meta-system-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 88 → 103 + `DUMP_ALLOWED_TABLES` 88 → 103
+- [x] 15 个新 dispatcher handler
+- [x] 3 个 CRUD API:`/api/system-config` + `/api/iso` + `/api/file-ops`
+- [x] `/check` 加 2 Tabs(系统配置 / ISO 与文件)共 11 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.6 范围(positions 88-102)+ 14 irregular plural overrides
+- [x] 桶分布 53 → 38
+- [x] 命名一致性:R.83.6 spec 与矩阵文档均用 clean plural;`tbl_sys` 语义化重命名 `unified_sys_configs`
+- [x] README §5.3.10

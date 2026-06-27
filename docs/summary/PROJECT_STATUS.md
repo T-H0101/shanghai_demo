@@ -92,6 +92,22 @@
 
 **审计**: `docs/database-analysis/sprint-r83.5-requirements-review.md`
 
+## Sprint R.83.6 — ISO + 元数据 + 系统族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 90 → 105 张,新增 tbl_iso_* + tbl_meta_data + tbl_sys_* + tbl_mount_* + tbl_buffer_* + tbl_cd_cabinet + tbl_film_operat + tbl_ft_* + tbl_back_window + tbl_zip_file + tbl_temp_slots + tbl_lib_group,落地 3 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.6/01-iso-meta-system-tables.sql`)— Task 1+2,commit `2d53cbd`
+- 白名单 88→103 + self-check — Task 2,commits `fdbd386` `faf2780`
+- 3 个 CRUD API(`/api/system-config` + `/api/iso` + `/api/file-ops`)+ self-check — Task 3,commit `4b37eb0`
+- /check 加 2 Tabs(系统配置 + ISO 与文件)共 11 tabs(复用)— Task 3,commit `c67d8ea`
+- audit matrix round R.83.6 + 14 irregular plural overrides — Task 4,commit `6185fba`
+- 治理矩阵文档 15 行 R.83.6 标记 + 桶分布 53→38 — Task 5,commit `89969b6`
+
+**命名一致性**:R.83.6 spec 用复数命名(`unified_iso_locations` / `unified_sys_configs` / `unified_back_windows` 等),与 R.83.3/R.83.4/R.83.5 clean plural pattern 一致;`tbl_sys` 语义化重命名为 `unified_sys_configs`;矩阵文档 row 列同步更新到复数。
+
+**审计**: `docs/database-analysis/sprint-r83.6-requirements-review.md`
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引
