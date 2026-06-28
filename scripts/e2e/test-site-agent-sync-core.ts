@@ -168,7 +168,7 @@ async function main() {
     })
 
     await check("package transport signs success and classifies partial", async () => {
-      const secret = "r19c-core-secret-value"
+      const secret = "test-hmac-key-for-unit-test-only"
       let responseStatus = 200
       let responseBody = {
         status: "success",

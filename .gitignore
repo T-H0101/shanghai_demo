@@ -75,6 +75,7 @@ docs/screenshots/
 docs/archive/
 docs/secrets/
 archive/
+audit/*.json
 docs/database-analysis/schema-inventory.json
 docs/database-analysis/schema-inventory.md
 docs/audit/consistency/consistency-*.json
