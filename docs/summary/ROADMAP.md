@@ -939,3 +939,25 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] 桶分布 23 → 8 + fallback `R.83.8+` → `R.83.9+`
 - [x] 命名一致性:`tbl_task_items` → `unified_task_items`,`tbl_task_print` → `unified_task_prints`,`tbl_task_certif_status` → `unified_task_certif_statuses`;slot 表保持单数(`unified_slot_file_15` 等)
 - [x] README §5.3.12
+
+### R.83.9 收尾 — 备份/磁盘/下载辅助族 8 张业务表接入 (2026-06-28 完成) — **128 张业务表全部接入**
+
+- [x] 8 张 DDL(`databases/sprint-r83.9/01-final-8-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 133 → 141 + `DUMP_ALLOWED_TABLES` 133 → 141
+- [x] 8 个新 dispatcher handler
+- [x] 2 个 CRUD API:`/api/final-batch-a` + `/api/final-batch-b`
+- [x] `/check` 加 2 Tabs(备份辅助 / 下载等待)共 17 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.9 范围(positions 133-140)+ 8 irregular plural overrides
+- [x] 桶分布 `R.83.9+ | 8` → `R.84+ | 0`(业务表全部接入完成)
+- [x] 命名一致性:所有 R.83.9 表用复数 suffix(`unified_backup_dbs` / `unified_disk_checks` / `unified_diskfile_checks` / `unified_hd_powers` / `unified_receipt_file_details` / `unified_slots_parts` / `unified_wait_download_files` / `unified_wait_download_file_tasks`)
+- [x] README §5.3.13
+
+## 总结(R.83 中心库治理 9 轮总览)
+
+- 业务表 128 张全部接入(R.83.1-R.83.9,9 轮每轮 15 张除 R.83.9 收尾 8 张)
+- 中心库 `unified_*` 143 张(13 既有 + 128 R.83.x + 2 unified_alerts/file_index)
+- 同步白名单 141 项,`DUMP_ALLOWED_TABLES` 141 项
+- dispatch handlers 8 × 15 = 120 个 + 8 收尾 = 128 个(覆盖全部 141 项白名单中的 dispatcher 路由)
+- 多站点真同步:`/sync` 页"立即同步"按钮 → dump-now 链路 → 中心库真实 upsert(SH01 + BJ02 UNIQUE 隔离)
+- 治理矩阵文档 100% 覆盖 170 张源表(128 已接入 + 13 already + 29 大表 never)
+- 远端推送成功,主分支未污染

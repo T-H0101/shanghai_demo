@@ -140,6 +140,27 @@
 
 **审计**: `docs/database-analysis/sprint-r83.8-requirements-review.md`
 
+## Sprint R.83.9 — 收尾:备份/磁盘/下载辅助族 8 张业务表接入(已完成) — **128 张业务表全部接入**
+
+**目标**:完成 **128 张业务表全部接入**目标(`tbl_file_*/tbl_folder_*` 大表走 ES/ClickHouse 独立路径)。
+
+**交付**:
+- 8 张 DDL(`databases/sprint-r83.9/01-final-8-tables.sql`)— Task 1,commit `b6b32d1`
+- 白名单 133→141 + self-check — Task 2,commits `eb3de48` `6e508be`
+- 2 个 CRUD API(`/api/final-batch-a` + `/api/final-batch-b`)+ self-check + /check 加 2 Tabs(备份辅助 + 下载等待)共 17 tabs — Task 3
+- audit matrix round R.83.9 + 8 irregular plural overrides + fallback `R.83.9+` → `R.84+` — Task 4,commit `a4b9b74`
+- 治理矩阵文档 8 行 R.83.9 标记 + 桶分布更新到 `R.84+ = 0` — Task 5,commit `926fec8`
+
+**命名一致性**:`tbl_backup_db` → `unified_backup_dbs`、`tbl_disk_check` → `unified_disk_checks` 等所有 R.83.9 表用复数命名(suffix),与 R.83.7/R.83.5 pattern 一致。
+
+**总进度(R.83.1-R.83.9)**:
+- 中心库 `unified_*` 表:**143 张**
+- 同步白名单:**141 项**
+- 业务表 128 张全部接入(R.83.9 后 `R.84+ = 0`)
+- 远端推送成功,主分支 `7f81424` 未动
+
+**审计**: `docs/database-analysis/sprint-r83.9-requirements-review.md`
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引

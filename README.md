@@ -760,6 +760,33 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.8-requirements-review.md`
 
+#### §5.3.13 R.83.9 收尾 — 备份/磁盘/下载辅助族 8 张业务表接入
+
+**目标**:完成 **128 张业务表全部接入**目标(`tbl_file_*/tbl_folder_*` 大表走 ES/ClickHouse 独立路径,不在此范围)。
+
+**交付**:
+- 8 张 DDL(`databases/sprint-r83.9/01-final-8-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 133→141(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 133→141(`lib/sync/dump/manifest.ts`)
+- 8 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 2 个 CRUD API:`/api/final-batch-a` + `/api/final-batch-b`
+- `/check` 新增 2 个 Tabs:备份辅助 + 下载等待(共 17 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.9 范围(positions 133-140)+ 8 irregular plural overrides
+- 治理矩阵文档 8 行 R.83.9 标记 + 桶分布更新到 `R.84+ = 0`(业务表全部接入完成)
+
+**总进度(R.83.1-R.83.9)**:
+- 中心库 `unified_*` 表:**143 张**(13 既有 + 128 业务 + 2 其他 = 143)
+- 同步白名单:**141 项**
+- 远端 17 个 R.83.x commits,推送成功,主分支 `7f81424` 未动
+
+**测试**:
+- `pnpm test:r83.9-whitelist`
+- `pnpm test:r83.9-api`(≥12 checks)
+- `pnpm test:matrix-round`(≥28 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 143)
+
+**审计**: `docs/database-analysis/sprint-r83.9-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash
