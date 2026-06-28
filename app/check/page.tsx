@@ -163,6 +163,12 @@ export default function CheckPage() {
             <TabsTrigger value="slot" className="text-xs">
               槽位管理
             </TabsTrigger>
+            <TabsTrigger value="backup" className="text-xs">
+              备份辅助
+            </TabsTrigger>
+            <TabsTrigger value="download" className="text-xs">
+              下载等待
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-4">
             <Card>
@@ -365,6 +371,30 @@ export default function CheckPage() {
                 "unified_slot_folder_15",
                 "unified_slot_folder_30",
                 "unified_slot_folder_31",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="backup" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/final-batch-a?limit=100"
+              title="备份辅助"
+              sourceTables={[
+                "unified_backup_dbs",
+                "unified_disk_checks",
+                "unified_diskfile_checks",
+                "unified_hd_powers",
+              ]}
+            />
+          </TabsContent>
+          <TabsContent value="download" className="mt-4">
+            <CheckResourceTab
+              endpoint="/api/final-batch-b?limit=100"
+              title="下载等待"
+              sourceTables={[
+                "unified_receipt_file_details",
+                "unified_slots_parts",
+                "unified_wait_download_files",
+                "unified_wait_download_file_tasks",
               ]}
             />
           </TabsContent>
