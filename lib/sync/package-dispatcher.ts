@@ -110,6 +110,7 @@ async function dispatchMagzines(input: DispatchInput): Promise<DispatchResult> {
       { source: 'mag_order',   target: 'position' },
       { source: 'door_status', target: 'status' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
@@ -125,6 +126,7 @@ async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
       { source: 'max_cap',    target: 'capacity' },
       { source: 'disc_type',  target: 'media_type' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
   // R.17 二次回填: 用 unified_magazines.device_id 反向填 unified_slots.device_id
   // 仅对 device_id 为空的行更新
@@ -161,6 +163,7 @@ async function dispatchHardDisks(input: DispatchInput): Promise<DispatchResult> 
       { source: 'hd_status',  target: 'status' },
       { source: 'health',     target: 'health_status' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
@@ -223,6 +226,7 @@ async function dispatchDiscMedia(input: DispatchInput): Promise<DispatchResult> 
       { source: 'error_files',  target: 'error_files' },
       { source: 'stage',        target: 'stage' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
@@ -238,6 +242,7 @@ async function dispatchLogicalVolume(input: DispatchInput): Promise<DispatchResu
       { source: 'used_cap',  target: 'used_capacity' },
       { source: 'del_flag',  target: 'status' },
     ],
+    sourceIdColumn: 'source_record_id',
   })
 }
 
