@@ -294,6 +294,7 @@ async function main() {
         else if (i < 103) ROUND_BY_SOURCE[src] = "R.83.6"
         else if (i < 118) ROUND_BY_SOURCE[src] = "R.83.7"
         else if (i < 133) ROUND_BY_SOURCE[src] = "R.83.8"
+        else if (i < 141) ROUND_BY_SOURCE[src] = "R.83.9"
       })
 
       // R.83.5 irregular plural / rename overrides (data + warning + media family)
@@ -361,6 +362,16 @@ async function main() {
       if (ROUND_BY_SOURCE["tbl_slot_folder_30"]) ROUND_BY_SOURCE["tbl_slot_folder_30"] = "R.83.8"
       if (ROUND_BY_SOURCE["tbl_slot_folder_31"]) ROUND_BY_SOURCE["tbl_slot_folder_31"] = "R.83.8"
 
+      // R.83.9 final batch irregular plural overrides (backup/disk/hd-power/wait-download)
+      if (ROUND_BY_SOURCE["tbl_backup_db"]) ROUND_BY_SOURCE["tbl_backup_db"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_disk_check"]) ROUND_BY_SOURCE["tbl_disk_check"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_diskfile_check"]) ROUND_BY_SOURCE["tbl_diskfile_check"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_hd_power"]) ROUND_BY_SOURCE["tbl_hd_power"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_receipt_file_detail"]) ROUND_BY_SOURCE["tbl_receipt_file_detail"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_slots_part"]) ROUND_BY_SOURCE["tbl_slots_part"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_wait_download_file"]) ROUND_BY_SOURCE["tbl_wait_download_file"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_wait_download_file_task"]) ROUND_BY_SOURCE["tbl_wait_download_file_task"] = "R.83.9"
+
       // Map each known unified_* table to its canonical singular source table
       // (as it appears in ALLOWED_PACKAGE_TABLES). Some unified names are
       // irregular plurals or rename to a different stem (e.g. unified_departments
@@ -427,7 +438,7 @@ async function main() {
 
       const entries = unified.map((t) => {
         const src = UNIFIED_TO_SOURCE[t] ?? t.replace(/^unified_/, "tbl_")
-        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.9+"
+        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.84+"
         return {
           unified_table: t,
           source_table: src,
