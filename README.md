@@ -80,9 +80,9 @@ docker build -t unified-disc-platform:latest .
 
 ## 后续开发入口
 
+- [R.84-R.88 开发/架构/清理总计划](docs/superpowers/plans/2026-06-29-r84-r88-development-architecture-cleanup-plan.md)
 - [架构质量路线图](docs/architecture/architecture-quality-roadmap.md)
 - [大表与 ES 规划](docs/architecture/es-large-table-roadmap.md)
-- [可执行实施计划](docs/superpowers/plans/2026-06-29-architecture-cleanup-and-es-roadmap.md)
 
 ## 禁止事项
 
