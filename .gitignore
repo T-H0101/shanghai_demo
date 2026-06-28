@@ -79,6 +79,7 @@ audit/*.json
 docs/database-analysis/schema-inventory.json
 docs/database-analysis/schema-inventory.md
 docs/audit/consistency/consistency-*.json
+# Note: docs/database-analysis/requirements-traceability.json is a hand-maintained source (not a generated artifact); see repository-cleanup-policy.md
 
 # Local agent runtime artifacts
 .superpowers/
