@@ -102,6 +102,9 @@
     "test:r83.4-whitelist": "tsx scripts/test-r83.4-whitelist.ts",
     "test:r83.5-whitelist": "tsx scripts/test-r83.5-whitelist.ts",
     "test:r83.6-whitelist": "tsx scripts/test-r83.6-whitelist.ts",
+    "test:r83.7-whitelist": "tsx scripts/test-r83.7-whitelist.ts",
+    "test:r83.8-whitelist": "tsx scripts/test-r83.8-whitelist.ts",
+    "test:r83.9-whitelist": "tsx scripts/test-r83.9-whitelist.ts",
     "test:r83.2-api": "tsx app/api/rbac/__tests__/self-check.ts",
     "test:r83.2-ui": "tsx components/rbac/__tests__/self-check.ts",
     "test:r83.3-api": "tsx app/api/check/__tests__/self-check.ts",
@@ -112,6 +115,12 @@
     "test:r83.5-ui": "tsx components/check/__tests__/self-check.ts",
     "test:r83.6-api": "tsx app/api/__tests__/r83.6-api-test.ts",
     "test:r83.6-ui": "tsx components/check/__tests__/self-check.ts",
+    "test:r83.7-api": "tsx app/api/__tests__/r83.7-api-test.ts",
+    "test:r83.7-ui": "tsx components/check/__tests__/self-check.ts",
+    "test:r83.8-api": "tsx app/api/__tests__/r83.8-api-test.ts",
+    "test:r83.8-ui": "tsx components/check/__tests__/self-check.ts",
+    "test:r83.9-api": "tsx app/api/__tests__/r83.9-api-test.ts",
+    "test:r83.9-ui": "tsx components/check/__tests__/self-check.ts",
     "test:matrix-round": "tsx scripts/audit/__tests__/matrix-round-source.ts"
   },
   "dependencies": {

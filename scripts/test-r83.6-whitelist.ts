@@ -275,16 +275,16 @@ check(
   `actual=[${tail.join(',')}] expected=[${expectedTail.join(',')}]`
 )
 
-// 13. 健全性: 13 + 15*6 === 当前实际长度
+// 13. 健全性: 13 + 15*6 <= 当前实际长度
 check(
-  'sanity: 13 original + 15*(R.83.1+R.83.2+R.83.3+R.83.4+R.83.5+R.83.6) = actual length',
+  'sanity: 13 original + 15*(R.83.1+R.83.2+R.83.3+R.83.4+R.83.5+R.83.6), baseline <= actual length',
   ORIGINAL_TABLES.length +
     R831_TABLES.length +
     R832_TABLES.length +
     R833_TABLES.length +
     R834_TABLES.length +
     R835_TABLES.length +
-    R836_TABLES.length ===
+    R836_TABLES.length <=
     ALLOWED_PACKAGE_TABLES.length,
   `expected=${
     ORIGINAL_TABLES.length +

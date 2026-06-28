@@ -4,12 +4,13 @@
  * Sprint R.83.8 Task 3 — slot folder family CRUD over center DB
  * unified_slot_folder_1000000 (primary table; lists 6 unified_slot_folder_* tables in sourceTables).
  *
- * Auth: blocked_by_auth per CLAUDE.md (no auth check here).
+ * Auth: requires platform session; writes require platform:operate.
  * Source: center DB only (lib/db → DATABASE_URL). NO restore DB.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { query, transaction } from "@/lib/db"
+import { guardR83Api } from "@/lib/auth/r83-api-guard"
 
 const TARGET_TABLE = "unified_slot_folder_1000000"
 const SOURCE_TABLES = [
@@ -102,6 +103,8 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url)
     const siteCode = url.searchParams.get("siteCode")
+    const auth = await guardR83Api(req, "read", siteCode)
+    if (auth) return auth
     const limit = Math.min(
       Math.max(Number(url.searchParams.get("limit") ?? 100), 1),
       500,
@@ -128,6 +131,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const traceId = `r838-slot-folders-${Date.now()}`
   try {
+    const auth = await guardR83Api(req, "write")
+    if (auth) return auth
     const body = await req.json()
     const data = await upsert(body)
     return NextResponse.json({ code: 0, data, traceId })
@@ -146,6 +151,8 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const traceId = `r838-slot-folders-${Date.now()}`
   try {
+    const auth = await guardR83Api(req, "write")
+    if (auth) return auth
     const body = await req.json()
     const data = await update(body)
     return NextResponse.json({ code: 0, data, traceId })
@@ -167,6 +174,8 @@ export async function DELETE(req: NextRequest) {
     const url = new URL(req.url)
     const siteCode = url.searchParams.get("siteCode")
     const recordId = url.searchParams.get("sourceRecordId")
+    const auth = await guardR83Api(req, "write", siteCode)
+    if (auth) return auth
     if (!siteCode || !recordId) {
       throw new Error("siteCode and sourceRecordId are required")
     }

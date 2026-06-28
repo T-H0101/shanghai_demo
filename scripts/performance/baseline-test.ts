@@ -84,7 +84,7 @@ async function testBatchInsert(client: Client) {
       await client.query(
         `INSERT INTO unified_task_certif_statuses (source_site_id, source_record_id, source_table, raw_data)
          VALUES ($1, $2, $3, '{}'::jsonb)
-         ON CONFLICT (source_site_id, source_table, source_record_id) DO NOTHING`,
+         ON CONFLICT (source_site_id, source_record_id) DO NOTHING`,
         ["__test_perf_batch__", `perf-batch-${i}`, "tbl_perf_test"]
       )
     }

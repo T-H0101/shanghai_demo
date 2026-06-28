@@ -48,8 +48,8 @@
 
 | 工具 | 版本要求 | 检查命令 |
 |---|---|---|
-| Node.js | 18 或 20 | `node -v` |
-| pnpm | 9 或 10 | `pnpm -v` |
+| Node.js | 22 LTS 或更高 | `node -v` |
+| pnpm | 11.3.0 | `pnpm -v` |
 | Docker Desktop | 任意较新版本 | `docker -v` |
 | Git | 任意较新版本 | `git --version` |
 
@@ -1135,7 +1135,7 @@ pnpm scheduler:sync -- --siteCode SH01 --interval 300
 |---|---|
 | 1 台 Linux 服务器,没装 Docker | **方案 A (PM2)** |
 | 1 台 Linux 服务器,装了 Docker,想一条命令起全栈 | **方案 B (Docker Compose) — 但要先按本节提示补 compose** |
-| 多环境,要推镜像仓库 (Harbor / GHCR) | **方案 C (Docker 镜像) — 但要先加 `next.config.mjs` 的 `output: 'standalone'`** |
+| 多环境,要推镜像仓库 (Harbor / GHCR) | **方案 C (Docker 镜像)** |
 | 多副本 + 滚动更新 + 自动伸缩 | **方案 D (k8s)** |
 | 接受云端 Postgres,不要本机 Docker | **方案 E (Vercel)** |
 | Windows 笔记本,本地开发调试 | **方案 F (Windows 本地)** |
@@ -1237,41 +1237,18 @@ docker compose -f docker-compose.yml up -d --build
 
 适用:多环境部署,或推到 Harbor / Docker Hub / GHCR。
 
-> ⚠️ **必读 — `next.config.mjs` 当前没有 `output: 'standalone'`,直接 build 会失败**
->
-> 附录 A.1 给的 Dockerfile 里这一步会失败:
-> ```
-> COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-> ERROR: failed to solve: "/app/.next/standalone": not found
-> ```
-> 因为 `next build` 默认**不输出 standalone 目录**,必须显式开启。
->
-> **先改 `next.config.mjs`**:
-> ```js
-> /** @type {import('next').NextConfig} */
-> const nextConfig = {
->   output: 'standalone',   // ← 加这一行
->   typescript: { ignoreBuildErrors: false },
->   images: { unoptimized: true },
->   async redirects() { return [{ source: "/control", destination: "/tasks?view=commands", permanent: false }] },
-> }
-> export default nextConfig
-> ```
-> 然后 `pnpm build` 会输出 `.next/standalone/`,Dockerfile 才能 COPY。
->
-> 下面步骤默认你已经改好 `next.config.mjs` 并把附录 A.1 的 Dockerfile 放到根目录。
+仓库已包含 `Dockerfile`,且 `next.config.mjs` 已启用 `output: "standalone"`。
+镜像只包含应用,数据库仍通过 `DATABASE_URL` 等环境变量接入;首次部署中心库请先按 §2.4 / §7.3 执行 `pnpm db:init`。
 
 ```bash
-# 1. 在仓库根目录创建 Dockerfile（项目当前没自带,见附录 A.1）
-
-# 2. 本地构建
+# 1. 本地构建
 docker build -t unified-disc-platform:latest .
 
-# 3. 推到镜像仓库
+# 2. 推到镜像仓库
 docker tag unified-disc-platform:latest registry.example.com/unified-disc-platform:v1.0.0
 docker push registry.example.com/unified-disc-platform:v1.0.0
 
-# 4. 在目标服务器拉取并运行
+# 3. 在目标服务器拉取并运行
 docker run -d \
   --name unified-disc-platform \
   -p 3000:3000 \
@@ -1371,9 +1348,9 @@ vercel --prod
 #### 方案 F：Windows 本地（开发者用,不上生产）
 
 ```powershell
-# 1. 装 Node 20 (用 nvm-windows 推荐)
-nvm install 20
-nvm use 20
+# 1. 装 Node 22 LTS (用 nvm-windows 推荐)
+nvm install 22
+nvm use 22
 
 # 2. 装 pnpm
 npm install -g pnpm
@@ -1457,7 +1434,7 @@ sudo certbot --nginx -d platform.example.com   # 自动配 HTTPS
 | `Error: password authentication failed for user "unified"` | `DATABASE_URL` 里的密码与 PostgreSQL 数据卷内实际密码不一致；常见于旧 `postgres_data` volume 已用旧密码初始化，后来又改了 `.env.local` / `POSTGRES_PASSWORD` | 先确认三处一致：`DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD`。新开发环境直接执行 `pnpm db:down:volumes && pnpm db:up && pnpm db:init && pnpm db:health`；不能删数据时，用当前能登录的密码进入数据库后执行 `ALTER USER unified WITH PASSWORD '<new-password>';` |
 | `Error: listen EADDRINUSE :::3000` | 3000 端口被占 | `lsof -i :3000` 找到占用进程 kill;或改 `PORT=3001 pnpm dev` |
 | `Error: Cannot find module 'next/dist/...'` | node_modules 损坏 | `rm -rf node_modules pnpm-lock.yaml && pnpm install` |
-| `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 20 LTS (项目用 next-themes + React 19 需要) |
+| `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 22 LTS 或更高 (pnpm 11.3.0 需要 Node 22+) |
 | `pnpm install` 卡死 / 超时 | 镜像源问题 | `pnpm config set registry https://registry.npmmirror.com` 后重试 |
 | `pnpm db:init` 报 SQL 语法错(某行 `\dt` 无效) | 端口混淆 / 连到了错误数据库 | 确认 `docker exec -it unified_disc_postgres psql -U unified -d unified_disc_platform` 能正常进库;SQL 脚本在 `databases/sprint-2b0/unified_schema.sql` |
 | 浏览器访问 `/login` 显示 "认证服务暂不可用" | `/api/auth/login` 路由找不到 PG | 检查 `pnpm db:up` 状态 + 看 dev server stderr |
@@ -1520,8 +1497,30 @@ curl -i http://localhost:3000/api/system/health
 # 2. 总控侧:在 sync_sites 表注册 BJ02
 #    走 /sites 页面"注册新站点"或直接 SQL:
 psql -U unified -d unified_disc_platform -c "
-INSERT INTO sync_sites (site_code, site_name, db_url, db_user, enabled, interval_seconds)
-VALUES ('BJ02', '北京 02 站点', 'postgresql://bj02_agent:s3cr3t@bj02.example.com:5432/star_storage_db', 'bj02_agent', TRUE, 3600);
+INSERT INTO sync_sites (
+  site_code,
+  site_name,
+  source_type,
+  db_host,
+  db_port,
+  db_name,
+  db_user,
+  credential_ref,
+  enabled,
+  sync_interval_seconds
+)
+VALUES (
+  'BJ02',
+  '北京 02 站点',
+  'postgres',
+  'bj02-db.example.com',
+  5432,
+  'star_storage_db',
+  'bj02_agent',
+  'CREDENTIAL_BJ02_DB_PASSWORD',
+  TRUE,
+  3600
+);
 "
 
 # 3. (可选)首跑 pg_dump + ingest,验证数据路径
@@ -1742,22 +1741,22 @@ R.83.1-R.83.9 共 9 轮 sprint 完成 128 张业务表接入(`unified_*` 143 张
 
 ## 附录 A：常用 Dockerfile + Compose 模板
 
-> 项目仓库当前**没有自带 Dockerfile**(避免增加维护负担),下面给你可以直接用的最小模板。
+项目仓库已内置根目录 `Dockerfile`。下面模板用于审查或派生企业镜像时参考;如无特殊需求,直接使用仓库内置版本。
 > 复制到仓库根目录就能 `docker build`。
 
-### A.1 多阶段 Dockerfile（Next.js 16 + Node 20）
+### A.1 多阶段 Dockerfile（Next.js 16 + Node 22）
 
 ```dockerfile
 # syntax=docker/dockerfile:1.7
 # ---- 依赖阶段 ----
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # ---- 构建阶段 ----
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY --from=deps /app/node_modules ./node_modules
@@ -1765,7 +1764,7 @@ COPY . .
 RUN pnpm build
 
 # ---- 运行阶段 ----
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -1785,10 +1784,10 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 ```
 
-**配套 `next.config.js`**(必须加,否则 standalone 模式不工作):
+**配套 `next.config.mjs`** 已在仓库启用:
 ```js
-module.exports = {
-  output: 'standalone',
+const nextConfig = {
+  output: "standalone",
 }
 ```
 
@@ -1800,6 +1799,7 @@ docker build -t unified-disc-platform:latest .
 ### A.2 全栈 docker-compose.yml（postgres + app 一条命令起）
 
 > 替换现有 `docker-compose.yml` 内容（或备份后改名 `docker-compose.fullstack.yml`）。
+> 运行前先准备 `.env.production`,至少包含 `POSTGRES_PASSWORD`、`DATABASE_URL`、`AUTH_SESSION_SECRET`、`SYNC_PACKAGE_SECRET`、`SITE_AGENT_SECRET`;不要把真实值写进 compose 或提交到 git。
 
 ```yaml
 name: unified-disc-platform
@@ -1811,7 +1811,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: unified
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unified123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: unified_disc_platform
     ports:
       - "5432:5432"
@@ -1842,10 +1842,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://unified:${POSTGRES_PASSWORD:-unified123}@postgres:5432/unified_disc_platform
-      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-please-change-me-in-production-32-chars-min}
-      SYNC_PACKAGE_SECRET: ${SYNC_PACKAGE_SECRET:-please-change-me-in-production-32-chars-min}
-      SITE_AGENT_SECRET: ${SITE_AGENT_SECRET:-please-change-me-in-production-32-chars-min}
+      DATABASE_URL: ${DATABASE_URL}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET}
+      SYNC_PACKAGE_SECRET: ${SYNC_PACKAGE_SECRET}
+      SITE_AGENT_SECRET: ${SITE_AGENT_SECRET}
       NODE_ENV: production
     ports:
       - "3000:3000"

@@ -179,6 +179,17 @@ const R83_8_SOURCES = [
   "tbl_slot_folder_30",
   "tbl_slot_folder_31",
 ]
+// R.83.9 source tables (final backup/disk/wait-download family)
+const R83_9_SOURCES = [
+  "tbl_backup_db",
+  "tbl_disk_check",
+  "tbl_diskfile_check",
+  "tbl_hd_power",
+  "tbl_receipt_file_detail",
+  "tbl_slots_part",
+  "tbl_wait_download_file",
+  "tbl_wait_download_file_task",
+]
 
 interface MatrixEntry {
   unified_table: string
@@ -195,7 +206,7 @@ interface MatrixJson {
 }
 
 import { execSync } from "node:child_process"
-import { readFileSync, existsSync } from "node:fs"
+import { readFileSync, existsSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 let pass = 0
@@ -214,6 +225,7 @@ function check(name: string, ok: boolean, detail = "") {
 }
 
 const matrixPath = resolve(process.cwd(), "audit/center-db-matrix.json")
+rmSync(matrixPath, { force: true })
 
 // Step 1: Run pnpm audit:center-db -- --strict --matrix
 console.log("\n=== Step 1: Run pnpm audit:center-db -- --strict --matrix ===")
@@ -253,10 +265,10 @@ try {
 // Step 3: Run the 12 checks
 console.log("\n=== Step 3: Validate round derivation ===")
 
-// Check 1: unifiedCount >= 133 (13 already + 15 R.83.1 + 15 R.83.2 + 15 R.83.3 + 15 R.83.4 + 15 R.83.5 + 15 R.83.6 + 15 R.83.7 + 15 R.83.8)
+// Check 1: unifiedCount >= 141 (13 already + 15 R.83.1..R.83.8 + 8 R.83.9)
 check(
-  "unifiedCount >= 133",
-  matrix.unifiedCount >= 133,
+  "unifiedCount >= 141",
+  matrix.unifiedCount >= 141,
   `unifiedCount=${matrix.unifiedCount}`
 )
 
@@ -377,12 +389,12 @@ check(
 
 // Check 11 (bonus): all whitelisted sources that EXIST in the matrix have a specific round
 {
-  const all133 = [...R83_8_SOURCES, ...R83_7_SOURCES, ...R83_6_SOURCES, ...R83_5_SOURCES, ...R83_4_SOURCES, ...R83_3_SOURCES, ...R83_2_SOURCES, ...R83_1_SOURCES, ...ALREADY_SOURCES]
+  const all141 = [...R83_9_SOURCES, ...R83_8_SOURCES, ...R83_7_SOURCES, ...R83_6_SOURCES, ...R83_5_SOURCES, ...R83_4_SOURCES, ...R83_3_SOURCES, ...R83_2_SOURCES, ...R83_1_SOURCES, ...ALREADY_SOURCES]
   const wrong: string[] = []
-  for (const src of all133) {
+  for (const src of all141) {
     const e = matrix.entries.find((x) => x.source_table === src)
     if (!e) continue // not implemented yet
-    if (!["already", "R.83.1", "R.83.2", "R.83.3", "R.83.4", "R.83.5", "R.83.6", "R.83.7", "R.83.8"].includes(e.round)) {
+    if (!["already", "R.83.1", "R.83.2", "R.83.3", "R.83.4", "R.83.5", "R.83.6", "R.83.7", "R.83.8", "R.83.9"].includes(e.round)) {
       wrong.push(`${src}=${e.round}`)
     }
   }
@@ -390,21 +402,21 @@ check(
     "all whitelisted sources in matrix have specific round",
     wrong.length === 0,
     wrong.length === 0
-      ? "all whitelisted sources present in matrix tagged already/R.83.1/R.83.2/R.83.3/R.83.4/R.83.5/R.83.6/R.83.7/R.83.8"
+      ? "all whitelisted sources present in matrix tagged already/R.83.1/R.83.2/R.83.3/R.83.4/R.83.5/R.83.6/R.83.7/R.83.8/R.83.9"
       : `unexpected: ${wrong.join(", ")}`
   )
 }
 
-// Check 12 (bonus): non-whitelisted unified_* tables all have round = R.83.9+
+// Check 12 (bonus): non-whitelisted unified_* tables all have round = R.84+
 {
-  const all133 = new Set([...R83_8_SOURCES, ...R83_7_SOURCES, ...R83_6_SOURCES, ...R83_5_SOURCES, ...R83_4_SOURCES, ...R83_3_SOURCES, ...R83_2_SOURCES, ...R83_1_SOURCES, ...ALREADY_SOURCES])
-  const nonWhitelisted = matrix.entries.filter((e) => !all133.has(e.source_table))
-  const wrongDefault = nonWhitelisted.filter((e) => e.round !== "R.83.9+")
+  const all141 = new Set([...R83_9_SOURCES, ...R83_8_SOURCES, ...R83_7_SOURCES, ...R83_6_SOURCES, ...R83_5_SOURCES, ...R83_4_SOURCES, ...R83_3_SOURCES, ...R83_2_SOURCES, ...R83_1_SOURCES, ...ALREADY_SOURCES])
+  const nonWhitelisted = matrix.entries.filter((e) => !all141.has(e.source_table))
+  const wrongDefault = nonWhitelisted.filter((e) => e.round !== "R.84+")
   check(
-    "non-whitelisted unified tables tagged R.83.9+",
+    "non-whitelisted unified tables tagged R.84+",
     wrongDefault.length === 0,
     wrongDefault.length === 0
-      ? `${nonWhitelisted.length} non-whitelisted sources all tagged R.83.9+`
+      ? `${nonWhitelisted.length} non-whitelisted sources all tagged R.84+`
       : `unexpected: ${wrongDefault.map((e) => `${e.source_table}=${e.round}`).join(", ")}`
   )
 }
@@ -581,6 +593,35 @@ check(
   r83_8_absent.length === 0
     ? "all 15 R.83.8 source names found"
     : `missing: ${r83_8_absent.join(", ")}`
+)
+
+// Check 25 (bonus): all 8 R.83.9 sources that EXIST in the matrix have round === "R.83.9"
+const r83_9_missing: string[] = []
+let r83_9_present = 0
+for (const src of R83_9_SOURCES) {
+  const e = matrix.entries.find((x) => x.source_table === src)
+  if (!e) continue
+  r83_9_present++
+  if (e.round !== "R.83.9") {
+    r83_9_missing.push(`${src} (got: ${e.round})`)
+  }
+}
+check(
+  "r83.9 round tag (8 sources)",
+  r83_9_missing.length === 0 && r83_9_present === 8,
+  r83_9_missing.length === 0
+    ? `all ${r83_9_present} R.83.9 sources present in matrix tagged "R.83.9"`
+    : `missing/wrong: ${r83_9_missing.join(", ")}`
+)
+
+// Check 26 (bonus): all 8 R.83.9 source names appear in entries[*].source_table
+const r83_9_absent = R83_9_SOURCES.filter((src) => !sourceTableSet.has(src))
+check(
+  "8 R.83.9 source names present in entries",
+  r83_9_absent.length === 0,
+  r83_9_absent.length === 0
+    ? "all 8 R.83.9 source names found"
+    : `missing: ${r83_9_absent.join(", ")}`
 )
 
 console.log(`\n=== Summary: ${pass} PASS, ${fail} FAIL ===`)

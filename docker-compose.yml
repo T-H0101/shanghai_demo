@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: unified
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unified123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: unified_disc_platform
       POSTGRES_INITDB_ARGS: "-E UTF8"
     ports:

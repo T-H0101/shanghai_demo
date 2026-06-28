@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-06-27T14:25:40.369Z",
-  "unifiedCount": 120,
+  "generatedAt": "2026-06-28T12:45:05.892Z",
+  "unifiedCount": 143,
   "entries": [
     {
       "unified_table": "unified_alerts",
       "source_table": "tbl_alerts",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_api_interfaces",
@@ -43,6 +43,13 @@
       "classification": "pg17_small",
       "blocker": "none",
       "round": "R.83.6"
+    },
+    {
+      "unified_table": "unified_backup_dbs",
+      "source_table": "tbl_backup_db",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
     },
     {
       "unified_table": "unified_buffer_dirs",
@@ -245,14 +252,14 @@
       "source_table": "tbl_device_groups",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_devices",
       "source_table": "tbl_devices",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_dict_categories",
@@ -287,7 +294,7 @@
       "source_table": "tbl_disc_media",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_disc_prints",
@@ -302,6 +309,20 @@
       "classification": "pg17_small",
       "blocker": "none",
       "round": "R.83.5"
+    },
+    {
+      "unified_table": "unified_disk_checks",
+      "source_table": "tbl_disk_check",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
+    },
+    {
+      "unified_table": "unified_diskfile_checks",
+      "source_table": "tbl_diskfile_check",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
     },
     {
       "unified_table": "unified_download_details",
@@ -336,7 +357,7 @@
       "source_table": "tbl_drivers_legacy",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_early_warning_feedbacks",
@@ -392,7 +413,7 @@
       "source_table": "tbl_file_index",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_film_operats",
@@ -406,7 +427,7 @@
       "source_table": "tbl_folder_index",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_ft_files",
@@ -434,7 +455,7 @@
       "source_table": "tbl_hard_disks",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_hd_managers",
@@ -442,6 +463,13 @@
       "classification": "pg17_small",
       "blocker": "none",
       "round": "R.83.4"
+    },
+    {
+      "unified_table": "unified_hd_powers",
+      "source_table": "tbl_hd_power",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
     },
     {
       "unified_table": "unified_hot_backup_records",
@@ -511,7 +539,7 @@
       "source_table": "tbl_magazines",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
     },
     {
       "unified_table": "unified_meta_datas",
@@ -591,6 +619,13 @@
       "round": "R.83.1"
     },
     {
+      "unified_table": "unified_receipt_file_details",
+      "source_table": "tbl_receipt_file_detail",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
+    },
+    {
       "unified_table": "unified_receipt_files",
       "source_table": "tbl_receipt_file",
       "classification": "pg17_small",
@@ -654,11 +689,102 @@
       "round": "already"
     },
     {
+      "unified_table": "unified_slot_file_1000000",
+      "source_table": "tbl_slot_file_1000000",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_file_12",
+      "source_table": "tbl_slot_file_12",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_file_13",
+      "source_table": "tbl_slot_file_13",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_file_15",
+      "source_table": "tbl_slot_file_15",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_file_30",
+      "source_table": "tbl_slot_file_30",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_file_31",
+      "source_table": "tbl_slot_file_31",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_folder_1000000",
+      "source_table": "tbl_slot_folder_1000000",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_folder_12",
+      "source_table": "tbl_slot_folder_12",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_folder_13",
+      "source_table": "tbl_slot_folder_13",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_folder_15",
+      "source_table": "tbl_slot_folder_15",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_folder_30",
+      "source_table": "tbl_slot_folder_30",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_slot_folder_31",
+      "source_table": "tbl_slot_folder_31",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
       "unified_table": "unified_slots",
       "source_table": "tbl_slots",
       "classification": "pg17_small",
       "blocker": "none",
       "round": "already"
+    },
+    {
+      "unified_table": "unified_slots_parts",
+      "source_table": "tbl_slots_part",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
     },
     {
       "unified_table": "unified_sys_configs",
@@ -682,6 +808,13 @@
       "round": "R.83.2"
     },
     {
+      "unified_table": "unified_task_certif_statuses",
+      "source_table": "tbl_task_certif_status",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
       "unified_table": "unified_task_checks",
       "source_table": "tbl_task_check",
       "classification": "pg17_small",
@@ -701,6 +834,20 @@
       "classification": "pg17_small",
       "blocker": "none",
       "round": "R.83.7"
+    },
+    {
+      "unified_table": "unified_task_items",
+      "source_table": "tbl_task_items",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
+    },
+    {
+      "unified_table": "unified_task_prints",
+      "source_table": "tbl_task_print",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.8"
     },
     {
       "unified_table": "unified_task_projects",
@@ -819,7 +966,21 @@
       "source_table": "tbl_volumes",
       "classification": "pg17_small",
       "blocker": "none",
-      "round": "R.83.8+"
+      "round": "R.84+"
+    },
+    {
+      "unified_table": "unified_wait_download_file_tasks",
+      "source_table": "tbl_wait_download_file_task",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
+    },
+    {
+      "unified_table": "unified_wait_download_files",
+      "source_table": "tbl_wait_download_file",
+      "classification": "pg17_small",
+      "blocker": "none",
+      "round": "R.83.9"
     },
     {
       "unified_table": "unified_workspace_users",

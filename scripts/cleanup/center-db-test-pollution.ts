@@ -1,7 +1,7 @@
 /**
  * Center DB Test Pollution Cleanup (R.83.1)
  *
- * Idempotent deletion of TEST_* / PKG_TEST rows from 4 center business tables.
+ * Idempotent deletion of TEST_* / PKG_TEST / R19C e2e rows from center tables.
  * - Default: --dry-run (no deletion, just scan + dump plan)
  * - With --apply: actually DELETE rows + dump to archive/cleanup-<YYYYMMDD>/
  * - Always dumps matched rows to archive before any DELETE
@@ -20,6 +20,8 @@ const DRY_RUN = process.argv.includes("--dry-run")
 const APPLY = process.argv.includes("--apply")
 const archiveArg = process.argv.find((a) => a.startsWith("--archive-dir="))
 const ARCHIVE_DIR_OVERRIDE = archiveArg ? archiveArg.split("=")[1] : null
+const siteCodeArg = process.argv.find((a) => a.startsWith("--site-code="))
+const EXACT_SITE_CODE = siteCodeArg ? siteCodeArg.split("=")[1] : null
 
 if (!DRY_RUN && !APPLY) {
   console.error("MUST pass --dry-run or --apply")
@@ -28,13 +30,38 @@ if (!DRY_RUN && !APPLY) {
   process.exit(2)
 }
 
-const TEST_PATTERN = "^(TEST_|PKG_TEST$)"
-const TARGETS = [
-  { table: "unified_tasks", col: "source_site_id" },
-  { table: "unified_devices", col: "source_site_id" },
-  { table: "unified_volumes", col: "source_site_id" },
-  { table: "sync_package_log", col: "site_code" },
-]
+const TEST_PATTERN = "^(TEST_|PKG_TEST$|R19C[0-9]+$)"
+type Target = { table: string; cols: string[] }
+
+function quoteIdent(identifier: string) {
+  return `"${identifier.replace(/"/g, '""')}"`
+}
+
+async function discoverTargets(pool: Pool): Promise<Target[]> {
+  const unifiedColumns = await pool.query<{ table_name: string; column_name: string }>(
+    `SELECT table_name, column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name LIKE 'unified_%'
+       AND column_name IN ('source_site_id', 'site_code')
+     ORDER BY table_name, column_name`
+  )
+  const byTable = new Map<string, string[]>()
+  for (const row of unifiedColumns.rows) {
+    const cols = byTable.get(row.table_name) ?? []
+    cols.push(row.column_name)
+    byTable.set(row.table_name, cols)
+  }
+  return [
+    { table: "sync_package_log", cols: ["site_code"] },
+    ...Array.from(byTable.entries()).map(([table, cols]) => ({ table, cols })),
+  ]
+}
+
+function whereClause(cols: string[]) {
+  const op = EXACT_SITE_CODE ? "=" : "~"
+  return cols.map((col) => `${quoteIdent(col)} ${op} $1`).join(" OR ")
+}
 
 async function main() {
   const dbUrl = process.env.DATABASE_URL
@@ -42,7 +69,8 @@ async function main() {
   const pool = new Pool({ connectionString: dbUrl })
 
   const mode = DRY_RUN ? "DRY-RUN" : "APPLY"
-  console.log(`[${mode}] scanning 4 center tables for ${TEST_PATTERN}`)
+  const matcher = EXACT_SITE_CODE ? `site_code=${EXACT_SITE_CODE}` : TEST_PATTERN
+  console.log(`[${mode}] scanning center tables for ${matcher}`)
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "")
   const archiveDir = ARCHIVE_DIR_OVERRIDE ?? join("archive", `cleanup-${today}`)
@@ -50,8 +78,14 @@ async function main() {
   let totalAffected = 0
   const summary: Array<{ table: string; matched: number; action: string; archiveFile: string | null }> = []
 
-  for (const t of TARGETS) {
-    const rows = await pool.query(`SELECT * FROM ${t.table} WHERE ${t.col} ~ $1`, [TEST_PATTERN])
+  const targets = await discoverTargets(pool)
+
+  for (const t of targets) {
+    const predicate = whereClause(t.cols)
+    const tableName = quoteIdent(t.table)
+    const rows = await pool.query(`SELECT * FROM ${tableName} WHERE ${predicate}`, [
+      EXACT_SITE_CODE ?? TEST_PATTERN,
+    ])
     const n = rows.rowCount ?? 0
     totalAffected += n
 
@@ -61,7 +95,9 @@ async function main() {
       writeFileSync(archivePath, rows.rows.map((r) => JSON.stringify(r)).join("\n") + "\n")
 
       if (APPLY) {
-        await pool.query(`DELETE FROM ${t.table} WHERE ${t.col} ~ $1`, [TEST_PATTERN])
+        await pool.query(`DELETE FROM ${tableName} WHERE ${predicate}`, [
+          EXACT_SITE_CODE ?? TEST_PATTERN,
+        ])
         summary.push({ table: t.table, matched: n, action: "deleted", archiveFile: archivePath })
         console.log(`[${mode}] ${t.table}: deleted ${n} rows (dumped to ${archivePath})`)
       } else {

@@ -16,6 +16,7 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Client } from "pg"
+import { guardR83Api } from "@/lib/auth/r83-api-guard"
 
 const ALLOWED_PACKAGE_TABLES = [
   "tbl_task", "tbl_disc_lib", "tbl_magzines", "tbl_slots", "tbl_hd_info",
@@ -262,6 +263,8 @@ export async function POST(req: NextRequest) {
     if (!/^[A-Z0-9]+$/.test(siteCode)) {
       throw new Error(`invalid siteCode: ${siteCode}`)
     }
+    const auth = await guardR83Api(req, "sync", siteCode)
+    if (auth) return auth
 
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL not set on server; cannot verify center rows")
