@@ -151,7 +151,41 @@ docker build -t unified-disc-platform:release-check .
 pnpm e2e:all
 ```
 
-## 8. 常见问题
+## 8. R.85 OpenSearch/ES 搜索 profile
+
+R.85 起, `tbl_file*` / `tbl_folder*` 走 OpenSearch/ES 检索, 由 `SearchPort` 抽象。
+
+启动 search-only profile (不依赖 PG, 仅本地验证 ES wiring):
+
+```bash
+docker compose -f docker-compose.search.yml --env-file .env.local up -d
+```
+
+写入测试数据:
+
+```bash
+set -a && source .env.local && set +a
+SEARCH_ES_URL=http://localhost:9200 \
+SEARCH_ES_INDEX=disc_file_index \
+pnpm tsx scripts/index/file-indexer.ts --limit 50 --site SH01
+```
+
+调用 `/api/search`:
+
+```bash
+curl -s 'http://localhost:3000/api/search?q=test'
+# 期望:
+#   - source=opensearch (ES 可用)
+#   - source=blocked_by_external_system (ES 不可用, blocker=es_not_configured)
+```
+
+禁止:
+
+- 不把 `tbl_file*` / `tbl_folder*` 全量写入 PG `unified_*`。
+- 不在 API route 直接 import OpenSearch 客户端 (必须经 `SearchPort`)。
+- 不在 route 写 SQL 拼接 (必须经 domain service + port + adapter)。
+
+## 9. 常见问题
 
 | 现象 | 处理 |
 |---|---|

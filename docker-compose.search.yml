@@ -1,0 +1,49 @@
+# ============================================================
+# R.85 search-only profile
+# ============================================================
+#
+# Minimal compose profile for R.85 /api/search local loop:
+#   - OpenSearch 2 single-node, security disabled (dev only)
+#   - No PostgreSQL (caller uses host PG; this profile proves ES wiring)
+#
+# Usage:
+#   docker compose -f docker-compose.search.yml --env-file .env.local up -d
+#   set -a && source .env.local && set +a
+#   pnpm tsx scripts/index/file-indexer.ts --limit 50
+#   curl -s 'http://localhost:3000/api/search?q=test'
+#
+# Production secret rules (see docs/operations/deployment.md):
+#   - Real password MUST be injected via secret manager / .env.production
+#   - This file uses local dev placeholders only
+#   - Never commit a real password here
+# ============================================================
+name: ${COMPOSE_PROJECT_NAME:-unified-disc-platform}-search
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2
+    container_name: ${OPENSEARCH_CONTAINER_NAME:-unified_disc_opensearch_search}
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_DEV_PASSWORD:-local-dev-only}
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${OPENSEARCH_PORT:-9201}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - search_net
+
+networks:
+  search_net:
+    driver: bridge

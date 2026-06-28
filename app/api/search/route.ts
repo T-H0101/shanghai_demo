@@ -1,57 +1,90 @@
 /**
  * GET /api/search
- * Cross-dimension file search — R.55 center-owned read path
+ * Cross-dimension file search — R.85 port-based read path (ADR 0002)
  *
  * Selection:
- *   1. ES/OpenSearch configured -> query ES
- *   2. otherwise                -> unified_file_index
- *   3. otherwise                -> blocked_by_external_system
+ *   1. ES/OpenSearch configured + reachable -> query ES via SearchPort
+ *   2. ES not configured / unreachable      -> blocked_by_external_system
  *
- * NEVER reads site_restore_db directly. The bounded restore reader is
- * retained only for audit tooling.
+ * The route MUST NOT import `lib/search/es-client` directly. It calls the
+ * `SearchPort` factory and translates `FileSearchResult.source` into the
+ * HTTP envelope. Domain rules live in `lib/domain/search/*`; the OpenSearch
+ * adapter lives in `lib/adapters/opensearch/file-search-adapter.ts`.
  *
- * REQ-4.1.1: cross-dimension search — partial (ES preferred for full perf)
- * REQ-4.1.2: search performance <=3s for 千万级 — blocked_by_external_system
- * REQ-5.2.1: index export — partial
+ * Requirements:
+ *   REQ-4.1.1: cross-dimension search (partial until ES wired)
+ *   REQ-4.1.2: search performance <=3s for 千万级 (blocked_by_external_system until R.86+)
+ *   REQ-5.2.1: index export (partial until R.86+ watermarks)
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { searchFileIndex } from "@/lib/search/file-index-repository"
+import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
+
+const DEFAULT_LIMIT = 50
 
 export async function GET(request: NextRequest) {
   try {
     const keyword =
       request.nextUrl.searchParams.get("q") ??
       request.nextUrl.searchParams.get("keyword") ??
+      ""
+    const siteCode =
+      request.nextUrl.searchParams.get("siteCode") ??
+      request.nextUrl.searchParams.get("site") ??
       undefined
-    const suffix = request.nextUrl.searchParams.get("suffix") ?? undefined
     const limit = Math.min(
-      Number(request.nextUrl.searchParams.get("limit") ?? "50"),
+      Number(request.nextUrl.searchParams.get("limit") ?? DEFAULT_LIMIT),
       200
     )
+    const offset = Math.max(
+      Number(request.nextUrl.searchParams.get("offset") ?? "0"),
+      0
+    )
 
-    const result = await searchFileIndex({ q: keyword, suffix, limit })
+    const adapter = createOpenSearchFileSearchAdapter()
+    const result = await adapter.searchFiles({
+      keyword,
+      siteCode,
+      limit,
+      offset,
+    })
+
+    if (result.source === "blocked_by_external_system") {
+      return NextResponse.json(
+        {
+          code: 0,
+          data: {
+            items: [],
+            total: 0,
+            source: "blocked_by_external_system",
+            blocker: result.blocker ?? "es_unavailable",
+          },
+          message:
+            "OpenSearch/ES file index is not configured or unreachable; see es-large-table-roadmap.md",
+        },
+        { status: 200 }
+      )
+    }
 
     return NextResponse.json({
       code: 0,
       data: {
-        items: result.items,
+        items: result.hits,
         total: result.total,
-        source: result.source,
-        missingDimensions: result.missingDimensions,
-        requirements: result.requirements,
-        blocker: result.blocker,
+        source: "opensearch",
       },
-      message:
-        result.source === "blocked_by_external_system"
-          ? "中心 unified_file_index 为空且未配置 ES, 检索被阻塞"
-          : `数据源：总控库 ${result.source}`,
+      message: "数据源: OpenSearch/ES (SearchPort)",
     })
   } catch (error) {
     return NextResponse.json(
       {
         code: 1,
-        data: { items: [], total: 0, source: "blocked_by_external_system" },
+        data: {
+          items: [],
+          total: 0,
+          source: "blocked_by_external_system",
+          blocker: "search_route_failure",
+        },
         error: error instanceof Error ? error.message : "search_failed",
       },
       { status: 500 }
