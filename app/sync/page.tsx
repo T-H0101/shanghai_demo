@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { RefreshCw, Search, Package, AlertCircle, ShieldCheck, Download } from 'lucide-react'
+import { RefreshCw, Search, Package, AlertCircle, ShieldCheck, Download, Database, Loader2 } from 'lucide-react'
 import { useSite } from '@/lib/site/site-context'
 import { toast } from '@/hooks/use-toast'
 import { formatBeijingTime } from '@/components/shared/time-format'
@@ -195,6 +195,7 @@ export default function SyncCenterPage() {
   const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'xlsx'>('csv')
   const [exporting, setExporting] = useState(false)
   const [triggeringSync, setTriggeringSync] = useState<'full' | 'incremental' | null>(null)
+  const [dumpNowRunning, setDumpNowRunning] = useState(false)
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -456,6 +457,35 @@ export default function SyncCenterPage() {
     }
   }
 
+  const handleDumpNow = async (sc: string) => {
+    setDumpNowRunning(true)
+    try {
+      const res = await fetch('/api/sync/dump-now', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ siteCode: sc }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body.message ?? body.error ?? `HTTP ${res.status}`)
+      }
+      const totalRows = body.data?.totalRows ?? 0
+      const tablesWithData = body.data?.tablesWithData ?? 0
+      toast({
+        title: `已真实同步 ${sc}: ${tablesWithData} 张表, 共 ${totalRows} 行`,
+        description: `站点 ${sc} 数据已通过 pg_dump + ingest dispatcher 路径 upsert 到中心库。`,
+      })
+    } catch (error) {
+      toast({
+        title: '真实同步失败',
+        description: error instanceof Error ? error.message : '请检查 dev server 日志和 source_restore 连接。',
+        variant: 'destructive',
+      })
+    } finally {
+      setDumpNowRunning(false)
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const activeSyncAlerts = syncAlerts.filter((item) => item.status === "active").length
   const criticalSyncAlerts = syncAlerts.filter((item) => item.severity === "critical").length
@@ -548,6 +578,47 @@ export default function SyncCenterPage() {
             <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
               当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || 'SH01'}</code>。最终状态以 Agent 回写和同步日志为准。
             </p>
+          </div>
+        </GlassPanel>
+
+        <GlassPanel
+          testId="dump-now-card"
+          title="真实端到端同步 (R.83.3 Task 11)"
+          description="从 source_restore 站点库 pg_dump 后通过 dispatcher 路径真实 upsert 到中心库"
+        >
+          <div data-testid="dump-now-card-body">
+            <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
+              <Database className="h-4 w-4" />
+              立即同步 SH01
+              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">直接落库 (不经过 Agent 队列)</Badge>
+            </p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+              点击按钮后, 系统会:
+              <br />1. 调用 pg_dump 从 source_restore 站点源库导出 58 张白名单表
+              <br />2. 调用 ingest-dump.ts 通过 dispatcher 路径 upsert 到中心库
+              <br />3. 验证中心库 rowCount
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900"
+                disabled={dumpNowRunning}
+                onClick={() => void handleDumpNow(siteCodeFilter || 'SH01')}
+                data-testid="dump-now-button"
+              >
+                {dumpNowRunning ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Database className="h-4 w-4 mr-1" />
+                )}
+                {dumpNowRunning ? '同步中...' : `立即同步 ${siteCodeFilter || 'SH01'}`}
+              </Button>
+              <span className="text-xs text-slate-500">
+                站点: SH01 (本 Sprint Task 11 验证)
+              </span>
+            </div>
           </div>
         </GlassPanel>
 

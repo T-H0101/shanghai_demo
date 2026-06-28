@@ -16,6 +16,13 @@ export type TableLogStatus = 'success' | 'failed' | 'skipped' | 'duplicated'
  * Sprint 2E.2: 扩展到 13 张 (含 tbl_user / tbl_site / tbl_platform)
  * R.83.1: 扩展到 28 张 (部门/项目/接收单 15 张)
  * R.83.2: 扩展到 43 张 (RBAC + 字典 + 日志 + 凭据 15 张)
+ * R.83.3: 扩展到 58 张 (检查巡检族 15 张)
+ * R.83.4: 扩展到 73 张 (存储卷 + 调度/接口 + 设备业务族 15 张)
+ * R.83.5: 扩展到 88 张 (数据接收 + 告警 + 媒体族 15 张)
+ * R.83.6: 扩展到 103 张 (ISO + 元数据 + 系统族 15 张)
+ * R.83.7: 扩展到 118 张 (导入导出 + 监控 + 系统辅助族 15 张)
+ * R.83.8: 扩展到 133 张 (任务详情 + 槽位管理族 15 张)
+ * R.83.9: 扩展到 141 张 (收尾)
  * 严禁加入 tbl_file / tbl_folder
  */
 export const ALLOWED_PACKAGE_TABLES = [
@@ -64,6 +71,111 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_platform_type',
   'tbl_credible_prove',
   'tbl_credible_verify',
+  // R.83.3 检查巡检族 15 张
+  'tbl_check_category',
+  'tbl_check_sub_category',
+  'tbl_check_item',
+  'tbl_check_sector',
+  'tbl_check_template',
+  'tbl_check_task',
+  'tbl_check_task_item',
+  'tbl_check_task_file',
+  'tbl_check_file',
+  'tbl_check_files',
+  'tbl_check_log',
+  'tbl_check_patrol_strategy',
+  'tbl_check_patrol_task',
+  'tbl_check_patrol_task_item',
+  'tbl_check_patrol_log',
+  // R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张
+  'tbl_volume_group',
+  'tbl_volume_dataclass',
+  'tbl_volume_depa',
+  'tbl_volume_user',
+  'tbl_volume_workspace',
+  'tbl_schedule_job',
+  'tbl_register_management',
+  'tbl_interface_task',
+  'tbl_hot_backup_record',
+  'tbl_hot_restore_record',
+  'tbl_device_device',
+  'tbl_drivers',
+  'tbl_drivers_burn',
+  'tbl_raid_group',
+  'tbl_hd_manager',
+  // R.83.5 数据接收 + 告警 + 媒体族 15 张
+  'tbl_data_receive_list',
+  'tbl_data_receive_log',
+  'tbl_data_receive_tasks',
+  'tbl_data_classification',
+  'tbl_early_warning',
+  'tbl_early_warning_feedback',
+  'tbl_disc_print',
+  'tbl_disc_inspect',
+  'tbl_disc_type',
+  'tbl_evidence_details',
+  'tbl_evidence_record_drp',
+  'tbl_verify_details',
+  'tbl_verify_record_drp',
+  'tbl_download_record',
+  'tbl_upload_record',
+  // R.83.6 ISO + 元数据 + 系统族 15 张
+  'tbl_iso_location',
+  'tbl_iso_task_sync',
+  'tbl_meta_data',
+  'tbl_sys',
+  'tbl_sys_env',
+  'tbl_mount_dir',
+  'tbl_buffer_dir',
+  'tbl_cd_cabinet',
+  'tbl_film_operat',
+  'tbl_ft_file',
+  'tbl_ft_sys',
+  'tbl_back_window',
+  'tbl_zip_file',
+  'tbl_temp_slots',
+  'tbl_lib_group',
+  // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
+  'tbl_csv_details',
+  'tbl_import_folder_data',
+  'tbl_import_folder_log',
+  'tbl_import_folder_title',
+  'tbl_upload_details',
+  'tbl_download_details',
+  'tbl_export_info',
+  'tbl_error_rate',
+  'tbl_escape',
+  'tbl_remote_backup',
+  'tbl_monitor_path',
+  'tbl_platform_monitor',
+  'tbl_site_monitor',
+  'tbl_project_monitor_files',
+  'tbl_task_folder',
+  // R.83.8 任务详情 + 槽位管理族 15 张
+  'tbl_task_items',
+  'tbl_task_print',
+  'tbl_task_certif_status',
+  'tbl_slot_file_1000000',
+  'tbl_slot_file_12',
+  'tbl_slot_file_13',
+  'tbl_slot_file_15',
+  'tbl_slot_file_30',
+  'tbl_slot_file_31',
+  'tbl_slot_folder_1000000',
+  'tbl_slot_folder_12',
+  'tbl_slot_folder_13',
+  'tbl_slot_folder_15',
+  'tbl_slot_folder_30',
+  'tbl_slot_folder_31',
+  // R.83.9 收尾 8 张 (备份辅助 + 磁盘/文件校验 + 硬盘 + 接收单明细 + 槽位分区 + 下载等待族)
+  'tbl_backup_db',
+  'tbl_disk_check',
+  'tbl_diskfile_check',
+  'tbl_hd_power',
+  'tbl_receipt_file_detail',
+  'tbl_slots_part',
+  'tbl_wait_download_file',
+  'tbl_wait_download_file_task',
 ] as const
 export type AllowedPackageTable = (typeof ALLOWED_PACKAGE_TABLES)[number]
 

@@ -255,6 +255,12 @@ MIGRATION_FILES=(
   "databases/sprint-r83.1/01-department-receipt-tables.sql"
   "databases/sprint-r83.2/01-rbac-dict-log-tables.sql"
   "databases/sprint-r83.3/01-check-inspection-tables.sql"
+  "databases/sprint-r83.4/01-storage-schedule-tables.sql"
+  "databases/sprint-r83.5/01-data-warning-media-tables.sql"
+  "databases/sprint-r83.6/01-iso-meta-system-tables.sql"
+  "databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql"
+  "databases/sprint-r83.8/01-task-slot-tables.sql"
+  "databases/sprint-r83.9/01-final-8-tables.sql"
 )
 
 log_step "执行当前版本 DDL patch..."

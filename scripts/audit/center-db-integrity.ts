@@ -288,7 +288,89 @@ async function main() {
         if (i < 13) ROUND_BY_SOURCE[src] = "already"
         else if (i < 28) ROUND_BY_SOURCE[src] = "R.83.1"
         else if (i < 43) ROUND_BY_SOURCE[src] = "R.83.2"
+        else if (i < 58) ROUND_BY_SOURCE[src] = "R.83.3"
+        else if (i < 73) ROUND_BY_SOURCE[src] = "R.83.4"
+        else if (i < 88) ROUND_BY_SOURCE[src] = "R.83.5"
+        else if (i < 103) ROUND_BY_SOURCE[src] = "R.83.6"
+        else if (i < 118) ROUND_BY_SOURCE[src] = "R.83.7"
+        else if (i < 133) ROUND_BY_SOURCE[src] = "R.83.8"
+        else if (i < 141) ROUND_BY_SOURCE[src] = "R.83.9"
       })
+
+      // R.83.5 irregular plural / rename overrides (data + warning + media family)
+      if (ROUND_BY_SOURCE["tbl_data_receive_list"]) ROUND_BY_SOURCE["tbl_data_receive_list"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_data_receive_log"]) ROUND_BY_SOURCE["tbl_data_receive_log"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_data_receive_tasks"]) ROUND_BY_SOURCE["tbl_data_receive_tasks"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_data_classification"]) ROUND_BY_SOURCE["tbl_data_classification"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_early_warning"]) ROUND_BY_SOURCE["tbl_early_warning"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_early_warning_feedback"]) ROUND_BY_SOURCE["tbl_early_warning_feedback"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_disc_print"]) ROUND_BY_SOURCE["tbl_disc_print"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_disc_inspect"]) ROUND_BY_SOURCE["tbl_disc_inspect"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_disc_type"]) ROUND_BY_SOURCE["tbl_disc_type"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_evidence_record_drp"]) ROUND_BY_SOURCE["tbl_evidence_record_drp"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_verify_record_drp"]) ROUND_BY_SOURCE["tbl_verify_record_drp"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_download_record"]) ROUND_BY_SOURCE["tbl_download_record"] = "R.83.5"
+      if (ROUND_BY_SOURCE["tbl_upload_record"]) ROUND_BY_SOURCE["tbl_upload_record"] = "R.83.5"
+
+      // R.83.6 irregular plural / rename overrides (ISO + meta + system family)
+      if (ROUND_BY_SOURCE["tbl_iso_task_sync"]) ROUND_BY_SOURCE["tbl_iso_task_sync"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_meta_data"]) ROUND_BY_SOURCE["tbl_meta_data"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_sys"]) ROUND_BY_SOURCE["tbl_sys"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_sys_env"]) ROUND_BY_SOURCE["tbl_sys_env"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_mount_dir"]) ROUND_BY_SOURCE["tbl_mount_dir"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_buffer_dir"]) ROUND_BY_SOURCE["tbl_buffer_dir"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_cd_cabinet"]) ROUND_BY_SOURCE["tbl_cd_cabinet"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_film_operat"]) ROUND_BY_SOURCE["tbl_film_operat"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_ft_file"]) ROUND_BY_SOURCE["tbl_ft_file"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_ft_sys"]) ROUND_BY_SOURCE["tbl_ft_sys"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_back_window"]) ROUND_BY_SOURCE["tbl_back_window"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_zip_file"]) ROUND_BY_SOURCE["tbl_zip_file"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_temp_slots"]) ROUND_BY_SOURCE["tbl_temp_slots"] = "R.83.6"
+      if (ROUND_BY_SOURCE["tbl_lib_group"]) ROUND_BY_SOURCE["tbl_lib_group"] = "R.83.6"
+
+      // R.83.7 irregular plural / rename overrides (import/export + monitor + system-aux family)
+      if (ROUND_BY_SOURCE["tbl_csv_details"]) ROUND_BY_SOURCE["tbl_csv_details"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_import_folder_data"]) ROUND_BY_SOURCE["tbl_import_folder_data"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_import_folder_log"]) ROUND_BY_SOURCE["tbl_import_folder_log"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_import_folder_title"]) ROUND_BY_SOURCE["tbl_import_folder_title"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_upload_details"]) ROUND_BY_SOURCE["tbl_upload_details"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_download_details"]) ROUND_BY_SOURCE["tbl_download_details"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_export_info"]) ROUND_BY_SOURCE["tbl_export_info"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_error_rate"]) ROUND_BY_SOURCE["tbl_error_rate"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_escape"]) ROUND_BY_SOURCE["tbl_escape"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_remote_backup"]) ROUND_BY_SOURCE["tbl_remote_backup"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_monitor_path"]) ROUND_BY_SOURCE["tbl_monitor_path"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_platform_monitor"]) ROUND_BY_SOURCE["tbl_platform_monitor"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_site_monitor"]) ROUND_BY_SOURCE["tbl_site_monitor"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_project_monitor_files"]) ROUND_BY_SOURCE["tbl_project_monitor_files"] = "R.83.7"
+      if (ROUND_BY_SOURCE["tbl_task_folder"]) ROUND_BY_SOURCE["tbl_task_folder"] = "R.83.7"
+
+      // R.83.8 irregular plural / rename overrides (task detail + slot family)
+      if (ROUND_BY_SOURCE["tbl_task_items"]) ROUND_BY_SOURCE["tbl_task_items"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_task_print"]) ROUND_BY_SOURCE["tbl_task_print"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_task_certif_status"]) ROUND_BY_SOURCE["tbl_task_certif_status"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_file_1000000"]) ROUND_BY_SOURCE["tbl_slot_file_1000000"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_file_12"]) ROUND_BY_SOURCE["tbl_slot_file_12"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_file_13"]) ROUND_BY_SOURCE["tbl_slot_file_13"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_file_15"]) ROUND_BY_SOURCE["tbl_slot_file_15"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_file_30"]) ROUND_BY_SOURCE["tbl_slot_file_30"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_file_31"]) ROUND_BY_SOURCE["tbl_slot_file_31"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_folder_1000000"]) ROUND_BY_SOURCE["tbl_slot_folder_1000000"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_folder_12"]) ROUND_BY_SOURCE["tbl_slot_folder_12"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_folder_13"]) ROUND_BY_SOURCE["tbl_slot_folder_13"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_folder_15"]) ROUND_BY_SOURCE["tbl_slot_folder_15"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_folder_30"]) ROUND_BY_SOURCE["tbl_slot_folder_30"] = "R.83.8"
+      if (ROUND_BY_SOURCE["tbl_slot_folder_31"]) ROUND_BY_SOURCE["tbl_slot_folder_31"] = "R.83.8"
+
+      // R.83.9 final batch irregular plural overrides (backup/disk/hd-power/wait-download)
+      if (ROUND_BY_SOURCE["tbl_backup_db"]) ROUND_BY_SOURCE["tbl_backup_db"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_disk_check"]) ROUND_BY_SOURCE["tbl_disk_check"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_diskfile_check"]) ROUND_BY_SOURCE["tbl_diskfile_check"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_hd_power"]) ROUND_BY_SOURCE["tbl_hd_power"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_receipt_file_detail"]) ROUND_BY_SOURCE["tbl_receipt_file_detail"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_slots_part"]) ROUND_BY_SOURCE["tbl_slots_part"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_wait_download_file"]) ROUND_BY_SOURCE["tbl_wait_download_file"] = "R.83.9"
+      if (ROUND_BY_SOURCE["tbl_wait_download_file_task"]) ROUND_BY_SOURCE["tbl_wait_download_file_task"] = "R.83.9"
 
       // Map each known unified_* table to its canonical singular source table
       // (as it appears in ALLOWED_PACKAGE_TABLES). Some unified names are
@@ -309,6 +391,83 @@ async function main() {
         unified_dict_categories: "tbl_dict_category",
         unified_credible_verifies: "tbl_credible_verify",
         unified_dict_items: "tbl_dict_item",
+        // R.83.3 irregular check_* plurals
+        unified_check_categories: "tbl_check_category",
+        unified_check_sub_categories: "tbl_check_sub_category",
+        unified_check_patrol_strategies: "tbl_check_patrol_strategy",
+        // R.83.4 irregular plural mappings (volume_*, register_*, drivers_burn)
+        unified_volume_dataclasses: "tbl_volume_dataclass",
+        unified_volume_depas: "tbl_volume_depa",
+        unified_volume_users: "tbl_volume_user",
+        unified_volume_workspaces: "tbl_volume_workspace",
+        unified_register_managements: "tbl_register_management",
+        unified_drivers_burns: "tbl_drivers_burn",
+        // R.83.6 irregular plural / rename mappings (ISO + meta + system family)
+        unified_iso_locations: "tbl_iso_location",
+        unified_iso_task_syncs: "tbl_iso_task_sync",
+        unified_meta_datas: "tbl_meta_data",
+        unified_sys_configs: "tbl_sys",
+        unified_sys_envs: "tbl_sys_env",
+        unified_mount_dirs: "tbl_mount_dir",
+        unified_buffer_dirs: "tbl_buffer_dir",
+        unified_cd_cabinets: "tbl_cd_cabinet",
+        unified_film_operats: "tbl_film_operat",
+        unified_ft_files: "tbl_ft_file",
+        unified_ft_systems: "tbl_ft_sys",
+        unified_back_windows: "tbl_back_window",
+        unified_zip_files: "tbl_zip_file",
+        unified_temp_slots: "tbl_temp_slots",
+        unified_lib_groups: "tbl_lib_group",
+        // R.83.5 irregular plural / singular-source mappings
+        unified_data_receive_lists: "tbl_data_receive_list",
+        unified_data_receive_logs: "tbl_data_receive_log",
+        unified_data_classifications: "tbl_data_classification",
+        unified_early_warnings: "tbl_early_warning",
+        unified_early_warning_feedbacks: "tbl_early_warning_feedback",
+        unified_disc_prints: "tbl_disc_print",
+        unified_disc_inspects: "tbl_disc_inspect",
+        unified_disc_types: "tbl_disc_type",
+        unified_evidence_record_drps: "tbl_evidence_record_drp",
+        unified_verify_record_drps: "tbl_verify_record_drp",
+        unified_download_records: "tbl_download_record",
+        unified_upload_records: "tbl_upload_record",
+        // R.83.7 irregular plural / singular-source mappings
+        unified_import_folder_datas: "tbl_import_folder_data",
+        unified_import_folder_logs: "tbl_import_folder_log",
+        unified_import_folder_titles: "tbl_import_folder_title",
+        unified_export_infos: "tbl_export_info",
+        unified_error_rates: "tbl_error_rate",
+        unified_escapes: "tbl_escape",
+        unified_remote_backups: "tbl_remote_backup",
+        unified_monitor_paths: "tbl_monitor_path",
+        unified_platform_monitors: "tbl_platform_monitor",
+        unified_site_monitors: "tbl_site_monitor",
+        unified_task_folders: "tbl_task_folder",
+        // R.83.8 irregular plural / fixed suffix mappings
+        unified_task_items: "tbl_task_items",
+        unified_task_prints: "tbl_task_print",
+        unified_task_certif_statuses: "tbl_task_certif_status",
+        unified_slot_file_1000000: "tbl_slot_file_1000000",
+        unified_slot_file_12: "tbl_slot_file_12",
+        unified_slot_file_13: "tbl_slot_file_13",
+        unified_slot_file_15: "tbl_slot_file_15",
+        unified_slot_file_30: "tbl_slot_file_30",
+        unified_slot_file_31: "tbl_slot_file_31",
+        unified_slot_folder_1000000: "tbl_slot_folder_1000000",
+        unified_slot_folder_12: "tbl_slot_folder_12",
+        unified_slot_folder_13: "tbl_slot_folder_13",
+        unified_slot_folder_15: "tbl_slot_folder_15",
+        unified_slot_folder_30: "tbl_slot_folder_30",
+        unified_slot_folder_31: "tbl_slot_folder_31",
+        // R.83.9 irregular plural / fixed suffix mappings
+        unified_backup_dbs: "tbl_backup_db",
+        unified_disk_checks: "tbl_disk_check",
+        unified_diskfile_checks: "tbl_diskfile_check",
+        unified_hd_powers: "tbl_hd_power",
+        unified_receipt_file_details: "tbl_receipt_file_detail",
+        unified_slots_parts: "tbl_slots_part",
+        unified_wait_download_files: "tbl_wait_download_file",
+        unified_wait_download_file_tasks: "tbl_wait_download_file_task",
       }
       for (const [u, s] of Object.entries(IRREGULAR_UNIFIED_TO_SOURCE)) {
         UNIFIED_TO_SOURCE[u] = s
@@ -329,7 +488,7 @@ async function main() {
 
       const entries = unified.map((t) => {
         const src = UNIFIED_TO_SOURCE[t] ?? t.replace(/^unified_/, "tbl_")
-        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.83.3+"
+        const round = docRoundBySource.get(src) ?? ROUND_BY_SOURCE[src] ?? "R.84+"
         return {
           unified_table: t,
           source_table: src,

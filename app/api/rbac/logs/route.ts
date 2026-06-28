@@ -6,7 +6,7 @@
  * Logs are read-only: POST/PUT/DELETE are NOT exported. Next.js will return 405
  * for unhandled methods on a route handler that only exports GET.
  *
- * Auth: blocked_by_auth per CLAUDE.md (no auth check here).
+ * Auth: requires platform session; writes require platform:operate.
  * Source: center DB only (lib/db → DATABASE_URL). NO restore DB.
  *
  * Envelope:
@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { guardR83Api } from "@/lib/auth/r83-api-guard"
 
 const TARGET_TABLE = "unified_sys_logs"
 const SOURCE_TABLES = [
@@ -53,6 +54,8 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url)
     const siteCode = url.searchParams.get("siteCode")
+    const auth = await guardR83Api(req, "read", siteCode)
+    if (auth) return auth
     const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? 100), 1), 500)
     const offset = Math.max(Number(url.searchParams.get("offset") ?? 0), 0)
     const data = await list(siteCode, limit, offset)

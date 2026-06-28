@@ -28,6 +28,7 @@ import { chromium } from "playwright"
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3000"
 const REPO_ROOT = process.env.REPO_ROOT ?? process.cwd()
+let authCookie = ""
 
 interface CheckResult {
   name: string
@@ -49,7 +50,11 @@ async function httpJson(
   path: string,
 ): Promise<{ status: number; body: any }> {
   const url = new URL(path, BASE)
-  const res = await fetch(url.toString(), { method, cache: "no-store" })
+  const res = await fetch(url.toString(), {
+    method,
+    cache: "no-store",
+    headers: authCookie ? { cookie: authCookie } : undefined,
+  })
   let body: any = null
   try {
     body = await res.json()
@@ -57,6 +62,19 @@ async function httpJson(
     body = null
   }
   return { status: res.status, body }
+}
+
+async function loginCookie(): Promise<string> {
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "admin", siteCode: "SH01" }),
+  })
+  const cookie = res.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1]
+  if (!res.ok || !cookie) {
+    throw new Error(`login failed: HTTP ${res.status}`)
+  }
+  return `odp_session=${cookie}`
 }
 
 async function ensureDevServer(): Promise<boolean> {
@@ -143,6 +161,7 @@ async function main() {
     console.error("Dev server failed to start")
     process.exit(2)
   }
+  authCookie = await loginCookie()
 
   console.log(`\n=== a + c) Browser-rendered /users page (11 checks) ===`)
   // The /users page is auth-gated by RouteGuard (AppShell wrapper). We must

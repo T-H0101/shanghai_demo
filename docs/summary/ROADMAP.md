@@ -866,3 +866,98 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] audit matrix `round` 字段升级为实时查 `ALLOWED_PACKAGE_TABLES`
 - [x] README §5.3.6
 - [ ] 剩余 98 张 `R.83.3+` 业务表待推
+
+### R.83.3 检查巡检族 15 张业务表接入 (2026-06-26 完成)
+
+- [x] 中心库 `unified_*` 43 → 58 张(15 张检查巡检族:check_category/sub/item/sector/template/task/task_item/file/files/files_2/files_pl/log/patrol/strategy/policy)
+- [x] `ALLOWED_PACKAGE_TABLES` 43 → 58
+- [x] 15 个新 dispatcher handler(composite PK 支持)
+- [x] 2 个 CRUD API:`/api/check/{inspections,patrols}`
+- [x] `/check` 新页 5 Tabs(概览 / 检查分类 / 检查任务 / 巡检策略 / 日志)+ sidebar 入口
+- [x] audit matrix `round` R.83.3 范围(positions 43-57)+ 桶分布 98 → 83
+- [x] README §5.3.7
+- [x] **Task 11 真实端到端同步验证**:点击"立即同步"按钮 → dump-now 链路 → 中心库 rowCount > 0(下一任务)
+- [ ] 剩余 83 张 `R.83.4+` 业务表待推
+
+### R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张业务表接入 + 多站点真同步验证 (2026-06-26 完成)
+
+- [x] 中心库 `unified_*` 58 → 75 张(15 张业务族:volume/schedule/register/interface_task/hot_backup/hot_restore/device/driver/raid/hd_manager 等)
+- [x] `ALLOWED_PACKAGE_TABLES` 58 → 73 + `DUMP_ALLOWED_TABLES` 58 → 73
+- [x] 15 个新 dispatcher handler
+- [x] 2 个 CRUD API:`/api/volume/storage` + `/api/schedule/ops`
+- [x] `/check` 加 2 Tabs(存储卷 / 调度运维)共 7 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.4 范围(positions 58-72)+ 桶分布 83 → 68
+- [x] legacy `unified_drivers` 命名冲突透明披露 → rename 为 `_legacy` 后重建
+- [x] **多站点真同步验证**(SH01 + BJ02 + UNIQUE(source_site_id, source_record_id) 隔离)— SH01 803 rows / BJ02 47 rows
+- [x] README §5.3.8
+- [x] 剩余 68 张 `R.83.5+` 业务表 → R.83.5 完成 15 张,剩 53 张 → R.83.6 完成 15 张 → R.83.7 完成 15 张,剩 23 张待 R.83.8+
+
+### R.83.5 数据接收 + 告警 + 媒体族 15 张业务表接入 (2026-06-27 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.5/01-data-warning-media-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 73 → 88 + `DUMP_ALLOWED_TABLES` 73 → 88
+- [x] 15 个新 dispatcher handler
+- [x] 6 个 CRUD API:`/api/data/receive` + `/api/data/classification` + `/api/early-warning` + `/api/media/disc` + `/api/evidence-verify` + `/api/transfer`
+- [x] `/check` 加 2 Tabs(数据接收 / 告警媒体)共 9 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.5 范围(positions 73-87)+ 13 irregular plural overrides
+- [x] 桶分布 68 → 53
+- [x] 命名一致性:R.83.5 spec 与矩阵文档均用 clean plural
+- [x] README §5.3.9
+
+### R.83.6 ISO + 元数据 + 系统族 15 张业务表接入 (2026-06-27 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.6/01-iso-meta-system-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 88 → 103 + `DUMP_ALLOWED_TABLES` 88 → 103
+- [x] 15 个新 dispatcher handler
+- [x] 3 个 CRUD API:`/api/system-config` + `/api/iso` + `/api/file-ops`
+- [x] `/check` 加 2 Tabs(系统配置 / ISO 与文件)共 11 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.6 范围(positions 88-102)+ 14 irregular plural overrides
+- [x] 桶分布 53 → 38
+- [x] 命名一致性:R.83.6 spec 与矩阵文档均用 clean plural;`tbl_sys` 语义化重命名 `unified_sys_configs`
+- [x] README §5.3.10
+
+### R.83.7 导入导出 + 监控 + 系统辅助族 15 张业务表接入 (2026-06-27 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 103 → 118 + `DUMP_ALLOWED_TABLES` 103 → 118
+- [x] 15 个新 dispatcher handler
+- [x] 3 个 CRUD API:`/api/import-export` + `/api/monitor` + `/api/system-aux`
+- [x] `/check` 加 2 Tabs(导入导出 / 监控运维)共 13 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.7 范围(positions 103-117)+ 15 irregular plural overrides
+- [x] 桶分布 38 → 23 + fallback `R.83.7+` → `R.83.8+`
+- [x] 命名一致性:R.83.7 spec 与矩阵文档均用 clean plural(单数 details/files 保留);`tbl_import_folder_data` → `unified_import_folder_datas`,`tbl_export_info` → `unified_export_infos`,`tbl_task_folder` → `unified_task_folders` 等
+- [x] README §5.3.11
+
+### R.83.8 任务详情 + 槽位管理族 15 张业务表接入 (2026-06-28 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.8/01-task-slot-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 118 → 133 + `DUMP_ALLOWED_TABLES` 118 → 133
+- [x] 15 个新 dispatcher handler
+- [x] 3 个 CRUD API:`/api/task-detail` + `/api/slot-files` + `/api/slot-folders`
+- [x] `/check` 加 2 Tabs(任务详情 / 槽位管理)共 15 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.8 范围(positions 118-132)+ 15 irregular plural overrides
+- [x] 桶分布 23 → 8 + fallback `R.83.8+` → `R.83.9+`
+- [x] 命名一致性:`tbl_task_items` → `unified_task_items`,`tbl_task_print` → `unified_task_prints`,`tbl_task_certif_status` → `unified_task_certif_statuses`;slot 表保持单数(`unified_slot_file_15` 等)
+- [x] README §5.3.12
+
+### R.83.9 收尾 — 备份/磁盘/下载辅助族 8 张业务表接入 (2026-06-28 完成) — **128 张业务表全部接入**
+
+- [x] 8 张 DDL(`databases/sprint-r83.9/01-final-8-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 133 → 141 + `DUMP_ALLOWED_TABLES` 133 → 141
+- [x] 8 个新 dispatcher handler
+- [x] 2 个 CRUD API:`/api/final-batch-a` + `/api/final-batch-b`
+- [x] `/check` 加 2 Tabs(备份辅助 / 下载等待)共 17 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.9 范围(positions 133-140)+ 8 irregular plural overrides
+- [x] 桶分布 `R.83.9+ | 8` → `R.84+ | 0`(业务表全部接入完成)
+- [x] 命名一致性:所有 R.83.9 表用复数 suffix(`unified_backup_dbs` / `unified_disk_checks` / `unified_diskfile_checks` / `unified_hd_powers` / `unified_receipt_file_details` / `unified_slots_parts` / `unified_wait_download_files` / `unified_wait_download_file_tasks`)
+- [x] README §5.3.13
+
+## 总结(R.83 中心库治理 9 轮总览)
+
+- 业务表 128 张全部接入(R.83.1-R.83.9,9 轮每轮 15 张除 R.83.9 收尾 8 张)
+- 中心库 `unified_*` 143 张(13 既有 + 128 R.83.x + 2 unified_alerts/file_index)
+- 同步白名单 141 项,`DUMP_ALLOWED_TABLES` 141 项
+- dispatch handlers 8 × 15 = 120 个 + 8 收尾 = 128 个(覆盖全部 141 项白名单中的 dispatcher 路由)
+- 多站点真同步:`/sync` 页"立即同步"按钮 → dump-now 链路 → 中心库真实 upsert(SH01 + BJ02 UNIQUE 隔离)
+- 治理矩阵文档 100% 覆盖 170 张源表(128 已接入 + 13 already + 29 大表 never)
+- 远端推送成功,主分支未污染

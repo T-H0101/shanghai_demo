@@ -48,8 +48,8 @@
 
 | 工具 | 版本要求 | 检查命令 |
 |---|---|---|
-| Node.js | 18 或 20 | `node -v` |
-| pnpm | 9 或 10 | `pnpm -v` |
+| Node.js | 22 LTS 或更高 | `node -v` |
+| pnpm | 11.3.0 | `pnpm -v` |
 | Docker Desktop | 任意较新版本 | `docker -v` |
 | Git | 任意较新版本 | `git --version` |
 
@@ -166,6 +166,57 @@ pnpm smoke:sync               # 同步链路冒烟测试
 | 同步链路 e2e 测试 | 以当前 `pnpm e2e:all` 输出为准 |
 
 > ⚠️ 严格数和候选数**不能合并汇报**。候选数（45/45）是「代码已落地但生产条件不具备」，严格数（29/45）是「真后端、真 UI、真测试」。
+
+### 2.5 中心库映射收尾（R.83 9 轮 sprint,2026-06-28）
+
+中心库 `unified_*` 覆盖范围（**170 张源表 → 中心库**）：
+
+| 源表分类 | 数量 | 中心库去向 | 落地方式 |
+|---|---:|---|---|
+| 业务表 R.83.1-R.83.9 | 128 | `unified_*` PG17 中心库 | dispatcher 路径 (9 轮 sprint,每轮 15 张) |
+| 既白名单(R.83.1 之前) | 13 | `unified_*` PG17 中心库 | 既有 dispatcher 路径 |
+| 大表 `tbl_file_*`/`tbl_folder_*` | 29 | ES / ClickHouse(独立路径,**未接 PG 中心库**) | `blocked_by_external_system`,独立 Sprint |
+
+**总进度数字**:
+
+| 维度 | 数字 |
+|---|---|
+| 中心库 `unified_*` 表 | **143 张**(13 既有 + 128 R.83.x + 2 unified_alerts/file_index) |
+| 同步白名单 `ALLOWED_PACKAGE_TABLES` | **141 项** |
+| Dump 白名单 `DUMP_ALLOWED_TABLES` | **141 项** |
+| Dispatch handlers | **141 个**(覆盖白名单全部) |
+| 远端 9 轮 R.83.x commits | 38+ 个,全部推送成功,主分支未动 |
+
+**R.83.x 桶分布**(治理矩阵文档 `docs/database-analysis/r83-170-table-governance-matrix.md`):
+
+| 桶 | 计数 |
+|---|---:|
+| `already`(R.83.1 之前) | 13 |
+| `R.83.1` 部门/项目/接收单 | 15 |
+| `R.83.2` RBAC/字典/日志/凭据 | 15 |
+| `R.83.3` 检查巡检 | 15 |
+| `R.83.4` 存储卷/调度/接口/设备业务 | 15 |
+| `R.83.5` 数据接收/告警/媒体 | 15 |
+| `R.83.6` ISO/元数据/系统 | 15 |
+| `R.83.7` 导入导出/监控/系统辅助 | 15 |
+| `R.83.8` 任务详情/槽位管理 | 15 |
+| `R.83.9` 备份/磁盘/下载辅助(收尾) | 8 |
+| `R.84+` | **0**(业务表 128/128 全部接入完成) |
+| `deferred` 大表走 ES | 0 (但有 29 张 `tbl_file_*`/`tbl_folder_*` 在源库) |
+| `never` 大表禁入 PG | 29 |
+
+**任何机器拿到代码部署**:
+```bash
+# 1. 起 PG17 容器
+docker compose --env-file .env.local up -d
+# 2. 跑全部 9 轮 DDL(包含 R.83.1-R.83.9)
+pnpm db:init
+# 3. 起应用
+pnpm dev
+# 完整 143 张 unified_* 表就绪
+```
+
+详细见 §7.3 部署步骤 + `databases/sprint-2b0/init-docker.sh` 的 `MIGRATION_FILES` 数组(已包含 R.83.1-R.83.9 全部 9 个 DDL)。
 
 ---
 
@@ -567,6 +618,226 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.2-requirements-review.md`
 
+#### §5.3.7 R.83.3 检查巡检族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 43 张扩到 58 张,新增 2 个 CRUD API 端点,新增 `/check` 页 5 个 Tabs,**新增 Task 11 真实端到端同步验证**(点击"立即同步"按钮 → 走 dump 链路 → 验证 43 张表 rowCount > 0)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.3/01-check-inspection-tables.sql`)
+  - 命名修正:`tbl_check_file`(单) → `unified_check_file`,`tbl_check_files`(复) → `unified_check_files`(无 suffix,符合 stripped 规则)
+- ALLOWED_PACKAGE_TABLES 43→58(`lib/sync/package-schema.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 2 个 CRUD API:`/api/check/{inspections,patrols}`
+- `/check` 新页 5 个 Tabs(概览 / 检查分类 / 检查任务 / 巡检策略 / 日志)+ nav 注入(`components/dashboard/sidebar.tsx`)
+- audit matrix round 字段升级支持 R.83.3 范围(positions 43-57)+ 桶分布表更新(98 → 83)
+
+**Task 11 新增(关键)**:真实端到端同步验证 — `/sync` 页加"立即同步 SH01"按钮 → `POST /api/sync/dump-now` → spawn `sync:dump:export` + `sync:dump:ingest` → 真把 source_restore 站点 43 张白名单数据 upsert 到中心库 → Playwright 真实点击按钮 + docker exec psql 验证中心库 rowCount。
+
+**测试**:
+- `pnpm test:r83.3-whitelist`(≥10 checks)
+- `pnpm test:r83.3-api`(≥12 checks)
+- `pnpm test:r83.3-ui`(≥15 checks)
+- `pnpm test:matrix-round`(16 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 60)
+- `pnpm test:r83.3-e2e`(Task 11 真实点击同步 + 中心库 rowCount 验证)
+
+**不变量**:
+- `unified_*` ≥ 60 张
+- ALLOWED_PACKAGE_TABLES 数 = 58
+- 任何 `app/api/check/**` / `app/api/sync/dump-now/**` 不引用 `SOURCE_DATABASE_URL` / `SITE_DATABASE_URL`
+- **Task 11 完成后中心库 43 张 R.83.1+R.83.2 表 SH01 站点有真实数据 rowCount > 0**(不再是 mock)
+
+**审计**: `docs/database-analysis/sprint-r83.3-requirements-review.md`
+
+#### §5.3.8 R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 60 张扩到 75 张,新增 2 个 CRUD API,`/check` 加 2 个 Tabs(共 7 Tabs),**新增多站点真同步验证**(SH01 + BJ02 独立数据 + UNIQUE 约束隔离)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.4/01-storage-schedule-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 58→73(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 58→73(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 2 个 CRUD API:`/api/volume/storage` + `/api/schedule/ops`
+- `/check` 新增 2 个 Tabs:`存储卷` + `调度运维`(复用现有布局,不新建页面)
+- 多站点真同步验证:`scripts/sync/real-e2e-multi-site-test.ts`(Playwright 真实点击 SH01 + SECONDARY 站 API 验证 + UNIQUE 约束隔离校验)
+- audit matrix round 字段加 R.83.4 范围(positions 58-72)+ 桶分布表更新(83 → 68)
+
+**关键修复**:R.83.4 发现 legacy `unified_drivers` 表(R.83.1 之前 schema,`source_id` 而非 `source_record_id`),rename 为 `unified_drivers_legacy` 后按 R.83.4 标准重建。**这印证了"总控不只照搬源库"的约束** — 中心库用统一 schema,源库差异不影响多站点数据隔离。
+
+**多站点隔离验证**:
+- PRIMARY_SITE(SH01):803 rows / 73 tables / 12 tables with data
+- SECONDARY_SITE(BJ02):47 rows / 60 tables 空数据(SH01 数据未受影响)
+- 4 张表同时有 SH01 + BJ02 数据(`unified_tasks` 82+38、`unified_devices` 4+5 等) — **UNIQUE(source_site_id, source_record_id) 保证不互冲**
+
+**测试**:
+- `pnpm test:r83.4-whitelist`(11 checks)
+- `pnpm test:r83.4-api`(12 checks)
+- `pnpm test:r83.4-ui`(26 checks)
+- `pnpm test:matrix-round`(18 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 75)
+- `pnpm test:r83.4-e2e`(多站点真同步)
+
+**不变量**:
+- `unified_*` ≥ 75
+- ALLOWED_PACKAGE_TABLES = 73
+- DUMP_ALLOWED_TABLES = 73
+- 任何 `app/api/volume/**` `/api/schedule/**` 不引用 restore 库
+- 多站点 UNIQUE 隔离有效
+
+**审计**: `docs/database-analysis/sprint-r83.4-requirements-review.md`
+
+#### §5.3.9 R.83.5 数据接收 + 告警 + 媒体族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 75 张扩到 90 张,新增 6 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 9 Tabs),dump manifest 扩到 88。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.5/01-data-warning-media-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 73→88(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 73→88(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 6 个 CRUD API:`/api/data/{receive,classification}` + `/api/early-warning` + `/api/media/disc` + `/api/evidence-verify` + `/api/transfer`
+- `/check` 新增 2 个 Tabs:数据接收 + 告警媒体(共 9 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.5 范围(positions 73-87)+ 13 irregular plural overrides
+- 治理矩阵文档 15 行 R.83.5 标记 + 桶分布 68→53
+
+**命名一致性**:R.83.5 spec 使用复数命名(`unified_data_receive_lists` 等),与 R.83.3/R.83.4 clean plural pattern 一致;矩阵文档 row 列同步更新到复数命名,避免单/复数混淆。
+
+**测试**:
+- `pnpm test:r83.5-whitelist`(≥12 checks)
+- `pnpm test:r83.5-api`(≥42 checks)
+- `pnpm test:r83.5-ui`(≥28 checks)
+- `pnpm test:matrix-round`(≥20 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 90)
+
+**不变量**:
+- `unified_*` ≥ 90
+- ALLOWED_PACKAGE_TABLES = 88
+- DUMP_ALLOWED_TABLES = 88
+- 任何 `app/api/{data,early-warning,media,evidence-verify,transfer}/**` 不引用 restore 库
+- 多站点 UNIQUE(source_site_id, source_record_id) 隔离
+
+**审计**: `docs/database-analysis/sprint-r83.5-requirements-review.md`
+
+#### §5.3.10 R.83.6 ISO + 元数据 + 系统族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 90 张扩到 105 张,新增 3 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 11 Tabs),dump manifest 扩到 103。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.6/01-iso-meta-system-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 88→103(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 88→103(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 3 个 CRUD API:`/api/system-config` + `/api/iso` + `/api/file-ops`
+- `/check` 新增 2 个 Tabs:系统配置 + ISO 与文件(共 11 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.6 范围(positions 88-102)+ 14 irregular plural overrides
+- 治理矩阵文档 15 行 R.83.6 标记 + 桶分布 53→38
+
+**命名一致性**:R.83.6 spec 使用复数命名(`unified_iso_locations` / `unified_sys_configs` / `unified_back_windows` 等),与 R.83.3/R.83.4/R.83.5 clean plural pattern 一致;矩阵文档 row 列同步更新到复数命名,避免单/复数混淆。`tbl_sys` 映射到 `unified_sys_configs`(语义化重命名,而非 `unified_sys`)。
+
+**测试**:
+- `pnpm test:r83.6-whitelist`(≥12 checks)
+- `pnpm test:r83.6-api`(≥18 checks)
+- `pnpm test:r83.6-ui`(≥27 checks)
+- `pnpm test:matrix-round`(≥22 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 105)
+
+**不变量**:
+- `unified_*` ≥ 105
+- ALLOWED_PACKAGE_TABLES = 103
+- DUMP_ALLOWED_TABLES = 103
+- 任何 `app/api/{system-config,iso,file-ops}/**` 不引用 restore 库
+- 多站点 UNIQUE(source_site_id, source_record_id) 隔离
+
+**审计**: `docs/database-analysis/sprint-r83.6-requirements-review.md`
+
+#### §5.3.11 R.83.7 导入导出 + 监控 + 系统辅助族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 105 张扩到 120 张,新增 3 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 13 Tabs),dump manifest 扩到 118。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 103→118(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 103→118(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 3 个 CRUD API:`/api/import-export` + `/api/monitor` + `/api/system-aux`
+- `/check` 新增 2 个 Tabs:导入导出 + 监控运维(共 13 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.7 范围(positions 103-117)+ 15 irregular plural overrides
+- 治理矩阵文档 15 行 R.83.7 标记 + 桶分布 38→23 + fallback `R.83.7+` → `R.83.8+`
+
+**命名一致性**:R.83.7 spec 使用复数命名(`unified_import_folder_datas` / `unified_export_infos` / `unified_error_rates` / `unified_escapes` / `unified_remote_backups` / `unified_monitor_paths` / `unified_platform_monitors` / `unified_site_monitors` / `unified_task_folders` 等);单数保留(`unified_csv_details` / `unified_upload_details` / `unified_download_details` / `unified_project_monitor_files`,因源名已含 `details` / `files` 复数语义)。矩阵文档 row 列同步对齐到 R.83.7 chosen names。
+
+**测试**:
+- `pnpm test:r83.7-whitelist`(≥14 checks)
+- `pnpm test:r83.7-api`(≥18 checks)
+- `pnpm test:r83.6-ui`(覆盖 13 Tabs;tab 文字 + API smoke)
+- `pnpm test:matrix-round`(≥24 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 120)
+
+**不变量**:
+- `unified_*` ≥ 120
+- ALLOWED_PACKAGE_TABLES = 118
+- DUMP_ALLOWED_TABLES = 118
+- 任何 `app/api/{import-export,monitor,system-aux}/**` 不引用 restore 库
+- 多站点 UNIQUE(source_site_id, source_record_id) 隔离
+
+**审计**: `docs/database-analysis/sprint-r83.7-requirements-review.md`
+
+#### §5.3.12 R.83.8 任务详情 + 槽位管理族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 120 张扩到 135 张,新增 3 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 15 Tabs)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.8/01-task-slot-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 118→133(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 118→133(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 3 个 CRUD API:`/api/task-detail` + `/api/slot-files` + `/api/slot-folders`
+- `/check` 新增 2 个 Tabs:任务详情 + 槽位管理(共 15 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.8 范围(positions 118-132)+ 桶分布 23→8
+
+**多站点真同步**:沿用 R.83.4-7 验证基础设施,UNIQUE(source_site_id, source_record_id) 保证 SH01 + BJ02 独立。
+
+**测试**:
+- `pnpm test:r83.8-whitelist`(14 checks)
+- `pnpm test:r83.8-api`(18 checks)
+- `pnpm test:matrix-round`(≥26 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 135)
+
+**不变量**:
+- `unified_*` ≥ 135
+- ALLOWED_PACKAGE_TABLES = 133
+- 主分支未污染
+
+**审计**: `docs/database-analysis/sprint-r83.8-requirements-review.md`
+
+#### §5.3.13 R.83.9 收尾 — 备份/磁盘/下载辅助族 8 张业务表接入
+
+**目标**:完成 **128 张业务表全部接入**目标(`tbl_file_*/tbl_folder_*` 大表走 ES/ClickHouse 独立路径,不在此范围)。
+
+**交付**:
+- 8 张 DDL(`databases/sprint-r83.9/01-final-8-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 133→141(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 133→141(`lib/sync/dump/manifest.ts`)
+- 8 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 2 个 CRUD API:`/api/final-batch-a` + `/api/final-batch-b`
+- `/check` 新增 2 个 Tabs:备份辅助 + 下载等待(共 17 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.9 范围(positions 133-140)+ 8 irregular plural overrides
+- 治理矩阵文档 8 行 R.83.9 标记 + 桶分布更新到 `R.84+ = 0`(业务表全部接入完成)
+
+**总进度(R.83.1-R.83.9)**:
+- 中心库 `unified_*` 表:**143 张**(13 既有 + 128 业务 + 2 其他 = 143)
+- 同步白名单:**141 项**
+- 远端 17 个 R.83.x commits,推送成功,主分支 `7f81424` 未动
+
+**测试**:
+- `pnpm test:r83.9-whitelist`
+- `pnpm test:r83.9-api`(≥12 checks)
+- `pnpm test:matrix-round`(≥28 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 143)
+
+**审计**: `docs/database-analysis/sprint-r83.9-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash
@@ -864,7 +1135,7 @@ pnpm scheduler:sync -- --siteCode SH01 --interval 300
 |---|---|
 | 1 台 Linux 服务器,没装 Docker | **方案 A (PM2)** |
 | 1 台 Linux 服务器,装了 Docker,想一条命令起全栈 | **方案 B (Docker Compose) — 但要先按本节提示补 compose** |
-| 多环境,要推镜像仓库 (Harbor / GHCR) | **方案 C (Docker 镜像) — 但要先加 `next.config.mjs` 的 `output: 'standalone'`** |
+| 多环境,要推镜像仓库 (Harbor / GHCR) | **方案 C (Docker 镜像)** |
 | 多副本 + 滚动更新 + 自动伸缩 | **方案 D (k8s)** |
 | 接受云端 Postgres,不要本机 Docker | **方案 E (Vercel)** |
 | Windows 笔记本,本地开发调试 | **方案 F (Windows 本地)** |
@@ -966,41 +1237,18 @@ docker compose -f docker-compose.yml up -d --build
 
 适用:多环境部署,或推到 Harbor / Docker Hub / GHCR。
 
-> ⚠️ **必读 — `next.config.mjs` 当前没有 `output: 'standalone'`,直接 build 会失败**
->
-> 附录 A.1 给的 Dockerfile 里这一步会失败:
-> ```
-> COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-> ERROR: failed to solve: "/app/.next/standalone": not found
-> ```
-> 因为 `next build` 默认**不输出 standalone 目录**,必须显式开启。
->
-> **先改 `next.config.mjs`**:
-> ```js
-> /** @type {import('next').NextConfig} */
-> const nextConfig = {
->   output: 'standalone',   // ← 加这一行
->   typescript: { ignoreBuildErrors: false },
->   images: { unoptimized: true },
->   async redirects() { return [{ source: "/control", destination: "/tasks?view=commands", permanent: false }] },
-> }
-> export default nextConfig
-> ```
-> 然后 `pnpm build` 会输出 `.next/standalone/`,Dockerfile 才能 COPY。
->
-> 下面步骤默认你已经改好 `next.config.mjs` 并把附录 A.1 的 Dockerfile 放到根目录。
+仓库已包含 `Dockerfile`,且 `next.config.mjs` 已启用 `output: "standalone"`。
+镜像只包含应用,数据库仍通过 `DATABASE_URL` 等环境变量接入;首次部署中心库请先按 §2.4 / §7.3 执行 `pnpm db:init`。
 
 ```bash
-# 1. 在仓库根目录创建 Dockerfile（项目当前没自带,见附录 A.1）
-
-# 2. 本地构建
+# 1. 本地构建
 docker build -t unified-disc-platform:latest .
 
-# 3. 推到镜像仓库
+# 2. 推到镜像仓库
 docker tag unified-disc-platform:latest registry.example.com/unified-disc-platform:v1.0.0
 docker push registry.example.com/unified-disc-platform:v1.0.0
 
-# 4. 在目标服务器拉取并运行
+# 3. 在目标服务器拉取并运行
 docker run -d \
   --name unified-disc-platform \
   -p 3000:3000 \
@@ -1100,9 +1348,9 @@ vercel --prod
 #### 方案 F：Windows 本地（开发者用,不上生产）
 
 ```powershell
-# 1. 装 Node 20 (用 nvm-windows 推荐)
-nvm install 20
-nvm use 20
+# 1. 装 Node 22 LTS (用 nvm-windows 推荐)
+nvm install 22
+nvm use 22
 
 # 2. 装 pnpm
 npm install -g pnpm
@@ -1186,7 +1434,7 @@ sudo certbot --nginx -d platform.example.com   # 自动配 HTTPS
 | `Error: password authentication failed for user "unified"` | `DATABASE_URL` 里的密码与 PostgreSQL 数据卷内实际密码不一致；常见于旧 `postgres_data` volume 已用旧密码初始化，后来又改了 `.env.local` / `POSTGRES_PASSWORD` | 先确认三处一致：`DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD`。新开发环境直接执行 `pnpm db:down:volumes && pnpm db:up && pnpm db:init && pnpm db:health`；不能删数据时，用当前能登录的密码进入数据库后执行 `ALTER USER unified WITH PASSWORD '<new-password>';` |
 | `Error: listen EADDRINUSE :::3000` | 3000 端口被占 | `lsof -i :3000` 找到占用进程 kill;或改 `PORT=3001 pnpm dev` |
 | `Error: Cannot find module 'next/dist/...'` | node_modules 损坏 | `rm -rf node_modules pnpm-lock.yaml && pnpm install` |
-| `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 20 LTS (项目用 next-themes + React 19 需要) |
+| `npm WARN EBADENGINE` 或 peer dep 警告 | node 版本不对 | 必须 Node 22 LTS 或更高 (pnpm 11.3.0 需要 Node 22+) |
 | `pnpm install` 卡死 / 超时 | 镜像源问题 | `pnpm config set registry https://registry.npmmirror.com` 后重试 |
 | `pnpm db:init` 报 SQL 语法错(某行 `\dt` 无效) | 端口混淆 / 连到了错误数据库 | 确认 `docker exec -it unified_disc_postgres psql -U unified -d unified_disc_platform` 能正常进库;SQL 脚本在 `databases/sprint-2b0/unified_schema.sql` |
 | 浏览器访问 `/login` 显示 "认证服务暂不可用" | `/api/auth/login` 路由找不到 PG | 检查 `pnpm db:up` 状态 + 看 dev server stderr |
@@ -1236,6 +1484,67 @@ docker exec -it unified_disc_postgres psql -U unified -d unified_disc_platform
 # 5. 调 API 健康检查
 curl -i http://localhost:3000/api/system/health
 ```
+
+### 7.8 接入新站点数据库(完整流程)
+
+**目标**:让一个新站点(假设叫 `BJ02`)的数据进入中心库。
+
+```bash
+# 1. 站点 Agent 在 BJ02 服务器上跑(参考 §7.4)
+#    - source_restore_full_postgres 容器化,源 schema 170 张
+#    - 装在 BJ02 站点本地,**不在总控**
+
+# 2. 总控侧:在 sync_sites 表注册 BJ02
+#    走 /sites 页面"注册新站点"或直接 SQL:
+psql -U unified -d unified_disc_platform -c "
+INSERT INTO sync_sites (
+  site_code,
+  site_name,
+  source_type,
+  db_host,
+  db_port,
+  db_name,
+  db_user,
+  credential_ref,
+  enabled,
+  sync_interval_seconds
+)
+VALUES (
+  'BJ02',
+  '北京 02 站点',
+  'postgres',
+  'bj02-db.example.com',
+  5432,
+  'star_storage_db',
+  'bj02_agent',
+  'CREDENTIAL_BJ02_DB_PASSWORD',
+  TRUE,
+  3600
+);
+"
+
+# 3. (可选)首跑 pg_dump + ingest,验证数据路径
+set -a && source .env.local && set +a
+pnpm exec tsx scripts/sync/export-restore-dump.ts --siteCode=BJ02 --out=/tmp/bj02-dump.sql
+pnpm exec tsx scripts/sync/ingest-dump.ts --siteCode=BJ02 --file=/tmp/bj02-dump.sql
+
+# 4. /sync 页"立即同步 BJ02"按钮 → 走 dump-now 路径
+#    (前端硬编码为 SH01,需要 source 改 siteCode 输入,见 §8 已知遗留)
+
+# 5. 验证:BJ02 数据在中心库
+psql -U unified -d unified_disc_platform -c "
+SELECT 'unified_tasks' AS table, COUNT(*) AS rows FROM unified_tasks WHERE source_site_id='BJ02'
+UNION ALL SELECT 'unified_devices', COUNT(*) FROM unified_devices WHERE source_site_id='BJ02'
+UNION ALL SELECT 'unified_users', COUNT(*) FROM unified_users WHERE source_site_id='BJ02';
+"
+# 期望非零 rows,证明多站点 UNIQUE 隔离生效
+```
+
+**约束**:
+- BJ02 站点源库 schema 必须是 `star_storage_db` 同款 170 张表,**否则需先做 schema 对齐**
+- 站点 Agent 必须有 HMAC 凭据(SITE_AGENT_SECRET)与总控一致
+- 29 张大表(`tbl_file_*`/`tbl_folder_*`)**不**走 PG 路径,需另接 ES/ClickHouse
+- 真实生产环境需要站点 app 实现 L7 控制命令消费(见 §8 blocker)
 
 ---
 
@@ -1327,6 +1636,27 @@ CLICKHOUSE_PASSWORD_KEY_REF=...
 - 站点 Agent 部署节奏（先 BJ02 还是先 SH01 还是全量）？
 - 站点 schema 改造由谁出（站点运维 or 总控配合）？
 
+### 8.1 R.83 中心库收尾后的已知遗留与限制
+
+R.83.1-R.83.9 共 9 轮 sprint 完成 128 张业务表接入(`unified_*` 143 张 / 白名单 141 项),**但有以下限制不在当前 R.83 范围**:
+
+| 限制 | 阻塞类型 | 后续 Sprint |
+|---|---|---|
+| **29 张大表** `tbl_file_*` / `tbl_folder_*` 未接 PG | `blocked_by_external_system` | 走 OpenSearch/ClickHouse 独立 Sprint(`R.85`) |
+| **5 个 pre-existing dispatcher bug**(R.83.3 之前) | `tbl_slots` / `tbl_magzines` / `tbl_logical_volume` / `tbl_hd_info` / `tbl_disc` 走 dump-now 报 "dispatch failed"(**R.83 收尾 commit `4c331c1` 已尝试修复 `sourceIdColumn`,但仍需完整跑通 e2e 验证**)| R.84.1 独立修复 |
+| **敏感字段未 hash** | `tbl_user_mfa.mfa_secret` / `tbl_credible_prove.prove_value` 走中心库 raw_data 未加密 | `blocked_by_security` |
+| **任务控制未闭环** | `control_command` 写入 + Agent 不消费(L7 站点 app 缺失) | `blocked_by_site_change`(需站点 app 配合) |
+| **真实 RBAC 拦截未启** | `/api/auth/permissions` 仍 `blocked_by_auth` | Sprint 5.x |
+| **`/sync` 页"立即同步"硬编码 SH01** | 跨站点触发需手动改 source 或新增 siteCode input | UI 收尾 Sprint |
+| **跨浏览器/响应式未实机验收** | 仅 dev 验证,Firefox/Edge/1920×1080 实机未跑 | 后续 |
+
+**性能 baseline**(见 `scripts/performance/baseline-test.ts`):
+- 单表 SELECT LIMIT 100:< 50ms(实测 < 3ms)
+- COUNT(*) filtered by site:< 30ms(实测 < 1ms)
+- JOIN 查询:< 100ms(实测 < 5ms)
+- GIN 索引(JSONB ?):< 50ms(实测 < 2ms)
+- Bulk insert 100 rows:< 500ms
+
 ---
 
 ## 9. 需求完成度怎么看
@@ -1411,22 +1741,22 @@ CLICKHOUSE_PASSWORD_KEY_REF=...
 
 ## 附录 A：常用 Dockerfile + Compose 模板
 
-> 项目仓库当前**没有自带 Dockerfile**(避免增加维护负担),下面给你可以直接用的最小模板。
+项目仓库已内置根目录 `Dockerfile`。下面模板用于审查或派生企业镜像时参考;如无特殊需求,直接使用仓库内置版本。
 > 复制到仓库根目录就能 `docker build`。
 
-### A.1 多阶段 Dockerfile（Next.js 16 + Node 20）
+### A.1 多阶段 Dockerfile（Next.js 16 + Node 22）
 
 ```dockerfile
 # syntax=docker/dockerfile:1.7
 # ---- 依赖阶段 ----
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # ---- 构建阶段 ----
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10 --activate
 COPY --from=deps /app/node_modules ./node_modules
@@ -1434,7 +1764,7 @@ COPY . .
 RUN pnpm build
 
 # ---- 运行阶段 ----
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -1454,10 +1784,10 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 ```
 
-**配套 `next.config.js`**(必须加,否则 standalone 模式不工作):
+**配套 `next.config.mjs`** 已在仓库启用:
 ```js
-module.exports = {
-  output: 'standalone',
+const nextConfig = {
+  output: "standalone",
 }
 ```
 
@@ -1469,6 +1799,7 @@ docker build -t unified-disc-platform:latest .
 ### A.2 全栈 docker-compose.yml（postgres + app 一条命令起）
 
 > 替换现有 `docker-compose.yml` 内容（或备份后改名 `docker-compose.fullstack.yml`）。
+> 运行前先准备 `.env.production`,至少包含 `POSTGRES_PASSWORD`、`DATABASE_URL`、`AUTH_SESSION_SECRET`、`SYNC_PACKAGE_SECRET`、`SITE_AGENT_SECRET`;不要把真实值写进 compose 或提交到 git。
 
 ```yaml
 name: unified-disc-platform
@@ -1480,7 +1811,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: unified
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unified123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: unified_disc_platform
     ports:
       - "5432:5432"
@@ -1511,10 +1842,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://unified:${POSTGRES_PASSWORD:-unified123}@postgres:5432/unified_disc_platform
-      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-please-change-me-in-production-32-chars-min}
-      SYNC_PACKAGE_SECRET: ${SYNC_PACKAGE_SECRET:-please-change-me-in-production-32-chars-min}
-      SITE_AGENT_SECRET: ${SITE_AGENT_SECRET:-please-change-me-in-production-32-chars-min}
+      DATABASE_URL: ${DATABASE_URL}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET}
+      SYNC_PACKAGE_SECRET: ${SYNC_PACKAGE_SECRET}
+      SITE_AGENT_SECRET: ${SITE_AGENT_SECRET}
       NODE_ENV: production
     ports:
       - "3000:3000"

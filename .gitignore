@@ -74,6 +74,7 @@ __v0_jsx-dev-runtime.ts
 docs/screenshots/
 docs/archive/
 docs/secrets/
+archive/
 docs/database-analysis/schema-inventory.json
 docs/database-analysis/schema-inventory.md
 docs/audit/consistency/consistency-*.json

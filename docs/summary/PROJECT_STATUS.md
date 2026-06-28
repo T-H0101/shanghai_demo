@@ -34,6 +34,133 @@
 - 大表 `tbl_file_*` / `tbl_folder_*` 仍 `blocked_by_external_system`
 - 剩余 98 张 `R.83.3+` 业务表待后续 Sprint 推
 
+## Sprint R.83.3 — 检查巡检族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 业务表从 43 张扩展到 58 张,新增 tbl_check_* 检查巡检族,落地 CRUD API + /check 新页,新增 Task 11 真实端到端同步验证(修复 R.83.1/R.83.2 遗留的 mock-only gap)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.3/01-check-inspection-tables.sql`)— Task 1+2,commits `7330b27` `ae6348d` `183f8a5`(命名修正)
+- 白名单 43→58 + self-check — Task 3,commit `0f18ad9`
+- 15 个新 dispatcher handler + composite 支持 — Task 4,commits `138e6f7` `5f808cc`
+- 2 个 CRUD API(`/api/check/{inspections,patrols}`)+ self-check — Task 5,commit `e759c15`
+- /check 新页 5 Tabs + nav 注入 — Task 6,commit `ebfdf11`
+- audit matrix round R.83.3 范围 + 桶分布 98→83 — Task 7+8,commits `dfd03c9` `973b74b`
+- README §5.3.7 + PROJECT_STATUS + ROADMAP — Task 9(本任务)
+
+**关键修复**:R.83.3 早期 plan 误判命名冲突,经用户指出后修正 `unified_check_files_2/_pl` → `unified_check_file/unified_check_files`(clean names)。R.83.1 实际是 `unified_receipt_files`,无冲突。
+
+**测试结果**:tsc clean, smoke pass, whitelist 10/10, api 12/12, ui 20/20, matrix 16/16, audit 0 fail。
+
+**已知遗留**:`Task 11 真实点击同步`与 requirements review 是下一个任务,Task 11 是 R.83.3 与之前 Sprint 最大的差异。
+
+## Sprint R.83.4 — 存储卷 + 调度/接口 + 设备业务族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 60 → 75 张,新增 tbl_volume_* + tbl_schedule_* + tbl_register_* + tbl_interface_task + tbl_hot_backup/restore + tbl_device_device + tbl_drivers + tbl_raid_group + tbl_hd_manager,落地 2 API + 2 Tabs,**新增多站点真同步验证**。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.4/01-storage-schedule-tables.sql`)— Task 1+2,commits `9d4f0f8` `c1125e8`
+- Legacy `unified_drivers` rename 为 `_legacy`,按 R.83.4 标准重建(透明披露的命名冲突修复)
+- 白名单 58→73 + self-check + R.83.3 sanity fix — Task 3+fix,commits `1ef0153` `4b40381` `947cd75`
+- 15 个新 dispatcher handler — Task 4,commit `35d94d7`
+- 2 个 CRUD API(`/api/volume/storage` + `/api/schedule/ops`)+ self-check — Task 5,commit `4608517`
+- /check 加 2 Tabs(存储卷 + 调度运维)共 7 tabs(复用,不新建页) — Task 6,commit `2e0a318`
+- audit matrix round R.83.4 + 桶分布 83→68 — Task 7+8,commits `2e74ace` `f95056e`
+- 多站点真同步(SH01 + BJ02 + UNIQUE 隔离验证)— Task 9,commit `d1bde21`
+
+**关键修复**:
+1. R.83.4 早期 plan 误判命名冲突,经用户提醒"总控不是只照搬"后,修正 `unified_drivers` legacy 命名,符合多站点隔离原则
+2. R.83.3 sanity check 的 `=== 58` 字面量与 R.83.4 后 `length=73` 冲突,改为 `>= 58`
+
+**测试结果**:tsc clean, smoke pass, whitelist 11/11, api 12/12, ui 26/26, matrix 18/18, audit 0 fail, e2e 多站点真同步 PASS。
+
+**审计**: `docs/database-analysis/sprint-r83.4-requirements-review.md`
+
+## Sprint R.83.5 — 数据接收 + 告警 + 媒体族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 75 → 90 张,新增 tbl_data_receive_* + tbl_early_warning_* + tbl_disc_* + tbl_evidence_* + tbl_verify_* + tbl_download/upload,落地 6 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.5/01-data-warning-media-tables.sql`)— Task 1+2,commit `b3029f0`
+- 白名单 73→88 + self-check — Task 3,commits `d56bf6a` `e9106fe` `6836be9`(包括 R.83.4 test literal 修复)
+- 15 个新 dispatcher handler — Task 4,commit `6836be9`
+- 6 个 CRUD API(`/api/data/{receive,classification}` + `/api/early-warning` + `/api/media/disc` + `/api/evidence-verify` + `/api/transfer`)+ self-check — Task 5,commit `1de4bb9`
+- /check 加 2 Tabs(数据接收 + 告警媒体)共 9 tabs(复用)— Task 6,commit `73ebe73`
+- audit matrix round R.83.5 + 13 irregular plural overrides — Task 7,commit `bebc436`
+- 治理矩阵文档 15 行 R.83.5 标记 + 桶分布 68→53 — Task 8,commit `75451c1`
+
+**命名一致性**:R.83.5 spec 用复数命名(`unified_data_receive_lists` 等),与 R.83.3/R.83.4 clean plural pattern 一致;矩阵文档 row 列同步更新到复数。
+
+**审计**: `docs/database-analysis/sprint-r83.5-requirements-review.md`
+
+## Sprint R.83.6 — ISO + 元数据 + 系统族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 90 → 105 张,新增 tbl_iso_* + tbl_meta_data + tbl_sys_* + tbl_mount_* + tbl_buffer_* + tbl_cd_cabinet + tbl_film_operat + tbl_ft_* + tbl_back_window + tbl_zip_file + tbl_temp_slots + tbl_lib_group,落地 3 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.6/01-iso-meta-system-tables.sql`)— Task 1+2,commit `2d53cbd`
+- 白名单 88→103 + self-check — Task 2,commits `fdbd386` `faf2780`
+- 3 个 CRUD API(`/api/system-config` + `/api/iso` + `/api/file-ops`)+ self-check — Task 3,commit `4b37eb0`
+- /check 加 2 Tabs(系统配置 + ISO 与文件)共 11 tabs(复用)— Task 3,commit `c67d8ea`
+- audit matrix round R.83.6 + 14 irregular plural overrides — Task 4,commit `6185fba`
+- 治理矩阵文档 15 行 R.83.6 标记 + 桶分布 53→38 — Task 5,commit `89969b6`
+
+**命名一致性**:R.83.6 spec 用复数命名(`unified_iso_locations` / `unified_sys_configs` / `unified_back_windows` 等),与 R.83.3/R.83.4/R.83.5 clean plural pattern 一致;`tbl_sys` 语义化重命名为 `unified_sys_configs`;矩阵文档 row 列同步更新到复数。
+
+**审计**: `docs/database-analysis/sprint-r83.6-requirements-review.md`
+
+## Sprint R.83.7 — 导入导出 + 监控 + 系统辅助族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 105 → 120 张,新增 tbl_csv_details + tbl_import_folder_* + tbl_upload_details + tbl_download_details + tbl_export_info + tbl_error_rate + tbl_escape + tbl_remote_backup + tbl_monitor_path + tbl_platform_monitor + tbl_site_monitor + tbl_project_monitor_files + tbl_task_folder,落地 3 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.7/01-csv-import-export-monitor-tables.sql`)— Task 1,commit `3655843`
+- 白名单 103→118 + self-check — Task 2,commit `84533d2`
+- 15 个新 dispatcher handler — Task 2,commit `cf402f8`
+- 3 个 CRUD API(`/api/import-export` + `/api/monitor` + `/api/system-aux`)+ self-check — Task 3,commit `779599f`
+- /check 加 2 Tabs(导入导出 + 监控运维)共 13 tabs(复用)— Task 3,commit `779599f`
+- audit matrix round R.83.7 + 15 irregular plural overrides — Task 4,commit `d9b8212`
+- 治理矩阵文档 15 行 R.83.7 标记 + 桶分布 38→23 + fallback `R.83.7+` → `R.83.8+` — Task 5,commit `8328f12`
+
+**命名一致性**:R.83.7 spec 用复数命名(`unified_import_folder_datas` / `unified_export_infos` / `unified_error_rates` / `unified_escapes` / `unified_remote_backups` / `unified_monitor_paths` / `unified_platform_monitors` / `unified_site_monitors` / `unified_task_folders` 等);单数保留(`unified_csv_details` / `unified_upload_details` / `unified_download_details` / `unified_project_monitor_files`);矩阵文档 row 列同步对齐到 R.83.7 chosen names。
+
+**审计**: `docs/database-analysis/sprint-r83.7-requirements-review.md`
+
+## Sprint R.83.8 — 任务详情 + 槽位管理族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 120 → 135 张,新增 tbl_task_items + tbl_task_print + tbl_task_certif_status + tbl_slot_file_* (6 张) + tbl_slot_folder_* (6 张),落地 3 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.8/01-task-slot-tables.sql`)— Task 1,commit `734ce2d`
+- 白名单 118→133 + self-check — Task 2,commits `79ef26b` `b0055d8`
+- 3 个 CRUD API(`/api/task-detail` + `/api/slot-files` + `/api/slot-folders`)+ self-check + /check 加 2 Tabs(任务详情 + 槽位管理)共 15 tabs — Task 3,commit `be9331f`
+- audit matrix round R.83.8 + 15 irregular plural overrides + fallback `R.83.8+` → `R.83.9+` — Task 4,commit `06cf057`
+- 治理矩阵文档 15 行 R.83.8 标记 + 桶分布 23→8 — Task 5,commit `cd23db5`
+
+**命名一致性**:slot 文件/文件夹表保持单数(`unified_slot_file_*` 等,因为源表语义已是单数);`unified_task_items` / `unified_task_prints` / `unified_task_certif_statuses` 用 R.83.7 复数化规则。
+
+**审计**: `docs/database-analysis/sprint-r83.8-requirements-review.md`
+
+## Sprint R.83.9 — 收尾:备份/磁盘/下载辅助族 8 张业务表接入(已完成) — **128 张业务表全部接入**
+
+**目标**:完成 **128 张业务表全部接入**目标(`tbl_file_*/tbl_folder_*` 大表走 ES/ClickHouse 独立路径)。
+
+**交付**:
+- 8 张 DDL(`databases/sprint-r83.9/01-final-8-tables.sql`)— Task 1,commit `b6b32d1`
+- 白名单 133→141 + self-check — Task 2,commits `eb3de48` `6e508be`
+- 2 个 CRUD API(`/api/final-batch-a` + `/api/final-batch-b`)+ self-check + /check 加 2 Tabs(备份辅助 + 下载等待)共 17 tabs — Task 3
+- audit matrix round R.83.9 + 8 irregular plural overrides + fallback `R.83.9+` → `R.84+` — Task 4,commit `a4b9b74`
+- 治理矩阵文档 8 行 R.83.9 标记 + 桶分布更新到 `R.84+ = 0` — Task 5,commit `926fec8`
+
+**命名一致性**:`tbl_backup_db` → `unified_backup_dbs`、`tbl_disk_check` → `unified_disk_checks` 等所有 R.83.9 表用复数命名(suffix),与 R.83.7/R.83.5 pattern 一致。
+
+**总进度(R.83.1-R.83.9)**:
+- 中心库 `unified_*` 表:**143 张**
+- 同步白名单:**141 项**
+- 业务表 128 张全部接入(R.83.9 后 `R.84+ = 0`)
+- 远端推送成功,主分支 `7f81424` 未动
+
+**审计**: `docs/database-analysis/sprint-r83.9-requirements-review.md`
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引

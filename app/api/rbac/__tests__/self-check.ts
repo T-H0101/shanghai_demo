@@ -28,6 +28,21 @@ const BASE = process.env.TEST_BASE_URL ?? "http://localhost:3000"
 const TEST_SITE_CODE = process.env.TEST_SITE_CODE ?? "SH01"
 const TEST_RECORD_ID = process.env.TEST_RECORD_ID ?? "test-r83-2-selfcheck-1"
 
+let authCookie = ""
+
+async function loginCookie(): Promise<string> {
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "admin", siteCode: TEST_SITE_CODE }),
+  })
+  const cookie = res.headers.get("set-cookie")?.match(/odp_session=([^;]+)/)?.[1]
+  if (!res.ok || !cookie) {
+    throw new Error(`login failed: HTTP ${res.status}`)
+  }
+  return `odp_session=${cookie}`
+}
+
 interface CheckResult {
   name: string
   ok: boolean
@@ -54,7 +69,7 @@ async function httpJson(
   }
   const res = await fetch(url.toString(), {
     method,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(authCookie ? { cookie: authCookie } : {}) },
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   })
   let body: any = null
@@ -207,6 +222,7 @@ async function main() {
   }
 
   console.log(`Self-check against ${BASE}  siteCode=${TEST_SITE_CODE} recordId=${TEST_RECORD_ID}`)
+  authCookie = await loginCookie()
 
   for (const resource of ["roles", "dicts", "logs", "credentials", "users-mfa"]) {
     const supportsWrite = resource !== "logs"
