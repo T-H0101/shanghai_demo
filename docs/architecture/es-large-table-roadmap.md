@@ -66,13 +66,20 @@ flowchart LR
 
 ### R.84: 源表分类和契约
 
-- 输出 29 张 `tbl_file*` / `tbl_folder*` 清单。
-- 定义 `FileIndexDocument`、mapping、权限过滤字段。
+- **完成**: 决策矩阵落地, 见 [R.84 source table classification](../../database-analysis/r84-source-table-classification.md)。
+- 输出 29 张 `tbl_file*` / `tbl_folder*` 清单 (`file_index_es` 类别)。
+- 141 张白名单走 `pg_unified` (R.83 dispatcher 已完成)。
+- 定义 `FileIndexDocument`、mapping、权限过滤字段 (R.85 创建 `lib/domain/search/file-index-document.ts`)。
 - 补 `docs/database-analysis/sprint-r84-requirements-review.md`。
+
+**R.84 状态**: `complete` (170/170 全表归类, `needs_decision=0`)。
+**needs_decision 状态门**: 若任意一张表未分类, R.85 阻塞。
 
 验收:
 
 ```bash
+pnpm audit:classify-source-tables
+# classified=170 needs_decision=0
 pnpm audit:center-db -- --strict --matrix
 pnpm e2e:search
 ```

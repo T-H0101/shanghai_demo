@@ -31,6 +31,7 @@
     "import:aggregates": "tsx scripts/import-aggregates.ts",
     "import:aggregates:all": "tsx scripts/import-aggregates.ts all",
     "audit:center-db": "tsx scripts/audit/center-db-integrity.ts",
+    "audit:classify-source-tables": "tsx scripts/audit/classify-source-tables.ts",
     "test:package-log": "tsx scripts/test-package-log.ts",
     "smoke:sync": "tsx scripts/smoke-sync.ts",
     "check:sync-consistency": "tsx scripts/check-sync-consistency.ts",
