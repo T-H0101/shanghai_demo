@@ -732,6 +732,34 @@ pnpm cleanup:test-pollution -- --apply
 
 **审计**: `docs/database-analysis/sprint-r83.7-requirements-review.md`
 
+#### §5.3.12 R.83.8 任务详情 + 槽位管理族 15 张业务表接入
+
+**目标**:把 `unified_*` 中心库从 120 张扩到 135 张,新增 3 个 CRUD API 端点,`/check` 加 2 个 Tabs(共 15 Tabs)。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.8/01-task-slot-tables.sql`)
+- ALLOWED_PACKAGE_TABLES 118→133(`lib/sync/package-schema.ts`)
+- DUMP_ALLOWED_TABLES 118→133(`lib/sync/dump/manifest.ts`)
+- 15 个新 dispatcher handler(`lib/sync/package-dispatcher.ts`)
+- 3 个 CRUD API:`/api/task-detail` + `/api/slot-files` + `/api/slot-folders`
+- `/check` 新增 2 个 Tabs:任务详情 + 槽位管理(共 15 Tabs,复用现有布局)
+- audit matrix round 字段加 R.83.8 范围(positions 118-132)+ 桶分布 23→8
+
+**多站点真同步**:沿用 R.83.4-7 验证基础设施,UNIQUE(source_site_id, source_record_id) 保证 SH01 + BJ02 独立。
+
+**测试**:
+- `pnpm test:r83.8-whitelist`(14 checks)
+- `pnpm test:r83.8-api`(18 checks)
+- `pnpm test:matrix-round`(≥26 checks)
+- `pnpm audit:center-db --strict --matrix`(unifiedCount ≥ 135)
+
+**不变量**:
+- `unified_*` ≥ 135
+- ALLOWED_PACKAGE_TABLES = 133
+- 主分支未污染
+
+**审计**: `docs/database-analysis/sprint-r83.8-requirements-review.md`
+
 ### 5.4 调度与 Agent
 
 ```bash

@@ -927,3 +927,15 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - [x] 桶分布 38 → 23 + fallback `R.83.7+` → `R.83.8+`
 - [x] 命名一致性:R.83.7 spec 与矩阵文档均用 clean plural(单数 details/files 保留);`tbl_import_folder_data` → `unified_import_folder_datas`,`tbl_export_info` → `unified_export_infos`,`tbl_task_folder` → `unified_task_folders` 等
 - [x] README §5.3.11
+
+### R.83.8 任务详情 + 槽位管理族 15 张业务表接入 (2026-06-28 完成)
+
+- [x] 15 张 DDL(`databases/sprint-r83.8/01-task-slot-tables.sql`)
+- [x] `ALLOWED_PACKAGE_TABLES` 118 → 133 + `DUMP_ALLOWED_TABLES` 118 → 133
+- [x] 15 个新 dispatcher handler
+- [x] 3 个 CRUD API:`/api/task-detail` + `/api/slot-files` + `/api/slot-folders`
+- [x] `/check` 加 2 Tabs(任务详情 / 槽位管理)共 15 Tabs(复用现有布局)
+- [x] audit matrix `round` R.83.8 范围(positions 118-132)+ 15 irregular plural overrides
+- [x] 桶分布 23 → 8 + fallback `R.83.8+` → `R.83.9+`
+- [x] 命名一致性:`tbl_task_items` → `unified_task_items`,`tbl_task_print` → `unified_task_prints`,`tbl_task_certif_status` → `unified_task_certif_statuses`;slot 表保持单数(`unified_slot_file_15` 等)
+- [x] README §5.3.12

@@ -125,6 +125,21 @@
 
 **审计**: `docs/database-analysis/sprint-r83.7-requirements-review.md`
 
+## Sprint R.83.8 — 任务详情 + 槽位管理族 15 张业务表接入(已完成)
+
+**目标**:中心库 `unified_*` 从 120 → 135 张,新增 tbl_task_items + tbl_task_print + tbl_task_certif_status + tbl_slot_file_* (6 张) + tbl_slot_folder_* (6 张),落地 3 API + 2 Tabs。
+
+**交付**:
+- 15 张 DDL(`databases/sprint-r83.8/01-task-slot-tables.sql`)— Task 1,commit `734ce2d`
+- 白名单 118→133 + self-check — Task 2,commits `79ef26b` `b0055d8`
+- 3 个 CRUD API(`/api/task-detail` + `/api/slot-files` + `/api/slot-folders`)+ self-check + /check 加 2 Tabs(任务详情 + 槽位管理)共 15 tabs — Task 3,commit `be9331f`
+- audit matrix round R.83.8 + 15 irregular plural overrides + fallback `R.83.8+` → `R.83.9+` — Task 4,commit `06cf057`
+- 治理矩阵文档 15 行 R.83.8 标记 + 桶分布 23→8 — Task 5,commit `cd23db5`
+
+**命名一致性**:slot 文件/文件夹表保持单数(`unified_slot_file_*` 等,因为源表语义已是单数);`unified_task_items` / `unified_task_prints` / `unified_task_certif_statuses` 用 R.83.7 复数化规则。
+
+**审计**: `docs/database-analysis/sprint-r83.8-requirements-review.md`
+
 ## Sprint R.83.1 — center-db-governance (2026-06-23)
 
 - `databases/sprint-r83.1/01-department-receipt-tables.sql`: 15 张 unified_* 表 DDL(部门/工作区/项目/任务接收单/接收单/任务文件级/任务校验/任务-项目关系),均含 `(source_site_id, source_record_id)` 唯一约束、`synced_at NOT NULL`、GIN 索引
