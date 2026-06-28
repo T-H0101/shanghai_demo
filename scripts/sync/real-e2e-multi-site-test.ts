@@ -162,6 +162,15 @@ const TABLE_MAPPING: Array<{ src: string; unified: string }> = [
   { src: "tbl_slot_folder_15", unified: "unified_slot_folder_15" },
   { src: "tbl_slot_folder_30", unified: "unified_slot_folder_30" },
   { src: "tbl_slot_folder_31", unified: "unified_slot_folder_31" },
+  // R.83.9 收尾 8 张 (备份辅助 + 磁盘/文件校验 + 硬盘 + 接收单明细 + 槽位分区 + 下载等待族)
+  { src: "tbl_backup_db", unified: "unified_backup_dbs" },
+  { src: "tbl_disk_check", unified: "unified_disk_checks" },
+  { src: "tbl_diskfile_check", unified: "unified_diskfile_checks" },
+  { src: "tbl_hd_power", unified: "unified_hd_powers" },
+  { src: "tbl_receipt_file_detail", unified: "unified_receipt_file_details" },
+  { src: "tbl_slots_part", unified: "unified_slots_parts" },
+  { src: "tbl_wait_download_file", unified: "unified_wait_download_files" },
+  { src: "tbl_wait_download_file_task", unified: "unified_wait_download_file_tasks" },
 ]
 
 async function snapshotRows(client: Client, siteCode: string): Promise<Record<string, number>> {

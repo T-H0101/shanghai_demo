@@ -5,6 +5,8 @@
  *
  * Reuses the same logging/dispatching as the JSON package path so that
  * the center has one ingestion audit trail regardless of transport.
+ *
+ * R.83.9: extend whitelist to 141 tables (收尾 — 备份/磁盘/下载辅助族 8 张)
  */
 
 import { parsePgDumpCopyTables } from "./parser"
@@ -180,6 +182,15 @@ const TABLE_MAPPING: Record<DumpAllowedTable, string> = {
   tbl_slot_folder_15: "tbl_slot_folder_15",
   tbl_slot_folder_30: "tbl_slot_folder_30",
   tbl_slot_folder_31: "tbl_slot_folder_31",
+  // R.83.9 收尾 8 张 (备份辅助 + 磁盘/文件校验 + 硬盘 + 接收单明细 + 槽位分区 + 下载等待族)
+  tbl_backup_db: "tbl_backup_db",
+  tbl_disk_check: "tbl_disk_check",
+  tbl_diskfile_check: "tbl_diskfile_check",
+  tbl_hd_power: "tbl_hd_power",
+  tbl_receipt_file_detail: "tbl_receipt_file_detail",
+  tbl_slots_part: "tbl_slots_part",
+  tbl_wait_download_file: "tbl_wait_download_file",
+  tbl_wait_download_file_task: "tbl_wait_download_file_task",
 }
 
 export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDumpResult> {

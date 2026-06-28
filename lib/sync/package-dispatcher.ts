@@ -2344,6 +2344,155 @@ async function dispatchSlotFolder31(input: DispatchInput): Promise<DispatchResul
 }
 
 // ============================================================
+// Sprint R.83.9 收尾 8 张 dispatcher handlers
+// (备份辅助 + 磁盘/文件校验 + 硬盘 + 接收单明细 + 槽位分区 + 下载等待族)
+// ============================================================
+
+// tbl_backup_db (id) → unified_backup_dbs
+async function dispatchBackupDb(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_backup_dbs', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'create_dt', target: 'create_dt' },
+      { source: 'backup_path', target: 'backup_path' },
+      { source: 'status', target: 'status' },
+      { source: 'progress', target: 'progress' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_disk_check (id) → unified_disk_checks
+async function dispatchDiskCheck(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_disk_checks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'hd_sn', target: 'hd_sn' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'check_mode', target: 'check_mode' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_diskfile_check (id) → unified_diskfile_checks
+async function dispatchDiskfileCheck(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_diskfile_checks', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'volume_id', target: 'volume_id' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_hd_power (id) → unified_hd_powers
+async function dispatchHdPower(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_hd_powers', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'lib_id', target: 'lib_id' },
+      { source: 'mag_id', target: 'mag_id' },
+      { source: 'slot_order', target: 'slot_order' },
+      { source: 'serial_num', target: 'serial_num' },
+      { source: 'duration', target: 'duration' },
+      { source: 'up_dt', target: 'up_dt' },
+      { source: 'down_dt', target: 'down_dt' },
+      { source: 'status', target: 'status' },
+      { source: 'smart', target: 'smart' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_receipt_file_detail (id) → unified_receipt_file_details
+async function dispatchReceiptFileDetail(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_receipt_file_details', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'receipt_file_id', target: 'receipt_file_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'path', target: 'path' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'hash', target: 'hash' },
+      { source: 'create_date', target: 'create_date' },
+      { source: 'status', target: 'status' },
+      { source: 'is_folder', target: 'is_folder' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_slots_part (part_id) → unified_slots_parts
+async function dispatchSlotsPart(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_slots_parts', {
+    sourceIdField: 'part_id',
+    columns: [
+      { source: 'part_id', target: 'src_part_id' },
+      { source: 'serial_num', target: 'serial_num' },
+      { source: 'part_name', target: 'part_name' },
+      { source: 'file_sys', target: 'file_sys' },
+      { source: 'max_cap', target: 'max_cap' },
+      { source: 'rest_cap', target: 'rest_cap' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_wait_download_file (id) → unified_wait_download_files
+async function dispatchWaitDownloadFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_wait_download_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_id' },
+      { source: 'file_name', target: 'file_name' },
+      { source: 'file_size', target: 'file_size' },
+      { source: 'file_path', target: 'file_path' },
+      { source: 'create_time', target: 'create_time' },
+      { source: 'user_id', target: 'user_id' },
+      { source: 'data_type', target: 'data_type' },
+      { source: 'org_depa_id', target: 'org_depa_id' },
+      { source: 'download_count', target: 'download_count' },
+      { source: 'details_count', target: 'details_count' },
+      { source: 'system_type', target: 'system_type' },
+      { source: 'remark', target: 'remark' },
+      { source: 'cmt', target: 'cmt' },
+      { source: 'file_status', target: 'file_status' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// tbl_wait_download_file_task (composite wait_download_id+task_id) → unified_wait_download_file_tasks
+async function dispatchWaitDownloadFileTask(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_wait_download_file_tasks', {
+    sourceIdField: '__composite__',
+    sourceIdTransform: (raw: unknown) => {
+      const r = raw as Record<string, unknown>
+      return `${r?.wait_download_id ?? ''}::${r?.task_id ?? ''}`
+    },
+    columns: [
+      { source: 'wait_download_id', target: 'wait_download_id' },
+      { source: 'task_id', target: 'task_id' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
+// ============================================================
 // 通用 inline UPSERT helper
 // ============================================================
 
@@ -2670,6 +2819,15 @@ const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<Di
   tbl_slot_folder_15: dispatchSlotFolder15,
   tbl_slot_folder_30: dispatchSlotFolder30,
   tbl_slot_folder_31: dispatchSlotFolder31,
+  // R.83.9 收尾 8 张 (备份辅助 + 磁盘/文件校验 + 硬盘 + 接收单明细 + 槽位分区 + 下载等待族)
+  tbl_backup_db: dispatchBackupDb,
+  tbl_disk_check: dispatchDiskCheck,
+  tbl_diskfile_check: dispatchDiskfileCheck,
+  tbl_hd_power: dispatchHdPower,
+  tbl_receipt_file_detail: dispatchReceiptFileDetail,
+  tbl_slots_part: dispatchSlotsPart,
+  tbl_wait_download_file: dispatchWaitDownloadFile,
+  tbl_wait_download_file_task: dispatchWaitDownloadFileTask,
 }
 
 /**
