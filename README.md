@@ -167,6 +167,57 @@ pnpm smoke:sync               # 同步链路冒烟测试
 
 > ⚠️ 严格数和候选数**不能合并汇报**。候选数（45/45）是「代码已落地但生产条件不具备」，严格数（29/45）是「真后端、真 UI、真测试」。
 
+### 2.5 中心库映射收尾（R.83 9 轮 sprint,2026-06-28）
+
+中心库 `unified_*` 覆盖范围（**170 张源表 → 中心库**）：
+
+| 源表分类 | 数量 | 中心库去向 | 落地方式 |
+|---|---:|---|---|
+| 业务表 R.83.1-R.83.9 | 128 | `unified_*` PG17 中心库 | dispatcher 路径 (9 轮 sprint,每轮 15 张) |
+| 既白名单(R.83.1 之前) | 13 | `unified_*` PG17 中心库 | 既有 dispatcher 路径 |
+| 大表 `tbl_file_*`/`tbl_folder_*` | 29 | ES / ClickHouse(独立路径,**未接 PG 中心库**) | `blocked_by_external_system`,独立 Sprint |
+
+**总进度数字**:
+
+| 维度 | 数字 |
+|---|---|
+| 中心库 `unified_*` 表 | **143 张**(13 既有 + 128 R.83.x + 2 unified_alerts/file_index) |
+| 同步白名单 `ALLOWED_PACKAGE_TABLES` | **141 项** |
+| Dump 白名单 `DUMP_ALLOWED_TABLES` | **141 项** |
+| Dispatch handlers | **141 个**(覆盖白名单全部) |
+| 远端 9 轮 R.83.x commits | 38+ 个,全部推送成功,主分支未动 |
+
+**R.83.x 桶分布**(治理矩阵文档 `docs/database-analysis/r83-170-table-governance-matrix.md`):
+
+| 桶 | 计数 |
+|---|---:|
+| `already`(R.83.1 之前) | 13 |
+| `R.83.1` 部门/项目/接收单 | 15 |
+| `R.83.2` RBAC/字典/日志/凭据 | 15 |
+| `R.83.3` 检查巡检 | 15 |
+| `R.83.4` 存储卷/调度/接口/设备业务 | 15 |
+| `R.83.5` 数据接收/告警/媒体 | 15 |
+| `R.83.6` ISO/元数据/系统 | 15 |
+| `R.83.7` 导入导出/监控/系统辅助 | 15 |
+| `R.83.8` 任务详情/槽位管理 | 15 |
+| `R.83.9` 备份/磁盘/下载辅助(收尾) | 8 |
+| `R.84+` | **0**(业务表 128/128 全部接入完成) |
+| `deferred` 大表走 ES | 0 (但有 29 张 `tbl_file_*`/`tbl_folder_*` 在源库) |
+| `never` 大表禁入 PG | 29 |
+
+**任何机器拿到代码部署**:
+```bash
+# 1. 起 PG17 容器
+docker compose --env-file .env.local up -d
+# 2. 跑全部 9 轮 DDL(包含 R.83.1-R.83.9)
+pnpm db:init
+# 3. 起应用
+pnpm dev
+# 完整 143 张 unified_* 表就绪
+```
+
+详细见 §7.3 部署步骤 + `databases/sprint-2b0/init-docker.sh` 的 `MIGRATION_FILES` 数组(已包含 R.83.1-R.83.9 全部 9 个 DDL)。
+
 ---
 
 ## 3. 目录结构说明
@@ -1457,6 +1508,45 @@ docker exec -it unified_disc_postgres psql -U unified -d unified_disc_platform
 curl -i http://localhost:3000/api/system/health
 ```
 
+### 7.8 接入新站点数据库(完整流程)
+
+**目标**:让一个新站点(假设叫 `BJ02`)的数据进入中心库。
+
+```bash
+# 1. 站点 Agent 在 BJ02 服务器上跑(参考 §7.4)
+#    - source_restore_full_postgres 容器化,源 schema 170 张
+#    - 装在 BJ02 站点本地,**不在总控**
+
+# 2. 总控侧:在 sync_sites 表注册 BJ02
+#    走 /sites 页面"注册新站点"或直接 SQL:
+psql -U unified -d unified_disc_platform -c "
+INSERT INTO sync_sites (site_code, site_name, db_url, db_user, enabled, interval_seconds)
+VALUES ('BJ02', '北京 02 站点', 'postgresql://bj02_agent:s3cr3t@bj02.example.com:5432/star_storage_db', 'bj02_agent', TRUE, 3600);
+"
+
+# 3. (可选)首跑 pg_dump + ingest,验证数据路径
+set -a && source .env.local && set +a
+pnpm exec tsx scripts/sync/export-restore-dump.ts --siteCode=BJ02 --out=/tmp/bj02-dump.sql
+pnpm exec tsx scripts/sync/ingest-dump.ts --siteCode=BJ02 --file=/tmp/bj02-dump.sql
+
+# 4. /sync 页"立即同步 BJ02"按钮 → 走 dump-now 路径
+#    (前端硬编码为 SH01,需要 source 改 siteCode 输入,见 §8 已知遗留)
+
+# 5. 验证:BJ02 数据在中心库
+psql -U unified -d unified_disc_platform -c "
+SELECT 'unified_tasks' AS table, COUNT(*) AS rows FROM unified_tasks WHERE source_site_id='BJ02'
+UNION ALL SELECT 'unified_devices', COUNT(*) FROM unified_devices WHERE source_site_id='BJ02'
+UNION ALL SELECT 'unified_users', COUNT(*) FROM unified_users WHERE source_site_id='BJ02';
+"
+# 期望非零 rows,证明多站点 UNIQUE 隔离生效
+```
+
+**约束**:
+- BJ02 站点源库 schema 必须是 `star_storage_db` 同款 170 张表,**否则需先做 schema 对齐**
+- 站点 Agent 必须有 HMAC 凭据(SITE_AGENT_SECRET)与总控一致
+- 29 张大表(`tbl_file_*`/`tbl_folder_*`)**不**走 PG 路径,需另接 ES/ClickHouse
+- 真实生产环境需要站点 app 实现 L7 控制命令消费(见 §8 blocker)
+
 ---
 
 ## 8. 需要外部提供的依赖
@@ -1546,6 +1636,27 @@ CLICKHOUSE_PASSWORD_KEY_REF=...
 - ClickHouse 生产环境是否部署？
 - 站点 Agent 部署节奏（先 BJ02 还是先 SH01 还是全量）？
 - 站点 schema 改造由谁出（站点运维 or 总控配合）？
+
+### 8.1 R.83 中心库收尾后的已知遗留与限制
+
+R.83.1-R.83.9 共 9 轮 sprint 完成 128 张业务表接入(`unified_*` 143 张 / 白名单 141 项),**但有以下限制不在当前 R.83 范围**:
+
+| 限制 | 阻塞类型 | 后续 Sprint |
+|---|---|---|
+| **29 张大表** `tbl_file_*` / `tbl_folder_*` 未接 PG | `blocked_by_external_system` | 走 OpenSearch/ClickHouse 独立 Sprint(`R.85`) |
+| **5 个 pre-existing dispatcher bug**(R.83.3 之前) | `tbl_slots` / `tbl_magzines` / `tbl_logical_volume` / `tbl_hd_info` / `tbl_disc` 走 dump-now 报 "dispatch failed"(**R.83 收尾 commit `4c331c1` 已尝试修复 `sourceIdColumn`,但仍需完整跑通 e2e 验证**)| R.84.1 独立修复 |
+| **敏感字段未 hash** | `tbl_user_mfa.mfa_secret` / `tbl_credible_prove.prove_value` 走中心库 raw_data 未加密 | `blocked_by_security` |
+| **任务控制未闭环** | `control_command` 写入 + Agent 不消费(L7 站点 app 缺失) | `blocked_by_site_change`(需站点 app 配合) |
+| **真实 RBAC 拦截未启** | `/api/auth/permissions` 仍 `blocked_by_auth` | Sprint 5.x |
+| **`/sync` 页"立即同步"硬编码 SH01** | 跨站点触发需手动改 source 或新增 siteCode input | UI 收尾 Sprint |
+| **跨浏览器/响应式未实机验收** | 仅 dev 验证,Firefox/Edge/1920×1080 实机未跑 | 后续 |
+
+**性能 baseline**(见 `scripts/performance/baseline-test.ts`):
+- 单表 SELECT LIMIT 100:< 50ms(实测 < 3ms)
+- COUNT(*) filtered by site:< 30ms(实测 < 1ms)
+- JOIN 查询:< 100ms(实测 < 5ms)
+- GIN 索引(JSONB ?):< 50ms(实测 < 2ms)
+- Bulk insert 100 rows:< 500ms
 
 ---
 

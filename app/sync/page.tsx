@@ -605,7 +605,7 @@ export default function SyncCenterPage() {
                 size="sm"
                 className="h-8 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900"
                 disabled={dumpNowRunning}
-                onClick={() => void handleDumpNow('SH01')}
+                onClick={() => void handleDumpNow(siteCodeFilter || 'SH01')}
                 data-testid="dump-now-button"
               >
                 {dumpNowRunning ? (
@@ -613,7 +613,7 @@ export default function SyncCenterPage() {
                 ) : (
                   <Database className="h-4 w-4 mr-1" />
                 )}
-                {dumpNowRunning ? '同步中...' : '立即同步 SH01'}
+                {dumpNowRunning ? '同步中...' : `立即同步 ${siteCodeFilter || 'SH01'}`}
               </Button>
               <span className="text-xs text-slate-500">
                 站点: SH01 (本 Sprint Task 11 验证)
