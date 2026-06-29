@@ -10,6 +10,9 @@
  *   pnpm baseline:check --verbose
  */
 
+import { loadEnv } from './lib/load-env'
+loadEnv()
+
 import { Client } from 'pg'
 import { readFile, access } from 'node:fs/promises'
 import { constants } from 'node:fs'

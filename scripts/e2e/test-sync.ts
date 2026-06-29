@@ -13,6 +13,9 @@
  * 不实施: 真实浏览器 (R.6 占位说明)
  */
 
+import { loadEnv } from "../lib/load-env"
+loadEnv()
+
 import { createHash } from "node:crypto"
 import { installAuthenticatedFetch } from "./auth-helper"
 import { query } from "@/lib/db/postgres"

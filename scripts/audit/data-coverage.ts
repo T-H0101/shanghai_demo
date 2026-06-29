@@ -22,6 +22,9 @@
  *   2 — missing data / API 404 / DB empty unexpectedly
  */
 
+import { loadEnv } from "../lib/load-env"
+loadEnv()
+
 import { Pool } from "pg"
 import { readFileSync, existsSync } from "node:fs"
 

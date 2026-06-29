@@ -8,6 +8,9 @@
  *   pnpm audit:center-db -- --strict
  */
 
+import { loadEnv } from "../lib/load-env"
+loadEnv()
+
 import { Pool } from "pg"
 import { ALLOWED_PACKAGE_TABLES, FORBIDDEN_PACKAGE_TABLES } from "@/lib/sync/package-schema"
 import { FILE_INDEX_ES_TABLES } from "@/lib/source/source-table-classification"
