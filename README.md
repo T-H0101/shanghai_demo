@@ -13,10 +13,19 @@
 ## 快速启动
 
 ```bash
-cp -n .env.example .env.local
-pnpm install
+# 1. 生成 .env.local (从 .env.example, 含一致 DB 三元组 + 随机密钥)
+pnpm env:init
+
+# 2. 验证配置
+pnpm env:check
+
+# 3. 启动 PostgreSQL (首次或密码不一致时: pnpm db:down:volumes && pnpm db:up)
 pnpm db:up
+
+# 4. 初始化中心库
 pnpm db:init
+
+# 5. 启动开发服务器
 pnpm dev
 ```
 
@@ -34,12 +43,15 @@ pnpm dev
 
 ```bash
 set -a && source .env.local && set +a
+pnpm env:check                 # R.92: 验证 DB 三元组一致 + 密钥非占位符
 pnpm exec tsc --noEmit
 pnpm build
 pnpm smoke:sync
 pnpm baseline:check
 pnpm audit:center-db -- --strict --matrix
-pnpm audit:classify-source-tables
+pnpm audit:page-scope
+pnpm audit:product-copy
+pnpm audit:data-coverage
 pnpm audit:api-mode-no-fallback
 pnpm audit:page-no-todo
 ```
@@ -181,9 +193,9 @@ pnpm smoke:sync
 
 下一步:
 
-- **R.91.2**: racks 浏览/恢复 Tab mock 清理, 控制命令 UX 增强
+- **R.92**: 全站交付收尾与最终验收（已完成 — 见 [sprint-r92-requirements-review](docs/database-analysis/sprint-r92-requirements-review.md)）
 - **R.87**: 生产 cron / 监控 / 死信重放 (R.86 之后)
-- **R.92**: 全页面数据源审计 + 数据集成测试
+- **R.91.2+**: racks 浏览/恢复 Tab 控制命令 UX 增强
 
 ## 禁止事项
 

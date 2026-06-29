@@ -961,3 +961,19 @@ TaskDTO.aggregate 字段, drawer 展示 user_task_count。
 - 多站点真同步:`/sync` 页"立即同步"按钮 → dump-now 链路 → 中心库真实 upsert(SH01 + BJ02 UNIQUE 隔离)
 - 治理矩阵文档 100% 覆盖 170 张源表(128 已接入 + 13 already + 29 大表 never)
 - 远端推送成功,主分支未污染
+
+## R.92 Closeout (2026-06-29 完成)
+
+- [x] `pnpm env:init` / `pnpm env:check` / `pnpm env:check:production` (环境配置)
+- [x] `lib/db/postgres.ts` fail-closed
+- [x] /volumes → /racks?view=volumes (用户入口统一)
+- [x] Agent → 站点代理 (用户文案)
+- [x] 删除 components/check/__tests__/self-check.ts (旧 17-tab)
+- [x] 重写 scripts/e2e/test-volumes.ts (merged view)
+- [x] 删除 test-login.js
+- [x] 归档 docs/summary/DEPLOYMENT_GUIDE.md
+- [x] 中立化 7 个过期 r83 sprint scripts
+- [x] docs/operations/deployment.md 新增 env init/check + Release Gate
+- [x] README.md 快速启动 + 本地验证更新
+- [x] 完整 audit: page-scope, product-copy, data-coverage, api-mode-no-fallback, page-no-todo
+- [x] 完整 e2e: racks, users, volumes, route-page-integration, command-palette, security-boundaries

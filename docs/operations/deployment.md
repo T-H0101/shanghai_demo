@@ -406,7 +406,84 @@ pnpm import:file-index-job-runner -- --site SH02 --table tbl_file --batch 100
 
 | 现象 | 处理 |
 |---|---|
-| `password authentication failed` | 确认 `DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD` 同步；旧 volume 不会自动改密码 |
+| `password authentication failed` | 运行 `pnpm env:check` 验证 DB 三元组；旧 volume 不会自动改密码 |
 | `service app not found` | 根 `docker-compose.yml` 主要用于本地数据服务；应用建议用 Dockerfile 单独部署 |
-| `baseline:check` 连接失败 | 先 `set -a && source .env.local && set +a` |
+| `baseline:check` 连接失败 | 先 `set -a && source .env.local && set +a`；或直接运行 `pnpm env:check` |
+| `env:check` 报 POSTGRES_PASSWORD 缺失 | 旧 `.env.local` 缺字段，运行 `pnpm env:init --force` 重建 |
+| `env:check` 报占位符密钥 | 运行 `pnpm env:init --force` 生成随机密钥 |
 | 搜索结果为空 | OpenSearch/ES 未接入或索引未构建，按 [大表与 ES 规划](../architecture/es-large-table-roadmap.md) 处理 |
+| SCRAM 认证失败 (旧 volume 密码不一致) | `pnpm db:down:volumes` → `pnpm db:up` → `pnpm db:init` → `pnpm env:init --force` |
+
+## 12. 环境初始化与检查 (R.92)
+
+R.92 起所有 DB 依赖脚本前必须 `pnpm env:check` 通过。
+
+### 12.1 首次初始化
+
+```bash
+# 1. 生成 .env.local (从 .env.example, 含一致 DB 三元组 + 随机密钥)
+pnpm env:init
+
+# 2. 验证配置
+pnpm env:check
+# 期望输出: ✅ .env.local 存在 / ✅ DB 三元组一致 / ✅ 密钥非占位符 ...
+
+# 3. 启动 PostgreSQL
+pnpm db:up
+
+# 4. 初始化中心库
+pnpm db:init
+```
+
+### 12.2 重建 .env.local
+
+```bash
+pnpm env:init --force
+# 重新生成 .env.local (DB 三元组一致 + 新随机密钥)
+```
+
+### 12.3 生产环境检查
+
+```bash
+pnpm env:check:production
+# 额外检查: AUTH_MODE != dev, 无占位符密钥, SITE_AGENT_SECRET 已配置
+```
+
+### 12.4 DB 三元组一致性
+
+`.env.local` 中三处密码必须完全相同:
+
+- `DATABASE_URL` 的 password 段
+- `POSTGRES_PASSWORD` (Docker PG 初始化时使用)
+- `DB_PASSWORD` (e2e 脚本直读)
+
+`pnpm env:init` 自动统一三者；`pnpm env:check` 自动验证。
+
+**重要**: 修改 `.env.local` 不会自动修改已有 Docker volume 内的密码。密码不一致时必须 `pnpm db:down:volumes` 重建数据卷。
+
+## 13. Release Gate (R.92 强制)
+
+每次 PR 合并前必须依次通过:
+
+```bash
+pnpm env:check                  # 1. 环境配置
+pnpm exec tsc --noEmit          # 2. 类型检查
+pnpm build                      # 3. 生产构建
+pnpm smoke:sync                 # 4. 同步链路
+pnpm cleanup:test-pollution     # 5. 清理中心库测试污染
+pnpm baseline:check             # 6. 同步/控制基线
+pnpm audit:center-db -- --strict --matrix  # 7. 中心库完整性
+pnpm audit:page-scope           # 8. 页面范围
+pnpm audit:product-copy         # 9. 用户文案
+pnpm audit:data-coverage        # 10. 数据覆盖
+pnpm audit:api-mode-no-fallback # 11. 禁止 mock fallback
+pnpm audit:page-no-todo         # 12. 页面无 TODO 注释
+pnpm e2e:route-page-integration # 13. 路由-页面集成
+pnpm e2e:racks                  # 14. 盘架管理 (含 inspection/volumes 视图)
+pnpm e2e:users                  # 15. 用户与权限
+pnpm e2e:volumes                # 16. 存储卷视图
+pnpm e2e:command-palette        # 17. 命令面板
+pnpm e2e:security-boundaries    # 18. 安全边界
+```
+
+任一失败不允许合并。
