@@ -1,12 +1,11 @@
 "use client"
 
 /**
- * /volumes 页面
- * Sprint 2H.3 (autonomous) - Volumes 真实数据展示
+ * /volumes 页面 — 真实数据展示 (按设备/卷聚合)
  *
  * 数据来源:
  *  - API mode: GET /api/volumes?siteCode=XXX
- *  - 数据源: unified_volumes (来自 tbl_logical_volume + 2H.3 聚合的 tbl_volume_slot 数据)
+ *  - 数据源: unified_volumes (聚合 tbl_logical_volume + tbl_volume_slot)
  *  - 跟随全局 siteCode (Header 站点选择器)
  *
  * 展示:
@@ -406,7 +405,7 @@ function VolumesContent() {
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
                           <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                          盘位聚合 (Sprint 2H.3)
+                          盘位聚合 (按设备容量 / 已用 / 剩余)
                         </CardTitle>
                       </CardHeader>
                       <CardContent>

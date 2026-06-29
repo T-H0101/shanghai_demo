@@ -22,7 +22,7 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { GlassPanel } from "@/components/platform/glass-panel"
 import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
-import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
+import { loadRacksBrowseMock, loadRacksRestoreTargetsMock } from "@/lib/mock-mode/racks-browse"
 import { useSite } from "@/lib/site/site-context"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
@@ -159,20 +159,28 @@ export default function Page() {
 
   // 初始化浏览文件
   useEffect(() => {
-    if (isApiMode) {
-      setBrowsedFiles([])
-      return
-    }
-    if (storageTab === "browse" || storageTab === "restore") {
-      const root = mockBackupFiles[0]
-      setBrowsedFiles(root?.children ?? [])
-    }
+    if (storageTab !== "browse" && storageTab !== "restore") return
+    let cancelled = false
+    loadRacksBrowseMock(storageTab).then((res) => {
+      if (cancelled) return
+      if (res.source === "mock" && res.root) {
+        setBrowsedFiles((res.root.children ?? []) as any)
+      } else {
+        setBrowsedFiles([])
+      }
+    })
+    return () => { cancelled = true }
   }, [storageTab])
 
   // 切换恢复模式时更新目标选项
   useEffect(() => {
-    setTargetOptions(restoreMode === "server" ? mockServerPaths : mockLocalPaths)
+    let cancelled = false
+    loadRacksRestoreTargetsMock(restoreMode).then((res) => {
+      if (cancelled) return
+      setTargetOptions(((res.targetOptions ?? []) as any).map((p: any) => ({ path: String(p) })))
+    })
     setTargetPath("")
+    return () => { cancelled = true }
   }, [restoreMode])
 
   // 获取当前卷的名称
@@ -1378,7 +1386,7 @@ export default function Page() {
                     </div>
                     <ScrollArea className="h-[400px]">
                       <div className="text-xs">
-                        {mockBackupFiles.map(file => renderTreeItem(file, 0))}
+                        {browsedFiles.map(file => renderTreeItem(file, 0))}
                       </div>
                     </ScrollArea>
                   </div>
@@ -1432,7 +1440,7 @@ export default function Page() {
                     <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
                     <ScrollArea className="h-[320px]">
                       <div className="text-xs">
-                        {mockBackupFiles.map(file => renderTreeItem(file, 0))}
+                        {browsedFiles.map(file => renderTreeItem(file, 0))}
                       </div>
                     </ScrollArea>
                   </div>

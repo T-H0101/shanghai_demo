@@ -1,6 +1,5 @@
 /**
- * TaskFileIndexPanel
- * Sprint 2C.20 - 任务文件列表后置加载组件
+ * TaskFileIndexPanel — 任务文件列表后置加载组件
  *
  * - 后置加载：不阻塞任务详情首屏
  * - 失败安全：API 失败不影响主页面

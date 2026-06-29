@@ -194,14 +194,14 @@ export function WelcomeBanner() {
           icon={ShieldCheck}
           label="同步框架"
           ok={true}
-          hint="R.19C 真实同步"
+          hint="中心库 → 站点 sync_package 链路"
           testid="welcome-health-sync"
         />
         <HealthChip
           icon={Activity}
           label="Agent 控制"
           ok={health.serviceOk}
-          hint="R.19D"
+          hint="站点 Agent 服务可用性"
           testid="welcome-health-agent"
         />
       </div>

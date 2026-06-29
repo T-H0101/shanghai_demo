@@ -77,6 +77,40 @@ pnpm tsx scripts/index/file-index-job-bootstrap.ts --sites <site_id>
 - [ ] `agent_id` 不由总控签发, 由站点 app 启动时本地生成并持久化。
 - [ ] 凭证轮换策略: 90 天 (生产), 30 天 (开发)。
 
+### 2.6 部署后只有总控数据库时的接入流程 (R.90)
+
+> **场景**: 中心服务已经部署并连上 `unified_disc_platform`, 但还没有任何站点。  
+> **目标**: 在不动中心服务环境变量的情况下接入新站点。
+
+- [ ] **(中心侧)** 在中心库 `sync_sites` 注册站点 (见 `deployment.md §9.2`), 仅写连接元数据 + `credential_ref`, **不写明文密码**。
+- [ ] **(中心侧)** 跑 `pnpm audit:classify-source-tables` 确认新站点 170 张表全部归类 (`needs_decision=0`)。
+- [ ] **(中心侧)** 跑 `pnpm import:file-index-job-bootstrap -- --sites <site_id>` 写 `file_index_jobs` 默认 29 行。
+- [ ] **(中心侧)** 跑 `pnpm smoke:sync` 验证中心库→Agent 调度链路通畅。
+- [ ] **(站点侧)** 部署站点 Agent, Agent 单独配置:
+  - `SITE_DATABASE_URL=...` (站点 DB 直连, 不传给中心服务)
+  - `SITE_AGENT_SECRET=...` (与中心服务 `SITE_AGENT_SECRET` 对称)
+  - `PLATFORM_BASE_URL=https://center.example.com` (中心服务地址)
+  - `SITE_CODE=<site_id>` (与中心 `sync_sites.site_code` 一致)
+- [ ] **(站点侧)** 启动 Agent, 验证心跳 (中心 `SELECT received_at FROM site_agent_heartbeat WHERE site_id='<site_id>'` 应 ≤ 90s 内有数据)。
+- [ ] **(中心侧)** 触发首次同步: `pnpm scheduler:sync:once -- --siteCode=<site_id>`。
+- [ ] **(中心侧)** 一致性校验: `pnpm check:sync-consistency -- --siteCode=<site_id>` (期望 `matched = pg_unified 表数`)。
+- [ ] **(中心侧)** `source_site_id` 隔离校验:
+
+```sql
+-- 期望: 每个注册站点独立 bucket, 不串
+SELECT source_site_id, COUNT(*) FROM unified_tasks GROUP BY source_site_id;
+SELECT source_site_id, COUNT(*) FROM unified_devices GROUP BY source_site_id;
+```
+
+- [ ] **(中心侧)** 文件索引抽样: `pnpm import:file-index-job-runner -- --site <site_id> --table tbl_file --batch 50` (期望 JSON `status: succeeded`)。
+- [ ] **(中心侧)** 搜索验证: `curl '/api/search?q=...&siteCode=<site_id>'` 命中真实文档。
+
+**禁止**:
+- ❌ 在中心服务 `.env` / 环境变量里配多个站点 DB 连接串。
+- ❌ 让中心服务直连站点 DB (绕开 Agent)。
+- ❌ 把 `db_password` 明文写入 `sync_sites`。
+- ❌ 跳过 `source_site_id` 校验 (会出现跨站数据串桶)。
+
 ---
 
 ## 3. 站点侧准备 (站点 app 团队责任)

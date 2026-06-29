@@ -210,7 +210,7 @@ export default function Page() {
                   未接入能力
                 </>
               }
-              description="未完成能力保持明确标记，不展示为已完成"
+              description="未启用能力保持明确标记，不展示为已完成"
               shine
               intensity="default"
             >
@@ -514,7 +514,7 @@ export default function Page() {
                   认证边界
                 </>
               }
-              description="本地登录已启用；企业单点登录等待接入"
+              description="本地登录已启用；企业单点登录当前未启用"
               shine
               intensity="default"
             >
@@ -655,7 +655,7 @@ function WriteRow({ label, reason }: { label: string; reason: string }) {
       <span className="text-sm">{label}</span>
       <div className="flex items-center gap-2">
         <Badge variant="outline" className="font-mono text-[10px]">
-          {reason === "not_implemented" ? "待接入" : reason}
+          {reason === "not_implemented" ? "未启用" : reason}
         </Badge>
         <Button variant="outline" size="sm" disabled className="h-7 px-2 text-[11px]">
           不可写
@@ -698,7 +698,7 @@ function displayStatus(status: string): string {
     enabled: "已启用",
     configured: "已配置",
     disabled: "已停用",
-    not_implemented: "待接入",
+    not_implemented: "未启用",
     blocked_by_auth: "待认证接入",
     blocked_by_external_system: "待外部服务",
     blocked_by_source_schema: "待站点字段",

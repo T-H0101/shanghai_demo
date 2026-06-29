@@ -31,7 +31,7 @@ interface TimeDisplayProps {
   mode?: "datetime" | "date" | "time" | "relative"
   /** 自定义 className */
   className?: string
-  /** 占位符 (value 无效时) */
+  /** value 无效时的兜底显示 */
   fallback?: string
   /** testid */
   testid?: string

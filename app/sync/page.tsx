@@ -430,7 +430,16 @@ export default function SyncCenterPage() {
 
   const handleManualSync = async (syncType: 'full' | 'incremental') => {
     setTriggeringSync(syncType)
-    const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim() || 'SH01'
+    const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
+    if (!effectiveSiteCode) {
+      toast({
+        title: "请先选择目标站点",
+        description: "同步触发必须指定 siteCode; 请使用站点选择器或勾选 all sites.",
+        variant: "destructive",
+      })
+      setTriggeringSync(null)
+      return
+    }
     try {
       const response = await fetch('/api/sync/trigger', {
         method: 'POST',
@@ -458,6 +467,14 @@ export default function SyncCenterPage() {
   }
 
   const handleDumpNow = async (sc: string) => {
+    if (!sc || !sc.trim()) {
+      toast({
+        title: "请先选择目标站点",
+        description: "立即同步必须指定 siteCode; 请使用站点选择器.",
+        variant: "destructive",
+      })
+      return
+    }
     setDumpNowRunning(true)
     try {
       const res = await fetch('/api/sync/dump-now', {
@@ -576,20 +593,20 @@ export default function SyncCenterPage() {
               </Button>
             </div>
             <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-              当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || 'SH01'}</code>。最终状态以 Agent 回写和同步日志为准。
+              当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || '未选择'}</code>。最终状态以 Agent 回写和同步日志为准。
             </p>
           </div>
         </GlassPanel>
 
         <GlassPanel
           testId="dump-now-card"
-          title="真实端到端同步 (R.83.3 Task 11)"
+          title="真实端到端同步 (走 sync_package + Agent pull)"
           description="从 source_restore 站点库 pg_dump 后通过 dispatcher 路径真实 upsert 到中心库"
         >
           <div data-testid="dump-now-card-body">
             <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
               <Database className="h-4 w-4" />
-              立即同步 SH01
+              立即同步 {siteCodeFilter || '未选择站点'}
               <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">直接落库 (不经过 Agent 队列)</Badge>
             </p>
             <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
@@ -605,7 +622,7 @@ export default function SyncCenterPage() {
                 size="sm"
                 className="h-8 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900"
                 disabled={dumpNowRunning}
-                onClick={() => void handleDumpNow(siteCodeFilter || 'SH01')}
+                onClick={() => void handleDumpNow(siteCodeFilter || "")}
                 data-testid="dump-now-button"
               >
                 {dumpNowRunning ? (
@@ -613,10 +630,10 @@ export default function SyncCenterPage() {
                 ) : (
                   <Database className="h-4 w-4 mr-1" />
                 )}
-                {dumpNowRunning ? '同步中...' : `立即同步 ${siteCodeFilter || 'SH01'}`}
+                {dumpNowRunning ? '同步中...' : `立即同步 ${siteCodeFilter || '未选择站点'}`}
               </Button>
               <span className="text-xs text-slate-500">
-                站点: SH01 (本 Sprint Task 11 验证)
+                站点: 当前 Sprint Task 11 验证范围 (任意选定的 siteCode)
               </span>
             </div>
           </div>
@@ -637,7 +654,7 @@ export default function SyncCenterPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
-              当前展示同步日志告警；站点硬件告警待接入后纳入统一视图。
+              当前展示同步日志告警；站点硬件告警接入后纳入统一视图。
             </p>
             {syncAlertError ? (
               <div className="text-sm text-red-600 dark:text-red-300">同步告警读取失败: {syncAlertError}</div>
@@ -697,7 +714,7 @@ export default function SyncCenterPage() {
           </CardContent>
         </Card>
 
-        {/* Sprint R.7: 数据一致性校验卡片 */}
+        {/* 数据一致性校验卡片 */}
         {consistency && (
           <Card className="gap-0" data-testid="consistency-card">
             <CardHeader className="pb-3">
@@ -880,7 +897,7 @@ export default function SyncCenterPage() {
           </CardContent>
         </Card>
 
-        {/* Sprint R.8: 自动同步调度区域 */}
+        {/* 自动同步调度区域 */}
         <Card className="gap-0" data-testid="scheduler-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">

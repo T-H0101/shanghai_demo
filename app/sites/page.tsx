@@ -268,7 +268,7 @@ export default function Page() {
                 刷新
               </Button>
             </AppTooltip>
-            <AppTooltip content="站点登记功能待接入">
+            <AppTooltip content="站点登记功能未启用">
               <Button
                 size="sm"
                 className="h-8 cursor-pointer transition-colors"

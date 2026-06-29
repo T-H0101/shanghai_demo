@@ -219,7 +219,7 @@ export default function Page() {
             <p className="font-medium">认证与权限写能力部分可用</p>
             <p className="mt-1 text-xs">
               账号管理已接入查看、启用、禁用、解锁和重置密码。
-              权限分配与跨站点权限同步仍待接入。
+              权限分配与跨站点权限同步当前未启用。
             </p>
           </div>
         </div>

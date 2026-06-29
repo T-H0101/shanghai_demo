@@ -240,7 +240,7 @@ export default function Page() {
       <PageHeader
         title="统一检索"
         description="跨站点文件检索与结果导出"
-        badge={dataSource === "blocked" ? "待接入" : dataSource === "opensearch" ? "ES 已接入" : "空结果"}
+        badge={dataSource === "blocked" ? "索引不可用" : dataSource === "opensearch" ? "ES 已接入" : "空结果"}
         actions={
           <Button variant="outline" size="sm" className="h-8" onClick={handleExport} data-testid="search-export">
             <Download className="h-4 w-4 mr-1" />导出
@@ -256,7 +256,7 @@ export default function Page() {
                 全文检索服务暂未接入
               </p>
               <p className="text-amber-800 dark:text-amber-300 mt-1">
-                <Badge variant="outline" className="border-amber-400 dark:border-amber-700 text-amber-800 dark:text-amber-300">待接入</Badge>
+                <Badge variant="outline" className="border-amber-400 dark:border-amber-700 text-amber-800 dark:text-amber-300">服务不可用</Badge>
                 {" "}
                 {blk.reason}
               </p>

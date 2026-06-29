@@ -259,7 +259,17 @@ export async function POST(req: NextRequest) {
   const traceId = `dump-now-${Date.now()}`
   try {
     const body = await req.json().catch(() => ({}))
-    const siteCode = String(body.siteCode ?? "SH01")
+    if (!body.siteCode || typeof body.siteCode !== "string") {
+      return NextResponse.json(
+        {
+          code: 400,
+          error: "siteCode is required",
+          message: "dump-now must specify the target site; refusing to default to a hardcoded site.",
+        },
+        { status: 400 }
+      )
+    }
+    const siteCode = String(body.siteCode)
     if (!/^[A-Z0-9]+$/.test(siteCode)) {
       throw new Error(`invalid siteCode: ${siteCode}`)
     }

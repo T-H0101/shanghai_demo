@@ -717,7 +717,7 @@ export function GlobalControlBall() {
                           <Shield className="h-3.5 w-3.5 text-slate-500" />
                           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">认证边界</span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">企业认证待接入</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">企业认证未启用</p>
                       </div>
                     </div>
 
@@ -797,7 +797,7 @@ export function GlobalControlBall() {
                         </div>
                       ))}
                       <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 text-[11px] text-slate-600 dark:border-slate-700/60 dark:bg-slate-800/40 dark:text-slate-300">
-                        主机 CPU / 内存 / 磁盘趋势待接入实时采集后展示。
+                        主机 CPU / 内存 / 磁盘趋势接入实时采集后展示。
                       </div>
                     </div>
                   </div>

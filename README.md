@@ -39,6 +39,9 @@ pnpm build
 pnpm smoke:sync
 pnpm baseline:check
 pnpm audit:center-db -- --strict --matrix
+pnpm audit:classify-source-tables
+pnpm audit:api-mode-no-fallback
+pnpm audit:page-no-todo
 ```
 
 涉及前端交互、控制命令、同步按钮或页面数据源时，还要跑对应 `scripts/e2e/*` 或 `pnpm e2e:all`。任何失败都不能宣称完成。
@@ -46,6 +49,14 @@ pnpm audit:center-db -- --strict --matrix
 ## 部署
 
 完整部署手册见 [docs/operations/deployment.md](docs/operations/deployment.md)。
+
+常用章节:
+
+- 多站点接入: [deployment.md §9](docs/operations/deployment.md#9-多站点接入-r90)
+- 定制同步: [deployment.md §10](docs/operations/deployment.md#10-定制同步-开发阶段真实支持项)
+- R.85 OpenSearch/ES 检索: [deployment.md §8](docs/operations/deployment.md#8-r85-opensearches-搜索-profile)
+- 新站点 checklist: [site-onboarding-checklist.md](docs/operations/site-onboarding-checklist.md)
+- Site Agent HTTP 契约: [site-agent-contract.md](docs/source/site-agent-contract.md)
 
 最小 Docker 镜像构建:
 

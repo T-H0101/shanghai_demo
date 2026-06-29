@@ -170,7 +170,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </Button>
         </AppTooltip>
 
-        {/* 兼容 e2e: 原 global-search-entry (R.10 保留) */}
+        {/* 兼容 e2e: 原 global-search-entry (搜索入口) */}
         <button
           type="button"
           className="hidden"
@@ -226,7 +226,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* 通知 */}
         {isApiMode ? (
-          <AppTooltip content="通知接口待接入">
+          <AppTooltip content="通知接口未启用">
             <button
               className="relative p-2 rounded-lg text-slate-400 cursor-not-allowed"
               disabled

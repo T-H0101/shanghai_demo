@@ -198,7 +198,147 @@ curl -s 'http://localhost:3000/api/search?q=test'
 - 不在 API route 直接 import OpenSearch 客户端 (必须经 `SearchPort`)。
 - 不在 route 写 SQL 拼接 (必须经 domain service + port + adapter)。
 
-## 9. 常见问题
+## 9. 多站点接入 (R.90)
+
+**原则**: 中心服务**只保存总控数据库** (`unified_disc_platform`); **不在中心服务里配置多个站点的数据库密码**。每个站点独立部署 Agent, Agent 侧持有 `SITE_DATABASE_URL`。
+
+### 9.1 部署拓扑
+
+```
+[ Site A Agent ]   [ Site B Agent ]   [ Site C Agent ]
+   SITE_DATABASE_URL  SITE_DATABASE_URL  SITE_DATABASE_URL
+        |                  |                  |
+        +------- HMAC + HTTPS ------------------+
+                              |
+                              v
+                [ Center service (本仓库) ]
+                    DATABASE_URL -> unified_disc_platform
+                    sync_sites -> credential_ref (无明文)
+```
+
+### 9.2 接入步骤 (部署后只有总控数据库时)
+
+1. **总控库准备**:
+   ```bash
+   set -a && source .env.local && set +a
+   pnpm db:init            # 中心库 schema (含 sync_sites, file_index_jobs, R.83 中心库)
+   pnpm audit:classify-source-tables   # 必须 needs_decision=0
+   ```
+
+2. **新站点 `sync_sites` 注册** (中心库):
+   ```sql
+   INSERT INTO sync_sites (
+     site_code, site_name, source_type,
+     db_host, db_port, db_name, db_user,
+     credential_ref, enabled, sync_interval_seconds
+   ) VALUES (
+     'SH02', '上海 02 站点', 'postgres',
+     'sh02-db.example.com', 5432, 'star_storage_db', 'sh02_agent',
+     'CREDENTIAL_SH02_DB_PASSWORD', TRUE, 3600
+   );
+   ```
+
+3. **站点 Agent 单独部署** (站点侧):
+   - Agent 持有自己的 `SITE_DATABASE_URL` (不传给中心服务)。
+   - Agent 持有自己的 `SITE_AGENT_SECRET` (HMAC-SHA256 凭据, 与中心服务的 `SITE_AGENT_SECRET` 对称)。
+   - Agent 持有 `PLATFORM_BASE_URL=https://center.example.com`。
+
+4. **文件索引 bootstrap** (中心库, 触发新站点的 file_index_jobs):
+   ```bash
+   pnpm import:file-index-job-bootstrap -- --sites SH02
+   # 期望: inserted=29 skipped=0
+   ```
+
+5. **触发首次同步 + 校验**:
+   ```bash
+   # 中心库执行 (调度器会读 sync_sites, 派发到 Agent)
+   pnpm scheduler:sync:once -- --siteCode=SH02
+
+   # 一致性校验
+   pnpm check:sync-consistency -- --siteCode=SH02
+   # 期望: matched = pg_unified 表数, failed = 0
+   ```
+
+6. **`source_site_id` 校验** (确保中心库按站点隔离):
+   ```sql
+   -- 中心库 unified_* 表必须按 source_site_id 分桶
+   SELECT source_site_id, COUNT(*) FROM unified_tasks GROUP BY source_site_id;
+   -- 期望: 每个注册站点独立 bucket, 不串
+   ```
+
+### 9.3 禁止
+
+- ❌ 在中心服务环境变量里配置多个站点的数据库连接串。
+- ❌ 把 `db_password` 写在 `sync_sites` 里 (只能用 `credential_ref`)。
+- ❌ 让中心服务直连站点 DB (绕开 Agent)。
+- ❌ 跨站数据混桶 (无 `source_site_id` 过滤的查询)。
+
+---
+
+## 10. 定制同步 (开发阶段真实支持项)
+
+> 本节只写**当前真实支持**的同步配置项。生产 HA / cron / 监控 / 死信重放 等
+> 不在本 Sprint 范围, 留待 R.87 接管。
+
+### 10.1 同步白名单 (固定 141 张)
+
+- 全局白名单 = R.83.9 `ALLOWED_PACKAGE_TABLES` 141 张, 由 `lib/sync/package-schema.ts` 集中定义。
+- 当前**没有**站点级覆盖 (`table_whitelist_override`) — R.91 后再实现。
+- 真实校验: `pnpm audit:center-db -- --strict --matrix` 输出 `package whitelist tables present: 141/141`。
+
+### 10.2 同步间隔
+
+- 字段: `sync_sites.sync_interval_seconds` (默认 3600)。
+- 调度方式: `pnpm scheduler:sync:once -- --siteCode=<site>` 手动触发一次; R.87 加 cron 自动跑。
+
+### 10.3 表级 / 站点级启停
+
+- 整站启停: `UPDATE sync_sites SET enabled = FALSE WHERE site_code = '<site>';`
+- 单 (site, file_index_es table) 启停: `UPDATE file_index_jobs SET is_enabled = FALSE WHERE source_site_id = '<site>' AND source_table = '<table>';`
+- 单 (site, pg_unified table) 启停: **当前没有**, 站点级 enabled 是唯一控制。需要的话手动 UPDATE `unified_<table>` 行 (开发阶段手动操作)。
+
+### 10.4 文件索引 bootstrap (新站点必跑)
+
+每站点接入后**必须**跑:
+
+```bash
+pnpm import:file-index-job-bootstrap -- --sites <site_code>
+# 期望: inserted=29 skipped=0
+```
+
+跳过这一步 = `tbl_file*` / `tbl_folder*` 不进入 ES, `/api/search` 命中数=0。
+
+### 10.5 校验一致性 (开发阶段)
+
+```bash
+# 同步链路 smoke
+pnpm smoke:sync   # packageStatus=success
+
+# 中心库完整性
+pnpm audit:center-db -- --strict --matrix   # 0 fail
+
+# 文件索引分类
+pnpm audit:classify-source-tables   # needs_decision=0
+
+# 单 (site, table) 索引 worker (手动触发)
+pnpm import:file-index-job-runner -- --site SH02 --table tbl_file --batch 100
+```
+
+### 10.6 R.87 接管项 (本 Sprint 不实现)
+
+| 项 | 接管点 |
+|---|---|
+| 调度 cron (`scheduler:file-index`) | R.87 生产硬化 |
+| 监控告警 (status=dead_letter / stuck_running > 30m) | R.87 |
+| 死信重放 CLI | R.87 |
+| `last_run_duration_ms` 阈值告警 | R.87 |
+| 站点级白名单覆盖 (`site_config.table_whitelist_override`) | R.91+ |
+| 单 PG 表级启停 (admin UI) | R.91+ |
+| 权限过滤强化 (按 dept / site) | R.87 + §4.1 业务 |
+
+---
+
+## 11. 常见问题
 
 | 现象 | 处理 |
 |---|---|

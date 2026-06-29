@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Sprint 2G.2 - Dashboard 真实总览摘要
+ * Dashboard 真实总览摘要
  *
  * API mode: 调用 /api/dashboard/summary, 跟随全局 siteCode
  * Mock mode: 隐藏不渲染 (保持原 mock 卡片)

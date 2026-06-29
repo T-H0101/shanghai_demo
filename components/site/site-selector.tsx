@@ -1,11 +1,10 @@
 "use client"
 
 /**
- * Sprint 2F.4 - 全局 siteCode 选择器
- * Sprint R.69 - 站点列表来自中心注册表 (`sync_sites`)
- *
- * 放置位置: Header 右侧 (Sprint 2F.4)
- * 选项来源: useSiteSites() -> /api/sync/config (R.61 已落地)
+ * 全局 siteCode 选择器
+ * - 站点列表来自中心注册表 (sync_sites)
+ * - 放置位置: Header 右侧
+ * - 选项来源: useSiteSites() -> /api/sync/config
  */
 
 import { Globe } from "lucide-react"

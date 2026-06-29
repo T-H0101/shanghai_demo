@@ -397,7 +397,7 @@ export function CommandCenterPanel() {
             icon={Search}
             title="检索"
             href="/search"
-            evidence="全文索引 / 待接入"
+            evidence="全文索引 / 接入中"
             testid="command-center-lane-search"
           />
           <LaneCard
