@@ -44,7 +44,7 @@ function getGuideSteps(pathname: string) {
       { selector: '[data-testid="command-center-panel"]', message: "这里是总控首页，集中展示同步、任务、告警和控制队列的运行状态。" },
       { selector: '[data-testid="dashboard-stat-tasks"]', message: "KPI 卡片可跳转到对应业务页面，用于快速定位问题。" },
       { selector: '[data-testid="dashboard-recent-syncs"]', message: "这里查看最近同步结果，失败记录会明确标红。" },
-      { selector: '[data-testid="dashboard-task-table"]', message: "这里展示任务状态；控制类操作只提交队列，等待站点 Agent 执行。" },
+      { selector: '[data-testid="dashboard-task-table"]', message: "这里展示任务状态；控制类操作只提交队列，等待站点代理执行。" },
     ]
   }
 
@@ -62,7 +62,7 @@ function getGuideSteps(pathname: string) {
       ...common,
       { selector: '[data-testid="tasks-search-input"]', message: "按任务编号、名称或站点快速筛选任务。" },
       { selector: '[data-testid="tasks-phase-filter"]', message: "按运行、失败、暂停等阶段查看任务。" },
-      { selector: '[data-testid="task-row-pause"]', message: "暂停/恢复会提交到控制队列，最终结果以站点 Agent 回写为准。" },
+      { selector: '[data-testid="task-row-pause"]', message: "暂停/恢复会提交到控制队列，最终结果以站点代理回写为准。" },
       { selector: '[data-testid="tasks-reset-filters"]', message: "这里可以清除筛选条件，回到全量任务视图。" },
     ]
   }
@@ -96,7 +96,7 @@ function getGuideSteps(pathname: string) {
   if (pathname.startsWith("/sites")) {
     return [
       ...common,
-      { selector: '[data-testid="sites-refresh"]', message: "刷新站点列表和 Agent 在线状态。" },
+      { selector: '[data-testid="sites-refresh"]', message: "刷新站点列表和站点代理在线状态。" },
       { selector: '[data-testid="sites-consistency"]', message: "这里触发中心库与站点库一致性检查。" },
       { selector: '[data-testid="sites-register"]', message: "站点写操作受认证和配置约束；未解锁时保持禁用并说明原因。" },
     ]
@@ -106,7 +106,7 @@ function getGuideSteps(pathname: string) {
     return [
       ...common,
       { selector: '[data-testid="settings-site-registry"]', message: "这里展示站点注册和配置来源。" },
-      { selector: '[data-testid="settings-site-runtime"]', message: "这里展示 Agent 运行状态和同步运行时信息。" },
+      { selector: '[data-testid="settings-site-runtime"]', message: "这里展示站点代理运行状态和同步运行时信息。" },
       { selector: '[data-testid="settings-auth-config"]', message: "这里展示认证配置边界，只显示安全引用，不展示敏感值。" },
     ]
   }

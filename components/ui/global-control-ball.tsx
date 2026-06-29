@@ -763,7 +763,7 @@ export function GlobalControlBall() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-400">
                           <div className="rounded-md bg-white/80 dark:bg-slate-900/70 px-2 py-1.5 border border-slate-200/70 dark:border-slate-700/70">
-                            在线 Agent: <span className="font-medium text-slate-800 dark:text-slate-200">{onlineAgents}</span>
+                            在线代理: <span className="font-medium text-slate-800 dark:text-slate-200">{onlineAgents}</span>
                           </div>
                           <div className="rounded-md bg-white/80 dark:bg-slate-900/70 px-2 py-1.5 border border-slate-200/70 dark:border-slate-700/70">
                             API uptime: <span className="font-medium text-slate-800 dark:text-slate-200">{Math.round(healthData?.uptime ?? 0)}s</span>

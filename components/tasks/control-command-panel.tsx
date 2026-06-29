@@ -26,7 +26,7 @@ interface ControlCommand {
 }
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
-  pending: { label: "待 Agent 拉取", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  pending: { label: "待站点代理拉取", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
   pulled: { label: "已拉取", className: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
   running: { label: "执行中", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
   success: { label: "执行成功", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },

@@ -452,7 +452,7 @@ export default function SyncCenterPage() {
       }
       toast({
         title: `${syncType === 'full' ? '全量' : '增量'}同步命令已提交`,
-        description: `${body.request?.requestNo ?? 'sync_request'} 已提交到控制队列, 等待站点 Agent 拉取执行。`,
+        description: `${body.request?.requestNo ?? 'sync_request'} 已提交到控制队列, 等待站点代理拉取执行。`,
       })
       void loadPackages()
     } catch (error) {
@@ -593,7 +593,7 @@ export default function SyncCenterPage() {
               </Button>
             </div>
             <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-              当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || '未选择'}</code>。最终状态以 Agent 回写和同步日志为准。
+              当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || '未选择'}</code>。最终状态以站点代理回写和同步日志为准。
             </p>
           </div>
         </GlassPanel>
@@ -778,7 +778,7 @@ export default function SyncCenterPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-              {syncConfigNote || "同步策略来自中心配置；站点运行状态以 Agent 心跳和同步日志为准。"}
+              {syncConfigNote || "同步策略来自中心配置；站点运行状态以站点代理心跳和同步日志为准。"}
             </p>
             {syncConfigSites.length === 0 ? (
               <div className="text-sm text-slate-500">暂无中心同步配置。</div>

@@ -571,7 +571,7 @@ export default function Page() {
               title={
                 <>
                   <Server className="mr-1 inline h-4 w-4" />
-                  站点端 Agent
+                  站点端代理
                 </>
               }
               description="展示站点同步代理的最近运行状态"

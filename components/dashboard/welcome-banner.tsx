@@ -199,9 +199,9 @@ export function WelcomeBanner() {
         />
         <HealthChip
           icon={Activity}
-          label="Agent 控制"
+          label="站点代理控制"
           ok={health.serviceOk}
-          hint="站点 Agent 服务可用性"
+          hint="站点代理服务可用性"
           testid="welcome-health-agent"
         />
       </div>

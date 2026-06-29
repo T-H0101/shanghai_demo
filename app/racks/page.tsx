@@ -1403,7 +1403,7 @@ export default function Page() {
                   title="存储浏览暂不可用"
                   description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要接入站点文件索引服务。"
                   testid="racks-storage-browse-blocked"
-                  action={{ label: "查看站点 Agent 接入文档", href: "/sites" }}
+                  action={{ label: "查看站点代理接入文档", href: "/sites" }}
                 />
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="racks-storage-browse-content">
