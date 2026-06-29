@@ -119,12 +119,8 @@ function getGuideSteps(pathname: string) {
     ]
   }
 
-  if (pathname.startsWith("/volumes")) {
-    return [
-      ...common,
-      { selector: '[data-testid="volumes-page"]', message: "这里展示存储卷聚合视图，容量和盘位信息来自中心库同步结果。" },
-    ]
-  }
+  // R.92: /volumes 已合并至 /racks?view=volumes, 引导步骤随 /racks 路径
+  // 此处不再单独处理 /volumes
 
   return common
 }

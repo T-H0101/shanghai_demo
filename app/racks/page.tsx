@@ -45,7 +45,6 @@ import { LOG_LEVEL_COLORS } from "@/lib/types/colors"
 
 type DeviceCategory = "all" | "hdd" | "optical" | "offline" | "nas" | "abnormal"
 type ApiRacksDataSource = "database" | "empty" | "error"
-type RacksDataSource = ApiRacksDataSource | "mock"
 
 const deviceStatusMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   online: { label: "在线", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
@@ -91,8 +90,8 @@ export default function Page() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [slotGroups, setSlotGroups] = useState<RackSlotGroup[]>([])
   const [slotDetailStatus, setSlotDetailStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle")
-  const [racksDataSource, setRacksDataSource] = useState<RacksDataSource>(
-    isApiMode ? "empty" : "mock"
+  const [racksDataSource, setRacksDataSource] = useState<ApiRacksDataSource>(
+    isApiMode ? "empty" : "empty"
   )
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
@@ -401,16 +400,16 @@ export default function Page() {
       setSelected(current =>
         racksData.find(rack => rack.id === current?.id) ?? racksData[0] ?? null
       )
-      // 数据源追踪
+      // 数据源追踪 (R.92: mock 模式已移除, API 模式恒为 source of truth)
       if (isApiMode) {
         setRacksDataSource(getRacksDataSource())
       } else {
-        setRacksDataSource("mock")
+        setRacksDataSource("empty")
       }
     } catch {
       setRackList([])
       setSelected(null)
-      setRacksDataSource(isApiMode ? "error" : "mock")
+      setRacksDataSource(isApiMode ? "error" : "empty")
     }
   }, [isAllSites, siteCode])
 
