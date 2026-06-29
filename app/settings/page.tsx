@@ -699,7 +699,7 @@ function displayStatus(status: string): string {
     configured: "已配置",
     disabled: "已停用",
     not_implemented: "未启用",
-    blocked_by_auth: "待认证接入",
+    blocked_by_auth: "待认证服务",
     blocked_by_external_system: "待外部服务",
     blocked_by_source_schema: "待站点字段",
     blocked_by_site_change: "待站点配合",

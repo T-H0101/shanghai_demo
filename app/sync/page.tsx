@@ -836,7 +836,7 @@ export default function SyncCenterPage() {
                   <TableRow>
                     <TableHead>站点</TableHead>
                     <TableHead>周期</TableHead>
-                    <TableHead>Site Agent</TableHead>
+                    <TableHead>站点代理</TableHead>
                     <TableHead>调度</TableHead>
                     <TableHead>导出/推送</TableHead>
                     <TableHead>最近数据包</TableHead>

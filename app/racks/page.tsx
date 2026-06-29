@@ -969,7 +969,7 @@ export default function Page() {
                       </button>
                     ))}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-2">模式切换需在设备本地控制台操作，此处仅做演示</p>
+                  <p className="text-[10px] text-slate-400 mt-2">模式切换需在设备本地控制台操作</p>
                 </section>
 
                 {/* 控制按钮 */}
@@ -1204,7 +1204,7 @@ export default function Page() {
                     <SelectItem key={site.code} value={site.name}>{site.name} ({site.code})</SelectItem>
                   ))}
                   {!isApiMode && (
-                    <SelectItem value="__demo__" disabled>当前为演示模式，暂不可选择真实站点</SelectItem>
+                    <SelectItem value="disabled" disabled>请先在站点管理完成站点配置</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -1364,7 +1364,7 @@ export default function Page() {
                 <EmptyState
                   severity="blocked"
                   icon={FolderTree}
-                  title="存储浏览暂未接入真实源端目录树"
+                  title="存储浏览暂不可用"
                   description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要接入站点文件索引服务。"
                   testid="racks-storage-browse-blocked"
                   action={{ label: "查看站点 Agent 接入文档", href: "/sites" }}
@@ -1428,7 +1428,7 @@ export default function Page() {
                 <EmptyState
                   severity="blocked"
                   icon={RotateCcw}
-                  title="数据恢复任务等待 Site Agent 闭环"
+                  title="数据恢复任务等待站点代理结果"
                   description="总控保留完整控制能力；文件索引与站点代理恢复协议接入后可执行恢复任务。"
                   testid="racks-storage-restore-blocked"
                   action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}

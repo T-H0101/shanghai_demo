@@ -269,7 +269,7 @@ function TasksPageContent() {
     toast({ title: "导出任务", description: `「${task.name}」数据导出中...` })
   }
 
-  // R.19D: 前端只提交队列，由 Site Agent 拉取、执行、同步并回写最终结果。
+  // 前端只提交队列，由站点代理拉取、执行、同步并回写最终结果。
   const handleControlCommand = async (
     task: TaskItem,
     commandType: "task_pause" | "task_resume",
@@ -427,7 +427,7 @@ function TasksPageContent() {
       <AppShell>
         <PageHeader
           title="任务管理"
-          description="集中查看任务状态、提交控制并跟踪 Site Agent 最终结果"
+          description="集中查看任务状态、提交控制并跟踪站点代理执行结果"
           badge="TASK CENTER"
           actions={viewSwitcher}
         />

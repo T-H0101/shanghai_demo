@@ -100,10 +100,7 @@ function CheckResourceTab({
             </TableBody>
           </Table>
         )}
-        <p className="mt-4 text-xs text-muted-foreground">
-          数据来源:{sourceTables.join(" / ")}
-        </p>
-      </CardContent>
+              </CardContent>
     </Card>
   )
 }
@@ -181,10 +178,7 @@ export default function CheckPage() {
                   模板 / 任务 / 任务项 / 任务文件 / 检查文件 / 检查日志 /
                   巡检策略 / 巡检任务 / 巡检任务项 / 巡检日志。
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  数据来源:站点源库 tbl_check_* 系列,经 dispatcher 路径 upsert 到中心库 unified_check_*。
-                </p>
-              </CardContent>
+                              </CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="inspections" className="mt-4">
