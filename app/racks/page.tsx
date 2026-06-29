@@ -25,6 +25,7 @@ import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { loadRacksBrowseMock, loadRacksRestoreTargetsMock } from "@/lib/mock-mode/racks-browse"
 import { useSite } from "@/lib/site/site-context"
 import { InspectionView } from "@/components/racks/inspection-view"
+import { VolumesView } from "@/components/racks/volumes-view"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
 import type { TaskItem } from "@/lib/types/task"
@@ -733,9 +734,7 @@ export default function Page() {
               <span className="mr-1">&larr;</span> 返回盘架管理
             </Button>
           </div>
-          <div className="flex items-center justify-center py-16 text-slate-400">
-            存储卷视图加载中...
-          </div>
+          <VolumesView />
         </div>
       </AppShell>
     )
