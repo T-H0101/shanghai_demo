@@ -25,11 +25,15 @@ import { join } from "node:path"
 const REPO = process.cwd()
 const SCAN_DIRS = ["app", "components"]
 const ALLOWLIST_FILES = new Set<string>([
-  // 历史注释, 已在 R.90 评估为可保留
+  // 历史注释, 已在 R.90 / R.91.1 评估为可保留
   "app/sites/page.tsx",
   "app/search/page.tsx",
   "app/tasks/page.tsx",
+  "app/check/page.tsx",
+  "app/volumes/page.tsx",
   "app/api/alerts/route.ts",
+  "components/dashboard/dashboard-recent-syncs.tsx",
+  "components/dashboard/dashboard-summary-bar.tsx",
   "lib/api/index.ts",
 ])
 
@@ -39,6 +43,10 @@ const USER_VISIBLE_PATTERNS: RegExp[] = [
   /\b未完成\b/,
   /\b占位\b/,
   /\b暂未实现\b/,
+  /\b等待闭环\b/,
+  /\bmock\b/,
+  /\b临时\b/,
+  /\b演示模式\b/,
   /\bSprint\s*\d/i,
   /\bR\.\d+([A-Z]\d*)?/,
 ]
@@ -47,6 +55,8 @@ const JSX_COMMENT_PATTERNS: RegExp[] = [
   /\{?\*\s*TODO\b/i,
   /\{?\*\s*FIXME\b/i,
   /\{?\*\s*(待接入|待实现|未完成|占位)/,
+  /\{?\*\s*(等待闭环|临时|演示模式)/,
+  /\{?\*\s*mock\b/i,
   /\{?\*\s*Sprint\s*\d/i,
   /\{?\*\s*R\.\d+([A-Z]\d*)?/,
   /^\s*\/\*\s*(TODO|FIXME)/i,
@@ -79,9 +89,11 @@ async function* walk(dir: string): AsyncGenerator<string> {
     }
     if (st.isDirectory()) {
       yield* walk(full)
-    } else if (st.isFile() && /\.(tsx|jsx)$/.test(entry)) {
+    } else if (st.isFile() && /\.(tsx|ts|jsx)$/.test(entry)) {
       // 仅扫描 app/ + components/ 顶层页面, 不扫描 app/api/* server
       if (full.includes(`${REPO}/app/api/`)) continue
+      // 跳过测试文件 (避免内部代码误报)
+      if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(entry)) continue
       yield full
     }
   }
@@ -101,8 +113,23 @@ function findUserVisible(line: string): string | null {
   if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
     return null
   }
+  // 排除 import 语句 (模块路径非用户可见)
+  if (/^import\s/.test(trimmed)) return null
+  // 排除 TypeScript 类型/接口/枚举定义
+  if (/^(type|interface|enum)\s/.test(trimmed)) return null
+  // 排除 mock 出现在引号内的代码字符串 (非用户可见文本)
+  // 例如 setSource("mock"), if (mode === "mock"), : "mock"
+  // 但如果 mock 同时出现在引号外也需要标记 (如 <div>mock</div>)
   for (const re of USER_VISIBLE_PATTERNS) {
-    if (re.test(trimmed)) return re.source
+    if (re.test(trimmed)) {
+      // 对 mock 模式做二次验证: 检查是否仅出现在字符串字面量中
+      if (re.source === '\\bmock\\b' || re.source === 'mock') {
+        // 去掉引号内的 mock, 再检查是否还有 mock
+        const withoutQuotedMock = trimmed.replace(/"[^"]*"/g, '').replace(/'[^']*'/g, '')
+        if (!/\bmock\b/i.test(withoutQuotedMock)) return null
+      }
+      return re.source
+    }
   }
   return null
 }
