@@ -105,9 +105,75 @@ docker build -t unified-disc-platform:latest .
   - §4.2 任务控制 → `partial` + `blocked_by_site_change` (R.88 契约已落地, 站点代理未接入)
   - §2.2/§3.x 登录 / RBAC / SSO → `blocked_by_auth`
 
+## 页面清单
+
+### Primary Nav (9 个一级页面)
+
+| 页面 | 路由 | 数据来源 |
+|---|---|---|
+| 控制台 (Dashboard) | `/` | `unified_*` 聚合, 真实数据 |
+| 同步中心 (Sync) | `/sync` | `sync_package_log`, `sync_sites` 等, 真实数据 |
+| 任务管理 (Tasks) | `/tasks` | `unified_tasks`, `control_command`; `?view=commands` 控制命令 |
+| 盘架管理 (Racks) | `/racks` | `unified_devices`, `unified_cages`; `?view=inspection` 巡检, `?view=volumes` 存储卷 |
+| 用户与权限 (Users) | `/users` | `unified_users`, `auth_accounts` |
+| 站点管理 (Sites) | `/sites` | `sync_sites` 注册表 |
+| 审计日志 (Logs) | `/logs` | 7 类日志表 |
+| 系统设置 (Settings) | `/settings` | `sync_site_config`, `sync_sites` |
+| 统一检索 (Search) | `/search` | 依赖 ES, 未接入时显示 blocker |
+
+### Redirect Routes
+
+| 原路由 | 跳转到 | 说明 |
+|---|---|---|
+| `/check` | → `/racks?view=inspection` | 原始 17-tab raw-table 浏览, R.91.1 合并 |
+| `/volumes` | → `/racks?view=volumes` | 原始 475 行独立页面, R.91.1 合并 |
+
+### Alias
+
+| 路由 | 实际访问 |
+|---|---|
+| `/control` | → `/tasks?view=commands` (已合并别名) |
+
+### 开发阶段可验收页面 (pnpm db:init + pnpm smoke:sync 后)
+
+| 页面 | 真实数据? |
+|---|---|
+| `/sites` | ✅ SH01 站点已注册 |
+| `/tasks` | ✅ `unified_tasks` 有同步数据 |
+| `/racks` | ✅ `unified_devices` 有设备数据 |
+| `/racks?view=volumes` | ✅ `unified_volumes` 有卷聚合数据 |
+| `/users` | ✅ `unified_users` 有用户数据 |
+| `/logs` | ✅ 7 类日志表有记录 |
+| `/sync` | ✅ `sync_package_log` 有同步记录 |
+| `/search` | ⚠️ 依赖 ES, 未接入时 0 条 |
+
+### 从头部署验证步骤
+
+```bash
+# 1. 启动 PostgreSQL
+pnpm db:up
+
+# 2. 初始化数据库 (schema + seed)
+pnpm db:init
+
+# 3. 运行同步管道 (向中心库写入真实数据)
+pnpm smoke:sync
+
+# 4. 访问以下页面验证数据出现:
+#    http://localhost:3000/sites       → 1+ 站点
+#    http://localhost:3000/tasks       → 任务列表
+#    http://localhost:3000/racks       → 设备列表
+#    http://localhost:3000/racks?view=inspection → 巡检概览
+#    http://localhost:3000/racks?view=volumes   → 存储卷
+#    http://localhost:3000/users       → 用户列表
+#    http://localhost:3000/logs        → 日志记录
+#    http://localhost:3000/sync        → 同步状态
+```
+
 ## 后续开发入口
 
-- [R.90 requirements review (PR #7)](docs/database-analysis/sprint-r90-requirements-review.md)
+- [R.91.1 requirements review](docs/database-analysis/sprint-r91.1-requirements-review.md)
+- [R.90 requirements review](docs/database-analysis/sprint-r90-requirements-review.md)
 - [R.86 文件索引增量同步](docs/database-analysis/r86-file-index-incremental-sync.md)
 - [R.88 site agent 契约](docs/source/site-agent-contract.md)
 - [架构质量路线图](docs/architecture/architecture-quality-roadmap.md)
@@ -115,9 +181,9 @@ docker build -t unified-disc-platform:latest .
 
 下一步:
 
-- **R.90.1 PR 收尾**: 清理 sync 页面开发者文案 + smoke 自清理 + 文档 review 矛盾 (本 Sprint)
-- **R.91**: audit 启发式优化 (R.90.1 之后)
+- **R.91.2**: racks 浏览/恢复 Tab mock 清理, 控制命令 UX 增强
 - **R.87**: 生产 cron / 监控 / 死信重放 (R.86 之后)
+- **R.92**: 全页面数据源审计 + 数据集成测试
 
 ## 禁止事项
 

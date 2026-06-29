@@ -70,6 +70,70 @@ pnpm build
 pnpm smoke:sync
 ```
 
+### 3.1 验证页面数据
+
+部署后, 确认总控页面可加载真实数据:
+
+```bash
+# 1. 启动数据库 + 初始化
+pnpm db:up
+pnpm db:init
+
+# 2. 运行同步管道 (写入真实数据到中心库)
+pnpm smoke:sync
+
+# 3. 启动开发服务器
+pnpm dev
+```
+
+验证清单:
+
+| 页面 | 路由 | 验证内容 |
+|---|---|---|
+| 站点管理 | `http://localhost:3000/sites` | 应显示 1+ 注册站点 |
+| 任务管理 | `http://localhost:3000/tasks` | 应显示同步后的任务列表 |
+| 盘架管理 | `http://localhost:3000/racks` | 应显示设备列表 |
+| 巡检视图 | `http://localhost:3000/racks?view=inspection` | 应显示巡检概览 (原 `/check` 页面合并至此) |
+| 存储卷视图 | `http://localhost:3000/racks?view=volumes` | 应显示存储卷数据 (原 `/volumes` 页面合并至此) |
+| 用户与权限 | `http://localhost:3000/users` | 应显示用户列表 |
+| 审计日志 | `http://localhost:3000/logs` | 应显示同步日志 |
+| 同步中心 | `http://localhost:3000/sync` | 应显示同步状态 |
+| 统一检索 | `http://localhost:3000/search` | 依赖 ES 接入, 未接入时显示 blocker banner |
+
+**原始路由验证** (确认 redirect 生效):
+
+```bash
+# /check → /racks?view=inspection
+curl -s -o /dev/null -w "%{redirect_url}" http://localhost:3000/check
+# 期望: .../racks?view=inspection
+
+# /volumes → /racks?view=volumes  
+curl -s -o /dev/null -w "%{redirect_url}" http://localhost:3000/volumes
+# 期望: .../racks?view=volumes
+
+# /control → /tasks?view=commands
+curl -s -o /dev/null -w "%{redirect_url}" http://localhost:3000/control
+# 期望: .../tasks?view=commands
+```
+
+页面路由一览:
+
+| 路由 | 类型 | 说明 |
+|---|---|---|
+| `/` | 主页面 | 控制台 Dashboard |
+| `/sync` | 主页面 | 同步中心 |
+| `/tasks` | 主页面 | 任务管理 (`?view=commands` 控制命令) |
+| `/racks` | 主页面 | 盘架管理 (`?view=inspection` 巡检, `?view=volumes` 存储卷) |
+| `/users` | 主页面 | 用户与权限 |
+| `/sites` | 主页面 | 站点管理 |
+| `/logs` | 主页面 | 审计日志 |
+| `/settings` | 主页面 | 系统设置 |
+| `/search` | 主页面 | 统一检索 |
+| `/check` | **redirect** → `/racks?view=inspection` | 原始 17-tab 页面已合并 |
+| `/volumes` | **redirect** → `/racks?view=volumes` | 原始 475 行页面已合并 |
+| `/control` | **alias redirect** → `/tasks?view=commands` | 控制命令已合并 |
+| `/login` | 公开页面 | 登录 |
+
 ## 4. Docker 镜像
 
 构建:
