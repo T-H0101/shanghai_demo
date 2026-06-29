@@ -89,7 +89,7 @@
 | ES 文档真实可查询 | `curl http://localhost:9200/_cat/indices` → `disc_file_index` 4 docs |
 | `/api/search` 经 SearchPort 返回 opensearch 数据 | `curl '/api/search?q=file-2025-01-01'` → `source:opensearch total:4 items[4]` (真实从 ES 命中) |
 | ES 不可用 blocked 路径 | `e2e:search-r85` blocked path → `source:blocked_by_external_system blocker:es_not_configured` (PASS) |
-| 中心库审计 | `pnpm audit:center-db --strict --matrix` → 20 pass / 0 fail / 2 warn (TEST_SMOKE 自留 + 27 张之前未分类) |
+| 中心库审计 | `pnpm audit:center-db -- --strict --matrix` → `21 checks, 0 fail, 1 warn`; R.84 `file_index_es` 29 张已由中心审计识别, `unclassified tbl_* tables=0` |
 
 ### 4.2 不真实完成的部分 (诚实标注)
 
@@ -104,30 +104,30 @@
 
 ## 5. UI reality (R.5 §B 前端变更 8 项强制披露)
 
-> 本 Sprint **无新增前端页面 / 组件 / 按钮**, 仅改 `/api/search` 后端契约。
+> 开发阶段补充修复: 无新增页面/组件/按钮, 但已修改 `/search` 页面与 R.85 `/api/search` envelope 的集成。
 
 | R.5 §B 项 | 披露 |
 |---|---|
 | 新增页面/组件 | 无 |
-| 修改按钮/交互 | 无 (R.85 改的是 `/api/search` JSON envelope, 不改 UI) |
+| 修改按钮/交互 | 搜索站点筛选从"未接入"改为 `all` / `SH01` / `BJ02`; 检索按钮会传 `siteCode` |
 | 删除按钮/交互 | 无 |
 | UI-only | 无 |
-| 真实后端能力 (SQL/API 证据) | `/api/search` 真实经 SearchPort 查 ES (上面 4.1 表格有 4 条证据) |
+| 真实后端能力 (SQL/API 证据) | `/api/search` 真实经 SearchPort 查 ES; `/search` 页面识别 `opensearch` 与 `blocked_by_external_system` |
 | simulator/DRY_RUN | 无 (`opensearch` 是真实 ES hit, 不是 mock) |
 | 新增 requirements.md 未要求内容 | 否 |
 | 是否属于需求主线 | 全部属于 §5.2 / §2.3 / §6.4 主线 |
 
 ---
 
-## 6. Mock / Simulator / DRY_RUN / 真控制 四者区分
+## 6. Mock / Simulator / DRY_RUN / 真能力 四者区分
 
-- **真控制**: `/api/search` 是真控制 (真实 ES 命中 4 条文档)。
+- **真检索**: `/api/search` 是真实 ES 检索路径 (真实 ES 命中 4 条文档)。
 - **真同步**: file-indexer 真从 PG `tbl_file` 抽 4 行 → 映射 → 真写 ES 4 文档 → 真查询命中。
 - **mock**: 无新引入。
 - **simulator / DRY_RUN**: 无 (§4.2 任务控制未触碰, 沿用 ADR 0003 的 pull-based 契约, 未声称实现)。
 - **路线图**: `docs/architecture/es-large-table-roadmap.md` R.84/R.85 段已清晰标注 `blocked_by_external_system`(R.85 之前) → `partial`(R.85 之后) → 未 `complete`(等 R.86/R.87)。
 
-**措辞合规** (本 review 与所有 commit message 检查): 无"业务完成度 X%" / "ES 接入完成" / "任务控制已完成"。
+**措辞合规** (本 review 与所有 commit message 检查): 未使用被禁的完成度/控制完成/ES 完成类表述。
 
 ---
 
@@ -140,7 +140,7 @@
 | R.87 生产硬化 (监控 / 告警 / runbook) | 同上 | R.87 |
 | R.88 site agent port + credential store port + site-agent-contract.md + site-onboarding-checklist.md | 本 Sprint 不触碰 | R.88 |
 | R.89 dead-code inventory + focused cleanup PRs | 本 Sprint 仅定义 policy, 未扫描 | R.89 |
-| 27 张 `tbl_file*` / `tbl_folder*` 中尚未被 R.85 索引器抽样的 25 张 (`tbl_file_2`, `tbl_folder_*` 等) | R.85 indexer 当前只抽 `tbl_file` 主表 sample, R.86 才扩展 | R.86 |
+| 29 张 `tbl_file*` / `tbl_folder*` 中尚未被 R.85 索引器抽样的大部分分片表 (`tbl_file_2`, `tbl_folder_*` 等) | R.85 indexer 当前只抽 `tbl_file` 主表 sample, R.86 才扩展 | R.86 |
 | `/api/search` 真正生产权限过滤 (siteCode / department 注入 query) | adapter 已支持 `siteCode` 参数, UI 未对接 | R.87 由 UI/权限模块对接 |
 
 ---
@@ -191,8 +191,9 @@
 | `pnpm build` | ✅ pass | Next.js 16 production build |
 | `pnpm smoke:sync` | ✅ pass | `packageStatus=success duplicateDetected=true` |
 | `pnpm baseline:check` | ✅ pass | 13 pass / 0 fail |
-| `pnpm audit:center-db -- --strict --matrix` | ✅ pass | 20 pass / 0 fail / 2 warn (TEST_SMOKE 自留 + 27 张未分类新归 file_index_es) |
+| `pnpm audit:center-db -- --strict --matrix` | ✅ pass | `21 checks, 0 fail, 1 warn`; R.84 file_index_es 29 张不再计入 unclassified |
 | `pnpm audit:classify-source-tables` | ✅ pass | `classified=170 needs_decision=0 pg_unified=141 file_index_es=29` |
+| `pnpm e2e:search` | ✅ pass | `14 pass / 0 fail`; `/search` 页面与 `/api/search` R.85 envelope 对齐 |
 | `pnpm e2e:search-r85` (blocked path) | ✅ pass | `source=blocked_by_external_system blocker=es_not_configured` |
 | `pnpm e2e:search-r85` (configured path) | ✅ pass | `marker=R85-E2E-8ad5c73e` 索引并命中 |
 | `pnpm tsx scripts/index/file-indexer.ts --site SH01 --limit 5` | ✅ pass | `scanned:4 indexed:4 failed:0 skipped:0` |
@@ -201,8 +202,8 @@
 
 ### 已知 warn (非 fail, 已说明)
 
-1. `TEST_SMOKE(t=1,d=1,v=0,p=3)` — smoke:sync 自留测试污染, 每次跑产生
-2. `unclassified tbl_* tables: 27 tables` — 这是 `audit:center-db` 旧审计脚本的 warn, R.84 新脚本 `audit:classify-source-tables` 把这 29 张明确归类为 `file_index_es`, 旧 warn 实际已过时但本 Sprint 不动旧审计脚本
+1. `TEST_SMOKE(...)` — smoke:sync 自留测试污染, 每次跑产生
+2. `unclassified tbl_* tables` — 开发阶段已修复: `audit:center-db` 现在复用 R.84 `file_index_es` 29 张分类, 输出 `0 tables not in PG whitelist, package guard, or R.84 file_index_es classification`
 
 ---
 
@@ -225,7 +226,7 @@
 | 项 | 结果 |
 |---|---|
 | A. Requirement 对照 | ✅ §1 已列 (5.2 / 2.3 / 6.2 / 6.4 / 4.2) |
-| B. 前端变更清单 8 项 | ✅ §5 已披露 "无新增" + "真后端 4 条证据" |
+| B. 前端变更清单 8 项 | ✅ §5 已披露 `/search` 集成修复 + 真后端证据 |
 | C. API 变更清单 | ✅ §3 + 4.1 (`/api/search` 经 SearchPort 重写) |
 | D. 数据库变更清单 | ✅ 无 schema 变更 |
 | E. 事件测试清单 10 项 | §A 表格 11 项全过 |

@@ -13,6 +13,7 @@
  */
 
 import { Pool } from "pg"
+import { FILE_INDEX_ES_TABLES } from "@/lib/source/source-table-classification"
 
 interface Classification {
   sourceTable: string
@@ -85,17 +86,7 @@ const PG_UNIFIED: Classification[] = [
   owner: "platform",
 }))
 
-const FILE_INDEX_ES: Classification[] = [
-  "tbl_file",
-  "tbl_folder",
-  "tbl_file_1", "tbl_file_1_a", "tbl_file_1_empty", "tbl_file_1_error", "tbl_file_1_repeat",
-  "tbl_file_2", "tbl_file_2_a", "tbl_file_2_empty", "tbl_file_2_error", "tbl_file_2_repeat",
-  "tbl_file_3", "tbl_file_3_a", "tbl_file_3_empty", "tbl_file_3_error", "tbl_file_3_repeat",
-  "tbl_file_10000", "tbl_file_10001", "tbl_file_10002",
-  "tbl_file_parts", "tbl_file_path_archive", "tbl_file_path_restore",
-  "tbl_file_recover_info", "tbl_file_stat",
-  "tbl_folder_1", "tbl_folder_2", "tbl_folder_3", "tbl_folder_10000",
-].map((table) => ({
+const FILE_INDEX_ES: Classification[] = FILE_INDEX_ES_TABLES.map((table) => ({
   sourceTable: table,
   category: "file_index_es" as const,
   target: "OpenSearch/ES disc_file_index",

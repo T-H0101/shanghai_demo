@@ -1,6 +1,6 @@
 # R.84 源表分类与决策矩阵
 
-> **目的**: 把 170 张源端 `tbl_*` 表**逐张**明确归类, 终止 "27 张未分类表" 警告 (来自 `audit:center-db --strict`), 让 R.85 本地 ES 闭环有清晰边界。
+> **目的**: 把 170 张源端 `tbl_*` 表**逐张**明确归类, 终止 "27 张未分类表" 警告 (来自旧 `audit:center-db --strict` 口径), 让 R.85 本地 ES 闭环有清晰边界。
 >
 > **依据**: `docs/source/requirements.md §5.2 索引` + `§2.3 同步` + 附录 C Schema Source Priority (R.7B)。
 >
@@ -116,7 +116,7 @@
 |---|---|---|
 | `lib/sync/package-schema.ts` `ALLOWED_PACKAGE_TABLES` | 141 张白名单 | 继续生效 (R.83.9 已结) |
 | `lib/sync/package-schema.ts` `FORBIDDEN_PACKAGE_TABLES` | `tbl_file` / `tbl_folder` | 继续生效; R.85 添加 ES 路径 |
-| `scripts/audit/center-db-integrity.ts` | 警告 `unclassified tbl_* tables: 27` | R.85 落地后该 warn 必须消失 |
+| `scripts/audit/center-db-integrity.ts` | 旧口径警告 `unclassified tbl_* tables: 27` | 开发阶段已接入 R.84 `file_index_es` 常量, 该 warn 应归零 |
 | `docs/architecture/es-large-table-roadmap.md` | R.84 占位 | R.84 完成补齐决策矩阵链接 |
 
 ---
@@ -143,13 +143,13 @@ pnpm tsx scripts/audit/classify-source-tables.ts
 # missing=0
 # needs_decision=0
 # pg_unified=141
-# file_index_es=27
+# file_index_es=29
 # site_control=0
 # source_only=0
 # deprecated_or_empty=0
 
 pnpm audit:center-db -- --strict --matrix
-# 期望: 29 张表相关 warn 消失
+# 期望: file index ES classified tables = 29/29, unclassified tbl_* tables = 0
 ```
 
 ---

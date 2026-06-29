@@ -21,6 +21,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
 
 const DEFAULT_LIMIT = 50
+const SEARCH_REQUIREMENTS = ["REQ-4.1.1", "REQ-4.1.2", "REQ-5.2.1"]
+const SEARCH_MISSING_DIMENSIONS = ["permission_filter_hardening", "incremental_watermark", "production_es_runbook"]
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +60,8 @@ export async function GET(request: NextRequest) {
             total: 0,
             source: "blocked_by_external_system",
             blocker: result.blocker ?? "es_unavailable",
+            requirements: SEARCH_REQUIREMENTS,
+            missingDimensions: SEARCH_MISSING_DIMENSIONS,
           },
           message:
             "OpenSearch/ES file index is not configured or unreachable; see es-large-table-roadmap.md",
@@ -72,6 +76,8 @@ export async function GET(request: NextRequest) {
         items: result.hits,
         total: result.total,
         source: "opensearch",
+        requirements: SEARCH_REQUIREMENTS,
+        missingDimensions: SEARCH_MISSING_DIMENSIONS,
       },
       message: "数据源: OpenSearch/ES (SearchPort)",
     })

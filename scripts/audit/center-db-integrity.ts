@@ -10,6 +10,7 @@
 
 import { Pool } from "pg"
 import { ALLOWED_PACKAGE_TABLES, FORBIDDEN_PACKAGE_TABLES } from "@/lib/sync/package-schema"
+import { FILE_INDEX_ES_TABLES } from "@/lib/source/source-table-classification"
 
 const STRICT = process.argv.includes("--strict")
 const MATRIX = process.argv.includes("--matrix")
@@ -218,11 +219,13 @@ async function auditSiteDatabase(pool: Pool) {
   const tableSet = new Set(tableResult.rows.map((r) => r.table_name))
   const allowedPresent = ALLOWED_PACKAGE_TABLES.filter((name) => tableSet.has(name))
   const forbiddenPresent = FORBIDDEN_PACKAGE_TABLES.filter((name) => tableSet.has(name))
+  const fileIndexEsPresent = FILE_INDEX_ES_TABLES.filter((name) => tableSet.has(name))
   const tblTables = tableResult.rows.map((r) => r.table_name).filter((name) => name.startsWith("tbl_"))
   const unclassifiedTblTables = tblTables.filter(
     (name) =>
       !ALLOWED_PACKAGE_TABLES.includes(name as (typeof ALLOWED_PACKAGE_TABLES)[number]) &&
-      !FORBIDDEN_PACKAGE_TABLES.includes(name as (typeof FORBIDDEN_PACKAGE_TABLES)[number])
+      !FORBIDDEN_PACKAGE_TABLES.includes(name as (typeof FORBIDDEN_PACKAGE_TABLES)[number]) &&
+      !FILE_INDEX_ES_TABLES.includes(name as (typeof FILE_INDEX_ES_TABLES)[number])
   )
 
   add(
@@ -236,9 +239,14 @@ async function auditSiteDatabase(pool: Pool) {
     forbiddenPresent.length > 0 ? forbiddenPresent.join(", ") : "tbl_file/tbl_folder not found in this site DB"
   )
   add(
+    fileIndexEsPresent.length === FILE_INDEX_ES_TABLES.length ? "pass" : "warn",
+    "file index ES classified tables",
+    `${fileIndexEsPresent.length}/${FILE_INDEX_ES_TABLES.length}: ${fileIndexEsPresent.join(", ")}`
+  )
+  add(
     unclassifiedTblTables.length === 0 ? "pass" : "warn",
     "unclassified tbl_* tables",
-    `${unclassifiedTblTables.length} tables not in PG whitelist or large-table guard`
+    `${unclassifiedTblTables.length} tables not in PG whitelist, package guard, or R.84 file_index_es classification`
   )
 }
 

@@ -4,7 +4,7 @@
  * 覆盖:
  *   - /search 页面 200 (不 404)
  *   - /api/search 真实查询 source file index, HTTP 200
- *   - 响应 source=es / unified_file_index / blocked_by_external_system
+ *   - 响应 source=opensearch / es / unified_file_index / blocked_by_external_system
  *   - UI 保留 blocker/limitation banner
  *   - 不允许 mock 搜索结果
  *   - 不允许 mock 冒充
@@ -47,7 +47,7 @@ async function main() {
   )
   check(
     "source 显式为真实源或外部阻塞",
-    source === "es" || source === "unified_file_index" || source === "blocked_by_external_system",
+    source === "opensearch" || source === "es" || source === "unified_file_index" || source === "blocked_by_external_system",
     `source=${source}`
   )
   check(
@@ -115,7 +115,8 @@ async function main() {
     check(
       `siteCode=${sc || "(empty)"} 返回真实或显式阻塞`,
       r.status === 200 &&
-        (scSource === "es" ||
+        (scSource === "opensearch" ||
+          scSource === "es" ||
           scSource === "unified_file_index" ||
           scSource === "blocked_by_external_system"),
       `HTTP ${r.status} source=${scSource}`

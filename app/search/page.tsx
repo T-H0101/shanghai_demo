@@ -26,20 +26,63 @@ interface SearchBlkInfo {
 
 const SEARCH_BLOCKER_REASON = "全文检索服务尚未接入，当前不展示未验证的跨站点文件结果。"
 const SEARCH_BLOCKER_NEXT_STEP = "接入全文检索服务并完成索引验证后开放跨站点检索。"
+type SearchDataSource = "opensearch" | "blocked" | "empty"
+
+type SearchApiHit = {
+  sourceSiteId?: string
+  sourceRecordId?: string
+  fileName?: string
+  filePath?: string | null
+  folderPath?: string | null
+  extension?: string | null
+  sizeBytes?: number | null
+  volumeCode?: string | null
+  discCode?: string | null
+  updatedAt?: string | null
+}
+
+function formatSize(sizeBytes: number | null | undefined): string {
+  if (typeof sizeBytes !== "number" || !Number.isFinite(sizeBytes)) return "—"
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`
+  if (sizeBytes < 1024 * 1024 * 1024) return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(sizeBytes / 1024 / 1024 / 1024).toFixed(1)} GB`
+}
+
+function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
+  const sourceSiteId = hit.sourceSiteId ?? "—"
+  const sourceRecordId = hit.sourceRecordId ?? String(index)
+  return {
+    id: `${sourceSiteId}:${sourceRecordId}`,
+    fileName: hit.fileName ?? "(未命名文件)",
+    path: hit.filePath ?? hit.folderPath ?? "—",
+    size: formatSize(hit.sizeBytes),
+    sizeBytes: hit.sizeBytes ?? 0,
+    siteName: sourceSiteId,
+    siteCode: sourceSiteId,
+    discNo: hit.discCode ?? "—",
+    rackSlot: "—",
+    department: "—",
+    fileType: hit.extension ?? "—",
+    createdAt: hit.updatedAt ?? "",
+    volume: hit.volumeCode ?? "—",
+    checksum: sourceRecordId,
+  }
+}
 
 export default function Page() {
   // R.14F: 全文检索 blocked_by_external_system (ES/ClickHouse 未接入)
   // 移除原 lib/mock/search 列表 + setTimeout 假"导出成功", 全部走真 /api/search
   const [keyword, setKeyword] = useState("")
   const [page, setPage] = useState(1)
-  const [siteFilter, setSiteFilter] = useState("blocked")
+  const [siteFilter, setSiteFilter] = useState("all")
   const [deptFilter, setDeptFilter] = useState("blocked")
   const [typeFilter, setTypeFilter] = useState("blocked")
   const [discFilter, setDiscFilter] = useState("")
   const [volumeFilter, setVolumeFilter] = useState("")
   const [showExport, setShowExport] = useState(false)
   const [blk, setBlk] = useState<SearchBlkInfo | null>(null)
-  const [dataSource, setDataSource] = useState<"database" | "empty" | "not_implemented">("not_implemented")
+  const [dataSource, setDataSource] = useState<SearchDataSource>("blocked")
   const [exportOptions, setExportOptions] = useState({
     format: "Excel",
     range: "all",
@@ -49,27 +92,33 @@ export default function Page() {
   })
   const pageSize = 10
 
-  // R.14F: 真实 /api/search 调用 (当前 501, blocked_by_external_system)
+  // R.85: 真实 /api/search 调用, 支持 opensearch 与 blocked_by_external_system 两种语义
   useEffect(() => {
     let cancelled = false
     fetch("/api/search?q=detect")
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return
-        if (data?.source === "not_implemented" && data?.meta) {
+        const source = data?.data?.source ?? data?.source
+        if (source === "blocked_by_external_system" || source === "not_implemented") {
           setBlk({
-            blocker: data.meta.blocker ?? data.blocker ?? "blocked_by_external_system",
+            blocker: data?.data?.blocker ?? data?.meta?.blocker ?? data?.blocker ?? "blocked_by_external_system",
             reason: SEARCH_BLOCKER_REASON,
-            requirement: data.meta.requirement ?? { id: "REQ-4.1.1", text: "跨维度检索", status: "blocked_by_external_system" },
-            currentReality: data.meta.currentReality ?? { taskLevelFileIndex: 0, sourceTable: "unified_file_index", note: "" },
+            requirement: data?.meta?.requirement ?? { id: "REQ-4.1.1", text: "跨维度检索", status: "blocked_by_external_system" },
+            currentReality: data?.meta?.currentReality ?? { taskLevelFileIndex: 0, sourceTable: "disc_file_index", note: "" },
             nextStep: SEARCH_BLOCKER_NEXT_STEP,
           })
-          setDataSource("not_implemented")
+          setDataSource("blocked")
+          return
+        }
+        if (source === "opensearch") {
+          setBlk(null)
+          setDataSource("opensearch")
         }
       })
       .catch(() => {
         if (cancelled) return
-        setDataSource("not_implemented")
+        setDataSource("blocked")
       })
     return () => { cancelled = true }
   }, [])
@@ -87,11 +136,20 @@ export default function Page() {
     setSearching(true)
     try {
       const sp = new URLSearchParams({ q: keyword, page: "1", pageSize: String(pageSize) })
+      if (siteFilter !== "all") sp.set("siteCode", siteFilter)
       const res = await fetch(`/api/search?${sp.toString()}`)
       const body = await res.json()
-      if (res.status === 501 || body?.source === "not_implemented") {
+      const source = body?.data?.source ?? body?.source
+      if (res.status === 501 || source === "not_implemented" || source === "blocked_by_external_system") {
         setSearchResults([])
-        setDataSource("not_implemented")
+        setDataSource("blocked")
+        setBlk({
+          blocker: body?.data?.blocker ?? body?.blocker ?? "blocked_by_external_system",
+          reason: SEARCH_BLOCKER_REASON,
+          requirement: { id: "REQ-4.1.1", text: "跨维度检索", status: "blocked_by_external_system" },
+          currentReality: { taskLevelFileIndex: 0, sourceTable: "disc_file_index", note: "" },
+          nextStep: SEARCH_BLOCKER_NEXT_STEP,
+        })
         toast({
           title: "检索暂不可用",
           description: SEARCH_BLOCKER_REASON,
@@ -100,8 +158,10 @@ export default function Page() {
         return
       }
       if (body?.data?.items) {
-        setSearchResults(body.data.items as SearchFile[])
-        setDataSource(body.data.items.length > 0 ? "database" : "empty")
+        const mapped = (body.data.items as SearchApiHit[]).map(mapApiHitToSearchFile)
+        setSearchResults(mapped)
+        setDataSource(mapped.length > 0 ? "opensearch" : "empty")
+        setBlk(null)
         toast({ title: "检索完成", description: `共找到 ${body.data.total ?? body.data.items.length} 条` })
       } else {
         setSearchResults([])
@@ -109,7 +169,7 @@ export default function Page() {
       }
     } catch {
       setSearchResults([])
-      setDataSource("not_implemented")
+      setDataSource("blocked")
       toast({ title: "检索请求失败", description: "全文检索服务暂未接入。", variant: "destructive" })
     } finally {
       setSearching(false)
@@ -118,7 +178,7 @@ export default function Page() {
 
   const handleReset = () => {
     setKeyword("")
-    setSiteFilter("blocked")
+    setSiteFilter("all")
     setDeptFilter("blocked")
     setTypeFilter("blocked")
     setDiscFilter("")
@@ -180,7 +240,7 @@ export default function Page() {
       <PageHeader
         title="统一检索"
         description="跨站点文件检索与结果导出"
-        badge={dataSource === "not_implemented" ? "待接入" : "已接入"}
+        badge={dataSource === "blocked" ? "待接入" : dataSource === "opensearch" ? "ES 已接入" : "空结果"}
         actions={
           <Button variant="outline" size="sm" className="h-8" onClick={handleExport} data-testid="search-export">
             <Download className="h-4 w-4 mr-1" />导出
@@ -215,7 +275,7 @@ export default function Page() {
             <p className="text-slate-600 dark:text-slate-300 mt-1">
               {blk
                 ? "全文检索服务未接入，当前不展示跨站点可见范围。"
-                : "可检索：上海、北京、南京、武汉（4 站点）。广州/成都不可见。"}
+                : "数据来自 OpenSearch/ES，站点过滤以后端 SearchPort 返回为准。"}
             </p>
           </div>
         </CardContent>
@@ -231,7 +291,9 @@ export default function Page() {
             <Select value={siteFilter} onValueChange={(v) => { setSiteFilter(v); setPage(1) }}>
               <SelectTrigger className="h-9" data-testid="search-site-filter"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="blocked">全部站点 (未接入)</SelectItem>
+                <SelectItem value="all">全部站点</SelectItem>
+                <SelectItem value="SH01">SH01</SelectItem>
+                <SelectItem value="BJ02">BJ02</SelectItem>
               </SelectContent>
             </Select>
             <Input placeholder="光盘编号" className="h-9" value={discFilter} onChange={(e) => { setDiscFilter(e.target.value); setPage(1) }} data-testid="search-disc-filter" />
@@ -282,7 +344,7 @@ export default function Page() {
             检索结果
             <Badge className="ml-2">{filtered.length} 条</Badge>
             <span className="text-xs text-slate-500 font-normal ml-2">
-              {dataSource === "not_implemented"
+              {dataSource === "blocked"
                 ? "（检索服务未接入，当前 0 条）"
                 : `（共 ${filtered.length} 条匹配记录, 第 ${(page-1)*pageSize+1}-${Math.min(page*pageSize, filtered.length)} 条）`}
             </span>
@@ -301,7 +363,7 @@ export default function Page() {
               {paged.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-8 text-slate-500" data-testid="search-empty">
-                    {dataSource === "not_implemented"
+                    {dataSource === "blocked"
                       ? "全文检索服务未接入，当前无可检索文件"
                       : "未找到匹配的检索结果"}
                   </TableCell>
