@@ -1,6 +1,6 @@
 "use client"
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
@@ -24,6 +24,7 @@ import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMo
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { loadRacksBrowseMock, loadRacksRestoreTargetsMock } from "@/lib/mock-mode/racks-browse"
 import { useSite } from "@/lib/site/site-context"
+import { InspectionView } from "@/components/racks/inspection-view"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
 import type { TaskItem } from "@/lib/types/task"
@@ -100,6 +101,10 @@ export default function Page() {
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
+
+  // R.91.1: URL view parameter for sub-views (inspection, volumes)
+  const searchParams = useSearchParams()
+  const view = searchParams.get("view")
 
   // 弹窗状态
   const [showAddMedia, setShowAddMedia] = useState(false)
@@ -700,6 +705,39 @@ export default function Page() {
           </p>
         </TooltipContent>
       </Tooltip>
+    )
+  }
+
+  // R.91.1: Conditional rendering for sub-views (inspection, volumes)
+  if (view === "inspection") {
+    return (
+      <AppShell>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-4">
+            <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-700" onClick={() => router.push("/racks")}>
+              <span className="mr-1">&larr;</span> 返回盘架管理
+            </Button>
+          </div>
+          <InspectionView />
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (view === "volumes") {
+    return (
+      <AppShell>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-4">
+            <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-700" onClick={() => router.push("/racks")}>
+              <span className="mr-1">&larr;</span> 返回盘架管理
+            </Button>
+          </div>
+          <div className="flex items-center justify-center py-16 text-slate-400">
+            存储卷视图加载中...
+          </div>
+        </div>
+      </AppShell>
     )
   }
 
