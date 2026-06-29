@@ -826,7 +826,7 @@ export default function SyncCenterPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
-              {siteStatusNote || "无日志时显示 not_run，不推断站点成功。"}
+              {siteStatusNote || "无同步日志时显示为未运行状态"}
             </p>
             {siteSyncStatuses.length === 0 ? (
               <div className="text-sm text-slate-500">暂无每站点运行状态。</div>

@@ -47,7 +47,7 @@ type LogType = "sync_package" | "sync_table" | "sync_scheduler" | "sync_consiste
 type DataSource = "database" | "empty" | "error" | "loading"
 
 const LOG_TABS: { value: LogType; label: string; description: string }[] = [
-  { value: "sync_package", label: "同步包日志", description: "sync_package_log (按站点包传输审计)" },
+  { value: "sync_package", label: "同步包日志", description: "按站点包传输审计" },
   { value: "sync_table", label: "同步表日志", description: "sync_table_log (按表写入审计)" },
   { value: "sync_scheduler", label: "调度日志", description: "sync_scheduler_log (定时调度执行审计)" },
   { value: "sync_consistency", label: "一致性日志", description: "sync_consistency_log (跨站点对账结果)" },
@@ -439,7 +439,7 @@ export default function Page() {
           <p className="font-medium">数字签名暂未接入</p>
           <p className="mt-1">
             数字签名需接入证书/私钥托管后启用。
-            当前可检索 7 类日志: sync_package / sync_table / sync_scheduler / sync_consistency / control / audit / <strong>登录审计</strong>。
+            当前可检索 7 类日志: 同步包 / 同步表 / 同步调度 / 一致性检查 / 控制命令 / 操作审计 / <strong>登录审计</strong>。
           </p>
         </div>
       </div>

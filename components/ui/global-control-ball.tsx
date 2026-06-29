@@ -327,7 +327,7 @@ export function GlobalControlBall() {
           {alertsData.length === 0 ? (
             <div className="text-center py-8">
               <Bell className="h-10 w-10 text-slate-300 dark:text-slate-400 mx-auto mb-2" />
-              <p className="text-[12px] text-slate-500">暂无真实告警</p>
+              <p className="text-[12px] text-slate-500">暂无告警</p>
             </div>
           ) : (
             alertsData.map((notification) => {

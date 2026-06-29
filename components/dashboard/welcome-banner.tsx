@@ -194,7 +194,7 @@ export function WelcomeBanner() {
           icon={ShieldCheck}
           label="同步框架"
           ok={true}
-          hint="中心库 → 站点 sync_package 链路"
+          hint="中心库同步到站点代理"
           testid="welcome-health-sync"
         />
         <HealthChip

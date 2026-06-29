@@ -109,7 +109,7 @@ export function ControlCommandPanel() {
           <div>
             <p className="font-medium text-blue-950 dark:text-blue-100">控制结果来自总控命令队列</p>
             <p className="mt-1 text-blue-800 dark:text-blue-200">
-              暂停/继续已有站点代理恢复库闭环；其他动作会按站点支持情况展示真实结果。
+              暂停/继续已有站点代理恢复；其他动作会按站点支持情况展示执行结果。
             </p>
           </div>
         </CardContent>

@@ -278,7 +278,7 @@ function TasksPageContent() {
   ) => {
     e?.stopPropagation()
     if (!isApiMode) {
-      toast({ title: "演示模式不支持", description: "请切换到实时数据模式提交控制命令", variant: "destructive" })
+      toast({ title: "当前模式不支持此操作", description: "请切换到实时数据模式提交控制命令", variant: "destructive" })
       return
     }
     try {
@@ -932,7 +932,7 @@ function TasksPageContent() {
           <DialogHeader>
             <DialogTitle>总控新建任务</DialogTitle>
             <DialogDescription>
-              新建命令会提交到控制队列，由站点代理拉取后在目标站点创建真实任务。
+              新建命令会提交到控制队列，由站点代理拉取后在目标站点创建任务。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -959,7 +959,7 @@ function TasksPageContent() {
               </Select>
             </div>
             <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-300">
-              提交后显示为“等待站点 Agent 执行”。只有 Agent 回写成功并完成同步后，才算站点真实创建完成。
+              提交后显示为“等待站点 Agent 执行”。只有站点代理回写成功并完成同步后，才算创建完成。
             </div>
             <div data-testid="task-create-target-site" className="rounded-lg border border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3 text-xs text-blue-800 dark:text-blue-300">
               目标站点: <code className="font-mono">{siteCode}</code>
