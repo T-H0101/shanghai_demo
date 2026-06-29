@@ -218,7 +218,7 @@ export default function Page() {
                 <BlockedItem label="配置写入、重置、导出" status="not_implemented" />
                 <BlockedItem label="邮件、Webhook 测试发送" status="not_implemented" />
                 <BlockedItem label="企业认证与权限策略" status="blocked_by_auth" />
-                <BlockedItem label="真实告警阈值与任务策略" status="blocked_by_external_system" />
+                <BlockedItem label="告警阈值与任务策略" status="blocked_by_external_system" />
               </div>
             </GlassPanel>
           </div>
