@@ -107,7 +107,7 @@ pnpm dev
 curl -s -o /dev/null -w "%{redirect_url}" http://localhost:3000/check
 # 期望: .../racks?view=inspection
 
-# /volumes → /racks?view=volumes  
+# /volumes → /racks?view=volumes
 curl -s -o /dev/null -w "%{redirect_url}" http://localhost:3000/volumes
 # 期望: .../racks?view=volumes
 
