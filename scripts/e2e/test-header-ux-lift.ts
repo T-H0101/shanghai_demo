@@ -196,7 +196,7 @@ async function main() {
   // FirstRunCoach 步骤分布
   const totalCoachSteps = (appShellSource.match(/selector:/g) ?? []).length
   check(`FirstRunCoach 全局步骤覆盖 ≥ 24 (实际 ${totalCoachSteps})`, totalCoachSteps >= 24)
-  for (const route of ["/", "/sync", "/tasks", "/racks", "/search", "/logs", "/sites", "/settings", "/users", "/volumes"]) {
+  for (const route of ["/", "/sync", "/tasks", "/racks", "/search", "/logs", "/sites", "/settings", "/users", "/racks?view=volumes"]) {
     check(`AppShell 首访指引覆盖 ${route}`, appShellSource.includes(route === "/" ? 'pathname === "/"' : `pathname.startsWith("${route}")`))
   }
   // R.UI-CmdCenter: 跨页面覆盖 + 文案不含 mock 数据承诺

@@ -61,7 +61,7 @@ const pages: [string, string][] = [
   ["/sites", "app/sites/page.tsx"],
   ["/search", "app/search/page.tsx"],
   ["/racks", "app/racks/page.tsx"],
-  ["/volumes", "app/volumes/page.tsx"],
+  ["/racks?view=volumes", "components/racks/volumes-view.tsx"],
   ["/users", "app/users/page.tsx"],
   ["/control", "app/control/page.tsx"],
   ["/login", "app/login/page.tsx"],

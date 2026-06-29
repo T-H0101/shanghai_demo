@@ -32,7 +32,7 @@ async function main() {
     { path: "/", name: "Dashboard" },
     { path: "/tasks", name: "Tasks" },
     { path: "/racks", name: "Racks" },
-    { path: "/volumes", name: "Volumes" },
+    { path: "/racks?view=volumes", name: "Volumes" },
     { path: "/search", name: "Search" },
     { path: "/sites", name: "Sites" },
     { path: "/logs", name: "Logs" },

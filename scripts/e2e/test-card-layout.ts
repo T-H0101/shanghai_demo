@@ -93,14 +93,14 @@ async function main() {
   )
 
   // ── 6. SSR HTTP 200 ─────────────────────────────────────
-  const pages = ["/sites", "/users", "/racks", "/tasks", "/volumes"]
+  const pages = ["/sites", "/users", "/racks", "/tasks", "/racks?view=volumes"]
   for (const p of pages) {
     const res = await fetch(`${BASE}${p}`)
     check(`SSR ${p} HTTP 200`, res.status === 200, `HTTP ${res.status}`)
   }
 
   // ── 7. Drawer 内部 ScrollArea 审计 ─────────────────────
-  const drawerPages = ["app/racks/page.tsx", "app/tasks/page.tsx", "app/volumes/page.tsx"]
+  const drawerPages = ["app/racks/page.tsx", "app/tasks/page.tsx", "components/racks/volumes-view.tsx"]
   for (const f of drawerPages) {
     try {
       const src = readFileSync(f, "utf8")

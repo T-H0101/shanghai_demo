@@ -196,7 +196,7 @@ async function main() {
     "app/logs/page.tsx",
     "app/sync/page.tsx",
     "app/search/page.tsx",
-    "app/volumes/page.tsx",
+    "components/racks/volumes-view.tsx",
     "app/api/page.tsx",
   ]
   let totalDarkPrefix = 0
