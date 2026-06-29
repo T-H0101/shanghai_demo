@@ -125,7 +125,7 @@ export default function Page() {
 
       toast({
         title: "导出请求已提交",
-        description: `${recordCount} 条真实账号, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
+        description: `${recordCount} 条账号, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
       })
     } catch {
       toast({
@@ -246,8 +246,8 @@ export default function Page() {
           <TabsTrigger value="unified" className="text-xs">统一用户视图</TabsTrigger>
           <TabsTrigger value="auth" className="text-xs">Auth 账号管理</TabsTrigger>
           <TabsTrigger value="rbac" className="text-xs">角色权限</TabsTrigger>
-          <TabsTrigger value="dict" className="text-xs">字典</TabsTrigger>
-          <TabsTrigger value="logs" className="text-xs">日志与凭据</TabsTrigger>
+          <TabsTrigger value="dict" className="text-xs">基础配置</TabsTrigger>
+          <TabsTrigger value="logs" className="text-xs">权限日志</TabsTrigger>
         </TabsList>
 
         <TabsContent value="unified" className="mt-4">
@@ -316,9 +316,7 @@ export default function Page() {
           {selected && (
             <div className="space-y-1">
               <DetailRow label="来源站点" value={selected.sourceSiteId} />
-              <DetailRow label="源表" value={selected.sourceTable} />
-              <DetailRow label="源记录 ID" value={selected.sourceId} />
-              <DetailRow label="用户 ID" value={selected.userId ?? "—"} />
+                            <DetailRow label="用户 ID" value={selected.userId ?? "—"} />
               <DetailRow label="用户名" value={selected.username ?? "—"} />
               <DetailRow label="显示名" value={selected.displayName ?? "—"} />
               <DetailRow label="角色编码" value={selected.role ?? "未映射"} />
@@ -327,7 +325,7 @@ export default function Page() {
               <DetailRow label="邮箱" value={selected.email ?? "—"} />
               <DetailRow label="同步时间" value={formatTime(selected.createdAt)} />
               <div className="mt-4 rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-300">
-                站点多对多关系、设备/数据权限树与账号生命周期需真实 Auth/RBAC 服务，
+                站点多对多关系、设备/数据权限树与账号生命周期需认证与权限服务，
                 当前不推断、不模拟。
               </div>
             </div>
