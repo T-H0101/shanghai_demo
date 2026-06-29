@@ -79,7 +79,7 @@ pnpm tsx scripts/index/file-index-job-bootstrap.ts --sites <site_id>
 
 ### 2.6 部署后只有总控数据库时的接入流程 (R.90)
 
-> **场景**: 中心服务已经部署并连上 `unified_disc_platform`, 但还没有任何站点。  
+> **场景**: 中心服务已经部署并连上 `unified_disc_platform`, 但还没有任何站点。
 > **目标**: 在不动中心服务环境变量的情况下接入新站点。
 
 - [ ] **(中心侧)** 在中心库 `sync_sites` 注册站点 (见 `deployment.md §9.2`), 仅写连接元数据 + `credential_ref`, **不写明文密码**。

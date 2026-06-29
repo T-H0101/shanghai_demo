@@ -215,8 +215,8 @@
 |---|---|
 | R.90 §9 多站点接入文档 (deployment + onboarding) | `complete` |
 | R.90 §10 定制同步开发方案 (deployment) | `complete` |
-| R.90 audit:api-mode-no-fallback 脚本 + 集成 | `complete` (从 74 降到 35 命中, 真实后端 fallback 已堵) |
-| R.90 audit:page-no-todo 脚本 + 集成 | `complete` |
+| R.90 audit:api-mode-no-fallback 脚本 + 集成 | `complete` (exit 0; api-providers.ts 完全不再 import mock, lib/api/mock-mode 中间层隔离 lib/mock/*) |
+| R.90 audit:page-no-todo 脚本 + 集成 | `complete` (exit 0; 用户可见 Sprint/R.xx/待接入/占位 字样全部清零) |
 | R.90 前端 P0/P1 修复 (3 API 路由 + 11 页面/组件) | `complete` |
 | R.90 `lib/api/api-providers.ts` API-mode 拦截 | `complete` (新增 ApiUnavailableError + withApiModeGuard + mockFnOrUndefined) |
 | §6.2 安全 | `complete` (无静默 mock fallback) |

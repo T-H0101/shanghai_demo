@@ -92,11 +92,32 @@ docker build -t unified-disc-platform:latest .
 | `docs/operations/` | 部署与运维手册 |
 | `docs/database-analysis/` | requirements review 与数据库审计材料 |
 
+## 同步覆盖真相
+
+> 中心库对外**只承诺同步业务白名单表**, 大表与逐表浏览不在总控范围。
+
+- **PG 中心库**: 同步 `R.83.9 ALLOWED_PACKAGE_TABLES` 141 张业务表 (设备/任务/部门/权限/日志/检查/卷等)。
+- **OpenSearch/ES**: 同步 `R.84 file_index_es` 29 张文件/目录表 (`tbl_file*` / `tbl_folder*`), 严禁进入 PG 全量。
+- **前端展示**: 业务视图 (任务 / 设备 / 卷 / 检索 / 站点 / 同步状态), 不提供 170 张源表逐表浏览。
+- **真实状态**:
+  - §2.3 业务同步 → `complete` (R.83.9 中心库 dispatcher)
+  - §5.2 文件索引 → `partial` (R.85 端口 + R.86 增量调度账本, R.87 cron/监控未做)
+  - §4.2 任务控制 → `partial` + `blocked_by_site_change` (R.88 契约已落地, 站点代理未接入)
+  - §2.2/§3.x 登录 / RBAC / SSO → `blocked_by_auth`
+
 ## 后续开发入口
 
-- [R.84-R.88 开发/架构/清理总计划](docs/superpowers/plans/2026-06-29-r84-r88-development-architecture-cleanup-plan.md)
+- [R.90 requirements review (PR #7)](docs/database-analysis/sprint-r90-requirements-review.md)
+- [R.86 文件索引增量同步](docs/database-analysis/r86-file-index-incremental-sync.md)
+- [R.88 site agent 契约](docs/source/site-agent-contract.md)
 - [架构质量路线图](docs/architecture/architecture-quality-roadmap.md)
 - [大表与 ES 规划](docs/architecture/es-large-table-roadmap.md)
+
+下一步:
+
+- **R.90.1 PR 收尾**: 清理 sync 页面开发者文案 + smoke 自清理 + 文档 review 矛盾 (本 Sprint)
+- **R.91**: audit 启发式优化 (R.90.1 之后)
+- **R.87**: 生产 cron / 监控 / 死信重放 (R.86 之后)
 
 ## 禁止事项
 

@@ -170,9 +170,10 @@ async function auditCenterDatabase(pool: Pool) {
       ? "none"
       : nonTestOrphans.map((r) => r.site_code).join(", ")
   )
+  // R.90.1 PR 收尾: smoke 应自清理; 残留必须 fail 而非 warn, 避免掩盖回归.
   add(
-    orphanSites.length === 0 ? "pass" : "warn",
-    "unregistered test/historical site data",
+    orphanSites.length === 0 ? "pass" : "fail",
+    "unregistered test/historical site data (smoke 必须自清理)",
     orphanSites.length === 0
       ? "none"
       : orphanSites.map((r) => `${r.site_code}(t=${r.task_count},d=${r.device_count},v=${r.volume_count},p=${r.package_count})`).join(", ")

@@ -162,7 +162,7 @@ export default function SyncCenterPage() {
   const [tablesLoading, setTablesLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Sprint R.7: 一致性校验结果
+  // 一致性校验结果
   const [consistency, setConsistency] = useState<{
     status: string
     siteCode: string
@@ -172,7 +172,7 @@ export default function SyncCenterPage() {
     mismatchedTableCount?: number
     dataSource?: string
   } | null>(null)
-  // Sprint R.8: 自动同步调度日志
+  // 自动同步调度日志
   const [schedulerLogs, setSchedulerLogs] = useState<Array<{
     runId: string
     siteCode: string
@@ -197,7 +197,7 @@ export default function SyncCenterPage() {
   const [triggeringSync, setTriggeringSync] = useState<'full' | 'incremental' | null>(null)
   const [dumpNowRunning, setDumpNowRunning] = useState(false)
 
-  // Sprint 2F.4: 全局 siteCode
+  // 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
 
   const loadPackages = useCallback(async () => {
@@ -206,7 +206,7 @@ export default function SyncCenterPage() {
     const sp = new URLSearchParams()
     sp.set('page', String(page))
     sp.set('pageSize', String(pageSize))
-    // Sprint 2F.4: 站点代码优先级 = 全局选择 > 页面本地筛选
+    // 站点代码优先级 = 全局选择 > 页面本地筛选
     const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
     if (effectiveSiteCode) sp.set('siteCode', effectiveSiteCode)
     if (statusFilter !== 'all') sp.set('status', statusFilter)
@@ -265,7 +265,7 @@ export default function SyncCenterPage() {
     }
   }, [selectedPkg, loadTables])
 
-  // Sprint R.7: 加载数据一致性校验结果
+  // 加载数据一致性校验结果
   useEffect(() => {
     let cancelled = false
     const sc = siteCodeFilter || ''
@@ -290,7 +290,7 @@ export default function SyncCenterPage() {
     return () => { cancelled = true }
   }, [siteCodeFilter])
 
-  // Sprint R.8: 加载自动同步调度日志
+  // 加载自动同步调度日志
   useEffect(() => {
     let cancelled = false
     const sc = siteCodeFilter || ''
@@ -317,7 +317,7 @@ export default function SyncCenterPage() {
     return () => { cancelled = true }
   }, [siteCodeFilter])
 
-  // Sprint R.10A: 只读加载多站点同步配置，接口不返回连接值或 secret。
+  // 只读加载多站点同步配置, 接口不返回连接值或 secret
   useEffect(() => {
     let cancelled = false
     fetch("/api/sync/config")
@@ -355,7 +355,7 @@ export default function SyncCenterPage() {
     return () => { cancelled = true }
   }, [])
 
-  // Sprint R.21: 同步告警摘要，真实来源为 /api/alerts 聚合的 sync_package_log / sync_table_log。
+  // 同步告警摘要, 来源 /api/alerts 聚合的 sync_package_log / sync_table_log
   useEffect(() => {
     let cancelled = false
     const sp = new URLSearchParams({ pageSize: "300" })
@@ -415,7 +415,7 @@ export default function SyncCenterPage() {
 
       toast({
         title: '导出请求已提交',
-        description: `${recordCount} 条真实记录, SHA-256 摘要已生成 (${sha256.slice(0, 12)}…)`,
+        description: `${recordCount} 条记录已生成导出文件, SHA-256 摘要 ${sha256.slice(0, 12)}…`,
       })
     } catch {
       toast({
@@ -489,13 +489,13 @@ export default function SyncCenterPage() {
       const totalRows = body.data?.totalRows ?? 0
       const tablesWithData = body.data?.tablesWithData ?? 0
       toast({
-        title: `已真实同步 ${sc}: ${tablesWithData} 张表, 共 ${totalRows} 行`,
-        description: `站点 ${sc} 数据已通过 pg_dump + ingest dispatcher 路径 upsert 到中心库。`,
+        title: `已同步 ${sc}: ${tablesWithData} 张表, 共 ${totalRows} 行`,
+        description: `站点 ${sc} 数据已通过统一管控通道汇聚到中心库。`,
       })
     } catch (error) {
       toast({
-        title: '真实同步失败',
-        description: error instanceof Error ? error.message : '请检查 dev server 日志和 source_restore 连接。',
+        title: '同步失败',
+        description: error instanceof Error ? error.message : '请检查中心库连接和站点接入状态。',
         variant: 'destructive',
       })
     } finally {
@@ -561,7 +561,7 @@ export default function SyncCenterPage() {
             <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
               <RefreshCw className="h-4 w-4" />
               手动同步触发
-              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Agent 队列真实触发</Badge>
+              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">通过站点代理触发</Badge>
             </p>
             <p className="text-sm text-slate-700">
               管理员触发后会进入同步队列，站点代理拉取执行并回写最终状态。页面只宣称"已提交"，不把提交动作说成同步完成。
@@ -600,20 +600,17 @@ export default function SyncCenterPage() {
 
         <GlassPanel
           testId="dump-now-card"
-          title="真实端到端同步 (走 sync_package + Agent pull)"
-          description="从 source_restore 站点库 pg_dump 后通过 dispatcher 路径真实 upsert 到中心库"
+          title="同步任务"
+          description="选择目标站点后触发同步, 查看结果与历史"
         >
           <div data-testid="dump-now-card-body">
             <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
               <Database className="h-4 w-4" />
               立即同步 {siteCodeFilter || '未选择站点'}
-              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">直接落库 (不经过 Agent 队列)</Badge>
+              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">不经过站点代理</Badge>
             </p>
             <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
-              点击按钮后, 系统会:
-              <br />1. 调用 pg_dump 从 source_restore 站点源库导出 58 张白名单表
-              <br />2. 调用 ingest-dump.ts 通过 dispatcher 路径 upsert 到中心库
-              <br />3. 验证中心库 rowCount
+              点击按钮后, 系统会直接拉取所选站点的白名单表数据, 写入中心库并校验行数。
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -633,7 +630,7 @@ export default function SyncCenterPage() {
                 {dumpNowRunning ? '同步中...' : `立即同步 ${siteCodeFilter || '未选择站点'}`}
               </Button>
               <span className="text-xs text-slate-500">
-                站点: 当前 Sprint Task 11 验证范围 (任意选定的 siteCode)
+                请选择目标站点后操作
               </span>
             </div>
           </div>
@@ -644,7 +641,7 @@ export default function SyncCenterPage() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               同步告警摘要
-              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">真实告警源</Badge>
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">告警源</Badge>
               {activeSyncAlerts > 0 ? (
                 <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">{activeSyncAlerts} active</Badge>
               ) : (

@@ -187,6 +187,40 @@ async function main(): Promise<void> {
       deviceRecords: device.rows[0].count,
     })
   } finally {
+    // R.90.1 PR 收尾: smoke 完成后清理 TEST_SMOKE 写入, 中心库不得残留.
+    // 清理范围覆盖 smoke 写入的所有表 + sync_*_log.
+    try {
+      const { query: cleanupQuery } = await import('../lib/db/postgres')
+      const cleanupTables = [
+        'sync_table_log',
+        'sync_package_log',
+        'sync_consistency_log',
+        'unified_tasks',
+        'unified_devices',
+        'unified_volumes',
+        'unified_check_patrol_logs',
+        'unified_check_logs',
+      ]
+      for (const table of cleanupTables) {
+        try {
+          await cleanupQuery(`DELETE FROM ${table} WHERE source_site_id = 'TEST_SMOKE'`)
+        } catch {
+          // 表可能不存在, 忽略
+        }
+      }
+      // sync_*_log 表没有 source_site_id 列, 按 batch_id 前缀清理
+      try {
+        await cleanupQuery(`DELETE FROM sync_table_log WHERE package_log_id IN (SELECT id FROM sync_package_log WHERE site_code = 'TEST_SMOKE')`)
+      } catch { /* ignore */ }
+      try {
+        await cleanupQuery(`DELETE FROM sync_package_log WHERE site_code = 'TEST_SMOKE'`)
+      } catch { /* ignore */ }
+      try {
+        await cleanupQuery(`DELETE FROM sync_consistency_log WHERE site_code = 'TEST_SMOKE'`)
+      } catch { /* ignore */ }
+    } catch (cleanupErr) {
+      console.error('[smoke:sync] cleanup failed:', cleanupErr)
+    }
     await closePool()
   }
 }

@@ -119,4 +119,3 @@ node_modules/
 - [ ] 没有 commit 整库 dump / `*.sql` 大文件 (DDL patch 除外)
 - [ ] 删除文件时满足 §5 四条件
 - [ ] 如涉及 schema 变更, 同 PR 有 `databases/sprint-X/init-docker.sh` 注册
-
