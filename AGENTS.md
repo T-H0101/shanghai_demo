@@ -132,7 +132,16 @@ pnpm e2e:all              # 全量 e2e (R.6 新增)
 - ✅ `docs/summary/PROJECT_STATUS.md` — 当前 Sprint 段
 - ✅ `docs/summary/ROADMAP.md` — 当前 Sprint 段
 - ✅ `docs/database-analysis/sprint-<X.Y>-requirements-review.md` — 严格审查 (本模板)
+- ✅ `README.md` — 每轮更新后必须确认入口仍简洁、链接有效、无过期完成声明
+- ✅ `docs/operations/deployment.md` — 每轮更新后必须确认部署步骤、env key、DB init 路径、密码一致性说明仍可执行
 - ⚠️ 如涉及 schema 变更, 同时更新 `docs/database-analysis/schema-inventory.md`
+
+**部署文档强制复核**:
+- 每轮 Sprint / PR 完成前必须检查 `README.md` 与 `docs/operations/deployment.md`。
+- 如新增 DDL, 必须注册到 `databases/sprint-2b0/init-docker.sh`, 确保新机器执行 `pnpm db:init` 可建完整中心库。
+- 如新增环境变量, 必须同步 `.env.example` 和部署手册; 只写 env key, 不写真实 secret。
+- 必须确认 `DATABASE_URL`、`POSTGRES_PASSWORD`、`DB_PASSWORD` 的本地说明不会导致密码不匹配。
+- 任一部署说明缺失或过期, 不允许声称"任何人拿到代码即可部署"。
 
 #### 十、前端事件级测试 (R.5 新增强约束, 一票否决)
 

@@ -57,12 +57,15 @@ docker build -t unified-disc-platform:latest .
 
 - `DATABASE_URL`
 - `POSTGRES_PASSWORD`
+- `DB_PASSWORD` (本地 Docker 初始化与脚本使用; 必须与 `DATABASE_URL` / `POSTGRES_PASSWORD` 匹配)
 - `AUTH_SESSION_SECRET`
 - `SYNC_PACKAGE_SECRET`
 - `SITE_AGENT_SECRET`
+- `SEARCH_ES_URL` / `SEARCH_ES_INDEX` (启用 OpenSearch/ES 文件检索时)
 - 站点 Agent 各自的 `SITE_DATABASE_URL`
 
 不要把真实密钥写进 README、compose、SQL、测试脚本或提交历史。
+本地 Docker 首次建库后, 修改 `.env.local` 里的密码不会自动修改已有 volume; 密码不一致时按部署手册处理。
 
 ## 主要目录
 

@@ -22,6 +22,13 @@ SYNC_PACKAGE_SECRET=...
 SITE_AGENT_SECRET=...
 ```
 
+启用 OpenSearch/ES 文件检索时还需要:
+
+```bash
+SEARCH_ES_URL=...
+SEARCH_ES_INDEX=...
+```
+
 本地 PostgreSQL 初始化还需要:
 
 ```bash
@@ -96,6 +103,12 @@ pnpm db:init
 ```
 
 它会执行 `databases/sprint-2b0/init-docker.sh` 中登记的 DDL patch。新增 schema 时必须追加到该脚本，不能只手动改库。
+
+当前 `pnpm db:init` 已包含 R.86 `file_index_jobs` 调度账本。开发环境启用文件索引增量任务时, 初始化后执行:
+
+```bash
+pnpm import:file-index-job-bootstrap -- --sites SH01
+```
 
 ## 6. 新站点接入
 
