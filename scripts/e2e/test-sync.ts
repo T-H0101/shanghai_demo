@@ -285,6 +285,25 @@ async function main() {
       !/postgres:\/\/|mysql:\/\/|mongodb:\/\//i.test(configText),
     "仅允许 credentialKeyRef / env key ref (envRefs 字段名允许, 但 VALUE 不带连接字符串)"
   )
+  // R.93.1: /api/sync/config 返回的可展示 note 不含开发者/审查词
+  const configNote = String(config.data?.scheduler?.note ?? "")
+  const configRealityNote = String(config.data?.reality?.note ?? "")
+  const combinedNote = `${configNote}\n${configRealityNote}`
+  const FORBIDDEN_NOTE = [
+    "不代表源端",
+    "sync_sites 是中心配置",
+    "tbl_site",
+    "source_restore",
+    "pg_dump",
+    "dispatcher",
+    "sync_sites.sync_interval_seconds",
+  ]
+  const noteHits = FORBIDDEN_NOTE.filter((phrase) => combinedNote.includes(phrase))
+  check(
+    "R.93.1 /api/sync/config note 不含开发者/审查词",
+    noteHits.length === 0,
+    noteHits.length === 0 ? "note 全部合规" : `命中: ${noteHits.join(", ")}`
+  )
   check(
     "R.10A /sync 页面展示多站点同步配置",
     syncPageSrc.includes("/api/sync/config") &&

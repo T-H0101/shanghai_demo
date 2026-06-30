@@ -43,7 +43,7 @@ pnpm dev
 
 ```bash
 set -a && source .env.local && set +a
-pnpm env:check                 # R.92: 验证 DB 三元组一致 + 密钥非占位符
+pnpm env:check                 # R.93: 验证 DB 三元组一致 + 密钥非占位符
 pnpm exec tsc --noEmit
 pnpm build
 pnpm smoke:sync
@@ -184,16 +184,17 @@ pnpm smoke:sync
 
 ## 后续开发入口
 
+- [R.93 requirements review](docs/database-analysis/sprint-r93-final-delivery-requirements-review.md) — 当前开发版可交付候选
+- [R.92.1 requirements review](docs/database-analysis/sprint-r92.1-requirements-review.md) — 前置收尾
 - [R.91.1 requirements review](docs/database-analysis/sprint-r91.1-requirements-review.md)
 - [R.90 requirements review](docs/database-analysis/sprint-r90-requirements-review.md)
-- [R.86 文件索引增量同步](docs/database-analysis/r86-file-index-incremental-sync.md)
 - [R.88 site agent 契约](docs/source/site-agent-contract.md)
 - [架构质量路线图](docs/architecture/architecture-quality-roadmap.md)
 - [大表与 ES 规划](docs/architecture/es-large-table-roadmap.md)
 
 下一步:
 
-- **R.92**: 全站交付收尾与最终验收（已完成 — 见 [sprint-r92-requirements-review](docs/database-analysis/sprint-r92-requirements-review.md)）
+- **R.93 已完成**: 本地开发版交付闭环 (R.83.9 dispatcher 业务主键映射, ES 端口 9201, 前端产品化文案, 部署文档 env:init 主路径)
 - **R.87**: 生产 cron / 监控 / 死信重放 (R.86 之后)
 - **R.91.2+**: racks 浏览/恢复 Tab 控制命令 UX 增强
 

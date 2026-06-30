@@ -6,7 +6,7 @@
 **verdict**: 开发版可交付候选
 **日期**: 2026-06-30
 **branch**: `codex/r84-development-architecture-cleanup-plans`
-**commits**: `a9c13a2..e4a175a` (1 commit)
+**commits**: `a9c13a2..e4a175a, bc426fe, <R.93.1>` (3 commits)
 
 ---
 
@@ -27,11 +27,27 @@
 
 ## 3. Implementation
 
-### 3.1 R.93 (1 commit)
+### 3.1 R.93 (2 commits)
 
 | Commit | 内容 |
 |---|---|
 | `e4a175a` | feat(r93): dispatcher identity columns, API compat, product copy, ES port, env:init |
+| `bc426fe` | docs(r93): final requirements review |
+
+### 3.1.1 R.93.1 合并前收尾 (1 commit)
+
+| Commit | 内容 |
+|---|---|
+| `<R.93.1>` | fix(r93.1): close merge readiness gaps — sync config note, deployment doc, README pointer, e2e:sync note audit |
+
+R.93.1 真实修改文件:
+
+| 文件 | 改动 | 类别 |
+|---|---|---|
+| `app/api/sync/config/route.ts` | `reality.note` 从开发者说明 → `同步策略由总控统一管理。`; `scheduler.note` 移除 `sync_sites.sync_interval_seconds` | Bug 修复 |
+| `scripts/e2e/test-sync.ts` | 新增 R.93.1 检查: `/api/sync/config` note 不含 `不代表源端 / sync_sites 是中心配置 / tbl_site / source_restore / pg_dump / dispatcher / sync_sites.sync_interval_seconds` | 测试覆盖 |
+| `docs/operations/deployment.md` | SCRAM 修复顺序改为 `env:init --force` 先; 新站点接入替换 `test:r83.4-e2e` 为 `scheduler:sync:once + check:sync-consistency + e2e:sites`; 强调 "中心不保存站点 DB 密码" 原则 | 文档修复 |
+| `README.md` | "后续开发入口" 改为 R.93 当前结论, 不再写 R.92 已完成作为最终收尾; 移除 R.86 link | 文档修复 |
 
 ### 3.2 真实修改文件
 
@@ -202,10 +218,12 @@ SELECT count(*) AS total, count(slot_id) AS with_slot_id, count(device_id) AS wi
 - 生产 cron / 监控 / 死信重放 = `out_of_scope` (R.87)
 - BJ02 数据同源 = dev fixture 复用, 生产应独立物理数据库
 
-### 10.3 R.93 commit
+### 10.3 R.93 + R.93.1 commits
 
 ```
 e4a175a feat(r93): dispatcher identity columns, API compat, product copy, ES port, env:init
+bc426fe docs(r93): final requirements review
+<R.93.1> fix(r93.1): close merge readiness gaps
 ```
 
-PR #7 状态: `3d3f5bc..e4a175a` 已推送, 等待领导审查。
+PR #7 状态: `3d3f5bc..<R.93.1>` 已推送, 准备合并到 main。

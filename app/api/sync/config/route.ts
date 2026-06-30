@@ -109,7 +109,7 @@ export async function GET() {
         scheduler: {
           intervalMinutes: 60,
           source: "center_config",
-          note: "每 60 分钟触发一次全量同步；个别站点按 sync_sites.sync_interval_seconds 覆写",
+          note: "每 60 分钟触发一次全量同步；个别站点可在中心配置覆盖同步周期",
         },
         envKeyRefs: SAFE_ENV_KEY_REFS.map((key) => ({
           key,
@@ -127,7 +127,7 @@ export async function GET() {
         auth: getSafeAuthConfig(),
         reality: {
           sourceEvidence: false,
-          note: "sites/sync_sites 是中心配置，不代表源端 tbl_site 已有真实数据",
+          note: "同步策略由总控统一管理。",
         },
       },
       traceId: `api-${Date.now()}`,

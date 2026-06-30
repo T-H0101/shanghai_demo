@@ -181,7 +181,15 @@ pnpm import:file-index-job-bootstrap -- --sites SH01
 1. 在站点部署 Agent。
 2. 在中心库 `sync_sites` 注册站点，只保存连接元数据和 `credential_ref`。
 3. 在站点 Agent 侧配置真实 `SITE_DATABASE_URL`。
-4. 跑一次 `pnpm test:r83.4-e2e` 或站点级同步验证。
+4. 跑一次真实验证:
+
+```bash
+pnpm scheduler:sync:once -- --siteCode=<site>
+pnpm check:sync-consistency -- --siteCode=<site>
+pnpm e2e:sites
+```
+
+> 中心不保存站点 DB 密码。每站点 Agent 自持 `SITE_DATABASE_URL`，凭据由运维通过 secret manager / EnvironmentFile 下发。
 
 注册示例:
 
@@ -414,7 +422,7 @@ pnpm import:file-index-job-runner -- --site SH02 --table tbl_file --batch 100
 | `env:check` 报 POSTGRES_PASSWORD 缺失 | 旧 `.env.local` 缺字段，运行 `pnpm env:init --force` 重建 |
 | `env:check` 报占位符密钥 | 运行 `pnpm env:init --force` 生成随机密钥 |
 | 搜索结果为空 | OpenSearch/ES 未接入或索引未构建，按 [大表与 ES 规划](../architecture/es-large-table-roadmap.md) 处理 |
-| SCRAM 认证失败 (旧 volume 密码不一致) | `pnpm db:down:volumes` → `pnpm db:up` → `pnpm db:init` → `pnpm env:init --force` |
+| SCRAM 认证失败 (旧 volume 密码不一致) | `pnpm env:init --force` → `pnpm env:check` → `pnpm db:down:volumes` → `pnpm db:up` → `pnpm db:init` → `pnpm smoke:sync` |
 
 ## 12. 环境初始化与检查 (R.92)
 
