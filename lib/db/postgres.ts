@@ -17,11 +17,18 @@ export interface DbConfig {
 }
 
 function getDbConfig(): DbConfig {
+  // R.92: DATABASE_URL 必须由环境变量提供, 缺失直接 fail-closed (不允许硬编码 fallback)
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error(
+      "[DB] DATABASE_URL 未设置。请运行 pnpm env:init 生成 .env.local, 或检查环境变量注入。",
+    )
+  }
   return {
-    connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/optical_disc_central',
-    minPool: parseInt(process.env.DB_POOL_MIN || '2'),
-    maxPool: parseInt(process.env.DB_POOL_MAX || '10'),
-    idleTimeoutMs: parseInt(process.env.DB_IDLE_TIMEOUT_MS || '30000'),
+    connectionString,
+    minPool: parseInt(process.env.DB_POOL_MIN || "2"),
+    maxPool: parseInt(process.env.DB_POOL_MAX || "10"),
+    idleTimeoutMs: parseInt(process.env.DB_IDLE_TIMEOUT_MS || "30000"),
   }
 }
 

@@ -269,7 +269,7 @@ function TasksPageContent() {
     toast({ title: "导出任务", description: `「${task.name}」数据导出中...` })
   }
 
-  // R.19D: 前端只提交队列，由 Site Agent 拉取、执行、同步并回写最终结果。
+  // 前端只提交队列，由站点代理拉取、执行、同步并回写最终结果。
   const handleControlCommand = async (
     task: TaskItem,
     commandType: "task_pause" | "task_resume",
@@ -278,7 +278,7 @@ function TasksPageContent() {
   ) => {
     e?.stopPropagation()
     if (!isApiMode) {
-      toast({ title: "演示模式不支持", description: "请切换到实时数据模式提交控制命令", variant: "destructive" })
+      toast({ title: "当前模式不支持此操作", description: "请切换到实时数据模式提交控制命令", variant: "destructive" })
       return
     }
     try {
@@ -301,7 +301,7 @@ function TasksPageContent() {
       }
       toast({
         title: `${label}命令已提交`,
-        description: `「${task.name}」${label}命令已提交到控制队列，等待站点 Agent 执行`,
+        description: `「${task.name}」${label}命令已提交到控制队列，等待站点代理执行`,
       })
     } catch (err) {
       toast({
@@ -359,7 +359,7 @@ function TasksPageContent() {
       }
       toast({
         title: "任务创建命令已提交",
-        description: `已提交到控制队列 ${data.commandNo ?? ""}，等待站点 Agent 执行`,
+        description: `已提交到控制队列 ${data.commandNo ?? ""}，等待站点代理执行`,
       })
       setCreateOpen(false)
       setCreateName("")
@@ -427,7 +427,7 @@ function TasksPageContent() {
       <AppShell>
         <PageHeader
           title="任务管理"
-          description="集中查看任务状态、提交控制并跟踪 Site Agent 最终结果"
+          description="集中查看任务状态、提交控制并跟踪站点代理执行结果"
           badge="TASK CENTER"
           actions={viewSwitcher}
         />
@@ -650,20 +650,20 @@ function TasksPageContent() {
                       {t.phase === "pending" && <Button variant="ghost" size="icon" className="h-8 w-8" title="推进进度" aria-label="推进任务进度" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {RUNNING_PHASES.includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="推进" aria-label="推进任务阶段" onClick={e => handleAdvance(t, e)}><SkipForward className="h-3.5 w-3.5" /></Button>}
                       {RUNNING_PHASES.includes(t.phase) && (
-                        <AppTooltip content="提交任务暂停命令, 等待站点 Agent 异步执行">
+                        <AppTooltip content="提交任务暂停命令, 等待站点代理异步执行">
                           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", "暂停", e)} aria-label="提交暂停任务命令">
                             <Pause className="h-3.5 w-3.5" />
                           </Button>
                         </AppTooltip>
                       )}
                       {t.phase === "paused" && (
-                        <AppTooltip content="提交任务恢复命令, 等待站点 Agent 异步执行">
+                        <AppTooltip content="提交任务恢复命令, 等待站点代理异步执行">
                           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", "恢复", e)} aria-label="提交恢复任务命令">
                             <Play className="h-3.5 w-3.5" />
                           </Button>
                         </AppTooltip>
                       )}
-                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="重置未接入站点 Agent" aria-label="重置任务 (未接入站点 Agent)" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
+                      {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="重置未接入站点代理" aria-label="重置任务 (未接入站点代理)" data-testid="task-row-reset" disabled><RotateCcw className="h-3.5 w-3.5" /></Button>}
                       {["pending", ...RUNNING_PHASES].includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="标记完成" aria-label="标记任务完成" onClick={e => handleComplete(t, e)}><CheckCheck className="h-3.5 w-3.5" /></Button>}
                       {["pending", ...RUNNING_PHASES, "paused"].includes(t.phase) && <Button variant="ghost" size="icon" className="h-8 w-8" title="标记失败" aria-label="标记任务失败" onClick={e => handleFail(t, e)}><XCircle className="h-3.5 w-3.5" /></Button>}
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="导出" aria-label="导出任务" onClick={e => handleExport(t, e)}><Download className="h-3.5 w-3.5" /></Button>
@@ -912,7 +912,7 @@ function TasksPageContent() {
                       </Button>
                     )}
                     {selected.phase !== "completed" && selected.phase !== "failed" && selected.phase !== "paused" && (
-                      <Button size="sm" variant="outline" className="text-slate-600" title="重置未接入站点 Agent" disabled>
+                      <Button size="sm" variant="outline" className="text-slate-600" title="重置未接入站点代理" disabled>
                         <RotateCcw className="h-3.5 w-3.5 mr-1" />重置
                       </Button>
                     )}
@@ -932,7 +932,7 @@ function TasksPageContent() {
           <DialogHeader>
             <DialogTitle>总控新建任务</DialogTitle>
             <DialogDescription>
-              新建命令会提交到控制队列，由站点代理拉取后在目标站点创建真实任务。
+              新建命令会提交到控制队列，由站点代理拉取后在目标站点创建任务。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -959,7 +959,7 @@ function TasksPageContent() {
               </Select>
             </div>
             <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-300">
-              提交后显示为“等待站点 Agent 执行”。只有 Agent 回写成功并完成同步后，才算站点真实创建完成。
+              提交后显示为”等待站点代理执行”。只有站点代理回写成功并完成同步后，才算创建完成。
             </div>
             <div data-testid="task-create-target-site" className="rounded-lg border border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3 text-xs text-blue-800 dark:text-blue-300">
               目标站点: <code className="font-mono">{siteCode}</code>

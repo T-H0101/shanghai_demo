@@ -18,6 +18,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
+import { ALLOWED_PACKAGE_TABLES } from '../lib/sync/package-schema'
 import { Client } from 'pg'
 
 function loadEnvLocal(): void {
@@ -97,10 +98,10 @@ async function main() {
       throw new Error(`拒绝导出: ${t} 在 FORBIDDEN 列表`)
     }
   }
-  // 守门: 必须属于白名单
+  // 守门: 必须属于 141 张白名单 (R.92.1 扩展自原 7 张 Sprint 2H.1 白名单)
   for (const t of tables) {
-    if (!SPRINT_2H1_TABLES.includes(t as any)) {
-      throw new Error(`拒绝导出: ${t} 不在 Sprint 2H.1 白名单 (${SPRINT_2H1_TABLES.join(',')})`)
+    if (!(ALLOWED_PACKAGE_TABLES as readonly string[]).includes(t)) {
+      throw new Error(`拒绝导出: ${t} 不在 ALLOWED_PACKAGE_TABLES 白名单`)
     }
   }
 

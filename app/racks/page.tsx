@@ -1,6 +1,6 @@
 "use client"
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
@@ -22,8 +22,10 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { GlassPanel } from "@/components/platform/glass-panel"
 import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
-import { racks as mockRacks, mockBackupFiles, mockServerPaths, mockLocalPaths } from "@/lib/mock/racks"
+import { loadRacksBrowseMock, loadRacksRestoreTargetsMock } from "@/lib/mock-mode/racks-browse"
 import { useSite } from "@/lib/site/site-context"
+import { InspectionView } from "@/components/racks/inspection-view"
+import { VolumesView } from "@/components/racks/volumes-view"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
 import type { TaskItem } from "@/lib/types/task"
@@ -43,7 +45,6 @@ import { LOG_LEVEL_COLORS } from "@/lib/types/colors"
 
 type DeviceCategory = "all" | "hdd" | "optical" | "offline" | "nas" | "abnormal"
 type ApiRacksDataSource = "database" | "empty" | "error"
-type RacksDataSource = ApiRacksDataSource | "mock"
 
 const deviceStatusMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   online: { label: "在线", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
@@ -89,8 +90,8 @@ export default function Page() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [slotGroups, setSlotGroups] = useState<RackSlotGroup[]>([])
   const [slotDetailStatus, setSlotDetailStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle")
-  const [racksDataSource, setRacksDataSource] = useState<RacksDataSource>(
-    isApiMode ? "empty" : "mock"
+  const [racksDataSource, setRacksDataSource] = useState<ApiRacksDataSource>(
+    isApiMode ? "empty" : "empty"
   )
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
@@ -100,6 +101,10 @@ export default function Page() {
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
+
+  // R.91.1: URL view parameter for sub-views (inspection, volumes)
+  const searchParams = useSearchParams()
+  const view = searchParams.get("view")
 
   // 弹窗状态
   const [showAddMedia, setShowAddMedia] = useState(false)
@@ -159,20 +164,28 @@ export default function Page() {
 
   // 初始化浏览文件
   useEffect(() => {
-    if (isApiMode) {
-      setBrowsedFiles([])
-      return
-    }
-    if (storageTab === "browse" || storageTab === "restore") {
-      const root = mockBackupFiles[0]
-      setBrowsedFiles(root?.children ?? [])
-    }
+    if (storageTab !== "browse" && storageTab !== "restore") return
+    let cancelled = false
+    loadRacksBrowseMock(storageTab).then((res) => {
+      if (cancelled) return
+      if (res.source === "mock" && res.root) {
+        setBrowsedFiles((res.root.children ?? []) as any)
+      } else {
+        setBrowsedFiles([])
+      }
+    })
+    return () => { cancelled = true }
   }, [storageTab])
 
   // 切换恢复模式时更新目标选项
   useEffect(() => {
-    setTargetOptions(restoreMode === "server" ? mockServerPaths : mockLocalPaths)
+    let cancelled = false
+    loadRacksRestoreTargetsMock(restoreMode).then((res) => {
+      if (cancelled) return
+      setTargetOptions(((res.targetOptions ?? []) as any).map((p: any) => ({ path: String(p) })))
+    })
     setTargetPath("")
+    return () => { cancelled = true }
   }, [restoreMode])
 
   // 获取当前卷的名称
@@ -387,16 +400,16 @@ export default function Page() {
       setSelected(current =>
         racksData.find(rack => rack.id === current?.id) ?? racksData[0] ?? null
       )
-      // 数据源追踪
+      // 数据源追踪 (R.92: mock 模式已移除, API 模式恒为 source of truth)
       if (isApiMode) {
         setRacksDataSource(getRacksDataSource())
       } else {
-        setRacksDataSource("mock")
+        setRacksDataSource("empty")
       }
     } catch {
       setRackList([])
       setSelected(null)
-      setRacksDataSource(isApiMode ? "error" : "mock")
+      setRacksDataSource(isApiMode ? "error" : "empty")
     }
   }, [isAllSites, siteCode])
 
@@ -695,6 +708,37 @@ export default function Page() {
     )
   }
 
+  // R.91.1: Conditional rendering for sub-views (inspection, volumes)
+  if (view === "inspection") {
+    return (
+      <AppShell>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-4">
+            <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-700" onClick={() => router.push("/racks")}>
+              <span className="mr-1">&larr;</span> 返回盘架管理
+            </Button>
+          </div>
+          <InspectionView />
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (view === "volumes") {
+    return (
+      <AppShell>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-4">
+            <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-700" onClick={() => router.push("/racks")}>
+              <span className="mr-1">&larr;</span> 返回盘架管理
+            </Button>
+          </div>
+          <VolumesView />
+        </div>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
       <PageHeader
@@ -733,7 +777,6 @@ export default function Page() {
         }
       />
 
-      {/* ── 数据源提示 ────────────────────────────────────────── */}
       {isApiMode && racksDataSource === "error" && (
         <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -961,7 +1004,7 @@ export default function Page() {
                       </button>
                     ))}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-2">模式切换需在设备本地控制台操作，此处仅做演示</p>
+                  <p className="text-[10px] text-slate-400 mt-2">模式切换需在设备本地控制台操作</p>
                 </section>
 
                 {/* 控制按钮 */}
@@ -1196,7 +1239,7 @@ export default function Page() {
                     <SelectItem key={site.code} value={site.name}>{site.name} ({site.code})</SelectItem>
                   ))}
                   {!isApiMode && (
-                    <SelectItem value="__demo__" disabled>当前为演示模式，暂不可选择真实站点</SelectItem>
+                    <SelectItem value="disabled" disabled>请先在站点管理完成站点配置</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -1230,7 +1273,7 @@ export default function Page() {
               <Input value={mountForm.mountPath ?? ""} onChange={e => setMountForm(f => ({ ...f, mountPath: e.target.value }))} placeholder="如：/netshare/172.168.6.15/" />
             </div>
             <div className="col-span-2 space-y-2">
-              <Label>数据源 *</Label>
+              <Label>共享路径 *</Label>
               <Input value={mountForm.dataSource ?? ""} onChange={e => setMountForm(f => ({ ...f, dataSource: e.target.value }))} placeholder="如：\\172.168.6.15\public" />
             </div>
             <div className="space-y-2">
@@ -1356,10 +1399,10 @@ export default function Page() {
                 <EmptyState
                   severity="blocked"
                   icon={FolderTree}
-                  title="存储浏览暂未接入真实源端目录树"
+                  title="存储浏览暂不可用"
                   description="当前总控已展示设备、盘位和光盘索引查询；完整目录浏览需要接入站点文件索引服务。"
                   testid="racks-storage-browse-blocked"
-                  action={{ label: "查看站点 Agent 接入文档", href: "/sites" }}
+                  action={{ label: "查看站点代理接入文档", href: "/sites" }}
                 />
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="racks-storage-browse-content">
@@ -1378,7 +1421,7 @@ export default function Page() {
                     </div>
                     <ScrollArea className="h-[400px]">
                       <div className="text-xs">
-                        {mockBackupFiles.map(file => renderTreeItem(file, 0))}
+                        {browsedFiles.map(file => renderTreeItem(file, 0))}
                       </div>
                     </ScrollArea>
                   </div>
@@ -1420,7 +1463,7 @@ export default function Page() {
                 <EmptyState
                   severity="blocked"
                   icon={RotateCcw}
-                  title="数据恢复任务等待 Site Agent 闭环"
+                  title="数据恢复任务等待站点代理结果"
                   description="总控保留完整控制能力；文件索引与站点代理恢复协议接入后可执行恢复任务。"
                   testid="racks-storage-restore-blocked"
                   action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}
@@ -1432,7 +1475,7 @@ export default function Page() {
                     <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
                     <ScrollArea className="h-[320px]">
                       <div className="text-xs">
-                        {mockBackupFiles.map(file => renderTreeItem(file, 0))}
+                        {browsedFiles.map(file => renderTreeItem(file, 0))}
                       </div>
                     </ScrollArea>
                   </div>
@@ -1579,10 +1622,9 @@ export default function Page() {
                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
                   <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                     <Database className="h-4 w-4 text-blue-600" />
-                    当前数据口径
+                    当前概况
                   </div>
                   <div className="mt-4 space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    <p>来源: {isApiMode ? "平台同步结果" : "本地预览数据"}</p>
                     <p>设备数量: {filtered.length} 台</p>
                     <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
                     <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>

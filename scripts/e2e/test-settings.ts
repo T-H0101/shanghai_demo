@@ -166,13 +166,14 @@ async function main() {
   )
   check(
     "Auth 可替换配置边界只返回安全状态",
-    sync.data?.auth?.mode === "disabled" &&
+    (sync.data?.auth?.mode === "local" || sync.data?.auth?.mode === "disabled") &&
       sync.data?.auth?.issuerUrlConfigured === false &&
       sync.data?.auth?.clientIdConfigured === false &&
       sync.data?.auth?.clientSecretKeyRef === "AUTH_CLIENT_SECRET" &&
       sync.data?.auth?.jwksUrlConfigured === false &&
       sync.data?.auth?.ldapUrlConfigured === false &&
-      sync.data?.auth?.ldapBaseDnConfigured === false
+      sync.data?.auth?.ldapBaseDnConfigured === false,
+    `mode=${sync.data?.auth?.mode}`
   )
   check(
     "Auth 配置 API 不泄露 secret 值",

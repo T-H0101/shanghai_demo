@@ -10,6 +10,9 @@
  *   pnpm baseline:check --verbose
  */
 
+import { loadEnv } from './lib/load-env'
+loadEnv()
+
 import { Client } from 'pg'
 import { readFile, access } from 'node:fs/promises'
 import { constants } from 'node:fs'
@@ -87,10 +90,14 @@ async function checkSourceRestore() {
     )
     const cnt = parseInt(r.rows[0]?.cnt ?? '0', 10)
     await c.end()
+    // R.92.1: 真实源端是 site_restore_full (170 张), 不再是 13 张 source_restore
+    // (历史 13 张是 R.4.8.2 era 的 dev fixture, R.85+ 后统一用完整 170 张库)
+    const ok = cnt >= 13
+    const expected = cnt === 170 ? 'site_restore_full (170)' : `>=13 (实际 ${cnt})`
     check(
-      'source_restore 表数',
-      cnt >= 13 && cnt <= 15,
-      `实际=${cnt} (期望 13-15)`
+      '源端 schema 表数',
+      ok,
+      `实际=${cnt} (期望 ${expected})`
     )
   } catch (err) {
     check('source_restore 表数', false, `连接失败: ${err instanceof Error ? err.message : err}`)
@@ -190,19 +197,21 @@ async function checkSitesApi() {
 }
 
 // ============================================================
-// 7. /api/search must use center-owned read path (R.55)
+// 7. /api/search must use center-owned read path (R.55 / R.85 port-based)
 // ============================================================
 async function checkSearchApi() {
   try {
     const res = await fetch(`${BASE}/api/search?q=test&limit=1`, { signal: AbortSignal.timeout(5000) })
     const data = await res.json() as { source?: string; data?: { source?: string; items?: unknown[] } }
     const source = data.source ?? data.data?.source
-    // R.55: product reads must come from center-owned stores (es, unified_file_index, blocked_by_external_system).
+    // R.55 (legacy) + R.85 (SearchPort): product reads must come from center-owned stores.
+    // R.85 ADR 0002 introduces `opensearch` (port source enum); legacy `es` retained for backwards compat.
     // site_restore_db is reserved for audit tooling and must not be the product source.
     check(
       '/api/search uses center-owned read path',
       res.status === 200 &&
         (source === 'es' ||
+          source === 'opensearch' ||
           source === 'unified_file_index' ||
           source === 'blocked_by_external_system'),
       `HTTP=${res.status} source=${source}`

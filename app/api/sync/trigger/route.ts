@@ -36,7 +36,17 @@ export async function POST(req: NextRequest) {
   let body: any
   try { body = await req.json() } catch { body = {} }
 
-  const siteCode = body.siteCode ?? "SH01"
+  if (!body.siteCode || typeof body.siteCode !== "string") {
+    return NextResponse.json(
+      {
+        code: 400,
+        error: "siteCode is required",
+        message: "sync trigger must specify the target site; refusing to default to a hardcoded site.",
+      },
+      { status: 400 }
+    )
+  }
+  const siteCode = body.siteCode as string
   const syncType: "full" | "incremental" = body.syncType === "incremental" ? "incremental" : "full"
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"

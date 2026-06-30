@@ -92,6 +92,7 @@ interface DeviceRow {
 
 interface SlotRow {
   source_id: string
+  source_record_id: string | null
   source_site_id: string
   slot_id: string | null
   slot_index: number | null
@@ -108,6 +109,7 @@ interface SlotRow {
 
 interface MagazineRow {
   source_id: string
+  source_record_id: string | null
   source_site_id: string
   magazine_id: string | null
   device_id: string | null
@@ -172,7 +174,7 @@ export async function GET(
     //    关联: source lib_id 通过 tbl_magzines 同步时存进 unified_magazines.device_id
     //    暂时按 source_site_id 拉, 在前端按 position 排序
     const magsAll = (await query<MagazineRow>(
-      `SELECT source_id, source_site_id, magazine_id, device_id, status,
+      `SELECT source_id, source_site_id, source_record_id, magazine_id, device_id, status,
               position, slot_count, barcode, rfid
        FROM unified_magazines
        WHERE source_site_id = $1
@@ -182,11 +184,12 @@ export async function GET(
 
     // 3. 查该设备下所有 slot
     const slotRes = await query<SlotRow>(
-      `SELECT source_id, source_site_id, slot_id, slot_index, device_id, magazine_id,
+      `SELECT COALESCE(source_id, source_record_id, slot_id) AS source_id,
+              source_record_id, source_site_id, slot_id, slot_index, device_id, magazine_id,
               status, occupied, media_id, media_type, capacity, raw_data
        FROM unified_slots
        WHERE source_site_id = $1
-       ORDER BY magazine_id NULLS LAST, slot_index NULLS LAST, source_id`,
+       ORDER BY magazine_id NULLS LAST, slot_index NULLS LAST, COALESCE(source_id, source_record_id)`,
       [dev.source_site_id]
     )
     const slots = slotRes.rows
@@ -241,7 +244,10 @@ export async function GET(
 
     // 7. 构造 cages (按盘匣分组)
     const magsById = new Map<string, MagazineRow>()
-    for (const m of magsAll) magsById.set(m.magazine_id ?? m.source_id, m)
+    for (const m of magsAll) {
+      const sourceId = m.source_id ?? m.source_record_id
+      magsById.set(m.magazine_id ?? sourceId, m)
+    }
 
     const slotsByMag = new Map<string, SlotRow[]>()
     for (const s of slots) {

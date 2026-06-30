@@ -20,6 +20,7 @@ interface SlotRow {
   source_site_id: string
   source_table: string
   source_id: string
+  source_record_id: string | null
   slot_id: string | null
   slot_index: number | null
   magazine_id: string | null
@@ -143,18 +144,19 @@ export async function GET(
     const device = deviceResult.rows[0]
     const identifiers = [...new Set([device.device_id, device.source_id].filter(Boolean))]
     const slotResult = await query<SlotRow>(
-      `SELECT s.id::text, s.source_site_id, s.source_table, s.source_id,
-              s.slot_id, s.slot_index, s.magazine_id, s.status, s.occupied,
+      `SELECT s.id::text, s.source_site_id, s.source_table,
+              COALESCE(s.source_id, s.source_record_id, s.slot_id) AS source_id,
+              s.source_record_id, s.slot_id, s.slot_index, s.magazine_id, s.status, s.occupied,
               s.media_id, s.media_type, s.capacity, s.raw_data,
               COALESCE(m.barcode, m.magazine_id) AS cage_name,
               m.position AS cage_position
        FROM unified_slots s
        LEFT JOIN unified_magazines m
          ON m.source_site_id = s.source_site_id
-        AND (m.magazine_id = s.magazine_id OR m.source_id = s.magazine_id)
+        AND (m.magazine_id = s.magazine_id OR m.source_record_id = s.magazine_id OR m.source_id = s.magazine_id)
        WHERE s.source_site_id = $1
          AND s.device_id = ANY($2::text[])
-       ORDER BY COALESCE(s.magazine_id, ''), s.slot_index NULLS LAST, s.source_id`,
+       ORDER BY COALESCE(s.magazine_id, ''), s.slot_index NULLS LAST, COALESCE(s.source_id, s.source_record_id)`,
       [device.source_site_id, identifiers]
     )
 

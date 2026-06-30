@@ -49,21 +49,21 @@ export async function GET(
       return NextResponse.json({ code: 400, message: "missing id", data: null }, { status: 400 })
     }
 
-    // 1. 查 volume (兼容 source_id 或 volume_id 或 uuid)
+    // 1. 查 volume (兼容 source_id / source_record_id / volume_id / uuid)
     const volRes = await query<{
-      id: string; source_site_id: string; source_id: string; synced_at: Date | string
+      id: string; source_site_id: string; source_id: string | null; source_record_id: string | null; synced_at: Date | string
       volume_id: string | null; volume_name: string | null; volume_type: string | null
       capacity: string | null; used_capacity: number | string | null; file_count: number | null
       site_code: string | null; device_id: string | null; status: string | null
       health_status: string | null; raw_data: any
     }>(
-      `SELECT id, source_site_id, source_id, synced_at,
+      `SELECT id, source_site_id, source_id, source_record_id, synced_at,
               volume_id, volume_name, volume_type,
               capacity, used_capacity, file_count,
               site_code, device_id, status, health_status,
               raw_data
        FROM unified_volumes
-       WHERE id::text = $1 OR source_id = $1 OR volume_id = $1
+       WHERE id::text = $1 OR source_id = $1 OR source_record_id = $1 OR volume_id = $1
        LIMIT 1`,
       [id]
     )
@@ -75,11 +75,15 @@ export async function GET(
       )
     }
 
-    // 2. 关联 site
-    const siteRes = vol.site_code
+    // 2. 关联 site (try unified_sites first, fall back to sync_sites)
+    const lookupSiteCode = vol.site_code ?? vol.source_site_id
+    const siteRes = lookupSiteCode
       ? await query<{ id: string; site_name: string | null; site_code: string }>(
-          `SELECT id, site_name, site_code FROM unified_sites WHERE site_code = $1 LIMIT 1`,
-          [vol.site_code]
+          `SELECT id::text, site_name, site_code FROM unified_sites WHERE site_code = $1
+           UNION ALL
+           SELECT site_code AS id, site_name, site_code FROM sync_sites WHERE site_code = $1
+           LIMIT 1`,
+          [lookupSiteCode]
         )
       : { rows: [] }
     const site = siteRes.rows[0]
@@ -113,8 +117,8 @@ export async function GET(
       usagePercent?: number
       sourceEvidence?: any
     } = {
-      id: vol.volume_id ?? vol.source_id,
-      name: vol.volume_name ?? `卷-${vol.source_id}`,
+      id: vol.volume_id ?? vol.source_id ?? vol.source_record_id ?? vol.id,
+      name: vol.volume_name ?? `卷-${vol.volume_id ?? vol.source_id ?? vol.source_record_id ?? vol.id}`,
       type: (vol.volume_type ? VOLUME_TYPE_MAP[vol.volume_type] : undefined) ?? "composite",
       totalCapacity: formatBytes(vol.capacity),
       remainingCapacity: remainingCapacity == null ? "" : formatBytes(remainingCapacity),
@@ -136,7 +140,7 @@ export async function GET(
       } : undefined,
       sourceEvidence: {
         sourceTable: "tbl_logical_volume",
-        sourceId: vol.source_id,
+        sourceId: vol.volume_id ?? vol.source_id ?? vol.source_record_id,
         rawData: vol.raw_data,
         syncedAt,
         mapper: "R.17 inlineUpsert (Sprint 2H.2)",

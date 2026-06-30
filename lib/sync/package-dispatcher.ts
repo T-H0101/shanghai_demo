@@ -104,7 +104,9 @@ async function dispatchMagzines(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_magazines', {
     sourceIdField: 'mag_id',
     // 源 → 中心: mag_id→magazine_id, lib_id→device_id, mag_order→position, door_status→status
+    // R.93: mag_id→magazine_id 是业务主键, 必须写入 (R.83.9 dispatcher 遗漏)
     columns: [
+      { source: 'mag_id',      target: 'magazine_id' },
       { source: 'lib_id',      target: 'device_id' },
       { source: 'rfid',        target: 'rfid' },
       { source: 'mag_order',   target: 'position' },
@@ -121,6 +123,7 @@ async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
   const upsertResult = await inlineUpsert(input, 'unified_slots', {
     sourceIdField: 'slot_id',
     columns: [
+      { source: 'slot_id',    target: 'slot_id' },
       { source: 'mag_id',     target: 'magazine_id' },
       { source: 'slot_order', target: 'slot_index' },
       { source: 'max_cap',    target: 'capacity' },
@@ -128,9 +131,8 @@ async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
     ],
     sourceIdColumn: 'source_record_id',
   })
-  // R.17 二次回填: 用 unified_magazines.device_id 反向填 unified_slots.device_id
-  // 仅对 device_id 为空的行更新
-  // R.17.1 修正: unified_magazines.magazine_id 字段在源端是空, JOIN 应用 source_id (=tbl_magzines.mag_id)
+  // R.93: unified_slots 二次回填 device_id, JOIN 条件适配 R.83+ source_record_id 溯源
+  // magazine_id 在 R.93 dispatcher 已写入, 优先用 magazine_id JOIN; legacy 行可能仍靠 source_id
   if (upsertResult.upserted > 0) {
     try {
       const { query: pgQuery } = await import('@/lib/db/postgres')
@@ -139,7 +141,7 @@ async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
          SET device_id = m.device_id, updated_at = NOW()
          FROM unified_magazines m
          WHERE s.source_site_id = m.source_site_id
-           AND s.magazine_id = m.source_id
+           AND (s.magazine_id = m.magazine_id OR s.magazine_id = m.source_record_id OR s.magazine_id = m.source_id)
            AND s.source_site_id = $1
            AND (s.device_id IS NULL OR s.device_id = '')`,
         [input.siteCode]
@@ -232,10 +234,12 @@ async function dispatchDiscMedia(input: DispatchInput): Promise<DispatchResult> 
 
 async function dispatchLogicalVolume(input: DispatchInput): Promise<DispatchResult> {
   // Sprint 2H.2: 源表主键是 volume_id, 不是 id
-  // 字段映射: name→volume_name, type→volume_type, total_cap→capacity, used_cap→used_capacity, del_flag→status
+  // 字段映射: volume_id→volume_id (业务主键), name→volume_name, type→volume_type, total_cap→capacity, used_cap→used_capacity, del_flag→status
+  // R.93: volume_id 必须写入 unified_volumes.volume_id (R.83.9 dispatcher 遗漏)
   return inlineUpsert(input, 'unified_volumes', {
     sourceIdField: 'volume_id',
     columns: [
+      { source: 'volume_id', target: 'volume_id' },
       { source: 'name',      target: 'volume_name' },
       { source: 'type',      target: 'volume_type' },
       { source: 'total_cap', target: 'capacity' },

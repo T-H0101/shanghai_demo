@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Sprint 2G.2 - Dashboard 最近同步记录
+ * Dashboard 最近同步记录
  *
  * API mode: 真实 sync_package_log 最近 10 条
  * Mock mode: 不渲染

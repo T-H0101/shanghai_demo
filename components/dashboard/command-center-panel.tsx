@@ -285,7 +285,7 @@ export function CommandCenterPanel() {
         <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <MetricCard icon={Layers3} label="任务" value={summary.taskCount} href="/tasks" testid="command-center-metric-tasks" />
           <MetricCard icon={HardDrive} label="设备" value={summary.deviceCount} href="/racks" testid="command-center-metric-devices" />
-          <MetricCard icon={Database} label="存储卷" value={summary.volumeCount} href="/volumes" testid="command-center-metric-volumes" />
+          <MetricCard icon={Database} label="存储卷" value={summary.volumeCount} href="/racks?view=volumes" testid="command-center-metric-volumes" />
           <MetricCard icon={RadioTower} label="站点" value={summary.siteCount ?? siteStats.total} href="/sites" testid="command-center-metric-sites" />
         </div>
 
@@ -397,7 +397,7 @@ export function CommandCenterPanel() {
             icon={Search}
             title="检索"
             href="/search"
-            evidence="全文索引 / 待接入"
+            evidence="全文索引 / 接入中"
             testid="command-center-lane-search"
           />
           <LaneCard

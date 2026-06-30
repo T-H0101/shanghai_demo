@@ -34,6 +34,16 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
+  if (!body.siteCode) {
+    return NextResponse.json(
+      {
+        code: 400,
+        error: "siteCode is required",
+        message: "permission_sync must specify the target site; refusing to default to a hardcoded site.",
+      },
+      { status: 400 }
+    )
+  }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
 
@@ -42,15 +52,15 @@ export async function POST(req: NextRequest) {
     action: "permission_sync_queued",
     targetTable: "auth_accounts",
     targetId: body.userId,
-    after: { role: body.role, siteCode: body.siteCode ?? null },
+    after: { role: body.role, siteCode: body.siteCode },
     actor: "admin",
-    siteCode: body.siteCode ?? null,
+    siteCode: body.siteCode,
     result: "success",
   })
 
   // 2. Enqueue station sync command
   const command = await createControlCommand({
-    sourceSiteId: body.siteCode ?? "SH01",
+    sourceSiteId: body.siteCode,
     commandType: "permission_sync",
     targetType: "user",
     targetId: body.userId,

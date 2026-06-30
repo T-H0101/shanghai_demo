@@ -154,9 +154,9 @@ export function StatsCards() {
         </Card>
       </Link>
 
-      {/* Card 4 - 存储使用率 (可点击 → /volumes) */}
+      {/* Card 4 - 存储使用率 (可点击 → /racks?view=volumes) */}
       <Link
-        href="/volumes"
+        href="/racks?view=volumes"
         className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
         data-testid="dashboard-stat-storage"
       >

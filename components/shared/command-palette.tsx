@@ -16,7 +16,6 @@ import {
   Search as SearchIcon,
   ClipboardList,
   HardDrive,
-  Database,
   RefreshCw,
   Users,
   FileText,
@@ -150,8 +149,7 @@ export function CommandPalette() {
       { id: "p-tasks-failed", label: "任务管理 · 失败任务", hint: "查看失败任务", icon: AlertTriangle, group: "action", keywords: ["failed", "失败", "task"], perform: () => router.push("/tasks?phase=failed") },
       { id: "p-tasks-running", label: "任务管理 · 进行中", hint: "查看运行中任务", icon: Activity, group: "action", keywords: ["running", "运行"], perform: () => router.push("/tasks?phaseGroup=running") },
       { id: "p-racks", label: "盘架管理", icon: HardDrive, group: "page", keywords: ["rack", "盘架", "设备"], perform: () => router.push("/racks") },
-      { id: "p-volumes", label: "存储卷", icon: Database, group: "page", keywords: ["volume", "卷", "存储"], perform: () => router.push("/volumes") },
-      { id: "p-users", label: "用户与权限", icon: Users, group: "page", keywords: ["user", "用户", "权限"], perform: () => router.push("/users") },
+            { id: "p-users", label: "用户与权限", icon: Users, group: "page", keywords: ["user", "用户", "权限"], perform: () => router.push("/users") },
       { id: "p-logs", label: "审计日志", icon: FileText, group: "page", keywords: ["log", "审计", "日志"], perform: () => router.push("/logs") },
       { id: "p-settings", label: "系统设置", icon: Settings, group: "page", keywords: ["setting", "设置", "config"], perform: () => router.push("/settings") },
     ]

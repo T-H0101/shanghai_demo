@@ -8,8 +8,12 @@
  *   pnpm audit:center-db -- --strict
  */
 
+import { loadEnv } from "../lib/load-env"
+loadEnv()
+
 import { Pool } from "pg"
 import { ALLOWED_PACKAGE_TABLES, FORBIDDEN_PACKAGE_TABLES } from "@/lib/sync/package-schema"
+import { FILE_INDEX_ES_TABLES } from "@/lib/source/source-table-classification"
 
 const STRICT = process.argv.includes("--strict")
 const MATRIX = process.argv.includes("--matrix")
@@ -169,9 +173,10 @@ async function auditCenterDatabase(pool: Pool) {
       ? "none"
       : nonTestOrphans.map((r) => r.site_code).join(", ")
   )
+  // R.90.1 PR 收尾: smoke 应自清理; 残留必须 fail 而非 warn, 避免掩盖回归.
   add(
-    orphanSites.length === 0 ? "pass" : "warn",
-    "unregistered test/historical site data",
+    orphanSites.length === 0 ? "pass" : "fail",
+    "unregistered test/historical site data (smoke 必须自清理)",
     orphanSites.length === 0
       ? "none"
       : orphanSites.map((r) => `${r.site_code}(t=${r.task_count},d=${r.device_count},v=${r.volume_count},p=${r.package_count})`).join(", ")
@@ -218,11 +223,13 @@ async function auditSiteDatabase(pool: Pool) {
   const tableSet = new Set(tableResult.rows.map((r) => r.table_name))
   const allowedPresent = ALLOWED_PACKAGE_TABLES.filter((name) => tableSet.has(name))
   const forbiddenPresent = FORBIDDEN_PACKAGE_TABLES.filter((name) => tableSet.has(name))
+  const fileIndexEsPresent = FILE_INDEX_ES_TABLES.filter((name) => tableSet.has(name))
   const tblTables = tableResult.rows.map((r) => r.table_name).filter((name) => name.startsWith("tbl_"))
   const unclassifiedTblTables = tblTables.filter(
     (name) =>
       !ALLOWED_PACKAGE_TABLES.includes(name as (typeof ALLOWED_PACKAGE_TABLES)[number]) &&
-      !FORBIDDEN_PACKAGE_TABLES.includes(name as (typeof FORBIDDEN_PACKAGE_TABLES)[number])
+      !FORBIDDEN_PACKAGE_TABLES.includes(name as (typeof FORBIDDEN_PACKAGE_TABLES)[number]) &&
+      !FILE_INDEX_ES_TABLES.includes(name as (typeof FILE_INDEX_ES_TABLES)[number])
   )
 
   add(
@@ -236,9 +243,14 @@ async function auditSiteDatabase(pool: Pool) {
     forbiddenPresent.length > 0 ? forbiddenPresent.join(", ") : "tbl_file/tbl_folder not found in this site DB"
   )
   add(
+    fileIndexEsPresent.length === FILE_INDEX_ES_TABLES.length ? "pass" : "warn",
+    "file index ES classified tables",
+    `${fileIndexEsPresent.length}/${FILE_INDEX_ES_TABLES.length}: ${fileIndexEsPresent.join(", ")}`
+  )
+  add(
     unclassifiedTblTables.length === 0 ? "pass" : "warn",
     "unclassified tbl_* tables",
-    `${unclassifiedTblTables.length} tables not in PG whitelist or large-table guard`
+    `${unclassifiedTblTables.length} tables not in PG whitelist, package guard, or R.84 file_index_es classification`
   )
 }
 

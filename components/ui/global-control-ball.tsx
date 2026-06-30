@@ -327,7 +327,7 @@ export function GlobalControlBall() {
           {alertsData.length === 0 ? (
             <div className="text-center py-8">
               <Bell className="h-10 w-10 text-slate-300 dark:text-slate-400 mx-auto mb-2" />
-              <p className="text-[12px] text-slate-500">暂无真实告警</p>
+              <p className="text-[12px] text-slate-500">暂无告警</p>
             </div>
           ) : (
             alertsData.map((notification) => {
@@ -717,7 +717,7 @@ export function GlobalControlBall() {
                           <Shield className="h-3.5 w-3.5 text-slate-500" />
                           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">认证边界</span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">企业认证待接入</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">企业认证未启用</p>
                       </div>
                     </div>
 
@@ -763,7 +763,7 @@ export function GlobalControlBall() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-400">
                           <div className="rounded-md bg-white/80 dark:bg-slate-900/70 px-2 py-1.5 border border-slate-200/70 dark:border-slate-700/70">
-                            在线 Agent: <span className="font-medium text-slate-800 dark:text-slate-200">{onlineAgents}</span>
+                            在线代理: <span className="font-medium text-slate-800 dark:text-slate-200">{onlineAgents}</span>
                           </div>
                           <div className="rounded-md bg-white/80 dark:bg-slate-900/70 px-2 py-1.5 border border-slate-200/70 dark:border-slate-700/70">
                             API uptime: <span className="font-medium text-slate-800 dark:text-slate-200">{Math.round(healthData?.uptime ?? 0)}s</span>
@@ -797,7 +797,7 @@ export function GlobalControlBall() {
                         </div>
                       ))}
                       <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2.5 text-[11px] text-slate-600 dark:border-slate-700/60 dark:bg-slate-800/40 dark:text-slate-300">
-                        主机 CPU / 内存 / 磁盘趋势待接入实时采集后展示。
+                        主机 CPU / 内存 / 磁盘趋势接入实时采集后展示。
                       </div>
                     </div>
                   </div>

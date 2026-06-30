@@ -37,14 +37,6 @@ interface DictsResponse {
   }
 }
 
-const SOURCE_TABLES = [
-  "unified_dict_categories",
-  "unified_dicts",
-  "unified_dict_items",
-  "unified_archives_types",
-  "unified_archives_levels",
-  "unified_platform_types",
-]
 
 export function DictionariesTab() {
   const [items, setItems] = useState<DictRecord[]>([])
@@ -101,7 +93,7 @@ export function DictionariesTab() {
     <Card className="gap-0">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
-          <span>字典 ({items.length})</span>
+          <span>基础配置 ({items.length})</span>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="font-mono text-[10px]">
               {loading ? "加载中" : error ? "异常" : "实时"}
@@ -130,9 +122,8 @@ export function DictionariesTab() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>站点</TableHead>
-                <TableHead>源记录 ID</TableHead>
-                <TableHead>字典名</TableHead>
-                <TableHead>字典值</TableHead>
+                <TableHead>名称</TableHead>
+                <TableHead>配置值</TableHead>
                 <TableHead>启用</TableHead>
                 <TableHead>同步时间</TableHead>
               </TableRow>
@@ -142,9 +133,6 @@ export function DictionariesTab() {
                 <TableRow key={`dict-${it.source_record_id ?? idx}`}>
                   <TableCell className="font-mono text-xs">
                     {it.source_site_id ?? "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-slate-500">
-                    {it.source_record_id ?? "—"}
                   </TableCell>
                   <TableCell className="text-sm">
                     {(it.raw_data?.dict_name as string) ??
@@ -167,10 +155,7 @@ export function DictionariesTab() {
             </TableBody>
           </Table>
         )}
-        <p className="mt-3 text-[11px] text-slate-500">
-          数据来源: {SOURCE_TABLES.join(" / ")}
-        </p>
-      </CardContent>
+              </CardContent>
     </Card>
   )
 }

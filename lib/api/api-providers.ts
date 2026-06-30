@@ -1,79 +1,97 @@
 /**
- * API Providers - 调用 Sprint 1 完成的 API 端点
- * 数据来自 /api/* 端点，端点内部返回 mock DTO
+ * lib/api/api-providers.ts
+ * API Providers — 仅在 API 模式 (NEXT_PUBLIC_API_MODE !== "mock") 下使用。
+ *
+ * R.90 PR 前修复: 本文件**禁止** import mock provider / mock 数据 /
+ * lib/mock/*。Mock 模式的选择在 `lib/api/index.ts` 完成, 这里只负责
+ * 调用真实 /api/* 端点, 失败时抛 `ApiUnavailableError`。
+ *
+ * 边界:
+ * - 这里不 import 任何 mock 数据, 不调用 mockXxxProvider, 不引用 lib/mock/*。
+ * - 失败统一抛 ApiUnavailableError (UI 应捕获并展示 blocked_by_external_system)。
+ * - 真实后端不可达 / 端点不存在 / 端点返回 error, 全部由 fetchWithFallback 抛错。
+ *
+ * 与 lib/api/index.ts 的关系:
+ *   index.ts 决定:  mode==="api"  -> 使用本文件的 apiXxxProvider
+ *                   mode==="mock" -> 使用 mockXxxProvider
+ *   本文件不感知 mock 模式存在, 完全无 mock 字面量.
  */
 
 import type {
   SiteProvider, TaskProvider, UserProvider, RackProvider,
-  SearchProvider, AuditProvider, SettingsProvider,
   TaskFilters, CreateTaskInput,
   ConsistencyReport, SyncResult,
 } from "./providers"
-import { fetchWithFallback } from "./fallback"
-import { mockSiteProvider, mockTaskProvider, mockUserProvider, mockRackProvider } from "./mock-providers"
+import { fetchWithFallback, ApiUnavailableError } from "./fallback"
 import type { RackSlotDetailDTO } from "./dto"
 
 const API_BASE = ""
 
+export { ApiUnavailableError }
+
 /**
  * Dashboard 数据（从 tasks/ racks/ sites 聚合）
- * 暂无独立端点，通过其他端点聚合
+ * 调用 /api/dashboard/summary 真实端点; 端点不存在时 fetchWithFallback 抛 ApiUnavailableError.
  */
 export async function fetchDashboardSummary() {
   return fetchWithFallback(
     `${API_BASE}/api/dashboard/summary`,
-    async () => ({
-      // 从 mock 聚合
-      tasks: await mockTaskProvider.getStats(),
-      racks: await mockRackProvider.getStats(),
-      sites: await mockSiteProvider.getStats(),
-    }),
+    undefined, // R.90: API 模式不允许 mock fallback
     "DashboardSummary"
   )
 }
 
 // ============================================================
-// API Site Provider
+// API Site Provider — 纯 /api/* 端点
 // ============================================================
 
 export const apiSiteProvider: SiteProvider = {
   getAll: async () => {
     return fetchWithFallback(
       `${API_BASE}/api/sites`,
-      () => mockSiteProvider.getAll(),
+      undefined,
       "SiteProvider.getAll"
     )
   },
 
   getById: async (id: string) => {
-    const sites = await fetchWithFallback(
+    const sites = (await fetchWithFallback(
       `${API_BASE}/api/sites`,
-      () => mockSiteProvider.getAll(),
+      undefined,
       "SiteProvider.getById"
-    )
+    )) as any[]
     return sites.find((s: any) => s.id === id)
   },
 
   getStats: async () => {
     return fetchWithFallback(
       `${API_BASE}/api/dashboard/summary`,
-      async () => mockSiteProvider.getStats(),
+      undefined,
       "SiteProvider.getStats"
-    ).then((data: any) => data?.sites ?? mockSiteProvider.getStats())
+    ).then((data: any) => data?.sites ?? null)
   },
 
+  // R.90: 写方法在 API 模式下不通过 provider 暴露 (走 /api/sync/* + Agent pull).
+  // 这里抛 ApiUnavailableError, 让 UI 走 control_command 队列.
   syncSite: async (id: string) => {
-    // Sprint 2A 不实现写操作
-    return mockSiteProvider.syncSite(id)
+    throw new ApiUnavailableError(
+      "Site",
+      "syncSite",
+      "API mode: syncSite 必须走 control_command 队列 (R.88 contract), 不允许 provider 直接 mock"
+    )
   },
 
   checkConsistency: async (id: string): Promise<ConsistencyReport> => {
-    return mockSiteProvider.checkConsistency(id)
+    throw new ApiUnavailableError(
+      "Site",
+      "checkConsistency",
+      "API mode: checkConsistency 走 /api/sync/consistency 真实端点 (R.7)"
+    )
   },
 }
 
 // ============================================================
-// API Task Provider
+// API Task Provider — 纯 /api/* 端点
 // ============================================================
 
 let _tasksDataSource: "database" | "fallback" = "fallback"
@@ -101,16 +119,17 @@ export const apiTaskProvider: TaskProvider = {
       if (json.code !== 0) throw new Error(json.message)
       _tasksDataSource = json.source === "database" ? "database" : "fallback"
       return Array.isArray(json.data) ? json.data : (json.data?.items ?? [])
-    } catch {
+    } catch (err) {
+      // R.90: API 模式下抛 ApiUnavailableError, 不静默 fallback.
       _tasksDataSource = "fallback"
-      return mockTaskProvider.getAll(filters)
+      throw new ApiUnavailableError("Task", "getAll", err)
     }
   },
 
   getById: async (id: string) => {
     return fetchWithFallback(
       `${API_BASE}/api/tasks/${id}`,
-      () => mockTaskProvider.getById(id),
+      undefined,
       "TaskProvider.getById"
     )
   },
@@ -118,62 +137,85 @@ export const apiTaskProvider: TaskProvider = {
   getStats: async () => {
     return fetchWithFallback(
       `${API_BASE}/api/dashboard/summary`,
-      () => mockTaskProvider.getStats(),
+      undefined,
       "TaskProvider.getStats"
-    ).then((data: any) => data?.tasks ?? mockTaskProvider.getStats())
+    ).then((data: any) => data?.tasks ?? null)
   },
 
+  // 写方法: API 模式不暴露, 走 control_command 队列 (R.4.5).
   getLogs: async (taskId: string) => {
-    return mockTaskProvider.getLogs(taskId)
+    throw new ApiUnavailableError(
+      "Task",
+      "getLogs",
+      "API mode: task logs 走 /api/tasks/[id]/files + audit_log; provider 暂未实现"
+    )
   },
 
   getAlerts: async () => {
-    return mockTaskProvider.getAlerts()
+    throw new ApiUnavailableError(
+      "Task",
+      "getAlerts",
+      "API mode: alerts 走 /api/alerts 端点 (R.7A); provider 暂未实现"
+    )
   },
 
   createTask: async (input: CreateTaskInput) => {
-    // Sprint 2A 不实现写操作
-    return mockTaskProvider.createTask(input)
+    throw new ApiUnavailableError(
+      "Task",
+      "createTask",
+      "API mode: createTask 走 /api/tasks/create (R.4.5 control_command 队列)"
+    )
   },
 
   updateTask: async (id: string, updates: any) => {
-    return mockTaskProvider.updateTask(id, updates)
+    throw new ApiUnavailableError(
+      "Task",
+      "updateTask",
+      "API mode: updateTask 走 control_command 队列"
+    )
   },
 
   advancePhase: async (id: string) => {
-    return mockTaskProvider.advancePhase(id)
+    throw new ApiUnavailableError("Task", "advancePhase", "API mode: control_command 队列")
   },
 
   pauseTask: async (id: string) => {
-    return mockTaskProvider.pauseTask(id)
+    throw new ApiUnavailableError("Task", "pauseTask", "API mode: control_command 队列")
   },
 
   resumeTask: async (id: string) => {
-    return mockTaskProvider.resumeTask(id)
+    throw new ApiUnavailableError("Task", "resumeTask", "API mode: control_command 队列")
   },
 
   retryTask: async (id: string) => {
-    return mockTaskProvider.retryTask(id)
+    throw new ApiUnavailableError("Task", "retryTask", "API mode: control_command 队列")
   },
 
   completeTask: async (id: string) => {
-    return mockTaskProvider.completeTask(id)
+    throw new ApiUnavailableError("Task", "completeTask", "API mode: control_command 队列")
   },
 
   failTask: async (id: string, reason: string) => {
-    return mockTaskProvider.failTask(id, reason)
+    throw new ApiUnavailableError("Task", "failTask", "API mode: control_command 队列")
   },
 
-  createTaskFromDevice: async (deviceId: string, taskType: any, params?: Record<string, string>) => {
-    return mockTaskProvider.createTaskFromDevice(deviceId, taskType, params)
+  createTaskFromDevice: async (
+    deviceId: string,
+    taskType: any,
+    params?: Record<string, string>
+  ) => {
+    throw new ApiUnavailableError(
+      "Task",
+      "createTaskFromDevice",
+      "API mode: control_command 队列"
+    )
   },
 }
 
 // ============================================================
-// API Rack Provider
+// API Rack Provider — 纯 /api/* 端点
 // ============================================================
 
-// 数据源追踪：记录最近一次 racks 数据来源
 let _racksDataSource: "database" | "empty" | "error" = "empty"
 
 export function getRacksDataSource(): "database" | "empty" | "error" {
@@ -228,9 +270,9 @@ export const apiRackProvider: RackProvider = {
       const racks = Array.isArray(json.data) ? json.data : []
       _racksDataSource = racks.length > 0 ? "database" : "empty"
       return racks
-    } catch {
+    } catch (err) {
       _racksDataSource = "error"
-      return []
+      throw new ApiUnavailableError("Rack", "getAll", err)
     }
   },
 
@@ -269,9 +311,10 @@ export const apiRackProvider: RackProvider = {
         ),
         usedSlots: racks.reduce((sum, rack) => sum + (rack.usedSlots ?? 0), 0),
         totalSlotsAll: racks.reduce((sum, rack) => sum + (rack.totalSlots ?? 0), 0),
-        avgUsage: usageValues.length > 0
-          ? Math.round(usageValues.reduce((sum, value) => sum + value, 0) / usageValues.length)
-          : 0,
+        avgUsage:
+          usageValues.length > 0
+            ? Math.round(usageValues.reduce((sum, value) => sum + value, 0) / usageValues.length)
+            : 0,
       }
     } catch {
       return {
@@ -291,24 +334,25 @@ export const apiRackProvider: RackProvider = {
     }
   },
 
+  // 写方法: API 模式不暴露, 走 control_command 队列.
   registerTransfer: async (input: any) => {
-    return mockRackProvider.registerTransfer(input)
+    throw new ApiUnavailableError("Rack", "registerTransfer", "API mode: control_command 队列")
   },
 
   syncRacks: async () => {
-    return mockRackProvider.syncRacks()
+    throw new ApiUnavailableError("Rack", "syncRacks", "API mode: /api/sync/trigger")
   },
 
   addMedia: async (rackId: string, slotIndex: number, media: any) => {
-    return mockRackProvider.addMedia(rackId, slotIndex, media)
+    throw new ApiUnavailableError("Rack", "addMedia", "API mode: control_command 队列")
   },
 
   mountNetworkDrive: async (mount: any) => {
-    return mockRackProvider.mountNetworkDrive(mount)
+    throw new ApiUnavailableError("Rack", "mountNetworkDrive", "API mode: control_command 队列")
   },
 
   updateDeviceMode: async (rackId: string, mode: string) => {
-    return mockRackProvider.updateDeviceMode(rackId, mode)
+    throw new ApiUnavailableError("Rack", "updateDeviceMode", "API mode: control_command 队列")
   },
 }
 
@@ -327,9 +371,8 @@ export async function fetchVolumes(siteCode?: string) {
     const json = await response.json()
     if (json.code !== 0) throw new Error(json.message)
     return json
-  } catch {
-    const racks = await mockRackProvider.getAll(siteCode)
-    return racks.flatMap((r: any) => r.volumes ?? [])
+  } catch (err) {
+    throw new ApiUnavailableError("Volume", "fetchVolumes", err)
   }
 }
 
@@ -337,7 +380,13 @@ export async function fetchVolumes(siteCode?: string) {
 // API Alert Provider (通过统一告警端点)
 // ============================================================
 
-export async function fetchAlerts(params?: { level?: string; status?: string; siteCode?: string; page?: number; pageSize?: number }) {
+export async function fetchAlerts(params?: {
+  level?: string
+  status?: string
+  siteCode?: string
+  page?: number
+  pageSize?: number
+}) {
   const searchParams = new URLSearchParams()
   if (params?.level) searchParams.set("level", params.level)
   if (params?.status) searchParams.set("status", params.status)
@@ -347,96 +396,49 @@ export async function fetchAlerts(params?: { level?: string; status?: string; si
 
   const query = searchParams.toString()
 
-  // Mock alerts 从 taskAlerts 和 racks/sites 聚合
   return fetchWithFallback(
     `${API_BASE}/api/alerts${query ? `?${query}` : ""}`,
-    async () => {
-      const [taskAlerts, racks, sites] = await Promise.all([
-        mockTaskProvider.getAlerts(),
-        mockRackProvider.getAll(),
-        mockSiteProvider.getAll(),
-      ])
-
-      const alerts: any[] = [
-        ...taskAlerts.map((a: any) => ({
-          id: a.id,
-          title: a.taskName,
-          severity: a.level,
-          message: a.message,
-          createdAt: a.time,
-          status: "active",
-        })),
-        ...sites
-          .filter((s: any) => s.alertCount > 0)
-          .flatMap((s: any) =>
-            Array.from({ length: s.alertCount }, (_, i) => ({
-              id: `site-alert-${s.id}-${i}`,
-              title: `${s.name} 设备告警`,
-              severity: i === 0 ? "critical" : "warning",
-              message: s.description || "站点设备异常",
-              createdAt: s.lastSyncAt,
-              status: "active",
-              siteCode: s.code,
-              siteName: s.name,
-            }))
-          ),
-        ...racks
-          .filter((r: any) => r.status === "fault" || r.status === "warning")
-          .map((r: any) => ({
-            id: `rack-alert-${r.id}`,
-            title: `${r.rackName} 状态异常`,
-            severity: r.status === "fault" ? "critical" : "warning",
-            message: `设备状态: ${r.status === "fault" ? "离线故障" : "警告"}`,
-            createdAt: r.lastSyncAt,
-            status: "active",
-            deviceId: r.id,
-            deviceName: r.rackName,
-            siteCode: r.siteCode,
-            siteName: r.siteName,
-          })),
-      ]
-
-      return alerts
-    },
+    undefined,
     "Alerts"
   )
 }
 
 // ============================================================
-// API User Provider
+// API User Provider — 纯 /api/* 端点
 // ============================================================
 
 export const apiUserProvider: UserProvider = {
   getAll: async () => {
-    return fetchWithFallback(
-      `${API_BASE}/api/users`,
-      () => mockUserProvider.getAll(),
-      "UserProvider.getAll"
-    )
+    return fetchWithFallback(`${API_BASE}/api/users`, undefined, "UserProvider.getAll")
   },
 
   getById: async (id: string) => {
-    const users = await fetchWithFallback(
+    const users = (await fetchWithFallback(
       `${API_BASE}/api/users`,
-      () => mockUserProvider.getAll(),
+      undefined,
       "UserProvider.getById"
-    )
+    )) as any[]
     return users.find((u: any) => u.id === id)
   },
 
+  // 写方法: API 模式不暴露
   getStats: async () => {
-    return mockUserProvider.getStats()
+    throw new ApiUnavailableError("User", "getStats", "API mode: /api/users/stats")
   },
 
   createUser: async (input: any) => {
-    return mockUserProvider.createUser(input)
+    throw new ApiUnavailableError("User", "createUser", "API mode: control_command 队列")
   },
 
   updateUser: async (id: string, updates: any) => {
-    return mockUserProvider.updateUser(id, updates)
+    throw new ApiUnavailableError("User", "updateUser", "API mode: control_command 队列")
   },
 
   syncPermissions: async (id: string): Promise<SyncResult> => {
-    return mockUserProvider.syncPermissions(id)
+    throw new ApiUnavailableError(
+      "User",
+      "syncPermissions",
+      "API mode: /api/auth/permission-sync (R.66)"
+    )
   },
 }

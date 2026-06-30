@@ -36,12 +36,6 @@ interface RolesResponse {
   }
 }
 
-const SOURCE_TABLES = [
-  "unified_roles",
-  "unified_role_fucs",
-  "unified_fucs",
-  "unified_user_mfas",
-]
 
 export function RolePermissionsTab() {
   const [items, setItems] = useState<RoleRecord[]>([])
@@ -135,7 +129,6 @@ export function RolePermissionsTab() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>站点</TableHead>
-                <TableHead>源记录 ID</TableHead>
                 <TableHead>角色名</TableHead>
                 <TableHead>启用</TableHead>
                 <TableHead>同步时间</TableHead>
@@ -146,9 +139,6 @@ export function RolePermissionsTab() {
                 <TableRow key={`role-${it.source_record_id ?? idx}`}>
                   <TableCell className="font-mono text-xs">
                     {it.source_site_id ?? "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-slate-500">
-                    {it.source_record_id ?? "—"}
                   </TableCell>
                   <TableCell className="text-sm">
                     {renderRoleName(it.raw_data)}
@@ -162,10 +152,7 @@ export function RolePermissionsTab() {
             </TableBody>
           </Table>
         )}
-        <p className="mt-3 text-[11px] text-slate-500">
-          数据来源: {SOURCE_TABLES.join(" / ")}
-        </p>
-      </CardContent>
+              </CardContent>
     </Card>
   )
 }

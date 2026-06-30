@@ -36,11 +36,6 @@ interface LogsResponse {
   }
 }
 
-const SOURCE_TABLES = [
-  "unified_sys_logs",
-  "unified_api_logs",
-  "unified_api_interfaces",
-]
 
 export function LogsCredentialsTab() {
   const [items, setItems] = useState<LogRecord[]>([])
@@ -97,7 +92,7 @@ export function LogsCredentialsTab() {
     <Card className="gap-0">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
-          <span>日志与凭据 ({items.length})</span>
+          <span>权限日志 ({items.length})</span>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="font-mono text-[10px]">
               {loading ? "加载中" : error ? "异常" : "实时"}
@@ -126,7 +121,6 @@ export function LogsCredentialsTab() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>站点</TableHead>
-                <TableHead>源记录 ID</TableHead>
                 <TableHead>日志级别</TableHead>
                 <TableHead>模块</TableHead>
                 <TableHead>消息</TableHead>
@@ -138,9 +132,6 @@ export function LogsCredentialsTab() {
                 <TableRow key={`log-${it.source_record_id ?? idx}`}>
                   <TableCell className="font-mono text-xs">
                     {it.source_site_id ?? "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-slate-500">
-                    {it.source_record_id ?? "—"}
                   </TableCell>
                   <TableCell>{renderLevel(it.raw_data)}</TableCell>
                   <TableCell className="text-sm">
@@ -162,10 +153,7 @@ export function LogsCredentialsTab() {
             </TableBody>
           </Table>
         )}
-        <p className="mt-3 text-[11px] text-slate-500">
-          数据来源: {SOURCE_TABLES.join(" / ")}
-        </p>
-      </CardContent>
+              </CardContent>
     </Card>
   )
 }

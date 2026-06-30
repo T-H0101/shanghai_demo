@@ -49,7 +49,7 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
           <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-50">任务执行趋势</CardTitle>
         </CardHeader>
         <CardContent className="h-[220px] flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">
-          暂无真实趋势数据
+          暂无趋势数据
         </CardContent>
       </Card>
     )

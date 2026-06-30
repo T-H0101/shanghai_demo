@@ -4,15 +4,9 @@
  *
  * 对应 REQ-5.1 (日志管理): 采集 / 检索 / 导出
  *
- * 改造前 (R.12 之前):
- *   - 硬编码 `import { auditLogs } from "@/lib/mock/audit"` (R.10C 之前, R.12 已删除)
- *   - useState 直接灌入 mock 审计日志
- *   - 7 个 tab (operations / security / system / task / compliance / alerts / login)
- *   - 数字签名校验按钮 (假证书, R.1 §7 禁止)
- *   - 导出走客户端 setTimeout 假下载
- *
- * 改造后 (R.12):
- *   - 移除所有 mock, fetch /api/logs 真实数据库读取
+ * 历史背景 (R.10C → R.12):
+ *   - 早期版本直接 import 内置测试数据数组到 useState
+ *   - R.12 重构: 移除所有静态测试数据, 改走 fetch /api/logs 真实数据库读取
  *   - 6 类日志 Tab (sync_package / sync_table / sync_scheduler / sync_consistency / control / audit)
  *   - login 审计: 中心库无表, 显示 blocked (blocked_by_auth, 等待 ADFS)
  *   - 7 个筛选: siteCode / status / keyword / errorCode / deviceId / taskType / dateFrom/dateTo
@@ -24,7 +18,6 @@
  *   - 不接 ClickHouse (CLAUDE.md 五同步策略 §五)
  *   - 不伪造系统日志
  *   - 不新增无关页面
- *   - 不把 mock 当真实日志
  *   - 导出必须来自真实 API 查询结果
  */
 
@@ -54,13 +47,13 @@ type LogType = "sync_package" | "sync_table" | "sync_scheduler" | "sync_consiste
 type DataSource = "database" | "empty" | "error" | "loading"
 
 const LOG_TABS: { value: LogType; label: string; description: string }[] = [
-  { value: "sync_package", label: "同步包日志", description: "sync_package_log (R.11B)" },
-  { value: "sync_table", label: "同步表日志", description: "sync_table_log" },
-  { value: "sync_scheduler", label: "调度日志", description: "sync_scheduler_log (R.8)" },
-  { value: "sync_consistency", label: "一致性日志", description: "sync_consistency_log (R.7)" },
+  { value: "sync_package", label: "同步包日志", description: "按站点包传输审计" },
+  { value: "sync_table", label: "同步表日志", description: "sync_table_log (按表写入审计)" },
+  { value: "sync_scheduler", label: "调度日志", description: "sync_scheduler_log (定时调度执行审计)" },
+  { value: "sync_consistency", label: "一致性日志", description: "sync_consistency_log (跨站点对账结果)" },
   { value: "control", label: "控制命令", description: "总控命令队列" },
-  { value: "audit", label: "审计日志", description: "audit_log" },
-  { value: "login_audit", label: "登录审计", description: "auth_login_audit (R.27)" },
+  { value: "audit", label: "审计日志", description: "audit_log (权限/凭证变更)" },
+  { value: "login_audit", label: "登录审计", description: "auth_login_audit (登录失败/锁定, blocked 等待 ADFS)" },
 ]
 
 interface LogRow {
@@ -439,14 +432,14 @@ export default function Page() {
         )}
       </div>
 
-      {/* Sprint R.27: 登录审计已接入, 仅数字签名仍 blocked */}
+      {/* 登录审计已接入, 仅数字签名仍 blocked (等待 ADFS) */}
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800 dark:text-amber-300">
           <p className="font-medium">数字签名暂未接入</p>
           <p className="mt-1">
             数字签名需接入证书/私钥托管后启用。
-            当前可检索 7 类日志: sync_package / sync_table / sync_scheduler / sync_consistency / control / audit / <strong>登录审计</strong>。
+            当前可检索 7 类日志: 同步包 / 同步表 / 同步调度 / 一致性检查 / 控制命令 / 操作审计 / <strong>登录审计</strong>。
           </p>
         </div>
       </div>

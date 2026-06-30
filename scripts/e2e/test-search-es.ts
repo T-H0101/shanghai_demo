@@ -10,14 +10,16 @@
  *     into PG17 center is forbidden — file/folder go to ES/OpenSearch only)
  *
  * Behavior:
- *   - Without SEARCH_ES_URL: /api/search returns source="blocked_by_external_system"
- *     or "unified_file_index" (whichever applies), never "site_restore_db".
- *   - With SEARCH_ES_URL: configured-path test is skipped with explicit note.
+ *   - Without SEARCH_ES_URL: /api/search returns source="blocked_by_external_system".
+ *   - With SEARCH_ES_URL: index a marker and query it through /api/search.
  */
 
+import { config as loadDotenv } from "dotenv"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { randomUUID } from "node:crypto"
+
+loadDotenv({ path: ".env.local", quiet: true })
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 
@@ -40,10 +42,11 @@ async function main() {
     "R.55: /api/search must NOT return site_restore_db as product source"
   )
   assert.ok(
-    source === "es" ||
+    source === "opensearch" ||
+      source === "es" ||
       source === "unified_file_index" ||
       source === "blocked_by_external_system",
-    `source must be one of es|unified_file_index|blocked_by_external_system, got ${source}`
+    `source must be one of opensearch|es|unified_file_index|blocked_by_external_system, got ${source}`
   )
 
   if (process.env.SEARCH_ES_URL && process.env.SEARCH_ES_INDEX) {
@@ -71,13 +74,18 @@ async function main() {
     const markerItems = markerBody?.data?.items ?? []
     assert.ok(
       markerRes.ok &&
-        markerBody?.data?.source === "es" &&
+        markerBody?.data?.source === "opensearch" &&
         markerItems.some((item: { fileName?: string }) => item.fileName?.includes(marker)),
       "ES configured path must index and query a marker through /api/search"
     )
     console.log(`SEARCH_ES_URL configured; marker query PASS (${marker})`)
   } else {
-    console.log("SEARCH_ES_URL not configured; configured-path test skipped with blocked_by_external_system evidence")
+    assert.equal(
+      source,
+      "blocked_by_external_system",
+      "without SEARCH_ES_URL, search must expose blocked_by_external_system"
+    )
+    console.log("SEARCH_ES_URL not configured; blocked path PASS")
   }
 
   // R.79: boundary contract checks against source code
