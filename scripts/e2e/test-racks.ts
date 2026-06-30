@@ -119,7 +119,7 @@ async function main() {
     pageSource.includes('data-testid="racks-storage-overview-content"') &&
       pageSource.includes("设备在线概况") &&
       pageSource.includes("盘位汇总") &&
-      pageSource.includes("当前数据口径")
+      pageSource.includes("当前概况")
   )
   check(
     "存储浏览/数据恢复 Tab 用 TabsContent 包结构 (切换能正确 mount)",

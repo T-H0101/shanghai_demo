@@ -554,17 +554,13 @@ export default function SyncCenterPage() {
 
         <GlassPanel
           testId="sync-hero-glass-panel"
-          title="同步操作总览"
-          description="管理员可手动提交同步请求，由站点代理拉取执行"
+          title="同步操作"
+          description="选择站点并提交同步"
         >
           <div data-testid="manual-sync-trigger-card">
             <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
               <RefreshCw className="h-4 w-4" />
-              手动同步触发
-              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">通过站点代理触发</Badge>
-            </p>
-            <p className="text-sm text-slate-700">
-              管理员触发后会进入同步队列，站点代理拉取执行并回写最终状态。页面只宣称"已提交"，不把提交动作说成同步完成。
+              站点同步
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
@@ -593,7 +589,7 @@ export default function SyncCenterPage() {
               </Button>
             </div>
             <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-              当前目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || '未选择'}</code>。最终状态以站点代理回写和同步日志为准。
+              目标站点: <code>{(!isAllSites && siteCode) || siteCodeFilter.trim() || '未选择'}</code>
             </p>
           </div>
         </GlassPanel>
@@ -606,11 +602,7 @@ export default function SyncCenterPage() {
           <div data-testid="dump-now-card-body">
             <p className="text-sm font-semibold flex items-center gap-2 mb-3 text-slate-900">
               <Database className="h-4 w-4" />
-              立即同步 {siteCodeFilter || '未选择站点'}
-              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">不经过站点代理</Badge>
-            </p>
-            <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
-              点击按钮后, 系统会直接拉取所选站点的白名单表数据, 写入中心库并校验行数。
+              立即同步
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -627,7 +619,7 @@ export default function SyncCenterPage() {
                 ) : (
                   <Database className="h-4 w-4 mr-1" />
                 )}
-                {dumpNowRunning ? '同步中...' : `立即同步 ${siteCodeFilter || '未选择站点'}`}
+                {dumpNowRunning ? '同步中...' : '立即同步'}
               </Button>
               <span className="text-xs text-slate-500">
                 请选择目标站点后操作
@@ -641,7 +633,7 @@ export default function SyncCenterPage() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               同步告警摘要
-              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">告警源</Badge>
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">同步告警</Badge>
               {activeSyncAlerts > 0 ? (
                 <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">{activeSyncAlerts} active</Badge>
               ) : (
@@ -681,7 +673,7 @@ export default function SyncCenterPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>级别</TableHead>
-                      <TableHead>来源</TableHead>
+                      <TableHead>类别</TableHead>
                       <TableHead>站点</TableHead>
                       <TableHead>告警</TableHead>
                       <TableHead>时间</TableHead>
@@ -736,7 +728,7 @@ export default function SyncCenterPage() {
               {consistency.status === "not_run" ? (
                 <div className="text-sm text-slate-600 dark:text-slate-300">
                   尚未运行一致性校验。
-                  运行 <code className="text-xs">pnpm check:sync-consistency -- --siteCode={consistency.siteCode}</code> 启动。
+                  请选择站点后运行校验。
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -778,7 +770,7 @@ export default function SyncCenterPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-              {syncConfigNote || "同步策略来自中心配置；站点运行状态以站点代理心跳和同步日志为准。"}
+              {syncConfigNote || "同步策略由总控统一管理。"}
             </p>
             {syncConfigSites.length === 0 ? (
               <div className="text-sm text-slate-500">暂无中心同步配置。</div>
@@ -789,7 +781,7 @@ export default function SyncCenterPage() {
                     <TableHead>站点</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>同步周期</TableHead>
-                    <TableHead>凭据键引用</TableHead>
+                    <TableHead>连接配置</TableHead>
                     <TableHead>最近连接</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -802,11 +794,11 @@ export default function SyncCenterPage() {
                       </TableCell>
                       <TableCell>
                         <Badge className={site.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}>
-                          {site.enabled ? site.status : "disabled"}
+                          {site.enabled ? "启用" : "停用"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">{site.intervalSeconds} 秒</TableCell>
-                      <TableCell className="font-mono text-xs">{site.credentialKeyRef ?? "未配置"}</TableCell>
+                      <TableCell className="text-xs">{site.credentialKeyRef ? "已配置" : "未配置"}</TableCell>
                       <TableCell className="text-xs">{formatDateTime(site.lastConnectedAt)}</TableCell>
                     </TableRow>
                   ))}

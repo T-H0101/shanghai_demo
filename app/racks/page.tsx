@@ -777,7 +777,6 @@ export default function Page() {
         }
       />
 
-      {/* ── 数据源提示 ────────────────────────────────────────── */}
       {isApiMode && racksDataSource === "error" && (
         <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -1274,7 +1273,7 @@ export default function Page() {
               <Input value={mountForm.mountPath ?? ""} onChange={e => setMountForm(f => ({ ...f, mountPath: e.target.value }))} placeholder="如：/netshare/172.168.6.15/" />
             </div>
             <div className="col-span-2 space-y-2">
-              <Label>数据源 *</Label>
+              <Label>共享路径 *</Label>
               <Input value={mountForm.dataSource ?? ""} onChange={e => setMountForm(f => ({ ...f, dataSource: e.target.value }))} placeholder="如：\\172.168.6.15\public" />
             </div>
             <div className="space-y-2">
@@ -1623,10 +1622,9 @@ export default function Page() {
                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
                   <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                     <Database className="h-4 w-4 text-blue-600" />
-                    当前数据口径
+                    当前概况
                   </div>
                   <div className="mt-4 space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    <p>来源: {isApiMode ? "平台同步结果" : "本地预览数据"}</p>
                     <p>设备数量: {filtered.length} 台</p>
                     <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
                     <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>

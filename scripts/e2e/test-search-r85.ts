@@ -15,13 +15,16 @@
  *
  * Run:
  *   pnpm e2e:search-r85            # blocked path (default)
- *   SEARCH_ES_URL=http://localhost:9200 SEARCH_ES_INDEX=disc_file_index \
+ *   SEARCH_ES_URL=http://localhost:9201 SEARCH_ES_INDEX=disc_file_index \
  *     pnpm e2e:search-r85          # both paths
  */
 
+import { config as loadDotenv } from "dotenv"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import { randomUUID } from "node:crypto"
+
+loadDotenv({ path: ".env.local", quiet: true })
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000"
 

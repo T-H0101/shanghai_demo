@@ -262,6 +262,7 @@ MIGRATION_FILES=(
   "databases/sprint-r83.8/01-task-slot-tables.sql"
   "databases/sprint-r83.9/01-final-8-tables.sql"
   "databases/sprint-r86/01-file-index-jobs.sql"
+  "databases/sprint-r93/01-legacy-identity-columns.sql"
 )
 
 log_step "执行当前版本 DDL patch..."

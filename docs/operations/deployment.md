@@ -54,10 +54,12 @@ PLATFORM_BASE_URL=https://center.example.com
 ## 3. 本地首次启动
 
 ```bash
-cp -n .env.example .env.local
 pnpm install
+pnpm env:init
+pnpm env:check
 pnpm db:up
 pnpm db:init
+pnpm smoke:sync
 pnpm dev
 ```
 
@@ -242,7 +244,7 @@ docker compose -f docker-compose.search.yml --env-file .env.local up -d
 
 ```bash
 set -a && source .env.local && set +a
-SEARCH_ES_URL=http://localhost:9200 \
+SEARCH_ES_URL=http://localhost:9201 \
 SEARCH_ES_INDEX=disc_file_index \
 pnpm tsx scripts/index/file-indexer.ts --limit 50 --site SH01
 ```

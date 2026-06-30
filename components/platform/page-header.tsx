@@ -51,20 +51,6 @@ export function PageHeader({
         {description && (
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">{description}</p>
         )}
-        {(source || requirement) && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500">
-            {source && (
-              <span data-testid="page-header-source">
-                状态来源: <span className="font-mono text-slate-500 dark:text-slate-400">{source}</span>
-              </span>
-            )}
-            {requirement && (
-              <span data-testid="page-header-requirement">
-                对应需求: <span className="font-mono text-slate-500 dark:text-slate-400">{requirement}</span>
-              </span>
-            )}
-          </div>
-        )}
       </div>
       <div className="flex items-center gap-2 flex-wrap" data-testid="page-header-actions">
         {extra && <div>{extra}</div>}

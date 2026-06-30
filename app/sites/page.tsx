@@ -355,8 +355,7 @@ export default function Page() {
         <Card className="xl:col-span-2 gap-0">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <CardTitle className="text-base font-semibold">
-                站点列表 <span className="text-xs text-slate-500 dark:text-slate-400 font-normal ml-2">(来源: sync_sites 注册表)</span>
+              <CardTitle className="text-base font-semibold">站点列表
               </CardTitle>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as SiteStatusFilter)}>
@@ -540,11 +539,11 @@ export default function Page() {
                 </div>
                 {consistencyReport.tables && Array.isArray(consistencyReport.tables) && consistencyReport.tables.length > 0 ? (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">表差异详情</p>
+                    <p className="text-sm font-medium">同步差异详情</p>
                     <div className="max-h-64 overflow-y-auto space-y-1">
                       {consistencyReport.tables.map((t: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between p-2 rounded border border-slate-100 text-xs">
-                          <span className="font-mono">{t.tableName || t.table_name}</span>
+                          <span>检查项 {idx + 1}</span>
                           <span className="text-slate-500">
                             站点 {t.sourceCount ?? t.source_count ?? "—"} / 总控 {t.unifiedCount ?? t.unified_count ?? "—"} / 差异 {t.countDiff ?? t.count_diff ?? "—"}
                           </span>
