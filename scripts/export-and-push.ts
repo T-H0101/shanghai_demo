@@ -14,14 +14,15 @@
 import { spawnSync } from 'child_process'
 import { resolve } from 'path'
 
-function parseArgs(): { siteCode: string; url: string; tables: string[] } {
+function parseArgs(): { siteCode: string; url: string; tables: string[]; all: boolean } {
   const args = process.argv.slice(2)
   const siteCode = args[0]
   if (!siteCode || siteCode.startsWith('--')) {
-    throw new Error('用法: pnpm export-and-push <siteCode> [--url ...] [--tables t1,t2]')
+    throw new Error('用法: pnpm export-and-push <siteCode> [--url ...] [--tables t1,t2] [--all]')
   }
   let url = process.env.SYNC_CONTROL_URL ?? 'http://localhost:3000'
   const tables: string[] = []
+  let all = false
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--url' && args[i + 1]) {
       url = args[i + 1]
@@ -29,9 +30,11 @@ function parseArgs(): { siteCode: string; url: string; tables: string[] } {
     } else if (args[i] === '--tables' && args[i + 1]) {
       tables.push(args[i + 1])
       i++
+    } else if (args[i] === '--all') {
+      all = true
     }
   }
-  return { siteCode, url, tables }
+  return { siteCode, url, tables, all }
 }
 
 function runTsx(script: string, args: string[]) {
@@ -45,15 +48,16 @@ function runTsx(script: string, args: string[]) {
 }
 
 async function main() {
-  const { siteCode, url, tables } = parseArgs()
+  const { siteCode, url, tables, all } = parseArgs()
   console.log('=========================================')
-  console.log(`  Sprint 2H.1 export-and-push ${siteCode}`)
+  console.log(`  Sprint 2H.1 export-and-push ${siteCode}${all ? ' (ALL 141 tables)' : ''}`)
   console.log('=========================================\n')
 
   // 1. export
   console.log(`[1/2] EXPORT ${siteCode} ...`)
   const exportArgs = [siteCode]
-  if (tables.length > 0) exportArgs.push('--tables', tables.join(','))
+  if (all) exportArgs.push('--all')
+  else if (tables.length > 0) exportArgs.push('--tables', tables.join(','))
   runTsx('scripts/export-package.ts', exportArgs)
   console.log('')
 

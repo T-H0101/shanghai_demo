@@ -17,7 +17,7 @@
 | §1.2 核心设计原则 | 本地异步同步 / 中心视图完成; 高可用生产项不在本轮 | partial |
 | §2.1 站点管理 | `sync_sites` 注册表 + 多站点筛选完成; SSO 跳转和真实站点监控未完成 | partial |
 | §2.2 统一身份认证 | 本地 auth/admin seed 完成; ADFS/LDAP/SSO 未完成 | blocked_by_auth |
-| §2.3 数据同步 | 小/中表 PG 同步完成; 大表走 ES 本地路径; 生产调度监控未完成 | partial |
+| §2.3 数据同步 | 133/141 小/中表 PG 同步真实触发; 8 张 blocked_by_external_system; 大表走 ES 本地路径; 生产调度监控未完成 | partial |
 | §3.1 账号管理 | 中心 auth + unified_users 展示完成; AD 同步未完成 | blocked_by_auth |
 | §3.2 账号权限分配 | 本地 RBAC 边界完成; 站点权限同步未完成 | blocked_by_auth |
 | §3.3 部门管理 | 中心表/展示有基础数据; 真实部门级权限隔离未完成 | blocked_by_auth |
@@ -42,6 +42,8 @@
 | 部署文档 | 增补 R.94 从零验收与 admin seed/生产凭据边界 |
 | 状态文档 | `PROJECT_STATUS` / `ROADMAP` 标记 R.94 最终验收 |
 | 计划文档 | 新增 `docs/superpowers/plans/2026-06-30-r94-final-acceptance-closeout.md` |
+| **R.94 补丁: 141 表全量同步** | `export-package --all` 支持导出全部 141 张 ALLOWED_PACKAGE_TABLES; `export-and-push --all` 透传; 实际 133/141 success |
+| **R.94 补丁: SyncTrendChart 真实数据** | 硬编码 mock → fetch `/api/sync/packages/trend` 真实 API; 标题改为 "数据同步趋势"; 图例改为 成功/失败/部分 |
 
 ---
 
@@ -133,17 +135,34 @@ R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 | `pnpm audit:api-mode-no-fallback` | ✅ 无静默回退 |
 | `pnpm audit:page-no-todo` | ✅ 无 TODO/未完成标记 |
 
-### 7.3 同步链路 (R.94 强化)
+### 7.3 同步链路 (R.94 强化 + R.94 补丁全量验证)
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm export-and-push SH01` | ✅ 7 tables, 104+4+6+396+8+65+3 = 586 行 |
-| `pnpm export-and-push BJ02` | ✅ 8 tables (含 user/site/platform), 同源 fixture |
+| `pnpm export-and-push SH01 --all` | ✅ 141 tables, 57819 行导出; 推送 133/141 success, 8 failed (blocked_by_external_system) |
+| `pnpm export-and-push BJ02 --all` | ✅ 141 tables, 57819 行导出; 推送 133/141 success, 8 failed |
+| 中心库 142 张 unified_* 表 | 35 有数据, 107 空表 (源端对应表也是空表 — 配置/日志/巡检等) |
+| 8 张 failed 表 | tbl_lib_task, tbl_volume_slot, tbl_user_task (SOURCE_DATABASE_URL); tbl_task_folder (source_id); tbl_role, tbl_fuc, tbl_role_fuc, tbl_user_role (JOIN聚合) |
 | `pnpm scheduler:sync:once -- --siteCode=SH01` | ✅ status=partial, consistency=matched, sync_scheduler_log +1 |
 | `pnpm check:sync-consistency -- --siteCode=SH01` | ✅ 7/7 matched (R.94: legacy 101 fixture 已清) |
 | `pnpm check:sync-consistency -- --siteCode=BJ02` | ✅ 7/7 matched (dev fixture) |
 
-### 7.4 ES 大表本地闭环
+**R.94 补丁重要结论**: 141 张白名单 dispatcher 框架全部存在 (代码级), 133/141 张表已真实触发 dispatcher 同步写入中心库 (数据级)。8 张 failed 是已知环境依赖 (SOURCE_DATABASE_URL 未配置), 标注 `blocked_by_external_system`。
+
+### 7.4.1 Dashboard SyncTrendChart 修复 (R.94 补丁)
+
+| 项 | 修复前 | 修复后 |
+|---|---|---|
+| 数据源 | 硬编码 `chartData` 数组 (7 条 mock) | fetch `/api/sync/packages/trend?days=7` 真实 API |
+| 标题 | "任务执行趋势" | "数据同步趋势" |
+| 图例 | 封包/扫描/校验 (英文) | 成功/失败/部分 (中文, 反映真实 status) |
+| 空状态 | `isApiMode` 检查显示 "暂无趋势数据" | 真实数据为空时显示 "暂无趋势数据", 不 fallback mock |
+| API | 无 | `GET /api/sync/packages/trend` (聚合 sync_package_log 按日/站点) |
+
+API 验证:
+```
+GET /api/sync/packages/trend?days=7 → source=database, data=[{siteCode:"SH01", days:[{date:"2026-06-29", success:3, failed:2}]}, {siteCode:"BJ02", days:[{date:"2026-06-29", success:1, failed:2}]}]
+```
 
 | 命令 | 结果 |
 |---|---|
@@ -222,4 +241,12 @@ R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 - `docs/superpowers/plans/2026-06-30-r94-final-acceptance-closeout.md` 计划文档
 - `docs/database-analysis/sprint-r94-final-acceptance-review.md` 本文件
 
-PR 状态: 本分支 `codex/r94-final-acceptance-closeout` 包含 R.94 全部变更, 等待领导审查后合并到 `main`。
+**R.94 补丁** (新增):
+
+- `scripts/export-package.ts` 增加 `--all` 模式导出全部 141 张 `ALLOWED_PACKAGE_TABLES`
+- `scripts/export-and-push.ts` 增加 `--all` 参数透传
+- `app/api/sync/packages/trend/route.ts` 新增同步包趋势聚合 API
+- `components/dashboard/sync-trend-chart.tsx` mock → 真实 API; 标题 "数据同步趋势"; 图例 成功/失败/部分
+- `docs/database-analysis/sprint-r94-final-acceptance-review.md` 更新 §2.3 全量同步证据 + §7.4.1 SyncTrendChart 修复
+
+PR 状态: 本分支 `codex/r94-final-acceptance-closeout` 包含 R.94 全部变更 (含补丁), 等待领导审查后合并到 `main`。

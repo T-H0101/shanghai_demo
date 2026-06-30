@@ -50,6 +50,9 @@ const CORE_ACCEPTANCE_TABLES = [
   'tbl_platform',
 ] as const
 
+// R.94 补丁: 全量 141 张白名单表 (用于 --all 模式全量同步验证)
+const ALL_ALLOWED_TABLES = [...ALLOWED_PACKAGE_TABLES] as string[]
+
 const FORBIDDEN = ['tbl_file', 'tbl_folder']
 
 const SOURCE_URL = process.env.SOURCE_DATABASE_URL?.trim() ?? ''
@@ -268,12 +271,13 @@ function parseArgs(): { siteCode: string; outRoot: string; tables: string[]; mod
   const args = process.argv.slice(2)
   const siteCode = args[0]
   if (!siteCode || siteCode.startsWith('--')) {
-    throw new Error('用法: pnpm export:package <siteCode> [--out <dir>] [--tables t1,t2] [--mode full|incremental]')
+    throw new Error('用法: pnpm export:package <siteCode> [--out <dir>] [--tables t1,t2] [--mode full|incremental] [--all]')
   }
   let outRoot = resolve(process.cwd(), 'exports')
   let tables: string[] = [...CORE_ACCEPTANCE_TABLES]
   let mode = 'full'
   let explicitTables = false
+  const allMode = args.includes('--all')
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--out' && args[i + 1]) {
       outRoot = resolve(process.cwd(), args[i + 1])
@@ -285,7 +289,13 @@ function parseArgs(): { siteCode: string; outRoot: string; tables: string[]; mod
     } else if (args[i] === '--mode' && args[i + 1]) {
       mode = args[i + 1]
       i++
+    } else if (args[i] === '--all') {
+      // already captured above
     }
+  }
+  if (allMode) {
+    tables = [...ALL_ALLOWED_TABLES]
+    explicitTables = false
   }
   return { siteCode, outRoot, tables, mode, explicitTables }
 }
