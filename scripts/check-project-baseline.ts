@@ -90,10 +90,14 @@ async function checkSourceRestore() {
     )
     const cnt = parseInt(r.rows[0]?.cnt ?? '0', 10)
     await c.end()
+    // R.92.1: 真实源端是 site_restore_full (170 张), 不再是 13 张 source_restore
+    // (历史 13 张是 R.4.8.2 era 的 dev fixture, R.85+ 后统一用完整 170 张库)
+    const ok = cnt >= 13
+    const expected = cnt === 170 ? 'site_restore_full (170)' : `>=13 (实际 ${cnt})`
     check(
-      'source_restore 表数',
-      cnt >= 13 && cnt <= 15,
-      `实际=${cnt} (期望 13-15)`
+      '源端 schema 表数',
+      ok,
+      `实际=${cnt} (期望 ${expected})`
     )
   } catch (err) {
     check('source_restore 表数', false, `连接失败: ${err instanceof Error ? err.message : err}`)

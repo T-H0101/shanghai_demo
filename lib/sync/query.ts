@@ -76,23 +76,24 @@ export async function queryLogs(
   let paramIndex = 1
 
   if (filters.site) {
-    conditions.push(`source_site_id = $${paramIndex++}`)
+    conditions.push(`site_code = $${paramIndex++}`)
     params.push(filters.site)
   }
   if (filters.table) {
-    conditions.push(`source_table = $${paramIndex++}`)
+    conditions.push(`table_name = $${paramIndex++}`)
     params.push(filters.table)
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
+  // R.92.1: 改用 sync_table_log (R.83.9 dispatcher 实际写入, 不是 sync_job_log)
   const sql = `
-    SELECT source_site_id, source_table, job_id, status,
-           rows_read, rows_upserted, rows_skipped,
+    SELECT site_code, table_name, status,
+           processed_record_count, skipped_count, failed_count,
            error_message, started_at, finished_at
-    FROM sync_job_log
+    FROM sync_table_log
     ${whereClause}
-    ORDER BY started_at DESC
+    ORDER BY started_at DESC NULLS LAST
     LIMIT $${paramIndex}
   `
 

@@ -37,12 +37,18 @@ async function main() {
   )
 
   // 2. /volumes 旧路由 redirect → /racks?view=volumes
+  // R.92.1: Next.js dev mode 下 redirect() 用 streaming + meta refresh 而非 3xx
+  // 接受任一: 3xx location 头, 或 200 + meta refresh 指向目标
   const redirectRes = await fetch(`${BASE}/volumes`, { redirect: "manual" })
+  const redirectText = redirectRes.status === 200 ? await redirectRes.text() : ""
+  const has3xx = redirectRes.status >= 300 && redirectRes.status < 400 &&
+    (redirectRes.headers.get("location") ?? "").includes("/racks?view=volumes")
+  const hasMetaRefresh = redirectText.includes('http-equiv="refresh"') && redirectText.includes("/racks?view=volumes")
+  const hasNextRedirect = redirectText.includes("NEXT_REDIRECT") && redirectText.includes("/racks?view=volumes")
   check(
     "[2] /volumes 重定向到 /racks?view=volumes",
-    redirectRes.status >= 300 && redirectRes.status < 400 &&
-      (redirectRes.headers.get("location") ?? "").includes("/racks?view=volumes"),
-    `HTTP ${redirectRes.status} location=${redirectRes.headers.get("location") ?? "—"}`
+    has3xx || hasMetaRefresh || hasNextRedirect,
+    `HTTP ${redirectRes.status} 3xx=${has3xx} metaRefresh=${hasMetaRefresh} nextRedirect=${hasNextRedirect}`
   )
 
   // 3. /api/volumes 真实读取
@@ -86,10 +92,11 @@ async function main() {
     `items=${siteJson.data?.length ?? 0}`
   )
 
-  // 7. /api/volumes/[id] 详情
+  // 7. /api/volumes/[id] 详情 (R.92.1: DTO 用 volume_id, 不是 id)
   const firstVol = volJson.data?.[0]
-  if (firstVol?.id) {
-    const detailRes = await fetch(`${BASE}/api/volumes/${encodeURIComponent(firstVol.id)}`)
+  const firstVolId = firstVol?.volume_id ?? firstVol?.id
+  if (firstVolId) {
+    const detailRes = await fetch(`${BASE}/api/volumes/${encodeURIComponent(firstVolId)}`)
     const detail = await detailRes.json()
     check(
       "[8] /api/volumes/[id] 真实化 (code=0)",
@@ -120,7 +127,7 @@ async function main() {
       `status=${badRes.status} code=${badJson.code}`
     )
   } else {
-    check("[8-12] /api/volumes/[id] 跳过 (无 firstVol.id)", false, "无卷可测")
+    check("[8-12] /api/volumes/[id] 跳过 (无 firstVolId)", false, "无卷可测")
   }
 
   // 8. volumes-view 组件静态扫描 (无假成功 toast)

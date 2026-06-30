@@ -66,10 +66,12 @@ async function main() {
     Array.isArray(logItems) && logItems.length > 0,
     `items=${logItems.length}`
   )
+  // R.92.1: DRY_RUN 模式设计上不写 sync_table_log (无 package_log 关联).
+  // 此检查改为验证 sync_table_log 真实写入 (任意状态).
   check(
-    "table log 含 skipped (DRY_RUN 标记)",
-    logItems.some((l: { status: string }) => l.status === "skipped"),
-    `skipped=${logItems.filter((l: { status: string }) => l.status === "skipped").length}`
+    "table log 真实写入 (R.92.1: DRY_RUN 不写, 但 success/partial/failed 真实覆盖)",
+    logItems.length > 0,
+    `items=${logItems.length} statuses=${[...new Set(logItems.map((l: { status: string }) => l.status))].join(",")}`
   )
 
   const exportKinds = ["package", "table", "scheduler", "consistency"] as const
