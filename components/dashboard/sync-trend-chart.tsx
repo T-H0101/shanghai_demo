@@ -148,9 +148,9 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-0 h-[calc(100%-2.5rem)]">
-        <div className="h-full">
-          <ResponsiveContainer width="100%" height="100%">
+      <CardContent className="pt-0">
+        <div style={{ width: '100%', height: 220 }}>
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart
               data={paddedData}
               margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
