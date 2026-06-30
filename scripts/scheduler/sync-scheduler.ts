@@ -18,6 +18,10 @@
 
 import { execSync } from 'child_process'
 import { randomUUID } from 'crypto'
+import { loadEnv } from '../lib/load-env'
+
+loadEnv()
+
 import { query } from '@/lib/db/postgres'
 import { parseSchedulerArgs } from '@/lib/sync/scheduler-args'
 

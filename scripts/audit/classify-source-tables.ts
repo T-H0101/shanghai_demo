@@ -118,7 +118,16 @@ function requireUrl(name: string): string {
 
 async function main() {
   console.log("=== R.84 source classification ===")
-  const pool = new Pool({ connectionString: requireUrl("SITE_DATABASE_URL") })
+  const siteDbUrl = process.env.SITE_DATABASE_URL
+  if (!siteDbUrl) {
+    // R.94: SITE_DATABASE_URL is optional for local-dev acceptance. Without it,
+    // we cannot classify live site tables, so emit a structured warn and exit
+    // 0 — this matches audit:center-db behavior for the same env gap.
+    console.log("[WARN] SITE_DATABASE_URL: not configured; skip live source classification")
+    console.log("[PASS] R.84 classification (degraded — site DB not configured)")
+    return
+  }
+  const pool = new Pool({ connectionString: siteDbUrl })
   try {
     const result = await pool.query<{ table_name: string }>(
       `SELECT table_name

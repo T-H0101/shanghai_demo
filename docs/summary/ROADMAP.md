@@ -1,9 +1,21 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-18
+> 截至: 2026-06-30
 
 快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
+## R.94 最终开发交付验收 (2026-06-30)
+
+- [x] PR #7 合并到 `main`, R.93 作为当前开发基线。
+- [ ] 从零本地部署闭环: env/init/db/smoke/login/sync/racks/volumes。
+- [ ] requirements 六大模块逐项状态验收, 不用模糊完成度。
+- [ ] 页面用户可见文案复查, API 可展示字段纳入 `audit:product-copy`。
+- [ ] 清理 obsolete script 入口, 保留 requirements 证据材料。
+- [ ] 产出 `docs/database-analysis/sprint-r94-final-acceptance-review.md`。
+- [ ] 完整 gate 通过后标记“可交付领导部署测试”。
+
+R.94 不接管生产 HA/k8s、生产 cron/监控/死信重放、企业 ADFS/LDAP/SSO 和真实站点任务执行回写；这些仍由 R.87 / 后续站点改造处理。
 
 ## R.24 日志 XLSX 导出与签名边界 (2026-06-19)
 

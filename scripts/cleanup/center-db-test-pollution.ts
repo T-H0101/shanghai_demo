@@ -15,6 +15,9 @@
 import { Pool } from "pg"
 import { mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
+import { loadEnv } from "../lib/load-env"
+
+loadEnv()
 
 const DRY_RUN = process.argv.includes("--dry-run")
 const APPLY = process.argv.includes("--apply")
@@ -77,6 +80,30 @@ async function main() {
 
   let totalAffected = 0
   const summary: Array<{ table: string; matched: number; action: string; archiveFile: string | null }> = []
+
+  // R.94: legacy smoke fixture cleanup — hard_disks source_record_id='101' came from
+  // a pre-R.83.1 smoke sync fixture that no longer exists in source. It is test pollution
+  // because source_restore.tbl_hd_info has 0 rows with slot_id=101.
+  if (!EXACT_SITE_CODE) {
+    const legacyResult = await pool.query<{ source_record_id: string }>(
+      `SELECT source_record_id FROM unified_hard_disks WHERE source_record_id = '101'`
+    )
+    const legacyCount = legacyResult.rowCount ?? 0
+    if (legacyCount > 0) {
+      mkdirSync(archiveDir, { recursive: true })
+      const archivePath = join(archiveDir, `unified_hard_disks-legacy-fixture.jsonl`)
+      writeFileSync(archivePath, legacyResult.rows.map((r) => JSON.stringify(r)).join("\n") + "\n")
+      if (APPLY) {
+        await pool.query(`DELETE FROM unified_hard_disks WHERE source_record_id = '101'`)
+        summary.push({ table: "unified_hard_disks", matched: legacyCount, action: "deleted (legacy fixture)", archiveFile: archivePath })
+        console.log(`[${mode}] unified_hard_disks: deleted ${legacyCount} legacy fixture rows (slot_id=101) -> ${archivePath}`)
+      } else {
+        summary.push({ table: "unified_hard_disks", matched: legacyCount, action: "would-delete (legacy fixture)", archiveFile: archivePath })
+        console.log(`[${mode}] unified_hard_disks: would delete ${legacyCount} legacy fixture rows (slot_id=101)`)
+      }
+      totalAffected += legacyCount
+    }
+  }
 
   const targets = await discoverTargets(pool)
 

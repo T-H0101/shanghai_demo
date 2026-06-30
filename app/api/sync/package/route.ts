@@ -38,8 +38,8 @@ import { dispatchTable, type DispatchResult } from '@/lib/sync/package-dispatche
 import {
   extractAuthHeaders,
   verifySyncPackageRequest,
-  AUTH_ERROR_CODES,
 } from '@/lib/sync/package-auth'
+import { query } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,6 +83,24 @@ function authErrorResponse(message: string, errorCode: string, warning?: string)
   return NextResponse.json<AuthErrorResponse>(
     { code: 401, message, errorCode, warning },
     { status: 401 }
+  )
+}
+
+async function ensureSyncSite(siteCode: string): Promise<void> {
+  const siteName = `${siteCode} 站点`
+  const credentialRef = `SITE_${siteCode}_DATABASE_URL`
+  await query(
+    `INSERT INTO sync_sites (
+       site_code, site_name, source_type, db_host, db_port, db_name, db_user,
+       credential_ref, enabled, sync_interval_seconds, last_connected_at, status
+     )
+     VALUES ($1, $2, 'site-agent', 'site-agent', 0, 'site_database', 'site_agent',
+             $3, TRUE, 3600, NOW(), 'active')
+     ON CONFLICT (site_code) DO UPDATE SET
+       last_connected_at = NOW(),
+       status = 'active',
+       updated_at = NOW()`,
+    [siteCode, siteName, credentialRef]
   )
 }
 
@@ -161,6 +179,8 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
+
+  await ensureSyncSite(p.siteCode)
 
   // 4. 幂等检查
   const existing = await findPackageByBatch(p.siteCode, p.batchId)

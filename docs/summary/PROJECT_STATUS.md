@@ -1,5 +1,25 @@
 # Project Status
 
+> **截至**: 2026-06-30
+> **当前分支**: `codex/r94-final-acceptance-closeout`
+> **当前主线**: R.94 最终开发交付验收
+
+## Sprint R.94 — Final Acceptance Closeout (进行中)
+
+**目标**: 在 PR #7 已合并的 `main` 基础上, 完成最后一轮开发交付验收: 从零部署复验、requirements 逐项状态核查、前端产品化文案复查、mock/obsolete 入口清理、admin seed 可用性、README/部署文档收口。
+
+**当前边界**:
+- 本地 requirements 开发闭环作为交付候选验收。
+- 不声称生产 HA/k8s、真实站点长期运行、企业 SSO/RBAC、真实任务控制执行回写完成。
+- 所有完成结论必须以 `docs/database-analysis/sprint-r94-final-acceptance-review.md` 的当前命令证据为准。
+
+**R.93 已合并基线**:
+- PR #7 已合并到 `main`。
+- 已打通小/中表 dispatcher、racks/volumes 真实数据、ES 9201 本地路径、env:init 主路径、核心 e2e。
+- R.94 只做最终验收和收尾, 不新增 requirements 外功能。
+
+---
+
 > **截至**: 2026-06-24
 > **Sprint**: Sprint R.83.2 RBAC + 字典 + 日志 15 张业务表接入
 > **当前主线**: 中心库统一表 28 → 43 张(15 张 RBAC/字典/日志/凭据),5 个 CRUD API,3 个 /users Tabs,audit matrix round 字段升级

@@ -8,7 +8,8 @@
  *   此处仅做演示, __demo__, unified_*, 源记录 ID, 源表, 暂无真实, 演示模式
  *
  * Scans .tsx and .ts files in app/ and components/ directories,
- * excluding app/api/ and app/api_v2/.
+ * excluding app/api/ and app/api_v2/. Also scans selected API routes whose
+ * response strings are rendered by pages.
  *
  * Uses a match-context heuristic to distinguish code-only finds (object keys,
  * internal prop values, comparisons, default values — WARN) from user-visible
@@ -27,11 +28,21 @@ const SCAN_DIRS = [
   join(process.cwd(), "components"),
 ]
 const EXCLUDE_DIRS = new Set(["api", "api_v2"])
+const API_VISIBLE_FILES = [
+  join(process.cwd(), "app/api/sync/config/route.ts"),
+]
 
 const FORBIDDEN_PATTERNS: [RegExp, string][] = [
   [/此处仅做演示/g, "dev wording: 此处仅做演示"],
   [/\b__demo__\b/g, "mock demo value"],
   [/暂未接入真实源端/g, "dev wording: 暂未接入真实源端"],
+  [/不代表源端/g, "review wording: 不代表源端"],
+  [/页面只宣称/g, "review wording: 页面只宣称"],
+  [/状态来源/g, "dev terminology: 状态来源"],
+  [/对应需求/g, "dev terminology: 对应需求"],
+  [/凭据键引用/g, "dev terminology: 凭据键引用"],
+  [/\btbl_site\b/g, "dev terminology: tbl_site"],
+  [/sync_sites 是中心配置/g, "review wording: sync_sites 是中心配置"],
   [/数据来源:/g, "dev terminology: 数据来源:"],
   [/Site Agent/g, "dev terminology: Site Agent → 站点代理"],
   [/\bdispatcher\b/g, "dev terminology: dispatcher"],
@@ -207,6 +218,15 @@ function main(): number {
       }
     } catch {
       // Directory doesn't exist, skip
+    }
+  }
+
+  for (const file of API_VISIBLE_FILES) {
+    try {
+      statSync(file)
+      findings.push(...findInFile(file))
+    } catch {
+      console.log(`skip api-visible (not found): ${file.replace(process.cwd() + "/", "")}`)
     }
   }
 
