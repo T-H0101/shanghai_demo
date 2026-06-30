@@ -107,6 +107,22 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
     )
   }
 
+  // Recharts 在只有 1 个 category 时柱状条几乎不可见。
+  // 补齐最近 7 天的空天数, 保证图表布局正常。
+  const paddedData = (() => {
+    if (data.length >= 7) return data
+    const result: TrendDay[] = []
+    const dataByDate = new Map(data.map(d => [d.date, d]))
+    const lastDate = data.length > 0 ? data[data.length - 1].date : new Date().toISOString().slice(0, 10)
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(lastDate)
+      d.setDate(d.getDate() - i)
+      const ds = d.toISOString().slice(0, 10)
+      result.push(dataByDate.get(ds) ?? { date: ds, success: 0, failed: 0, partial: 0, skipped: 0 })
+    }
+    return result
+  })()
+
   return (
     <Card className={`gap-0 ${className || ''}`}>
       <CardHeader className="pb-2">
@@ -136,7 +152,7 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
         <div className="h-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={data}
+              data={paddedData}
               margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
               barCategoryGap="25%"
               barGap={2}
