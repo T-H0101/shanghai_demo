@@ -6,7 +6,7 @@
 **verdict**: 开发版可交付候选
 **日期**: 2026-06-30
 **branch**: `codex/r84-development-architecture-cleanup-plans`
-**commits**: `a9c13a2..e4a175a, bc426fe, <R.93.1>` (3 commits)
+**commits**: `a9c13a2..e4a175a, bc426fe, 3ad6d0c` (3 commits)
 
 ---
 
@@ -38,7 +38,7 @@
 
 | Commit | 内容 |
 |---|---|
-| `<R.93.1>` | fix(r93.1): close merge readiness gaps — sync config note, deployment doc, README pointer, e2e:sync note audit |
+| `<R.93.1>` | fix(r93.1): close merge readiness gaps — sync config note, deployment doc, README pointer, e2e:sync note audit (commit: 3ad6d0c) |
 
 R.93.1 真实修改文件:
 
@@ -223,7 +223,7 @@ SELECT count(*) AS total, count(slot_id) AS with_slot_id, count(device_id) AS wi
 ```
 e4a175a feat(r93): dispatcher identity columns, API compat, product copy, ES port, env:init
 bc426fe docs(r93): final requirements review
-<R.93.1> fix(r93.1): close merge readiness gaps
+3ad6d0c fix(r93.1): close merge readiness gaps
 ```
 
-PR #7 状态: `3d3f5bc..<R.93.1>` 已推送, 准备合并到 main。
+PR #7 状态: `3d3f5bc..3ad6d0c` 已推送, 准备合并到 main。
