@@ -5,6 +5,7 @@
 ## 当前结论
 
 - 最高验收标准: [docs/source/requirements.md](docs/source/requirements.md)。
+- R.93 已合并到 `main`，当前 R.94 是最终开发交付验收分支。
 - 中心库: PostgreSQL 17，所有总控页面/API 默认读写中心库，不直接读生产站点库。
 - 小/中表: 通过 `sync_package` + dispatcher 同步到 `unified_*`。
 - 大表: `tbl_file*` / `tbl_folder*` 不进 PG 全量，规划走 OpenSearch/ES 文件索引，详见 [大表与 ES 规划](docs/architecture/es-large-table-roadmap.md)。
@@ -25,11 +26,17 @@ pnpm db:up
 # 4. 初始化中心库
 pnpm db:init
 
-# 5. 启动开发服务器
+# 5. 启动总控服务
 pnpm dev
+
+# 6. 新开一个终端, 同步站点数据到中心库
+pnpm export-and-push SH01
+pnpm export-and-push BJ02
+pnpm scheduler:sync:once -- --siteCode=SH01
 ```
 
 打开 <http://localhost:3000>，本地默认账号为 `admin / admin`。
+生产或测试服务器必须更换默认账号策略和所有密钥，不允许沿用本地默认口令。
 
 要求:
 
@@ -42,11 +49,12 @@ pnpm dev
 ## 本地验证
 
 ```bash
-set -a && source .env.local && set +a
 pnpm env:check                 # R.93: 验证 DB 三元组一致 + 密钥非占位符
+set -a && source .env.local && set +a
 pnpm exec tsc --noEmit
 pnpm build
 pnpm smoke:sync
+pnpm cleanup:test-pollution
 pnpm baseline:check
 pnpm audit:center-db -- --strict --matrix
 pnpm audit:page-scope
@@ -146,7 +154,7 @@ docker build -t unified-disc-platform:latest .
 |---|---|
 | `/control` | → `/tasks?view=commands` (已合并别名) |
 
-### 开发阶段可验收页面 (pnpm db:init + pnpm smoke:sync 后)
+### 开发阶段可验收页面 (pnpm db:init + export-and-push 后)
 
 | 页面 | 真实数据? |
 |---|---|
@@ -168,10 +176,18 @@ pnpm db:up
 # 2. 初始化数据库 (schema + seed)
 pnpm db:init
 
-# 3. 运行同步管道 (向中心库写入真实数据)
+# 3. 运行同步通道自检 (会自清理 TEST_SMOKE, 不作为业务页面 seed)
 pnpm smoke:sync
 
-# 4. 访问以下页面验证数据出现:
+# 4. 启动总控服务
+pnpm dev
+
+# 5. 新开一个终端, 同步站点数据到中心库
+pnpm export-and-push SH01
+pnpm export-and-push BJ02
+pnpm scheduler:sync:once -- --siteCode=SH01
+
+# 6. 访问以下页面验证数据出现:
 #    http://localhost:3000/sites       → 1+ 站点
 #    http://localhost:3000/tasks       → 任务列表
 #    http://localhost:3000/racks       → 设备列表
@@ -184,6 +200,7 @@ pnpm smoke:sync
 
 ## 后续开发入口
 
+- [R.94 final acceptance review](docs/database-analysis/sprint-r94-final-acceptance-review.md) — 最终开发交付验收
 - [R.93 requirements review](docs/database-analysis/sprint-r93-final-delivery-requirements-review.md) — 当前开发版可交付候选
 - [R.92.1 requirements review](docs/database-analysis/sprint-r92.1-requirements-review.md) — 前置收尾
 - [R.91.1 requirements review](docs/database-analysis/sprint-r91.1-requirements-review.md)
@@ -194,7 +211,8 @@ pnpm smoke:sync
 
 下一步:
 
-- **R.93 已完成**: 本地开发版交付闭环 (R.83.9 dispatcher 业务主键映射, ES 端口 9201, 前端产品化文案, 部署文档 env:init 主路径)
+- **R.94**: 最终开发交付验收 (从零部署、requirements 逐项验收、页面文案复查、mock/obsolete 清理)
+- **R.93 已合并基线**: 本地开发版交付闭环 (R.83.9 dispatcher 业务主键映射, ES 端口 9201, 前端产品化文案, 部署文档 env:init 主路径)
 - **R.87**: 生产 cron / 监控 / 死信重放 (R.86 之后)
 - **R.91.2+**: racks 浏览/恢复 Tab 控制命令 UX 增强
 

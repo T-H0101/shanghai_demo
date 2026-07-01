@@ -33,6 +33,9 @@
 
 import { Client } from "pg"
 import { writeFile } from "node:fs/promises"
+import { loadEnv } from "./lib/load-env"
+
+loadEnv()
 
 const SOURCE_DB_URL = process.env.SOURCE_DATABASE_URL ?? ""
 const CENTRAL_DB_URL = process.env.DATABASE_URL ?? ""
