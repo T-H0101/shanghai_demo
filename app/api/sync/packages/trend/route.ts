@@ -17,6 +17,8 @@ import { query } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
+const SITE_CODE_PATTERN = /^[A-Za-z0-9_-]+$/
+
 interface TrendDay {
   date: string
   success: number
@@ -48,8 +50,17 @@ export async function GET(request: NextRequest) {
   const days = Math.min(30, Math.max(1, parseInt(sp.get('days') ?? '7', 10) || 7))
   const siteCode = sp.get('siteCode') ?? undefined
 
+  if (siteCode && !SITE_CODE_PATTERN.test(siteCode)) {
+    return NextResponse.json(
+      { code: 400, message: 'invalid siteCode', source: 'empty', data: [] },
+      { status: 400 }
+    )
+  }
+
   try {
-    const siteFilter = siteCode ? `AND site_code = '${siteCode}'` : ''
+    const params: Array<string | number> = [days]
+    if (siteCode) params.push(siteCode)
+    const siteFilter = siteCode ? `AND site_code = $2` : ''
     const rows = await query<{
       site_code: string
       day: unknown
@@ -61,10 +72,11 @@ export async function GET(request: NextRequest) {
               status,
               count(*)::text AS count
        FROM sync_package_log
-       WHERE finished_at >= NOW() - interval '${days} days'
+       WHERE finished_at >= NOW() - ($1::int * interval '1 day')
          ${siteFilter}
        GROUP BY site_code, DATE(finished_at), status
-       ORDER BY site_code, day`
+       ORDER BY site_code, day`,
+      params
     )
 
     // Aggregate into site → day → status structure

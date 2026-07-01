@@ -184,6 +184,7 @@ export type AllowedPackageTable = (typeof ALLOWED_PACKAGE_TABLES)[number]
  * 防止站点误推导致全表扫描大表
  */
 export const FORBIDDEN_PACKAGE_TABLES = ['tbl_file', 'tbl_folder'] as const
+const SITE_CODE_PATTERN = /^[A-Za-z0-9_-]+$/
 
 /**
  * 单张表的 payload
@@ -243,6 +244,8 @@ export function validatePackagePayload(
 
   if (!p.siteCode || typeof p.siteCode !== 'string') {
     errors.push({ field: 'siteCode', message: 'required string' })
+  } else if (!SITE_CODE_PATTERN.test(p.siteCode)) {
+    errors.push({ field: 'siteCode', message: 'must contain only letters, numbers, underscore or hyphen' })
   }
   if (!p.batchId || typeof p.batchId !== 'string') {
     errors.push({ field: 'batchId', message: 'required string' })

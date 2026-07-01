@@ -122,6 +122,7 @@ R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 - SH01 / BJ02 / SH02 均通过 `export-and-push` 从 restore 库导出并推入中心库
 - `sync_sites` 自动注册 BJ02 / SH01 / SH02, 不保存明文密码
 - `TEST_SMOKE` 自动注册残留已修复: `cleanup:test-pollution -- --apply` 删除 `sync_sites.TEST_SMOKE`, `audit:center-db` 新增 fail gate
+- PR #8 合并前审查补充: `/api/sync/packages/trend` 改为参数化查询并校验 `siteCode`; package payload 的 `siteCode` 同步增加格式校验。
 
 ### 7.1 基础 gate
 
@@ -146,6 +147,7 @@ R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 | `pnpm audit:product-copy` | ✅ 0 失败 (纳入 `/api/sync/config` 字段) |
 | `pnpm audit:api-mode-no-fallback` | ✅ 无静默回退 |
 | `pnpm audit:page-no-todo` | ✅ 无 TODO/未完成标记 |
+| `curl /api/sync/packages/trend?siteCode=' OR 1=1--` | ✅ HTTP 400, invalid siteCode |
 
 ### 7.3 同步链路 (R.94 强化 + R.94 补丁全量验证)
 
