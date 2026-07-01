@@ -60,13 +60,19 @@ pnpm env:check
 pnpm db:up
 pnpm db:init
 pnpm smoke:sync
-pnpm export-and-push SH01
-pnpm export-and-push BJ02
 pnpm dev
 ```
 
+新开一个终端, 同步站点数据到中心库:
+
+```bash
+pnpm export-and-push SH01
+pnpm export-and-push BJ02
+pnpm scheduler:sync:once -- --siteCode=SH01
+```
+
 本地默认账号为 `admin / admin`。该账号只用于开发验收；测试服务器和生产环境必须通过运维流程更换默认口令、密钥和账号策略。
-`pnpm smoke:sync` 只验证同步通道并自清理 `TEST_SMOKE`; 页面业务数据由 `export-and-push` 写入中心库。
+`pnpm smoke:sync` 只验证同步通道并自清理 `TEST_SMOKE`; 页面业务数据由 `export-and-push` 写入中心库。`pnpm export-and-push` 需要总控 HTTP 服务已启动。
 
 验证:
 
@@ -90,12 +96,13 @@ pnpm db:init
 # 2. 运行同步通道自检 (不保留业务页面数据)
 pnpm smoke:sync
 
-# 3. 同步本地示例站点数据到中心库
+# 3. 启动开发服务器
+pnpm dev
+
+# 4. 新开一个终端, 同步站点数据到中心库
 pnpm export-and-push SH01
 pnpm export-and-push BJ02
-
-# 4. 启动开发服务器
-pnpm dev
+pnpm scheduler:sync:once -- --siteCode=SH01
 ```
 
 验证清单:
@@ -194,12 +201,24 @@ pnpm import:file-index-job-bootstrap -- --sites SH01
 4. 跑一次真实验证:
 
 ```bash
+pnpm dev
+pnpm export-and-push <site>
 pnpm scheduler:sync:once -- --siteCode=<site>
 pnpm check:sync-consistency -- --siteCode=<site>
 pnpm e2e:sites
 ```
 
 > 中心不保存站点 DB 密码。每站点 Agent 自持 `SITE_DATABASE_URL`，凭据由运维通过 secret manager / EnvironmentFile 下发。
+
+本地拿到一个 restore 站点库时, 可先把它当成新站点库验证:
+
+```bash
+# 示例: restore 库暴露在 localhost:5434/star_storage_db
+SITE_DATABASE_URL=postgresql://starxdb@localhost:5434/star_storage_db pnpm export-and-push SH02
+pnpm check:sync-consistency -- --siteCode=SH02
+```
+
+生产接入时不要把 `SITE_DATABASE_URL` 放在中心服务环境里; 它应只存在于对应站点 Agent。
 
 注册示例:
 
@@ -521,8 +540,15 @@ pnpm db:down:volumes
 pnpm db:up
 pnpm db:init
 pnpm smoke:sync
+pnpm dev
+```
+
+新开一个终端:
+
+```bash
 pnpm export-and-push SH01
 pnpm export-and-push BJ02
+pnpm scheduler:sync:once -- --siteCode=SH01
 pnpm e2e:login
 pnpm e2e:sync
 pnpm e2e:racks
@@ -534,6 +560,6 @@ pnpm e2e:volumes
 - `auth_accounts` 包含本地 `group_admin` 开发账号, 登录接口不返回 password hash。
 - `sync_sites`, `file_index_jobs`, `control_command`, `sync_package_log`, R.93 identity columns 均由 `pnpm db:init` 创建。
 - `TEST_SMOKE` 执行后必须自清理, `pnpm audit:center-db -- --strict --matrix` 不允许出现测试污染。
-- SH01 / BJ02 本地 fixture 必须通过 `export-and-push` 写入中心库, 页面数据验收不能只依赖 `smoke:sync`。
+- SH01 / BJ02 restore 站点库或本地 fixture 必须通过 `export-and-push` 写入中心库, 页面数据验收不能只依赖 `smoke:sync`。
 - `.env.local` 中 `DATABASE_URL`, `POSTGRES_PASSWORD`, `DB_PASSWORD` 三元组必须一致。
 - 生产或测试服务器不得使用 README 中的本地默认账号/密钥作为最终凭据。

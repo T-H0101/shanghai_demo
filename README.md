@@ -26,12 +26,13 @@ pnpm db:up
 # 4. 初始化中心库
 pnpm db:init
 
-# 5. 同步本地示例站点数据到中心库
+# 5. 启动总控服务
+pnpm dev
+
+# 6. 新开一个终端, 同步站点数据到中心库
 pnpm export-and-push SH01
 pnpm export-and-push BJ02
-
-# 6. 启动开发服务器
-pnpm dev
+pnpm scheduler:sync:once -- --siteCode=SH01
 ```
 
 打开 <http://localhost:3000>，本地默认账号为 `admin / admin`。
@@ -178,11 +179,15 @@ pnpm db:init
 # 3. 运行同步通道自检 (会自清理 TEST_SMOKE, 不作为业务页面 seed)
 pnpm smoke:sync
 
-# 4. 同步本地示例站点数据到中心库
+# 4. 启动总控服务
+pnpm dev
+
+# 5. 新开一个终端, 同步站点数据到中心库
 pnpm export-and-push SH01
 pnpm export-and-push BJ02
+pnpm scheduler:sync:once -- --siteCode=SH01
 
-# 5. 启动服务后访问以下页面验证数据出现:
+# 6. 访问以下页面验证数据出现:
 #    http://localhost:3000/sites       → 1+ 站点
 #    http://localhost:3000/tasks       → 任务列表
 #    http://localhost:3000/racks       → 设备列表

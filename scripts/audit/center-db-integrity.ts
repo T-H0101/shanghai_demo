@@ -18,7 +18,7 @@ import { FILE_INDEX_ES_TABLES } from "@/lib/source/source-table-classification"
 const STRICT = process.argv.includes("--strict")
 const MATRIX = process.argv.includes("--matrix")
 const MATRIX_DOC = "docs/database-analysis/r83-170-table-governance-matrix.md"
-const TEST_SITE_PATTERN = /^(TEST_|PKG_TEST$)/
+const TEST_SITE_PATTERN = /^(TEST_|PKG_TEST$|R19C[0-9]+$)/
 const SENSITIVE_RAW_KEYS = [
   "pwd",
   "root_pwd",
@@ -112,6 +112,15 @@ async function auditCenterDatabase(pool: Pool) {
       registered.rowCount && registered.rowCount > 0 ? "pass" : "fail",
       "registered sites",
       `${registered.rowCount ?? 0} rows (${registered.rows.map((r) => r.site_code).join(", ") || "none"})`
+    )
+
+    const registeredTestSites = registered.rows.filter((r) => TEST_SITE_PATTERN.test(r.site_code))
+    add(
+      registeredTestSites.length === 0 ? "pass" : "fail",
+      "registered test/historical sites (smoke 必须自清理)",
+      registeredTestSites.length === 0
+        ? "none"
+        : registeredTestSites.map((r) => r.site_code).join(", ")
     )
 
     const unsafeCredentialRefs = registered.rows.filter((r) =>

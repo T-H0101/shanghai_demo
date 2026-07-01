@@ -57,6 +57,7 @@ async function discoverTargets(pool: Pool): Promise<Target[]> {
   }
   return [
     { table: "sync_package_log", cols: ["site_code"] },
+    { table: "sync_sites", cols: ["site_code"] },
     ...Array.from(byTable.entries()).map(([table, cols]) => ({ table, cols })),
   ]
 }

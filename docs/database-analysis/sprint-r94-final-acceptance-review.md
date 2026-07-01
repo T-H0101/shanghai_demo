@@ -4,7 +4,7 @@
 
 **状态**: pass
 **verdict**: 本地 requirements 开发闭环可交付领导部署测试
-**日期**: 2026-06-30
+**日期**: 2026-07-01
 **branch**: `codex/r94-final-acceptance-closeout`
 
 ---
@@ -58,17 +58,19 @@ pnpm db:down:volumes
 pnpm db:up
 pnpm db:init
 pnpm smoke:sync
+pnpm dev
 pnpm export-and-push SH01
 pnpm export-and-push BJ02
+pnpm scheduler:sync:once -- --siteCode=SH01
 pnpm e2e:login
 pnpm e2e:sync
 pnpm e2e:racks
 pnpm e2e:volumes
 ```
 
-R.94 执行中已验证: `smoke:sync` 只做同步通道自检并自清理 `TEST_SMOKE`, 不作为业务页面 seed。页面业务数据必须由 `export-and-push SH01/BJ02` 写入中心库。
+R.94 已验证: `smoke:sync` 只做同步通道自检并自清理 `TEST_SMOKE`, 不作为业务页面 seed。页面业务数据必须由 `export-and-push SH01/BJ02` 写入中心库。
 
-最终结果将在本文件第 7 节记录。
+2026-07-01 复验补充: `export-and-push` 需要总控 HTTP 服务已启动; `/sync` e2e 需要至少一条 `sync_scheduler_log`, 因此从零验收顺序必须包含 `pnpm dev` 和 `pnpm scheduler:sync:once -- --siteCode=SH01`。
 
 ---
 
@@ -111,6 +113,16 @@ R.94 不允许用户可见页面出现 review / developer wording。自动审计
 
 R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 
+2026-07-01 重新按部署文档做隔离从零复验:
+
+- 清理中心库 Docker volume: `pnpm db:down:volumes`
+- 重建中心库: `pnpm db:up` + `pnpm db:init`
+- admin seed: `auth_accounts=1`
+- restore 站点库: `site_restore_full_postgres:5434/star_storage_db`
+- SH01 / BJ02 / SH02 均通过 `export-and-push` 从 restore 库导出并推入中心库
+- `sync_sites` 自动注册 BJ02 / SH01 / SH02, 不保存明文密码
+- `TEST_SMOKE` 自动注册残留已修复: `cleanup:test-pollution -- --apply` 删除 `sync_sites.TEST_SMOKE`, `audit:center-db` 新增 fail gate
+
 ### 7.1 基础 gate
 
 | 命令 | 结果 |
@@ -119,7 +131,7 @@ R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 | `pnpm build` | ✅ 通过 |
 | `pnpm env:check` | ✅ 10 pass, 0 fail |
 | `pnpm smoke:sync` | ✅ sync_package_log +1 (channel self-check) |
-| `pnpm cleanup:test-pollution -- --apply` | ✅ 0 残留 (R.3 测试污染已清) |
+| `pnpm cleanup:test-pollution -- --apply` | ✅ 删除 `sync_sites.TEST_SMOKE`; 清理后无测试站点残留 |
 | `pnpm baseline:check` | ✅ 13 pass, 0 fail |
 | `git diff --check origin/main...HEAD` | ✅ 无 whitespace 错误 |
 
@@ -127,7 +139,7 @@ R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm audit:center-db -- --strict --matrix` | ✅ 16 checks, 0 fail, 1 warn (SITE_DATABASE_URL 未配置) |
+| `pnpm audit:center-db -- --strict --matrix` | ✅ 17 checks, 0 fail, 1 warn (SITE_DATABASE_URL 未配置; restore 默认 SITE_DB_* 已用于本地复验) |
 | `pnpm audit:classify-source-tables` | ✅ PASS (degraded — site DB 未配置) |
 | `pnpm audit:data-coverage` | ✅ 30 pass, 0 fail |
 | `pnpm audit:page-scope` | ✅ 13 页面 + 2 redirect 验证 |
@@ -145,7 +157,9 @@ R.94 gate 在 `codex/r94-final-acceptance-closeout` 分支执行, 全部通过:
 | 8 张 failed 表 | tbl_lib_task, tbl_volume_slot, tbl_user_task (SOURCE_DATABASE_URL); tbl_task_folder (source_id); tbl_role, tbl_fuc, tbl_role_fuc, tbl_user_role (JOIN聚合) |
 | `pnpm scheduler:sync:once -- --siteCode=SH01` | ✅ status=partial, consistency=matched, sync_scheduler_log +1 |
 | `pnpm check:sync-consistency -- --siteCode=SH01` | ✅ 7/7 matched (R.94: legacy 101 fixture 已清) |
-| `pnpm check:sync-consistency -- --siteCode=BJ02` | ✅ 7/7 matched (dev fixture) |
+| `pnpm check:sync-consistency -- --siteCode=BJ02` | ✅ 7/7 matched (restore 站点库分桶验证) |
+| `pnpm export-and-push SH02` | ✅ 新站点首次接入模拟: 10 tables, 589 rows, package accepted |
+| `pnpm check:sync-consistency -- --siteCode=SH02` | ✅ 7/7 matched |
 
 **R.94 补丁重要结论**: 141 张白名单 dispatcher 框架全部存在 (代码级), 133/141 张表已真实触发 dispatcher 同步写入中心库 (数据级)。8 张 failed 是已知环境依赖 (SOURCE_DATABASE_URL 未配置), 标注 `blocked_by_external_system`。
 
@@ -169,7 +183,7 @@ GET /api/sync/packages/trend?days=7 → source=database, data=[{siteCode:"SH01",
 | `docker compose -f docker-compose.search.yml --env-file .env.local up -d` | ✅ OpenSearch 9201 up |
 | `curl http://localhost:9201` | ✅ cluster: docker-cluster, version present |
 | `pnpm e2e:search-r85` | ✅ R.85 search port boundary PASS (configured path + marker) |
-| `pnpm e2e:search-es` | ✅ search es boundary PASS (opensearch source) |
+| `pnpm e2e:search-es` | ✅ search es boundary PASS (`SEARCH_ES_URL` configured; production external-system readiness remains R.87) |
 
 ### 7.5 核心 e2e
 
@@ -209,7 +223,7 @@ GET /api/sync/packages/trend?days=7 → source=database, data=[{siteCode:"SH01",
 
 ## 8. Verdict
 
-当前状态为执行中。只有第 7 节 gate 全部通过, 才允许写:
+第 7 节 gate 已通过, R.94 允许写:
 
 > 本地 requirements 开发闭环可交付领导部署测试。
 
