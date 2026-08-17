@@ -16,7 +16,7 @@ import { searchFileIndex as searchRestoreBounded } from "@/lib/source/file-index
 import {
   isEsConfigured,
   searchFilesInEs,
-  type EsFileDocument,
+  type EsIndexDocument,
 } from "@/lib/search/es-client"
 
 export type FileIndexSource = "es" | "unified_file_index" | "blocked_by_external_system"
@@ -51,16 +51,20 @@ export interface FileIndexResult {
   blocker: string | null
 }
 
-function esItemToFileIndexItem(doc: EsFileDocument): FileIndexItem {
+function esItemToFileIndexItem(doc: EsIndexDocument): FileIndexItem {
+  const name =
+    doc.doc_type === "folder"
+      ? doc.folder_name ?? doc.file_name ?? undefined
+      : doc.file_name ?? doc.folder_name ?? undefined
   return {
-    siteCode: doc.siteCode,
-    fileName: doc.fileName,
-    filePath: doc.filePath,
-    extension: doc.extension,
-    hash: doc.hash,
-    volume: doc.volume,
-    disc: doc.disc,
-    department: doc.department,
+    siteCode: doc.source_site_id,
+    fileName: name,
+    filePath: doc.folder_path ?? doc.disc_path ?? undefined,
+    extension: doc.extension ?? undefined,
+    hash: doc.hash ?? doc.hash1 ?? undefined,
+    volume: doc.volume_id != null ? String(doc.volume_id) : undefined,
+    disc: undefined,
+    department: undefined,
     source: "es",
   }
 }
@@ -70,7 +74,6 @@ export async function searchFileIndex(
 ): Promise<FileIndexResult> {
   const keyword = query.q ?? query.keyword
   const limit = Math.min(query.limit ?? 50, 200)
-  const offset = query.offset ?? 0
 
   if (isEsConfigured()) {
     try {
@@ -78,13 +81,13 @@ export async function searchFileIndex(
         q: keyword ?? "",
         siteCodes: query.siteCodes ?? [],
         limit,
-        offset,
+        searchAfter: null,
       })
       if (esResult.items.length > 0 || keyword) {
         return {
           source: "es",
           items: esResult.items.map(esItemToFileIndexItem),
-          total: esResult.total,
+          total: esResult.items.length,
           missingDimensions: [],
           requirements: ["REQ-4.1.1", "REQ-4.1.2", "REQ-5.2.1"],
           blocker: null,

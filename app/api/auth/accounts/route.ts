@@ -2,7 +2,7 @@
  * GET /api/auth/accounts - Auth 账号列表
  * POST /api/auth/accounts - 创建 Auth 账号
  *
- * Sprint R.27/R.28
+ * REQ-3.1.3 账号生命周期管理
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -10,6 +10,9 @@ import { query } from "@/lib/db/postgres"
 import { ensureAuthSchema } from "@/lib/auth/server"
 import { hashPassword } from "@/lib/auth/password"
 import { writeAudit } from "@/lib/control/audit"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
+
+const VALID_ROLES = ["group_admin", "site_admin", "auditor", "operator", "viewer"] as const
 
 interface AccountRow {
   id: string
@@ -26,6 +29,14 @@ interface AccountRow {
 }
 
 export async function GET(req: NextRequest) {
+  try {
+    const session = await requireSession(req)
+    requirePermission(session, "users:read")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+    throw e
+  }
+
   await ensureAuthSchema()
 
   const url = new URL(req.url)
@@ -90,16 +101,31 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  let session
+  try {
+    session = await requireSession(req)
+    requirePermission(session, "user:manage")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+    throw e
+  }
+
   await ensureAuthSchema()
 
-  let body: any
+  let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 })
   }
 
-  const { username, displayName, role, department, accessibleSites, password } = body ?? {}
+  const username = body.username
+  const displayName = body.displayName
+  const role = body.role
+  const department = body.department
+  const accessibleSites = body.accessibleSites
+  const password = body.password
+  const status = body.status
 
   if (!username || typeof username !== "string") {
     return NextResponse.json({ error: "missing username" }, { status: 400 })
@@ -108,24 +134,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "password must be at least 8 characters" }, { status: 400 })
   }
 
-  const validRoles = ["group_admin", "site_admin", "auditor", "operator", "viewer"]
-  if (role && !validRoles.includes(role)) {
-    return NextResponse.json({ error: `invalid role, must be one of ${validRoles.join(", ")}` }, { status: 400 })
+  const resolvedRole = typeof role === "string" ? role : "viewer"
+  if (!VALID_ROLES.includes(resolvedRole as (typeof VALID_ROLES)[number])) {
+    return NextResponse.json({ error: `invalid role, must be one of ${VALID_ROLES.join(", ")}` }, { status: 400 })
   }
+
+  const resolvedStatus =
+    status === "pending_activation" || status === "disabled" || status === "active"
+      ? status
+      : "active"
+
+  const sites = Array.isArray(accessibleSites)
+    ? accessibleSites.map(String)
+    : resolvedRole === "group_admin"
+      ? ["*"]
+      : []
 
   try {
     const passwordHash = await hashPassword(password)
+    const uname = username.trim().toLowerCase()
     const result = await query(
       `INSERT INTO auth_accounts (username, display_name, password_hash, role, department, accessible_sites, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending_activation')
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id::text`,
       [
-        username.trim().toLowerCase(),
-        displayName ?? null,
+        uname,
+        typeof displayName === "string" ? displayName : null,
         passwordHash,
-        role ?? "viewer",
-        department ?? null,
-        Array.isArray(accessibleSites) ? accessibleSites : [],
+        resolvedRole,
+        typeof department === "string" ? department : null,
+        sites,
+        resolvedStatus,
       ],
     )
 
@@ -133,15 +172,23 @@ export async function POST(req: NextRequest) {
       action: "create_account",
       targetTable: "auth_accounts",
       targetId: result.rows[0]?.id,
-      after: { username, role: role ?? "viewer", status: "pending_activation" },
-      actor: "admin",
+      after: { username: uname, role: resolvedRole, status: resolvedStatus, accessible_sites: sites },
+      actor: session.username,
       result: "success",
     })
 
-    return NextResponse.json({
-      ok: true,
-      account: { id: result.rows[0]?.id, username, status: "pending_activation" },
-    }, { status: 201 })
+    return NextResponse.json(
+      {
+        ok: true,
+        account: {
+          id: result.rows[0]?.id,
+          username: uname,
+          status: resolvedStatus,
+          role: resolvedRole,
+        },
+      },
+      { status: 201 },
+    )
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes("unique") || msg.includes("duplicate")) {

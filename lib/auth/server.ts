@@ -7,6 +7,25 @@ export const AUTH_COOKIE = "odp_session"
 export let LOCK_THRESHOLD = 5
 export let LOCK_MINUTES = 30
 
+function resolveAuthCookieSecure(request?: NextRequest): boolean {
+  const raw = process.env.AUTH_COOKIE_SECURE?.trim().toLowerCase()
+  if (raw === "false" || raw === "0" || raw === "no") return false
+  if (raw === "true" || raw === "1" || raw === "yes") return true
+
+  if (request) {
+    const forwarded = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase()
+    if (forwarded === "https") return true
+    if (forwarded === "http") return false
+    try {
+      return new URL(request.url).protocol === "https:"
+    } catch {
+      return false
+    }
+  }
+
+  return false
+}
+
 /** Sprint R.27: 从 auth_system_config 读取可配置锁定阈值 */
 async function loadLockConfig(): Promise<void> {
   try {
@@ -223,38 +242,77 @@ function accountLocked(account: AccountRow): boolean {
   return Boolean(account.locked_until && new Date(account.locked_until).getTime() > Date.now())
 }
 
-function siteAllowed(account: AccountRow, siteCode: string): boolean {
-  const sites = account.accessible_sites ?? []
-  return sites.includes("*") || sites.includes(siteCode)
+export type AvailableSiteOption = { code: string; label: string }
+
+/**
+ * 登录页：按账号权限返回可选站点（不校验密码）。
+ * - accessible_sites 含 * → 中心已启用 sync_sites 全量
+ * - 否则 → 账号权限站点列表（名称优先取 sync_sites）
+ * - 账号不存在 → 空列表（不区分“无账号/无权限”，减少枚举）
+ */
+export async function listAvailableSitesForUsername(
+  rawUsername: string,
+): Promise<AvailableSiteOption[]> {
+  await ensureAuthSchema()
+  const username = normalizeUsername(rawUsername)
+  if (!username) return []
+
+  const account = await accountFor(username)
+  if (!account || account.status === "disabled") return []
+
+  const registered = await query<{ site_code: string; site_name: string | null }>(
+    `SELECT site_code, site_name
+     FROM sync_sites
+     WHERE enabled = TRUE
+     ORDER BY site_code`,
+  )
+  const registeredMap = new Map(
+    registered.rows.map((r) => [r.site_code, (r.site_name?.trim() || r.site_code)]),
+  )
+
+  const accessible = account.accessible_sites ?? []
+  if (accessible.includes("*")) {
+    return registered.rows.map((r) => ({
+      code: r.site_code,
+      label: r.site_name?.trim() || r.site_code,
+    }))
+  }
+
+  const codes = accessible.map(String).filter((c) => c && c !== "*")
+  return codes.map((code) => ({
+    code,
+    label: registeredMap.get(code) ?? code,
+  }))
 }
 
 export async function loginWithPassword(input: {
   username: string
   password: string
-  siteCode: string
+  siteCode?: string
   request: NextRequest
 }): Promise<{ ok: true; user: AuthUser; token: string } | { ok: false; status: number; code: string; message: string }> {
   await ensureAuthSchema()
   await loadLockConfig()
   const username = normalizeUsername(input.username)
+  const siteCode = (input.siteCode ?? "").trim()
 
-  if (!username || !input.password || !input.siteCode) {
-    return { ok: false, status: 400, code: "AUTH_BAD_REQUEST", message: "username, password and siteCode are required" }
+  if (!username || !input.password) {
+    return { ok: false, status: 400, code: "AUTH_BAD_REQUEST", message: "username and password are required" }
   }
 
   if ((await recentFailureCount(username)) >= LOCK_THRESHOLD) {
-    await recordLoginAudit({ username, siteCode: input.siteCode, request: input.request, result: "locked", failureReason: "recent failure threshold reached" })
+    await recordLoginAudit({ username, siteCode, request: input.request, result: "locked", failureReason: "recent failure threshold reached" })
     return { ok: false, status: 423, code: "AUTH_LOCKED", message: "account is temporarily locked" }
   }
 
   const account = await accountFor(username)
   if (!account) {
-    await recordLoginAudit({ username, siteCode: input.siteCode, request: input.request, result: "failed", failureReason: "account not found" })
+    await recordLoginAudit({ username, siteCode, request: input.request, result: "failed", failureReason: "account not found" })
     return { ok: false, status: 401, code: "AUTH_INVALID_CREDENTIALS", message: "invalid username or password" }
   }
 
   if (account.status !== "active" || accountLocked(account)) {
-    await recordLoginAudit({ username, accountId: account.id, siteCode: input.siteCode, request: input.request, result: "locked", failureReason: "account disabled or locked" })
+    await recordLoginAudit({ username, accountId: account.id, siteCode, request: input.request, result: "locked", failureReason: "account disabled or locked" })
     return { ok: false, status: 423, code: "AUTH_LOCKED", message: "account is temporarily locked" }
   }
 
@@ -271,14 +329,11 @@ export async function loginWithPassword(input: {
         [account.id, LOCK_THRESHOLD, LOCK_MINUTES],
       )
     })
-    await recordLoginAudit({ username, accountId: account.id, siteCode: input.siteCode, request: input.request, result: "failed", failureReason: "password mismatch" })
+    await recordLoginAudit({ username, accountId: account.id, siteCode, request: input.request, result: "failed", failureReason: "password mismatch" })
     return { ok: false, status: 401, code: "AUTH_INVALID_CREDENTIALS", message: "invalid username or password" }
   }
 
-  if (!siteAllowed(account, input.siteCode)) {
-    await recordLoginAudit({ username, accountId: account.id, siteCode: input.siteCode, request: input.request, result: "failed", failureReason: "site denied" })
-    return { ok: false, status: 403, code: "AUTH_SITE_DENIED", message: "site access denied" }
-  }
+  // 站点仅作登录后默认视图偏好，不作为登录准入条件（无站点 / 无站点权限均可登录）
 
   await query(
     `UPDATE auth_accounts
@@ -286,7 +341,7 @@ export async function loginWithPassword(input: {
      WHERE id = $1`,
     [account.id],
   )
-  await recordLoginAudit({ username, accountId: account.id, siteCode: input.siteCode, request: input.request, result: "success" })
+  await recordLoginAudit({ username, accountId: account.id, siteCode, request: input.request, result: "success" })
 
   const permissions = await permissionsFor(account.role)
   const user: AuthUser = {
@@ -296,11 +351,11 @@ export async function loginWithPassword(input: {
     role: account.role,
     department: account.department,
     accessibleSites: account.accessible_sites ?? [],
-    siteCode: input.siteCode,
+    siteCode,
     permissions,
     provider: "local",
   }
-  const token = createJwt({ sub: account.id, username: account.username, role: account.role, siteCode: input.siteCode })
+  const token = createJwt({ sub: account.id, username: account.username, role: account.role, siteCode })
   return { ok: true, user, token }
 }
 
@@ -343,21 +398,21 @@ export async function recordLogout(request: NextRequest, username = "unknown") {
   await recordLoginAudit({ username, request, result: "logout" })
 }
 
-export function setSessionCookie(response: NextResponse, token: string) {
+export function setSessionCookie(response: NextResponse, token: string, request?: NextRequest) {
   response.cookies.set(AUTH_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: resolveAuthCookieSecure(request),
     path: "/",
     maxAge: getSessionTtlSeconds(),
   })
 }
 
-export function clearSessionCookie(response: NextResponse) {
+export function clearSessionCookie(response: NextResponse, request?: NextRequest) {
   response.cookies.set(AUTH_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: resolveAuthCookieSecure(request),
     path: "/",
     maxAge: 0,
   })

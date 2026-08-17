@@ -1,15 +1,6 @@
 /**
  * lib/adapters/opensearch/file-search-adapter.ts
- * R.85 — OpenSearch/ES adapter implementing `SearchPort` (ADR 0002).
- *
- * Routes ES traffic through the existing `lib/search/es-client.ts`
- * (Sprint R.56 neutral HTTP client) but exposes only the port contract.
- * Caller MUST NOT import `lib/search/es-client` directly.
- *
- * Failure model:
- *  - ES not configured (SEARCH_ES_URL or SEARCH_ES_INDEX missing) -> blocked
- *  - ES HTTP error / timeout / parse failure                      -> blocked
- *  - Single document bulk failure                                -> counted in `failed`
+ * OpenSearch adapter — 读取业务 syncDB 推送的 disc_file_index 文档
  */
 
 import type {
@@ -23,34 +14,64 @@ import {
   isEsConfigured,
   searchFilesInEs,
   indexFileInEs,
-  type EsFileDocument,
+  type EsIndexDocument,
 } from "@/lib/search/es-client"
 
 const BLOCKER_NOT_CONFIGURED = "es_not_configured"
 const BLOCKER_QUERY_FAILED = "es_query_failed"
 const BLOCKER_INDEX_FAILED = "es_index_failed"
 
-function fileSearchQueryToEsParams(query: FileSearchQuery) {
-  return {
-    q: query.keyword,
-    siteCodes: query.siteCode ? [query.siteCode] : [],
-    limit: Math.min(Math.max(query.limit, 1), 200),
-    offset: Math.max(query.offset, 0),
-  }
+function parseVolumeIdFromTable(sourceTable: string | null | undefined): number | null {
+  if (!sourceTable) return null
+  const file = /^tbl_file_(\d+)_a$/i.exec(sourceTable)
+  if (file) return Number(file[1])
+  const folder = /^tbl_folder_(\d+)$/i.exec(sourceTable)
+  if (folder) return Number(folder[1])
+  return null
 }
 
-function esDocToHit(doc: EsFileDocument, fallbackSite: string): FileSearchHit {
+function esDocToHit(doc: EsIndexDocument & { _id?: string }): FileSearchHit {
+  const sourceTable = doc.source_table ?? null
+  const volumeFromDoc =
+    doc.volume_id != null && Number.isFinite(Number(doc.volume_id))
+      ? Number(doc.volume_id)
+      : null
+  const volumeId = volumeFromDoc ?? parseVolumeIdFromTable(sourceTable)
+  const docType = doc.doc_type === "folder" ? "folder" : doc.doc_type === "file" ? "file" : (doc.doc_type ?? "file")
+  const displayName =
+    docType === "folder"
+      ? (doc.folder_name || doc.file_name || "(未命名目录)")
+      : (doc.file_name || doc.folder_name || "(未命名文件)")
+
   return {
-    sourceSiteId: doc.siteCode ?? fallbackSite,
-    sourceRecordId: doc.hash ?? "",
-    fileName: doc.fileName ?? "",
-    filePath: doc.filePath ?? null,
-    folderPath: doc.folderPath ?? null,
+    docId: doc._id || undefined,
+    sourceSiteId: doc.source_site_id ?? "",
+    sourceTable,
+    sourceRecordId: doc.source_record_id ?? "",
+    docType,
+    displayName,
+    fileName: displayName,
+    filePath: doc.folder_path || doc.disc_path || null,
+    folderPath: doc.folder_path || null,
     extension: doc.extension ?? null,
-    sizeBytes: null,
-    volumeCode: doc.volume ?? null,
-    discCode: doc.disc ?? null,
-    updatedAt: doc.updatedAt ?? null,
+    contentType: doc.content_type ?? null,
+    sizeBytes:
+      doc.file_size != null && Number.isFinite(Number(doc.file_size))
+        ? Number(doc.file_size)
+        : null,
+    volumeId,
+    volumeCode: volumeId != null ? String(volumeId) : null,
+    volumeName: null,
+    slotId:
+      doc.slot_id != null && Number.isFinite(Number(doc.slot_id))
+        ? Number(doc.slot_id)
+        : null,
+    hash: doc.hash ?? doc.hash1 ?? null,
+    taskId: doc.task_id ?? null,
+    status: doc.status != null && Number.isFinite(Number(doc.status)) ? Number(doc.status) : null,
+    createDate: doc.create_date ?? null,
+    updatedAt: doc.create_date ?? doc.indexed_at ?? null,
+    discCode: null,
   }
 }
 
@@ -61,23 +82,34 @@ export function createOpenSearchFileSearchAdapter(): SearchPort {
         return {
           hits: [],
           total: 0,
+          nextSearchAfter: null,
+          hasMore: false,
           source: "blocked_by_external_system",
           blocker: BLOCKER_NOT_CONFIGURED,
         }
       }
       try {
-        const result = await searchFilesInEs(
-          fileSearchQueryToEsParams(query)
-        )
+        const result = await searchFilesInEs({
+          q: query.keyword,
+          siteCodes: query.siteCode ? [query.siteCode] : [],
+          volumeId: query.volumeId,
+          docType: query.docType,
+          limit: Math.min(Math.max(query.limit, 1), 500),
+          searchAfter: query.searchAfter,
+        })
         return {
-          hits: result.items.map((doc) => esDocToHit(doc, query.siteCode ?? "")),
-          total: result.total,
+          hits: result.items.map(esDocToHit),
+          total: 0,
+          nextSearchAfter: result.nextSearchAfter,
+          hasMore: result.hasMore,
           source: "opensearch",
         }
       } catch {
         return {
           hits: [],
           total: 0,
+          nextSearchAfter: null,
+          hasMore: false,
           source: "blocked_by_external_system",
           blocker: BLOCKER_QUERY_FAILED,
         }
@@ -117,3 +149,5 @@ export function createOpenSearchFileSearchAdapter(): SearchPort {
     },
   }
 }
+
+export { parseVolumeIdFromTable }

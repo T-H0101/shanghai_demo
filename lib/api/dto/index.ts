@@ -127,6 +127,10 @@ export interface TaskDTO {
   name: string
   taskNo: string
   type: TaskType
+  /** 由 task_type + task_mode 解析的业务类型中文名 */
+  typeLabel?: string
+  /** 由 status + task_type + task_mode 解析的业务状态中文名 */
+  statusLabel?: string
   phase: TaskPhase
   status: TaskStatus
   priority: Priority
@@ -146,6 +150,12 @@ export interface TaskDTO {
   sourcePath: string
   packagePath: string
   volumeId?: string
+  /** 源路径↔备份路径成对列表（对齐业务 getTaskDetail.paths） */
+  pathPairs?: Array<{
+    fromPath: string
+    backupPath: string
+    volumeName?: string
+  }>
 
   // 配置
   backupScope: BackupScope
@@ -208,15 +218,43 @@ export interface TaskStatsDTO {
 
 export type RackStatus = "normal" | "warning" | "fault" | "maintenance"
 export type OnlineStatus = "online" | "offline"
+/** 设备运行态（对齐 tbl_disc_lib.device_status：在线/离线/警告/错误；删除不入列表） */
+export type DeviceRuntimeStatus = "online" | "offline" | "warning" | "error"
 export type SlotStatus = "free" | "used" | "error" | "empty"
 export type MediaType = "hdd" | "bd" | "offline"
 export type DeviceMode = "off" | "standard" | "high_speed"
+
+/** 网盘挂载信息（只读展示；密码已脱敏） */
+export interface NasMountInfoDTO {
+  protocol?: number
+  protocolLabel?: string
+  encoding?: number
+  encodingLabel?: string
+  transportProtocol?: string
+  srcPath?: string
+  managerPath?: string
+  mountPoint?: string
+  userName?: string
+  passwordMasked?: string
+  hasPassword?: boolean
+  quotaBytes?: number
+  quotaLabel?: string
+  permission?: number
+  permissionLabel?: string
+  maxSpeed?: number
+  maxSpeedLabel?: string
+  extraParam?: string
+  mountedAt?: string
+}
 
 export interface RackSlotDTO {
   id: string
   index: number
   occupied: boolean
   status: SlotStatus
+  /** 业务 disc_type：0 无盘 / 1 未刻 / 2 满盘 / 3 未满 / 4 坏盘 */
+  discType?: number
+  discTypeLabel?: string
   sourceSiteId?: string
   sourceTable?: string
   sourceId?: string
@@ -289,14 +327,18 @@ export interface RackDTO {
 
   // 设备信息
   ip?: string
+  serialNo?: string
   deviceType?: string
-  deviceStatus?: OnlineStatus
+  deviceStatus?: DeviceRuntimeStatus
   onlineStatus?: OnlineStatus
   totalCapacity?: string
   remainingCapacity?: string
   currentTaskCount?: number
   mode?: DeviceMode
   cageCount?: number
+
+  /** 网盘挂载信息（device_type=nas）；非网盘不返回 */
+  mountInfo?: NasMountInfoDTO
 
   // 详情
   slots?: RackSlotDTO[]
@@ -325,12 +367,14 @@ export interface RackStatsDTO {
 // Volume
 // ─────────────────────────────────────────────────────────────
 
-export type VolumeType = "optical" | "magnetic" | "composite"
+export type VolumeType = "optical" | "magnetic" | "tape" | "composite"
 
 export interface VolumeDTO {
   id: string
   name: string
   type: VolumeType
+  /** 业务对齐展示名（光存储卷 / 磁存储卷 / 磁带存储卷 / 组合卷 等） */
+  typeLabel?: string
   totalCapacity: string
   remainingCapacity: string
   info: string
@@ -415,6 +459,10 @@ export interface SiteDTO {
   taskCount?: number
   alertCount?: number
   description?: string
+  /** 在线判定依据: agent_heartbeat | sync_package | disabled | none */
+  reachabilitySource?: string
+  /** 在线状态说明（用于 UI tooltip） */
+  reachabilityNote?: string
 }
 
 export interface SiteStatsDTO {

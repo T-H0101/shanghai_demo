@@ -14,8 +14,8 @@ import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
 const statusBadge: Record<string, { label: string; color: string }> = {
   online: { label: "在线", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
   offline: { label: "离线", color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
-  error: { label: "异常", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
-  maintenance: { label: "维护中", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  warning: { label: "警告", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
+  error: { label: "错误", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 }
 
 interface SiteHealthHeatmapProps {
@@ -43,7 +43,7 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
   }, [])
 
   const sorted = [...racks].sort((a, b) => {
-    const statusOrder: Record<string, number> = { error: 0, offline: 1, maintenance: 2, online: 3 }
+    const statusOrder: Record<string, number> = { error: 0, warning: 1, offline: 2, online: 3 }
     return (statusOrder[a.deviceStatus ?? "online"] ?? 3) - (statusOrder[b.deviceStatus ?? "online"] ?? 3)
   })
 
@@ -78,8 +78,8 @@ export function SiteHealthHeatmap({ className }: SiteHealthHeatmapProps) {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <Progress value={rack.usagePercent} className="h-1 w-12" />
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.usagePercent}%</span>
+                    <Progress value={rack.usagePercent ?? 0} className="h-1 w-12" />
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{rack.usagePercent != null ? `${rack.usagePercent}%` : "—"}</span>
                   </div>
                   <Badge className={cn("text-[10px]", status.color)}>{status.label}</Badge>
                 </div>

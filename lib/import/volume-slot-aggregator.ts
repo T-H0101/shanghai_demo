@@ -1,56 +1,46 @@
 /**
  * Volume Slot Aggregator
- * Sprint 2H.3 (autonomous) - 把 tbl_volume_slot 关系表聚合到 unified_volumes
+ * Sprint 2H.3 — 把 tbl_volume_slot 关系聚合到 unified_volumes.raw_data._aggregate
  *
- * 背景:
- *   - tbl_logical_volume 走 dispatcher 已经写入 unified_volumes (Sprint 2H.2)
- *   - tbl_volume_slot 是"逻辑卷-盘位" 关系, 共 161 条记录
- *   - 聚合目标: 算每个 volume 下的 slot 数量, 把这个统计写到一个新字段 (或 raw_data)
- *   - 由于 unified_volumes 没有 slot_count 字段, 我们用 raw_data 里追加 _aggregate 字段
- *
- * 设计:
- *   - 不直接改统一表 schema (禁止)
- *   - 把聚合结果写进 unified_volumes.raw_data._aggregate.slot_count / slot_total_cap
- *   - 这样 /api/volumes 调用方可以读 raw_data._aggregate 看到真实数据, 不破坏 schema
+ * 数据来源：站点推包 records（不连 SOURCE_DATABASE_URL / 站点库）。
+ * on_line：与 disc_files.sql 一致 — 在线 >=1，借出或离线 =0。
+ * 回写键：source_site_id + source_table=tbl_logical_volume +
+ *   (source_record_id | volume_id | source_id) = volume_id
  */
 
-import { sourceQuery } from '@/lib/db/source-pool'
 import { query } from '@/lib/db'
 
 export interface VolumeSlotAggregateResult {
-  readCount: number                // tbl_volume_slot 总行数
-  distinctVolumes: number          // 不同 volume_id 数量
-  unifiedRowsUpdated: number       // 写回的 unified_volumes 行数
+  readCount: number
+  distinctVolumes: number
+  unifiedRowsUpdated: number
   durationMs: number
   sample?: Array<{ volumeId: string; slotCount: number; online: number; offline: number }>
 }
 
-interface VolumeSlotRow {
-  volume_id: string | number | null
-  slot_id: string | number | null
-  on_line: number | null
+function pickVolumeId(record: Record<string, unknown>): string | null {
+  const raw = record.volume_id ?? record.volumeId
+  if (raw == null || raw === '') return null
+  return String(raw)
 }
 
-interface VolumeAggRow {
-  volume_id: string
-  slot_count: string
-  total_cap: string | null
+function pickOnLine(record: Record<string, unknown>): number | null {
+  const raw = record.on_line ?? record.onLine
+  if (raw == null || raw === '') return null
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  return Number.isFinite(n) ? n : null
 }
 
 /**
- * 读 tbl_volume_slot, 按 volume_id 聚合 slot_count 和 total_cap (累加 cap 列)
- * 然后写回 unified_volumes.raw_data._aggregate
+ * 用推包中的 tbl_volume_slot 行，按 volume_id 聚合后写回 unified_volumes。
  */
-export async function aggregateVolumeSlots(siteCode: string = 'SH01'): Promise<VolumeSlotAggregateResult> {
+export async function aggregateVolumeSlots(
+  siteCode: string,
+  records: Array<Record<string, unknown>>,
+): Promise<VolumeSlotAggregateResult> {
   const start = Date.now()
 
-  // 1. 读源表
-  // 实际列: volume_id, slot_id, on_line (无 cap 列, Sprint 2H.3 验证)
-  const { rows } = await sourceQuery<VolumeSlotRow>(
-    `SELECT volume_id, slot_id, on_line FROM tbl_volume_slot WHERE volume_id IS NOT NULL`
-  )
-
-  if (rows.length === 0) {
+  if (!records.length) {
     return {
       readCount: 0,
       distinctVolumes: 0,
@@ -59,19 +49,30 @@ export async function aggregateVolumeSlots(siteCode: string = 'SH01'): Promise<V
     }
   }
 
-  // 2. 聚合: 按 volume_id 统计 slot_count + on_line 分布
   const agg = new Map<string, { slotCount: number; onlineCount: number; offlineCount: number }>()
-  for (const r of rows) {
-    if (r.volume_id == null) continue
-    const volKey = String(r.volume_id)
+  let readCount = 0
+  for (const record of records) {
+    const volKey = pickVolumeId(record)
+    if (!volKey) continue
+    readCount += 1
     const a = agg.get(volKey) ?? { slotCount: 0, onlineCount: 0, offlineCount: 0 }
     a.slotCount += 1
-    if (r.on_line === 1) a.onlineCount += 1
-    else if (r.on_line === 2) a.offlineCount += 1
+    const onLine = pickOnLine(record)
+    // disc_files: 在线为>=1，借出或离线为0
+    if (onLine != null && onLine >= 1) a.onlineCount += 1
+    else if (onLine === 0) a.offlineCount += 1
     agg.set(volKey, a)
   }
 
-  // 3. 写回 unified_volumes.raw_data._aggregate
+  if (agg.size === 0) {
+    return {
+      readCount,
+      distinctVolumes: 0,
+      unifiedRowsUpdated: 0,
+      durationMs: Date.now() - start,
+    }
+  }
+
   let updated = 0
   for (const [volumeId, v] of agg.entries()) {
     const r = await query(
@@ -91,18 +92,27 @@ export async function aggregateVolumeSlots(siteCode: string = 'SH01'): Promise<V
            synced_at = NOW()
        WHERE source_site_id = $4
          AND source_table = 'tbl_logical_volume'
-         AND source_id = $5`,
-      [v.slotCount, v.onlineCount, v.offlineCount, siteCode, volumeId]
+         AND (
+           source_record_id = $5
+           OR volume_id = $5
+           OR source_id = $5
+         )`,
+      [v.slotCount, v.onlineCount, v.offlineCount, siteCode, volumeId],
     )
     updated += r.rowCount ?? 0
   }
 
   const sample = Array.from(agg.entries())
     .slice(0, 5)
-    .map(([volumeId, v]) => ({ volumeId, slotCount: v.slotCount, online: v.onlineCount, offline: v.offlineCount }))
+    .map(([volumeId, v]) => ({
+      volumeId,
+      slotCount: v.slotCount,
+      online: v.onlineCount,
+      offline: v.offlineCount,
+    }))
 
   return {
-    readCount: rows.length,
+    readCount,
     distinctVolumes: agg.size,
     unifiedRowsUpdated: updated,
     durationMs: Date.now() - start,

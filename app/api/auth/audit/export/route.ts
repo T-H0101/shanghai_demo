@@ -10,9 +10,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db/postgres"
 import { ensureAuthSchema } from "@/lib/auth/server"
 import { createHash } from "crypto"
+import { buildExport } from "@/lib/export"
+import { buildManifest } from "@/lib/export/manifest"
 import { buildXlsxExport } from "@/lib/export/xlsx"
 import { toNextResponse } from "@/lib/export/next-response"
-import { recordExport } from "@/lib/export/audit"
+import { recordExport, resolveExportActor } from "@/lib/export/audit"
+import { formatBeijingTime } from "@/lib/time/beijing"
+import { logStatusLabel } from "@/lib/types/logs"
 
 interface AuditRow {
   id: string
@@ -25,10 +29,55 @@ interface AuditRow {
   failure_reason: string | null
   provider: string
   created_at: string
+  [key: string]: unknown
+}
+
+const COLUMNS = [
+  "username",
+  "operation",
+  "site_code",
+  "ip_address",
+  "result",
+  "failure_reason",
+  "created_at",
+] as const
+
+const COLUMN_LABELS = ["用户名", "操作", "站点", "IP", "状态", "失败原因", "时间"] as const
+
+type DisplayRow = {
+  username: string
+  operation: string
+  site_code: string
+  ip_address: string
+  result: string
+  failure_reason: string
+  created_at: string
+  [key: string]: unknown
+}
+
+function toDisplayRows(rows: AuditRow[]): DisplayRow[] {
+  return rows.map((r) => {
+    const status = r.result
+    let operation = "登录认证"
+    if (status === "success") operation = "登录成功"
+    else if (status === "failed") operation = "登录失败"
+    else if (status === "locked") operation = "账号锁定"
+    else if (status === "logout") operation = "退出登录"
+    return {
+      username: r.username,
+      operation,
+      site_code: r.site_code ?? "",
+      ip_address: r.ip_address ?? "",
+      result: logStatusLabel(status),
+      failure_reason: r.failure_reason ?? "",
+      created_at: formatBeijingTime(r.created_at) || r.created_at,
+    }
+  })
 }
 
 export async function GET(req: NextRequest) {
   await ensureAuthSchema()
+  const actor = await resolveExportActor(req)
 
   const url = new URL(req.url)
   const format = (url.searchParams.get("format") ?? "csv").toLowerCase()
@@ -69,51 +118,66 @@ export async function GET(req: NextRequest) {
 
     const rows = dataResult.rows
     const sha256 = createHash("sha256").update(JSON.stringify(rows)).digest("hex")
-
-    if (format === "xlsx") {
-      type AuditRowForExport = AuditRow & Record<string, unknown>
-      const exportResult = await buildXlsxExport<AuditRowForExport>({
-        exportType: "login_audit",
-        dataSource: "auth_login_audit",
-        format: "xlsx",
-        columns: ["id", "username", "account_id", "site_code", "ip_address", "result", "failure_reason", "provider", "created_at"],
-        rows: rows as AuditRowForExport[],
-        siteCode: siteCode ?? null,
-        filters: { username, result, from, to },
-        filenamePrefix: "login-audit",
-      })
-      await recordExport(exportResult.manifest)
-      return toNextResponse(exportResult)
-    }
+    const columns = COLUMNS as unknown as Array<keyof DisplayRow & string>
+    const labels = [...COLUMN_LABELS]
+    const displayRows = toDisplayRows(rows)
 
     if (format === "json") {
+      const filename = `login-audit-${new Date().toISOString().slice(0, 10)}.json`
       const body = JSON.stringify({ data: rows, total: rows.length, sha256 }, null, 2)
+      await recordExport(
+        buildManifest({
+          exportType: "login_audit",
+          format: "json",
+          dataSource: "auth_login_audit",
+          rowCount: rows.length,
+          sha256,
+          filename,
+          siteCode: siteCode ?? null,
+          filters: { username, result, from, to },
+        }),
+        { actor },
+      )
       return new NextResponse(body, {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition": `attachment; filename="login-audit-${new Date().toISOString().slice(0, 10)}.json"`,
+          "Content-Disposition": `attachment; filename="${filename}"`,
           "x-sha256": sha256,
           "x-record-count": String(rows.length),
         },
       })
     }
 
-    // CSV (default)
-    const header = "id,username,account_id,site_code,ip_address,result,failure_reason,provider,created_at"
-    const csvRows = rows.map(r =>
-      [r.id, r.username, r.account_id ?? "", r.site_code ?? "", r.ip_address ?? "", r.result, (r.failure_reason ?? "").replace(/,/g, ";"), r.provider, r.created_at].join(",")
-    )
-    const csv = [header, ...csvRows].join("\n")
-    return new NextResponse(csv, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="login-audit-${new Date().toISOString().slice(0, 10)}.csv"`,
-        "x-sha256": sha256,
-        "x-record-count": String(rows.length),
-      },
+    if (format === "xlsx") {
+      const exportResult = await buildXlsxExport<DisplayRow>({
+        exportType: "login_audit",
+        dataSource: "auth_login_audit",
+        format: "xlsx",
+        columns,
+        columnLabels: labels,
+        rows: displayRows,
+        siteCode: siteCode ?? null,
+        filters: { username, result, from, to },
+        filenamePrefix: "login-audit",
+      })
+      await recordExport(exportResult.manifest, { actor })
+      return toNextResponse(exportResult)
+    }
+
+    const exportResult = buildExport<DisplayRow>({
+      exportType: "login_audit",
+      dataSource: "auth_login_audit",
+      format: "csv",
+      columns,
+      columnLabels: labels,
+      rows: displayRows,
+      siteCode: siteCode ?? null,
+      filters: { username, result, from, to },
+      filenamePrefix: "login-audit",
     })
+    await recordExport(exportResult.manifest, { actor })
+    return toNextResponse(exportResult)
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },

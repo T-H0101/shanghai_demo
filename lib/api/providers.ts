@@ -47,7 +47,7 @@ export interface UserProvider {
 
 export interface RackProvider {
   getAll(siteCode?: string): Promise<Rack[]>
-  getById(id: string): Promise<Rack | undefined>
+  getById(id: string, siteCode?: string): Promise<Rack | undefined>
   getStats(siteCode?: string): Promise<RackStats>
   registerTransfer(transfer: TransferInput): Promise<TransferRecord>
   syncRacks(): Promise<Rack[]>
@@ -78,11 +78,20 @@ export interface SettingsProvider {
 // ============================================================
 
 export interface TaskFilters {
-  type?: TaskType | "all"
+  /** 业务类型筛选 value（如 backup / 0-8 / package）或旧 TaskType */
+  type?: TaskType | "all" | string
   status?: string
+  /** 业务状态筛选：success / aborted / packaging / running … */
+  statusFilter?: string
   siteCode?: string
   keyword?: string
+  /** 关联设备筛选：device_id 或设备名 */
+  device?: string
   phase?: TaskPhase | "all"
+  /** 页码，从 1 起 */
+  page?: number
+  /** 每页条数，默认由调用方指定 */
+  pageSize?: number
 }
 
 export interface CreateTaskInput {

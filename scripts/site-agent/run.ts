@@ -69,7 +69,11 @@ async function main() {
   const syncCoordinator = new SyncCoordinator({
     siteCode: config.siteCode,
     version: config.agentVersion,
+    siteName: config.siteName,
+    db_host: config.db_host,
+    db_port: config.db_port,
     overlapMs: config.overlapMs,
+    taskIdLookback: config.taskIdLookback,
     retryMaxAttempts: config.retryMaxAttempts,
     retryBaseMs: config.retryBaseMs,
     retryMaxMs: config.retryMaxMs,

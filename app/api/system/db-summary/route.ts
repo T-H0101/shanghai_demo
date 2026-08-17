@@ -7,8 +7,21 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
 
 export const dynamic = 'force-dynamic'
+
+function readBuildApiMode(): string | null {
+  try {
+    const stampPath = join(process.cwd(), '.next', 'BUILD_API_MODE')
+    if (!existsSync(stampPath)) return null
+    const json = JSON.parse(readFileSync(stampPath, 'utf8')) as { nextPublicApiMode?: string }
+    return json.nextPublicApiMode ?? null
+  } catch {
+    return null
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,6 +52,11 @@ export async function GET(request: NextRequest) {
       status: 'ok',
       connected: true,
       timestamp: new Date().toISOString(),
+      build: {
+        clientApiMode: readBuildApiMode(),
+        serverNextPublicApiMode: (process.env.NEXT_PUBLIC_API_MODE ?? 'api').trim() || 'api',
+        note: 'clientApiMode 来自最后一次 pnpm build 写入的前端 bundle; 与 .env.local 不一致时需 rebuild',
+      },
       counts: {
         sites: counts['sites'] || 0,
         syncSites: counts['syncSites'] || 0,

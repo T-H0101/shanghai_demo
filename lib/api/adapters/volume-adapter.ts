@@ -5,24 +5,14 @@
 
 import type { StorageVolume } from "@/lib/types/rack"
 import type { VolumeDTO } from "@/lib/api/dto"
-
-// VolumeType 映射
-const TYPE_MAP: Record<string, VolumeDTO["type"]> = {
-  optical: "optical",
-  magnetic: "magnetic",
-  composite: "composite",
-}
-
-// 安全的类型转换
-function safeAdaptVolumeType(type: string): VolumeDTO["type"] {
-  return TYPE_MAP[type] ?? "composite"
-}
+import { mapVolumeTypeToDto, mapVolumeTypeLabel } from "@/lib/devices/volume-type"
 
 export function adaptVolume(volume: StorageVolume): VolumeDTO {
   return {
     id: volume.id,
     name: volume.name ?? "",
-    type: safeAdaptVolumeType(volume.type ?? "composite"),
+    type: mapVolumeTypeToDto(volume.type),
+    typeLabel: mapVolumeTypeLabel(volume.type),
     totalCapacity: volume.totalCapacity ?? "",
     remainingCapacity: volume.remainingCapacity ?? "",
     info: volume.info ?? "",

@@ -1,0 +1,28 @@
+# ============================================================
+# Line endings: shell / unit / env MUST be LF.
+# CRLF breaks `set -o pipefail` and shebangs inside Linux/Docker.
+# After changing this file, run: git add --renormalize .
+# ============================================================
+
+* text=auto
+
+# Shell scripts (any depth)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# systemd / env used on Linux servers
+*.service text eol=lf
+bs/*.env text eol=lf
+bs/*.sh text eol=lf
+bs/*.ts text eol=lf
+
+# Explicit paths (redundant with *.sh, kept for clarity)
+scripts/**/*.sh text eol=lf
+databases/**/*.sh text eol=lf
+
+# Docker / compose often executed on Linux
+Dockerfile text eol=lf
+Dockerfile.* text eol=lf
+*.dockerfile text eol=lf
+docker-compose.yml text eol=lf
+docker-compose.*.yml text eol=lf

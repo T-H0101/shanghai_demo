@@ -34,7 +34,7 @@ export type RacksBrowseResult = {
 export async function loadRacksBrowseMock(
   storageTab: "browse" | "restore" | string
 ): Promise<RacksBrowseResult> {
-  if (isApiMode) {
+  if (isApiMode()) {
     return {
       source: "blocked_by_external_system",
       blocker: "browse_not_wired_to_real_source",
@@ -57,7 +57,7 @@ export async function loadRacksBrowseMock(
 export async function loadRacksRestoreTargetsMock(
   restoreMode: "server" | "local"
 ): Promise<RacksBrowseResult> {
-  if (isApiMode) {
+  if (isApiMode()) {
     return {
       source: "blocked_by_external_system",
       blocker: "restore_not_wired_to_real_source",

@@ -81,6 +81,8 @@ export function adaptTask(task: TaskItem): TaskDTO {
     name: task.name,
     taskNo: task.taskNo,
     type: safeAdaptTaskType(task.type),
+    typeLabel: task.typeLabel,
+    statusLabel: task.statusLabel,
     phase: safeAdaptPhase(task.phase),
     status: safeAdaptStatus(task.status),
     priority: safeAdaptPriority(task.priority),
@@ -98,6 +100,7 @@ export function adaptTask(task: TaskItem): TaskDTO {
     sourcePath: task.sourcePath ?? "",
     packagePath: task.packagePath ?? "",
     volumeId: task.volumeId,
+    pathPairs: task.pathPairs,
 
     // 配置
     backupScope: task.backupScope ?? "full",

@@ -4,49 +4,22 @@
  *
  * API mode: 读取 unified_devices 真实中心表
  * 查询失败或空数据时由调用方显式处理，不允许 mock fallback。
+ *
+ * device_status 口径（tbl_disc_lib）:
+ *   1 online / 0 offline / 2 deleted(不展示) / 3 warning / 4 error
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
-import type { ApiResponse, RackDTO } from "@/lib/api/dto"
-
-// unified_devices.device_type → 前端显示名
-const DEVICE_TYPE_LABELS: Record<string, string> = {
-  gen2_library: "Gen2 光盘库",
-  gen2_offline: "Gen2 离线库",
-  gen1_legacy: "Gen1 旧库",
-  gen1_new: "Gen1 新库",
-  gen1_offline: "Gen1 离线库",
-  gen3_library: "Gen3 光盘库",
-  publisher: "光盘打印机",
-  hdd_library: "智能硬盘库",
-  tape_library: "磁带库",
-  tape_drive: "磁带机",
-  sas_hdd_library: "SAS 硬盘库",
-  film_library: "胶片库",
-  nas: "NAS",
-  alarm: "告警设备",
-  gen4_library: "Gen4 光盘库",
-}
-
-// unified_devices.status → RackDTO.deviceStatus
-const DEVICE_STATUS_MAP: Record<string, "online" | "offline"> = {
-  online: "online",
-  offline: "offline",
-  deleted: "offline",
-  warning: "offline",
-  error: "offline",
-}
-
-// unified_devices.status → RackDTO.status
-const RACK_STATUS_MAP: Record<string, RackDTO["status"]> = {
-  online: "normal",
-  offline: "fault",
-  deleted: "fault",
-  warning: "warning",
-  error: "fault",
-}
+import type { RackDTO } from "@/lib/api/dto"
+import { DEVICE_TYPE_LABELS, pickDeviceIp } from "@/lib/devices/device-display"
+import {
+  isDeletedDeviceStatus,
+  mapUnifiedStatusToDeviceRuntime,
+  mapUnifiedStatusToOnline,
+  mapUnifiedStatusToRackStatus,
+} from "@/lib/devices/device-status"
 
 interface DeviceRow {
   device_id: string
@@ -56,6 +29,7 @@ interface DeviceRow {
   ip_address: string | null
   source_site_id: string
   site_code: string | null
+  site_name: string | null
   slot_count: number | null
   cage_count: number | null
   model: string | null
@@ -65,6 +39,7 @@ interface DeviceRow {
   total_capacity: number | null
   used_capacity: number | null
   used_slots: number | null
+  raw_data: Record<string, unknown> | null
 }
 
 function formatBytes(bytes: number | null | undefined): string | undefined {
@@ -79,27 +54,40 @@ function formatBytes(bytes: number | null | undefined): string | undefined {
   return `${size.toFixed(1)} ${units[i]}`
 }
 
+/** 所属站点仅展示名称，不展示站点编码 */
+function formatSiteDisplayName(siteName: string | null | undefined): string {
+  const name = siteName?.trim()
+  return name || "—"
+}
+
 function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
-  const deviceStatus = DEVICE_STATUS_MAP[row.status ?? ""] ?? "offline"
-  const rackStatus = RACK_STATUS_MAP[row.status ?? ""] ?? "fault"
+  const deviceStatus = mapUnifiedStatusToDeviceRuntime(row.status)
+  const rackStatus = mapUnifiedStatusToRackStatus(row.status)
+  const onlineStatus = mapUnifiedStatusToOnline(row.status)
 
   const totalCapacity = row.total_capacity
+  const isNas = row.device_type === "nas"
   const usedCapacity = row.used_capacity
-  const hasCapacityData = totalCapacity != null && totalCapacity > 0
+  const hasCapacityData = !isNas && totalCapacity != null && totalCapacity > 0
   const usagePercent = hasCapacityData && usedCapacity != null
-    ? Math.round((usedCapacity / totalCapacity) * 100)
+    ? Math.round((usedCapacity / totalCapacity!) * 100)
     : undefined
+
+  const ip =
+    (row.ip_address && row.ip_address.trim()) ||
+    pickDeviceIp(row.raw_data) ||
+    undefined
 
   return {
     id: row.device_id,
     rackId: row.device_id,
     rackName: row.device_name ?? `设备-${row.device_id}`,
-    siteName: row.site_code ?? row.source_site_id,
+    siteName: formatSiteDisplayName(row.site_name),
     siteCode: row.source_site_id,
     datacenter: "",
     cages: [],
-    totalSlots: row.slot_count ?? 0,
-    usedSlots: row.used_slots ?? undefined,
+    totalSlots: isNas ? 0 : (row.slot_count ?? 0),
+    usedSlots: isNas ? 0 : (row.used_slots ?? undefined),
     usagePercent: usagePercent,
     status: rackStatus,
     lastSyncAt: typeof row.synced_at === "string"
@@ -107,23 +95,29 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
       : row.synced_at.toISOString(),
     floor: undefined,
     room: undefined,
-    ip: row.ip_address ?? undefined,
+    ip,
+    serialNo:
+      (row.serial_no && row.serial_no.trim()) ||
+      (typeof row.raw_data?.sn === "string" && row.raw_data.sn.trim()) ||
+      (typeof row.raw_data?.SN === "string" && row.raw_data.SN.trim()) ||
+      undefined,
     deviceType: DEVICE_TYPE_LABELS[row.device_type] ?? row.device_type,
     deviceStatus,
-    onlineStatus: deviceStatus,
-    totalCapacity: formatBytes(totalCapacity),
-    remainingCapacity: formatBytes(
-      totalCapacity && usedCapacity != null ? totalCapacity - usedCapacity : undefined
-    ),
+    onlineStatus,
+    totalCapacity: isNas ? undefined : formatBytes(totalCapacity),
+    remainingCapacity: isNas
+      ? undefined
+      : formatBytes(
+          totalCapacity && usedCapacity != null ? totalCapacity - usedCapacity : undefined
+        ),
     currentTaskCount: 0,
     mode: undefined,
-    cageCount: row.cage_count ?? undefined,
+    cageCount: isNas ? 0 : (row.cage_count ?? undefined),
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // Sprint R.29: 防越权
     const session = await requireSession(request)
     requirePermission(session, "platform:read")
     const visibleSites = getVisibleSites(session)
@@ -132,38 +126,45 @@ export async function GET(request: NextRequest) {
     const siteCode = searchParams.get("siteCode")
     const status = searchParams.get("status")
 
-    // 构建查询
-    const conditions: string[] = []
+    // 默认排除 deleted
+    const conditions: string[] = [`(d.status IS NULL OR d.status <> 'deleted')`]
     const params: unknown[] = []
     let paramIndex = 1
 
     if (siteCode) {
-      conditions.push(`source_site_id = $${paramIndex++}`)
+      conditions.push(`d.source_site_id = $${paramIndex++}`)
       params.push(siteCode)
     } else if (visibleSites) {
-      conditions.push(`source_site_id = ANY($${paramIndex++})`)
+      conditions.push(`d.source_site_id = ANY($${paramIndex++})`)
       params.push(visibleSites)
     }
     if (status) {
-      conditions.push(`status = $${paramIndex++}`)
-      params.push(status)
+      if (status === "deleted") {
+        conditions[0] = `d.status = $${paramIndex++}`
+        params.push("deleted")
+      } else {
+        conditions.push(`d.status = $${paramIndex++}`)
+        params.push(status)
+      }
     }
 
-    const whereClause = conditions.length > 0
-      ? `WHERE ${conditions.join(" AND ")}`
-      : ""
+    const whereClause = `WHERE ${conditions.join(" AND ")}`
 
-    const sql = `SELECT device_id, device_name, device_type, status, ip_address,
-                        source_site_id, site_code, slot_count, cage_count,
-                        model, manufacturer, serial_no, synced_at,
-                        total_capacity, used_capacity, used_slots
-                 FROM unified_devices ${whereClause}
-                 ORDER BY device_id`
+    const sql = `SELECT d.device_id, d.device_name, d.device_type, d.status, d.ip_address,
+                        d.source_site_id, d.site_code, ss.site_name, d.slot_count, d.cage_count,
+                        d.model, d.manufacturer, d.serial_no, d.synced_at,
+                        d.total_capacity, d.used_capacity, d.used_slots, d.raw_data
+                 FROM unified_devices d
+                 LEFT JOIN sync_sites ss ON ss.site_code = d.source_site_id
+                 ${whereClause}
+                 ORDER BY d.device_id`
 
     const { rows } = await query<DeviceRow>(sql, params)
-    const data = rows.map(mapDeviceToRackDTO)
+    const data = rows
+      .filter((row) => !isDeletedDeviceStatus(row.status) || status === "deleted")
+      .map(mapDeviceToRackDTO)
 
-    const response = {
+    return NextResponse.json({
       code: 0,
       message: "ok",
       data,
@@ -175,9 +176,7 @@ export async function GET(request: NextRequest) {
         mapper: "Sprint 2H.2 inlineUpsert (R.17 复核)",
       },
       traceId: `api-${Date.now()}`,
-    }
-
-    return NextResponse.json(response)
+    })
   } catch (error) {
     if (error instanceof NextResponse) return error
     console.error("[API Error] /api/racks:", error)

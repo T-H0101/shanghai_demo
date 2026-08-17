@@ -2,15 +2,16 @@
  * Task Runtime Aggregator
  * Sprint 2F.1 - 从 tbl_disc 聚合任务运行时统计
  *
- * 输出:
+ * 输出（对齐业务 getTaskSummary / 列表 total_disc·success·failed）:
  * - packageCount: COUNT(*) FROM tbl_disc WHERE task_id = ?
- * - successCount: SUM(burn_success) FROM tbl_disc WHERE task_id = ?
- * - errorCount: SUM(error_files) FROM tbl_disc WHERE task_id = ?
+ * - successCount: COUNT(*) WHERE burn_success = 1
+ * - errorCount: COUNT(*) WHERE burn_success < 0
  * - progress: AVG(disc_progress) FROM tbl_disc WHERE task_id = ? (0-100)
  * - currentPhase: tbl_disc.stage (任一 disc)
  * - runtimeSeconds: update_dt - create_dt (从 tbl_task 计算, 由 mapper 处理)
  *
  * 注意: 不引入 sourceQuery() 的批量调用, 每次为单任务查询, 避免大表扫描。
+ * 中心库 package 同步请用 lib/tasks/task-disc-aggregate.ts（读 unified_disc_media）。
  */
 
 import { sourceQuery } from '@/lib/db/source-pool'
@@ -35,8 +36,8 @@ export async function aggregateTaskDisc(taskId: string | number): Promise<DiscAg
   const sql = `
     SELECT
       COUNT(*)::int AS package_count,
-      COALESCE(SUM(burn_success), 0)::int AS success_count,
-      COALESCE(SUM(error_files), 0)::int AS error_count,
+      COUNT(*) FILTER (WHERE burn_success = 1)::int AS success_count,
+      COUNT(*) FILTER (WHERE burn_success < 0)::int AS error_count,
       AVG(disc_progress)::int AS avg_progress,
       MAX(stage) AS current_phase
     FROM tbl_disc

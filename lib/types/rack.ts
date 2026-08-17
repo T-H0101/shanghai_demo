@@ -1,4 +1,5 @@
 import type { OnlineStatus } from "./common"
+import type { NasMountInfo } from "@/lib/devices/nas-mount-display"
 
 export type RackStatus = "normal" | "warning" | "fault" | "maintenance"
 
@@ -23,6 +24,9 @@ export interface RackSlot {
   index: number
   occupied: boolean
   status: SlotStatus
+  /** 业务 disc_type：0 无盘 / 1 未刻 / 2 满盘 / 3 未满 / 4 坏盘 */
+  discType?: number
+  discTypeLabel?: string
   sourceSiteId?: string
   sourceTable?: string
   sourceId?: string
@@ -136,7 +140,7 @@ export const DEVICE_MODE_LABELS: Record<DeviceMode, string> = {
 export interface StorageVolume {
   id: string
   name: string
-  type: "optical" | "magnetic" | "composite"
+  type: "optical" | "magnetic" | "tape" | "composite"
   totalCapacity: string
   remainingCapacity: string
   info: string
@@ -155,7 +159,7 @@ export interface Rack {
   cages: string[]
   totalSlots: number
   usedSlots: number
-  usagePercent: number
+  usagePercent?: number
   status: RackStatus
   lastSyncAt: string
   floor?: string
@@ -165,8 +169,9 @@ export interface Rack {
 
   // 设备管理
   ip?: string
+  serialNo?: string             // 光盘库/设备序列号 (tbl_disc_lib.sn)
   deviceType?: string           // 智能硬盘库 / 光盘库 / CIFS网盘
-  deviceStatus?: "online" | "offline" | "error" | "maintenance"
+  deviceStatus?: "online" | "offline" | "warning" | "error"
   onlineStatus?: OnlineStatus
   totalCapacity?: string
   remainingCapacity?: string
@@ -179,6 +184,8 @@ export interface Rack {
   recentTasks?: RelatedTask[]
   // 设备日志
   deviceLogs?: DeviceLog[]
+  /** 网盘挂载信息（只读；密码已脱敏） */
+  mountInfo?: NasMountInfo
 }
 
 // 设备操作日志

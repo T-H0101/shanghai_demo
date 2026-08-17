@@ -10,6 +10,15 @@
 import type { UnifiedTaskRecord, UnifiedDeviceRecord } from '@/lib/sync/types'
 import { computeRuntimeSeconds } from './task-runtime-aggregator'
 
+function parseSourceDate(value: unknown): Date | null {
+  if (value == null || value === '') return null
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value
+  }
+  const d = new Date(String(value))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 // ============================================================
 // Task 枚举映射
 // ============================================================
@@ -26,6 +35,7 @@ const TASK_TYPE_MAP: Record<number, string> = {
   8: 'package',
   9: 'evidence',
   10: 'power_on',
+  11: 'remote_backup',
 }
 
 function mapTaskType(value: number | null): string {
@@ -68,11 +78,30 @@ const TASK_STATUS_1: Record<number, string> = {
 
 function mapTaskStatus(taskType: number | null, status: number | null): string {
   if (status === null || status === undefined) return 'unknown_status_null'
+
+  // 终态：全类型共用（对齐业务列表，不依赖 task_type）
+  if (status === 0) {
+    return taskType === 1 ? 'download_success' : 'burn_success'
+  }
+  if (status === 10) {
+    return taskType === 1 ? 'read_failed' : 'burn_failed'
+  }
+  if (status === 11) {
+    return taskType === 1 ? 'restore_warning' : 'warning'
+  }
+  if (status === 20) {
+    return 'paused'
+  }
+
   if (taskType === 0 || taskType === 2 || taskType === 3) {
     return TASK_STATUS_0_2_3[status] ?? `unknown_${taskType}_${status}`
   }
   if (taskType === 1) {
     return TASK_STATUS_1[status] ?? `unknown_${taskType}_${status}`
+  }
+  // 封包任务中间态：与 type 0/2/3 共用部分 status 码
+  if (taskType === 8) {
+    return TASK_STATUS_0_2_3[status] ?? `unknown_${taskType}_${status}`
   }
   return `unknown_${taskType}_${status}`
 }
@@ -187,6 +216,8 @@ export function mapRealTask(
       ? 100
       : (aggregate?.progress ?? null),
     current_phase: aggregate?.currentPhase ?? null,
+    task_create_at: parseSourceDate(source.create_dt),
+    task_end_at: parseSourceDate(source.update_dt),
     raw_data: buildTaskRawData(source) as unknown as import('@/lib/sync/types').TaskSourceRecord,
   }
 }
@@ -200,6 +231,10 @@ export function mapRealDevice(
   siteCode: string,
   sourceTable: string = 'tbl_disc_lib'
 ): UnifiedDeviceRecord {
+  const ip =
+    (typeof source.ip === 'string' && source.ip.trim() ? source.ip.trim() : null) ??
+    (typeof source.IP === 'string' && source.IP.trim() ? source.IP.trim() : null)
+
   return {
     source_site_id: siteCode,
     source_table: sourceTable,
@@ -209,7 +244,7 @@ export function mapRealDevice(
     device_name: (source.name as string) ?? null,
     device_type: mapDeviceType(source.type as number) ?? 'unknown',
     status: mapDeviceStatus(source.device_status as number) ?? 'unknown',
-    ip_address: (source.ip as string) ?? null,
+    ip_address: ip,
     location: null,
     room: null,
     floor: null,

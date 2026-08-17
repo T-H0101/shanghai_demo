@@ -19,7 +19,6 @@ import {
   RefreshCw,
   Users,
   FileText,
-  Settings,
   Activity,
   AlertTriangle,
   CheckCircle2,
@@ -148,10 +147,11 @@ export function CommandPalette() {
       { id: "p-tasks", label: "任务管理", icon: ClipboardList, group: "page", keywords: ["task", "任务", "工单"], perform: () => router.push("/tasks") },
       { id: "p-tasks-failed", label: "任务管理 · 失败任务", hint: "查看失败任务", icon: AlertTriangle, group: "action", keywords: ["failed", "失败", "task"], perform: () => router.push("/tasks?phase=failed") },
       { id: "p-tasks-running", label: "任务管理 · 进行中", hint: "查看运行中任务", icon: Activity, group: "action", keywords: ["running", "运行"], perform: () => router.push("/tasks?phaseGroup=running") },
-      { id: "p-racks", label: "盘架管理", icon: HardDrive, group: "page", keywords: ["rack", "盘架", "设备"], perform: () => router.push("/racks") },
+      { id: "p-racks", label: "设备管理", icon: HardDrive, group: "page", keywords: ["rack", "盘架", "设备"], perform: () => router.push("/racks") },
             { id: "p-users", label: "用户与权限", icon: Users, group: "page", keywords: ["user", "用户", "权限"], perform: () => router.push("/users") },
       { id: "p-logs", label: "审计日志", icon: FileText, group: "page", keywords: ["log", "审计", "日志"], perform: () => router.push("/logs") },
-      { id: "p-settings", label: "系统设置", icon: Settings, group: "page", keywords: ["setting", "设置", "config"], perform: () => router.push("/settings") },
+      // 当前设置页无可用配置入口，暂隐藏命令面板入口
+      // { id: "p-settings", label: "系统设置", icon: Settings, group: "page", keywords: ["setting", "设置", "config"], perform: () => router.push("/settings") },
     ]
 
     const siteList: Array<{ code: string; label: string }> = [

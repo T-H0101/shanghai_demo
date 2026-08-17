@@ -13,6 +13,9 @@
 
 ## 2. 同步协议
 
+> **业务系统主路径（推荐）**：分阶段推送 `begin` → `table` × N → `commit`，见 [site-push-session-v1.md](./site-push-session-v1.md)。  
+> 下列 `POST /api/sync/package` 仍保留（一包多表或兼容旧客户端）。
+
 站点调用:
 
 ```http
@@ -24,6 +27,30 @@ content-type: application/json
 ```
 
 payload 沿用 `lib/sync/package-schema.ts`。
+
+可选站点注册字段（与 `siteCode` 同级，每次推送可更新）:
+
+| 字段 | 类型 | 落库 |
+|---|---|---|
+| `siteName` | string | `sync_sites.site_name` |
+| `db_host` | string | `sync_sites.db_host`（站点自报管理/访问地址） |
+| `db_port` | number | `sync_sites.db_port` |
+
+示例:
+
+```json
+{
+  "siteCode": "CD01",
+  "siteName": "成都光盘库",
+  "db_host": "192.168.1.100",
+  "db_port": 8080,
+  "batchId": "...",
+  "snapshotAt": "...",
+  "mode": "full",
+  "version": "1.0",
+  "tables": []
+}
+```
 
 要求:
 

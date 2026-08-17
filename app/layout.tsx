@@ -3,12 +3,13 @@ import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
 import { GlobalControlBall } from '@/components/ui/global-control-ball'
 import { ThemeProvider } from '@/components/theme-provider'
+import { PRODUCT_NAME } from '@/lib/branding'
 import './globals.css'
 import '@/styles/dark.css'
 
 export const metadata: Metadata = {
-  title: '光盘库管理平台 - 控制台',
-  description: '企业级光盘库统一管理系统',
+  title: PRODUCT_NAME,
+  description: PRODUCT_NAME,
   generator: 'v0.app',
   icons: {
     icon: [

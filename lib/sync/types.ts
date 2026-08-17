@@ -87,6 +87,10 @@ export interface UnifiedTaskRecord {
   error_count: number | null
   progress: number | null
   current_phase: string | null
+  /** 业务创建时间 ← tbl_task.create_dt */
+  task_create_at: Date | null
+  /** 业务结束时间 ← tbl_task.update_dt */
+  task_end_at: Date | null
   raw_data: TaskSourceRecord
 }
 

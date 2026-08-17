@@ -120,7 +120,7 @@ export const racks: Rack[] = [
     floor: "3F", room: "机房-A区",
     slots: generateSlots(24, 18, "bd"),
     ip: "10.186.1.239", deviceType: "光盘库",
-    deviceStatus: "maintenance", onlineStatus: "online",
+    deviceStatus: "warning", onlineStatus: "online",
     totalCapacity: "2.4 TB", remainingCapacity: "600 GB",
     currentTaskCount: 0,
     trays: [
@@ -194,12 +194,12 @@ export const rackStats: RackStats = {
   fault: racks.filter(r => r.status === "fault").length,
   maintenance: racks.filter(r => r.status === "maintenance").length,
   online: racks.filter(r => r.deviceStatus === "online").length,
-  offline: racks.filter(r => r.deviceStatus === "offline" || r.deviceStatus === "error").length,
+  offline: racks.filter(r => r.deviceStatus === "offline").length,
   totalCapacity: "203.6 TB",
   remainingCapacity: "42.8 TB",
   usedSlots: racks.reduce((s, r) => s + r.usedSlots, 0),
   totalSlotsAll: racks.reduce((s, r) => s + r.totalSlots, 0),
-  avgUsage: Math.round(racks.reduce((s, r) => s + r.usagePercent, 0) / racks.length),
+  avgUsage: Math.round(racks.reduce((s, r) => s + (r.usagePercent ?? 0), 0) / racks.length),
 }
 
 export const allSites = ["上海数据中心", "北京总部", "南京中心", "武汉备份中心", "广州生产基地"]

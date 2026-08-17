@@ -9,6 +9,7 @@ import { LoginHeader } from "@/components/auth/login-header"
 import { LoginCard } from "@/components/auth/login-card"
 import { GlassPanel } from "@/components/platform/glass-panel"
 import { isAuthenticated } from "@/lib/auth/session"
+import { PRODUCT_NAME } from "@/lib/branding"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -83,12 +84,9 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <h1 className="mb-3 text-4xl font-bold leading-tight xl:text-5xl">
-                统一光盘库管理平台
+              <h1 className="mb-4 text-xl font-bold leading-none tracking-tight whitespace-nowrap sm:text-2xl xl:text-[1.75rem]">
+                {PRODUCT_NAME}
               </h1>
-              <p className="mb-4 text-sm tracking-wide text-slate-600 dark:text-slate-400">
-                Unified Optical Disc Library Management Platform
-              </p>
               <p className="max-w-md text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                 集团级多站点统一视图、统一检索与统一运维入口。
               </p>
@@ -118,7 +116,7 @@ export default function LoginPage() {
             </section>
 
             <section className="flex items-center justify-center lg:justify-end">
-              <LoginCard availableSites={["SH01"]} />
+              <LoginCard />
             </section>
           </div>
         </main>

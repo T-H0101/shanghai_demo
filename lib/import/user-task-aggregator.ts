@@ -1,75 +1,67 @@
 /**
  * User Task Aggregator
- * Sprint 2H.3 (autonomous) - 检查 tbl_user_task 是否可用
+ * Sprint 2H.3 — 把 tbl_user_task 关联聚合到 unified_tasks.raw_data._aggregate
  *
- * 背景 (来自 Sprint 2G.3 盘点):
- *   - tbl_user_task 有 user_id + task_id 联合主键, 28 条记录
- *   - 但 user_stage_acting / user_stage_failedcount / user_stage_faileddate 全部 NULL
- *   - 源端 schema 是占位, 没有真实数据
- *
- * 决策:
- *   - 不写 unified_tasks.user_id (因为源端 user_id 字段为 NULL, 写出来是假数据)
- *   - 但 tbl_user_task.task_id 是真实存在的, 可以作为"任务被哪个用户看到" 的关联记录
- *   - 用 raw_data 写 _aggregate.user_task_count, 标识"该任务有 N 个 user_task 关联记录"
- *
- * 容错: 全空时 0 命中, 静默成功
+ * 数据来源：站点推包 records（不连 SOURCE_DATABASE_URL / 站点库）。
+ * 不写 unified_tasks.user_id（源端语义不清，避免混用）。
  */
 
-import { sourceQuery } from '@/lib/db/source-pool'
 import { query } from '@/lib/db'
 
 export interface UserTaskAggregateResult {
   readCount: number
   distinctTasks: number
-  userIds: number      // 唯一 user_id 数量
+  userIds: number
   unifiedRowsUpdated: number
   durationMs: number
-  note: string         // 提示 "all NULL" 等
-}
-
-interface UserTaskRow {
-  task_id: string | null
-  user_id: string | null
+  note: string
 }
 
 /**
- * 聚合 tbl_user_task → unified_tasks.raw_data._aggregate.user_task_count
- * 不写 user_id 字段, 因为源端 user_id 在 user_task 关系表里是有效值,
- * 而 unified_tasks.user_id 业务上指 "执行人", 源端没明确字段, 不混用
+ * 用推包中的 tbl_user_task 行，按 task_id 聚合后写回 unified_tasks。
  */
-export async function aggregateUserTasks(siteCode: string = 'SH01'): Promise<UserTaskAggregateResult> {
+export async function aggregateUserTasks(
+  siteCode: string,
+  records: Array<Record<string, unknown>>,
+): Promise<UserTaskAggregateResult> {
   const start = Date.now()
 
-  const { rows } = await sourceQuery<UserTaskRow>(
-    `SELECT task_id::text AS task_id, user_id::text AS user_id FROM tbl_user_task`
-  )
-
-  const distinctTasks = new Set<string>()
-  const distinctUsers = new Set<string>()
-  for (const r of rows) {
-    if (r.task_id) distinctTasks.add(r.task_id)
-    if (r.user_id) distinctUsers.add(r.user_id)
-  }
-
-  if (distinctTasks.size === 0) {
+  if (!records.length) {
     return {
-      readCount: rows.length,
+      readCount: 0,
       distinctTasks: 0,
       userIds: 0,
       unifiedRowsUpdated: 0,
       durationMs: Date.now() - start,
-      note: 'tbl_user_task 全空, 无可聚合数据',
+      note: '推包无 tbl_user_task 行，跳过聚合',
     }
   }
 
-  // 按 task_id 聚合 count
+  const distinctTasks = new Set<string>()
+  const distinctUsers = new Set<string>()
   const counts = new Map<string, { count: number; users: Set<string> }>()
-  for (const r of rows) {
-    if (!r.task_id) continue
-    const c = counts.get(r.task_id) ?? { count: 0, users: new Set<string>() }
+
+  for (const record of records) {
+    const taskId = record.task_id != null && record.task_id !== '' ? String(record.task_id) : ''
+    const userId = record.user_id != null && record.user_id !== '' ? String(record.user_id) : ''
+    if (!taskId) continue
+    distinctTasks.add(taskId)
+    if (userId) distinctUsers.add(userId)
+    const c = counts.get(taskId) ?? { count: 0, users: new Set<string>() }
     c.count += 1
-    if (r.user_id) c.users.add(r.user_id)
-    counts.set(r.task_id, c)
+    if (userId) c.users.add(userId)
+    counts.set(taskId, c)
+  }
+
+  if (counts.size === 0) {
+    return {
+      readCount: records.length,
+      distinctTasks: 0,
+      userIds: 0,
+      unifiedRowsUpdated: 0,
+      durationMs: Date.now() - start,
+      note: '推包行缺少 task_id，无可聚合数据',
+    }
   }
 
   let updated = 0
@@ -91,17 +83,17 @@ export async function aggregateUserTasks(siteCode: string = 'SH01'): Promise<Use
        WHERE source_site_id = $3
          AND source_table = 'tbl_task'
          AND source_id = $4`,
-      [c.count, c.users.size, siteCode, taskId]
+      [c.count, c.users.size, siteCode, taskId],
     )
     updated += r.rowCount ?? 0
   }
 
   return {
-    readCount: rows.length,
+    readCount: records.length,
     distinctTasks: distinctTasks.size,
     userIds: distinctUsers.size,
     unifiedRowsUpdated: updated,
     durationMs: Date.now() - start,
-    note: '仅写 raw_data._aggregate.user_task_count, 不写 user_id 字段 (源端 user_id NULL)',
+    note: '仅写 raw_data._aggregate.user_task_count, 不写 user_id 字段',
   }
 }

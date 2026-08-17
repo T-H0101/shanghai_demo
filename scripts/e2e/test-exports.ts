@@ -49,31 +49,31 @@ const ENDPOINTS: ExportEndpoint[] = [
     label: "devices (racks)",
     url: (f) => `/api/racks/export?format=${f}`,
     expectedSource: "unified_devices",
-    expectedHeaderColumn: "device_id",
+    expectedHeaderColumn: "设备 ID",
   },
   {
     label: "sync_package",
     url: (f) => `/api/sync/export?kind=package&format=${f}`,
     expectedSource: "sync_package_log",
-    expectedHeaderColumn: "batch_id",
+    expectedHeaderColumn: "批次 ID",
   },
   {
     label: "sync_table",
     url: (f) => `/api/sync/export?kind=table&format=${f}`,
     expectedSource: "sync_table_log",
-    expectedHeaderColumn: "table_name",
+    expectedHeaderColumn: "表名",
   },
   {
     label: "sync_scheduler",
     url: (f) => `/api/sync/export?kind=scheduler&format=${f}`,
     expectedSource: "sync_scheduler_log",
-    expectedHeaderColumn: "run_id",
+    expectedHeaderColumn: "运行 ID",
   },
   {
     label: "sync_consistency",
     url: (f) => `/api/sync/export?kind=consistency&format=${f}`,
     expectedSource: "sync_consistency_log",
-    expectedHeaderColumn: "matched_table_count",
+    expectedHeaderColumn: "匹配表数",
   },
   {
     label: "users",
@@ -262,7 +262,8 @@ async function testAuditLog() {
     if (row) {
       check("最新 export audit_log.target_table 非空", row.target_table.length > 0,
         `target_table=${row.target_table}`)
-      check("最新 export audit_log.actor = 'system' (ADFS 未接入)", row.actor === "system",
+      check("最新 export audit_log.actor 非空 (登录用户或 system)",
+        typeof row.actor === "string" && row.actor.trim().length > 0,
         `actor=${row.actor}`)
       check("最新 export audit_log.result = 'success'", row.result === "success",
         `result=${row.result}`)

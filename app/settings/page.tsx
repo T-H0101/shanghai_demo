@@ -268,6 +268,11 @@ export default function Page() {
               </div>
             </GlassPanel>
 
+            {/*
+              DEPRECATED_CENTER_SCHEDULER_UI: settings-site-runtime / 中心调度配置
+              旧「总控按周期拉数」模型展示（同步周期 / 最近调度 / realityNote）。
+              当前主路径为业务系统 push-session 推送 + 总控立即同步请求，已不适配，暂注释保留。
+            {false && (
             <GlassPanel
               data-testid="settings-site-runtime"
               title={
@@ -338,6 +343,8 @@ export default function Page() {
                 )}
               </div>
             </GlassPanel>
+            )}
+            */}
           </div>
         ),
       },
@@ -379,6 +386,10 @@ export default function Page() {
               </div>
             </GlassPanel>
 
+            {/*
+              DEPRECATED_CENTER_SCHEDULER_UI: settings-sync-config / 同步配置(只读)
+              展示「每 60 分钟中心调度」与站点周期，与业务主动推送主路径不适配，暂注释保留。
+            {false && (
             <GlassPanel
               data-testid="settings-sync-config"
               title={
@@ -426,7 +437,13 @@ export default function Page() {
                 )}
               </div>
             </GlassPanel>
+            )}
+            */}
 
+            {/*
+              DEPRECATED_CENTER_SCHEDULER_UI: settings-scheduler-config / 调度配置
+              「默认 60 分钟 / 独立调度进程」属旧中心拉数模型，暂注释保留。
+            {false && (
             <GlassPanel
               data-testid="settings-scheduler-config"
               title={
@@ -462,6 +479,8 @@ export default function Page() {
                 <WriteRow label="覆盖单站点周期" reason="not_implemented" />
               </div>
             </GlassPanel>
+            )}
+            */}
           </div>
         ),
       },
@@ -566,6 +585,10 @@ export default function Page() {
               </div>
             </GlassPanel>
 
+            {/*
+              DEPRECATED_CENTER_SCHEDULER_UI: settings-external-agent / 站点端代理
+              用旧 sync_scheduler 状态冒充「站点代理」运行态，与业务 push / 立即同步主路径不适配，暂注释保留。
+            {false && (
             <GlassPanel
               data-testid="settings-external-agent"
               title={
@@ -594,6 +617,8 @@ export default function Page() {
                 )}
               </div>
             </GlassPanel>
+            )}
+            */}
           </div>
         ),
       },
@@ -605,7 +630,7 @@ export default function Page() {
     <AppShell>
       <PageHeader
         title="系统设置"
-        description="查看同步策略、安全配置引用与运行健康状态"
+        description="查看运行健康、站点注册与安全配置引用（只读）"
         badge="READ ONLY"
         actions={
           <Button
@@ -649,6 +674,7 @@ export default function Page() {
   )
 }
 
+/* DEPRECATED_CENTER_SCHEDULER_UI: WriteRow 仅被旧调度配置卡片使用，卡片已注释
 function WriteRow({ label, reason }: { label: string; reason: string }) {
   return (
     <div className="flex items-center justify-between rounded border bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
@@ -664,6 +690,7 @@ function WriteRow({ label, reason }: { label: string; reason: string }) {
     </div>
   )
 }
+*/
 
 function ConfigFlag({
   label,

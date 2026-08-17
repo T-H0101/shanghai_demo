@@ -20,6 +20,9 @@ export interface BuildPackageInput {
   version: string
   snapshotAt?: string
   batchId?: string
+  siteName?: string
+  db_host?: string
+  db_port?: number
   tables: PackageTableInput[]
 }
 
@@ -56,6 +59,9 @@ export function buildSyncPackage(
     snapshotAt,
     mode: packageMode(input.tables),
     version: input.version,
+    ...(input.siteName ? { siteName: input.siteName } : {}),
+    ...(input.db_host ? { db_host: input.db_host } : {}),
+    ...(input.db_port ? { db_port: input.db_port } : {}),
     tables: input.tables.map((table) => ({
       tableName: table.tableName,
       syncMode: table.syncMode,

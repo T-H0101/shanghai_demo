@@ -35,6 +35,8 @@ export function mapTask(source: TaskSourceRecord): UnifiedTaskRecord {
     error_count: null,
     progress: null,
     current_phase: null,
+    task_create_at: null,
+    task_end_at: null,
     raw_data: source,
   }
 }

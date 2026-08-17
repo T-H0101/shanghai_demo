@@ -229,6 +229,7 @@ export async function ingestPgDump(input: IngestPgDumpInput): Promise<IngestPgDu
         tableName: target as never,
         siteCode: input.siteCode,
         records,
+        syncMode: input.mode === 'incremental' ? 'incremental' : 'full',
       })
       if (result.status === "success" || result.status === "partial" || result.status === "skipped") {
         await markTableSuccess(log.id, {

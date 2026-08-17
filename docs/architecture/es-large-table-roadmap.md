@@ -13,28 +13,53 @@
 
 ## 2. 架构边界
 
+### 2.1 生产推送（定案）：业务 syncDB → disc_file_index
+
+**生产写入路径不在总控。** 业务系统 MultimediumCentral `syncDB` 从站点库按卷读取 `tbl_file_{N}_a` / `tbl_folder_{N}`，以本地 JSON 水位（`id > lastId`）增量 `_bulk` 写入 OpenSearch 索引 `disc_file_index`。
+
+完整契约见：**[site-opensearch-file-push-v1.md](../source/site-opensearch-file-push-v1.md)**。
+
 ```mermaid
 flowchart LR
-  SiteDB["站点库 tbl_file*/tbl_folder*"] --> Agent["站点 File Index Agent"]
-  Agent --> Queue["index_batch 队列"]
-  Queue --> Indexer["File Indexer"]
-  Indexer --> ES["OpenSearch/ES: disc_file_index"]
-  Indexer --> PG["PostgreSQL: file_index_jobs / audit_log"]
-  UI["/search 页面"] --> API["/api/search"]
+  SiteDB["站点库 file_N_a / folder_N"] --> SyncDB["业务 syncDB ES推送"]
+  Progress["es-push-progress.json"] --> SyncDB
+  SyncDB -->|"_bulk"| ES["OpenSearch disc_file_index"]
+  SyncDB --> Progress
+  UI["总控 /search 日后"] --> API["/api/search"]
   API --> ES
-  API --> PG
 ```
 
 边界:
 
-- `File Index Agent`: 只读站点库，分页抽取，生成索引事件。
-- `File Indexer`: 执行批量 upsert，负责重试、死信、指标。
+- 推送脚本 / 水位 / bulk：**仅业务系统**；总控仓不实现推送。
+- 总控若做统一检索：只读 `disc_file_index`，不连站点库。
+- 小表 push-session 与本路径并行，见 [site-push-session-v1.md](../source/site-push-session-v1.md)。
+
+### 2.2 历史样例（非生产主路径）
+
+以下为总控仓 R.85/R.86 样例架构，**不是**上节生产推送路径：
+
+```mermaid
+flowchart LR
+  SiteDB2["站点库 tbl_file*/tbl_folder*"] --> Agent["站点 File Index Agent"]
+  Agent --> Queue["index_batch 队列"]
+  Queue --> Indexer["File Indexer"]
+  Indexer --> ES2["OpenSearch/ES: disc_file_index"]
+  Indexer --> PG["PostgreSQL: file_index_jobs / audit_log"]
+  UI2["/search 页面"] --> API2["/api/search"]
+  API2 --> ES2
+  API2 --> PG
+```
+
+- `File Index Agent` / center pull / `file_index_jobs`: 历史样例与本地验证用。
 - `Search API`: 做权限过滤、站点过滤、查询 ES，不直连站点库。
 - PostgreSQL: 保存任务、状态、审计，不保存千万级文件明细。
 
 ## 3. 索引字段
 
-最小可用字段:
+**生产写入字段以 [site-opensearch-file-push-v1.md](../source/site-opensearch-file-push-v1.md) §7 为准**（含 `doc_type`、`file_size`、`hash`/`hash1`、`create_date`、folder 字段等；水位在 syncDB JSON，不依赖文档内 `updated_at`）。
+
+下列为早期 roadmap 最小字段（总控 `FileIndexDocument` 历史样例）；与生产契约并存时，**写入侧以 v1 契约为准**，总控检索对齐另开任务：
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -49,7 +74,7 @@ flowchart LR
 | `disc_code` | keyword | 光盘编号 |
 | `department_id` | keyword | 部门权限过滤 |
 | `task_id` | keyword | 任务关联 |
-| `updated_at` | date | 增量水位 |
+| `updated_at` | date | 增量水位（历史样例） |
 | `deleted` | boolean | 软删除 |
 
 ## 4. 质量属性场景
@@ -129,3 +154,5 @@ docker build -t unified-disc-platform:release-check .
 - 不绕过权限直接查 ES。
 - 不把 ES 检索成功说成文件导出或任务控制完成。
 - 不在中心服务保存站点数据库明文密码。
+- 不在总控仓实现生产 ES 推送（生产推送仅业务 syncDB，见 [site-opensearch-file-push-v1.md](../source/site-opensearch-file-push-v1.md)）。
+- 不把「表已追上 lastId」说成「该卷不会再有新数据」（按卷分表会持续 INSERT）。

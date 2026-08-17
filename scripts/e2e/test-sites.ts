@@ -8,7 +8,7 @@
  *   - 业务表里未注册 siteCode 只能出现在 meta.orphanSiteCodes, 不计入站点总数
  *   - /sites 页面 HTML 不再含 mockSites 硬编码 6 站点 (上海/北京/广州/成都/南京/武汉)
  *   - /sites 页面不直接 import mockSites
- *   - "注册新站点" / "启用禁用" / "SSO 跳转" 按钮在源码中标记为 disabled
+ *   - "注册新站点" / "SSO 跳转" 按钮 disabled；启用/禁用 Power 按钮已移除（总控不做业务启停）
  *   - /sites 页面显示 dataSource 标识
  *   - siteCode 切换联动 (R.2F.4)
  *   - 8 个核心 API siteCode 过滤一致性
@@ -165,7 +165,7 @@ async function main() {
   )
 
   // ──────────────────────────────────────────────────────────
-  // 6. R.9A: 写操作按钮 (注册新站点 / 启用禁用 / SSO) 已 disabled
+  // 6. R.9A: 注册/SSO disabled；启停按钮已删除（总控不启停站点业务）
   // ──────────────────────────────────────────────────────────
   const regNewSiteBtn = /<Button[^>]*>[\s\S]{0,40}注册新站点[\s\S]*?<\/Button>/
   const regNewSiteMatch = sitesPage.match(regNewSiteBtn)
@@ -178,17 +178,16 @@ async function main() {
     regNewSiteDisabled === true || regNewSiteMatch === null,
     regNewSiteMatch ? "按钮已加 disabled" : "按钮未匹配 (允许)"
   )
-  // Power 按钮 disabled 检测: 在 <Button ... disabled ...> 与 <Power 之间任意内容
-  const powerBtnMatch = /<Button[\s\S]*?disabled[\s\S]*?>[\s\S]*?<Power[\s\S]*?\/>/.test(sitesPage)
   check(
-    "R.9A: '启用/禁用' (Power 按钮) disabled",
-    sitesPage.includes("<Power") && powerBtnMatch,
-    "Power 按钮已 disabled"
+    "站点列表无启用/禁用 Power 按钮（总控不做业务启停）",
+    !sitesPage.includes("<Power") && !sitesPage.includes("启用/禁用"),
+    "Power 启停按钮已移除"
   )
   check(
-    "R.9A: 'SSO' 按钮 disabled (REQ-2.1.2 blocked_by_auth)",
-    /<Button[^>]*disabled[^>]*>[\s\S]{0,60}SSO/.test(sitesPage),
-    "SSO 按钮已 disabled"
+    "SSO 按钮可点击（有真实地址时启用；无地址 disabled）",
+    sitesPage.includes('data-testid="sites-sso"') &&
+      sitesPage.includes("handleSsoJump"),
+    "SSO 使用 handleSsoJump"
   )
 
   // ──────────────────────────────────────────────────────────

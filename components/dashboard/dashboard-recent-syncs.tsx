@@ -44,7 +44,7 @@ export function DashboardRecentSyncs() {
 
   useEffect(() => {
     if (!isReady) return
-    if (!isApiMode) return
+    if (!isApiMode()) return
     let cancelled = false
     setLoading(true)
     fetchRecentSyncs(siteCode, 10).then((res) => {
@@ -59,7 +59,7 @@ export function DashboardRecentSyncs() {
     }
   }, [isReady, siteCode])
 
-  if (!isApiMode) return null
+  if (!isApiMode()) return null
 
   if (source === "unavailable" || error) {
     return (

@@ -19,10 +19,14 @@ export async function GET(request: NextRequest) {
     const sp = request.nextUrl.searchParams
     const siteCode = sp.get("siteCode") ?? undefined
     const status = sp.get("status") ?? undefined // online/offline
-    const limit = Math.min(Number(sp.get("limit") ?? 100), 500)
-    const offset = Number(sp.get("offset") ?? 0)
+    // 默认返回全部设备；仅当显式传 limit 时分页（上限 10000）
+    const limitRaw = sp.get("limit")
+    const limit = limitRaw != null && limitRaw !== ""
+      ? Math.min(Math.max(1, Number(limitRaw) || 1), 10000)
+      : null
+    const offset = Math.max(0, Number(sp.get("offset") ?? 0) || 0)
 
-    const conditions: string[] = []
+    const conditions: string[] = [`(status IS NULL OR status <> 'deleted')`]
     const params: unknown[] = []
     let idx = 1
 
@@ -33,24 +37,34 @@ export async function GET(request: NextRequest) {
     }
 
     if (status === "online") {
-      conditions.push(`device_status = 'online'`)
+      conditions.push(`status = 'online'`)
     } else if (status === "offline") {
-      conditions.push(`device_status = 'offline'`)
+      conditions.push(`status = 'offline'`)
+    } else if (status === "warning") {
+      conditions.push(`status = 'warning'`)
+    } else if (status === "error") {
+      conditions.push(`status = 'error'`)
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
 
+    const dataSql = limit == null
+      ? `SELECT device_id::text AS id, source_site_id, device_name, device_type, status AS device_status,
+                ip_address, total_capacity, used_capacity, used_slots, slot_count AS total_slots,
+                synced_at::text AS last_synced_at, cage_count
+         FROM unified_devices ${where}
+         ORDER BY status DESC, device_name`
+      : `SELECT device_id::text AS id, source_site_id, device_name, device_type, status AS device_status,
+                ip_address, total_capacity, used_capacity, used_slots, slot_count AS total_slots,
+                synced_at::text AS last_synced_at, cage_count
+         FROM unified_devices ${where}
+         ORDER BY status DESC, device_name
+         LIMIT $${idx} OFFSET $${idx + 1}`
+    const dataParams = limit == null ? params : [...params, limit, offset]
+
     const [countRes, dataRes] = await Promise.all([
       query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM unified_devices ${where}`, params),
-      query(
-        `SELECT id::text, source_site_id, device_name, device_type, device_status,
-                ip_address, total_capacity, remaining_capacity, used_slots, total_slots,
-                last_synced_at::text, cage_count
-         FROM unified_devices ${where}
-         ORDER BY device_status DESC, device_name
-         LIMIT $${idx} OFFSET $${idx + 1}`,
-        [...params, limit, offset],
-      ),
+      query(dataSql, dataParams),
     ])
 
     return NextResponse.json({
@@ -58,7 +72,7 @@ export async function GET(request: NextRequest) {
       data: {
         items: dataRes.rows,
         total: Number.parseInt(countRes.rows[0]?.count ?? "0", 10),
-        limit,
+        limit: limit ?? dataRes.rows.length,
         offset,
       },
       dataSource: "database",

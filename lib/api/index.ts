@@ -4,6 +4,9 @@
  * 根据 NEXT_PUBLIC_API_MODE 选择使用 mock 或 api provider:
  * - "api" (默认): 使用 API provider，请求 /api/* 端点，失败时显式报错/阻塞
  * - "mock": 仅限隔离前端样式调试，不可作为 requirements 完成证据
+ *
+ * 注意: NEXT_PUBLIC_API_MODE 在 `pnpm build` 时写入客户端 JS。
+ * 运行时改 .env.local 不会生效, 必须 rebuild。
  */
 
 import type {
@@ -35,42 +38,48 @@ import {
   fetchVolumes,
   fetchAlerts,
   fetchRackSlots,
+  fetchTasksPage,
 } from "./api-providers"
 
 export type ApiMode = "mock" | "api"
 
-// 获取当前 API 模式
-export function getApiMode(): ApiMode {
-  if (typeof window === "undefined") {
-    return "api"
-  }
-  const mode = process.env.NEXT_PUBLIC_API_MODE || "api"
+function normalizeApiMode(raw: string | undefined): ApiMode {
+  const mode = (raw ?? "").trim() || "api"
   return mode === "api" ? "api" : "mock"
 }
 
-// 当前模式
-export const apiMode = getApiMode()
+/** 每次调用读取当前模式 (客户端值来自 build 时内联的 NEXT_PUBLIC_API_MODE) */
+export function getApiMode(): ApiMode {
+  return normalizeApiMode(process.env.NEXT_PUBLIC_API_MODE)
+}
 
-// 是否使用 API 模式
-export const isApiMode = apiMode === "api"
+export function isApiMode(): boolean {
+  return getApiMode() === "api"
+}
 
-// 是否使用 Mock 模式
-export const isMockMode = apiMode === "mock"
+export function isMockMode(): boolean {
+  return getApiMode() === "mock"
+}
 
-// Provider 导出（根据模式选择）
-export const siteProvider: SiteProvider = isApiMode ? apiSiteProvider : mockSiteProvider
-export const taskProvider: TaskProvider = isApiMode ? apiTaskProvider : mockTaskProvider
-export const userProvider: UserProvider = isApiMode ? apiUserProvider : mockUserProvider
-export const rackProvider: RackProvider = isApiMode ? apiRackProvider : mockRackProvider
+function createProviderProxy<T extends object>(apiProvider: T, mockProvider: T): T {
+  return new Proxy({} as T, {
+    get(_target, prop) {
+      const provider = isApiMode() ? apiProvider : mockProvider
+      const value = provider[prop as keyof T]
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(provider)
+        : value
+    },
+  })
+}
+
+export const siteProvider: SiteProvider = createProviderProxy(apiSiteProvider, mockSiteProvider)
+export const taskProvider: TaskProvider = createProviderProxy(apiTaskProvider, mockTaskProvider)
+export const userProvider: UserProvider = createProviderProxy(apiUserProvider, mockUserProvider)
+export const rackProvider: RackProvider = createProviderProxy(apiRackProvider, mockRackProvider)
+
 // ============================================================
 // R.71: search / audit / settings providers
-// 这些 provider 在 API 模式下没有真实后端端点, 返回 explicit blocked DTO
-// 避免静默 fallback 到 mock (UI 应能识别并展示 BLOCKED 状态)
-// 真实接入由后续 Sprint 完成
-//
-// 设计要点:
-// - search: 返回空结果, 不抛错 (search 页面已用 /api/search 501 直接调用, 此处仅供向后兼容)
-// - audit / settings: 显式抛错, 调用方必须捕获并降级到 UI 显式 BLOCKED 状态
 // ============================================================
 
 export const searchProvider: SearchProvider = {
@@ -124,12 +133,10 @@ export const settingsProvider: SettingsProvider = {
   },
 }
 
-// Dashboard 数据获取（聚合函数）
 export async function getDashboardSummary() {
-  if (isApiMode) {
+  if (isApiMode()) {
     return fetchDashboardSummary()
   }
-  // Mock 聚合
   const [taskStats, rackStats, siteStats, taskAlerts] = await Promise.all([
     mockTaskProvider.getStats(),
     mockRackProvider.getStats(),
@@ -142,8 +149,8 @@ export async function getDashboardSummary() {
     sites: siteStats,
     alerts: {
       total: taskAlerts.length,
-      critical: taskAlerts.filter((a: any) => a.level === "critical").length,
-      warning: taskAlerts.filter((a: any) => a.level === "warning").length,
+      critical: taskAlerts.filter((a: { level: string }) => a.level === "critical").length,
+      warning: taskAlerts.filter((a: { level: string }) => a.level === "warning").length,
     },
     capacity: {
       totalBytes: 0,
@@ -153,18 +160,16 @@ export async function getDashboardSummary() {
   }
 }
 
-// Volume 数据获取
 export async function getVolumes(siteCode?: string) {
-  if (isApiMode) {
+  if (isApiMode()) {
     return fetchVolumes(siteCode)
   }
   const racks = await mockRackProvider.getAll(siteCode)
-  return racks.flatMap((r: any) => r.volumes ?? [])
+  return racks.flatMap((r: { volumes?: unknown[] }) => r.volumes ?? [])
 }
 
-// Alert 数据获取
 export async function getAlerts(params?: { level?: string; status?: string; siteCode?: string }) {
-  if (isApiMode) {
+  if (isApiMode()) {
     return fetchAlerts(params)
   }
   const [taskAlerts, racks, sites] = await Promise.all([
@@ -173,8 +178,8 @@ export async function getAlerts(params?: { level?: string; status?: string; site
     mockSiteProvider.getAll(),
   ])
 
-  let alerts: any[] = [
-    ...taskAlerts.map((a: any) => ({
+  let alerts: Array<Record<string, unknown>> = [
+    ...taskAlerts.map((a: { id: string; taskName: string; level: string; message: string; time: string }) => ({
       id: a.id,
       title: a.taskName,
       severity: a.level,
@@ -183,9 +188,9 @@ export async function getAlerts(params?: { level?: string; status?: string; site
       status: "active",
     })),
     ...sites
-      .filter((s: any) => s.alertCount > 0)
-      .flatMap((s: any) =>
-        Array.from({ length: s.alertCount }, (_, i) => ({
+      .filter((s: { alertCount?: number }) => (s.alertCount ?? 0) > 0)
+      .flatMap((s: { id: string; name: string; alertCount?: number; description?: string; lastSyncAt: string; code: string }) =>
+        Array.from({ length: s.alertCount ?? 0 }, (_, i) => ({
           id: `site-alert-${s.id}-${i}`,
           title: `${s.name} 设备告警`,
           severity: i === 0 ? "critical" : "warning",
@@ -197,8 +202,8 @@ export async function getAlerts(params?: { level?: string; status?: string; site
         }))
       ),
     ...racks
-      .filter((r: any) => r.status === "fault" || r.status === "warning")
-      .map((r: any) => ({
+      .filter((r: { status: string }) => r.status === "fault" || r.status === "warning")
+      .map((r: { id: string; rackName: string; status: string; lastSyncAt: string; siteCode: string; siteName: string }) => ({
         id: `rack-alert-${r.id}`,
         title: `${r.rackName} 状态异常`,
         severity: r.status === "fault" ? "critical" : "warning",
@@ -212,21 +217,19 @@ export async function getAlerts(params?: { level?: string; status?: string; site
       })),
   ]
 
-  // 过滤
   if (params?.level) {
-    alerts = alerts.filter((a: any) => a.severity === params.level)
+    alerts = alerts.filter((a) => a.severity === params.level)
   }
   if (params?.status) {
-    alerts = alerts.filter((a: any) => a.status === params.status)
+    alerts = alerts.filter((a) => a.status === params.status)
   }
   if (params?.siteCode) {
-    alerts = alerts.filter((a: any) => a.siteCode === params.siteCode)
+    alerts = alerts.filter((a) => a.siteCode === params.siteCode)
   }
 
   return alerts
 }
 
-// 重新导出 mock providers（便于直接使用）
 export {
   mockSiteProvider,
   mockTaskProvider,
@@ -237,15 +240,14 @@ export {
   mockSettingsProvider,
 }
 
-// 重新导出 API providers（便于直接使用）
 export {
   apiSiteProvider,
   apiTaskProvider,
   apiUserProvider,
   apiRackProvider,
   fetchRackSlots,
+  fetchTasksPage,
 }
 
-// 数据源追踪
 export { getRacksDataSource } from "./api-providers"
 export { getTasksDataSource } from "./api-providers"

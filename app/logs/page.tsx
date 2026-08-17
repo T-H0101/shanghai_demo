@@ -9,7 +9,7 @@
  *   - R.12 重构: 移除所有静态测试数据, 改走 fetch /api/logs 真实数据库读取
  *   - 6 类日志 Tab (sync_package / sync_table / sync_scheduler / sync_consistency / control / audit)
  *   - login 审计: 中心库无表, 显示 blocked (blocked_by_auth, 等待 ADFS)
- *   - 7 个筛选: siteCode / status / keyword / errorCode / deviceId / taskType / dateFrom/dateTo
+ *   - 筛选: siteCode / status / keyword / taskType(控制命令) / dateFrom/dateTo
  *   - 导出走 /api/logs/export 真实 API, 含 SHA-256 摘要
  *   - dataSource 显式 (database | empty | error)
  *   - 数字签名按钮删除 (R.1 §7 不允许假证书)
@@ -27,7 +27,16 @@ import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
 import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
 import { TimeDisplay } from "@/components/shared/time-format"
-import { LOG_STATUS_OPTIONS_BY_TAB, LOG_TASK_TYPE_OPTIONS, type LogTabKey } from "@/lib/types/logs"
+import {
+  LOG_STATUS_OPTIONS_BY_TAB,
+  LOG_TASK_TYPE_OPTIONS,
+  logOperationLabel,
+  logSiteCodeLabel,
+  logStatusLabel,
+  logTargetDisplay,
+  logTypeLabel,
+  type LogTabKey,
+} from "@/lib/types/logs"
 import { siteProvider } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,7 +49,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Download, ShieldCheck, AlertTriangle, RefreshCw, Loader2, ExternalLink, Database, Layers } from "lucide-react"
+import { FileText, Download, ShieldCheck, AlertTriangle, RefreshCw, Loader2, ExternalLink, Layers } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
 type LogType = "sync_package" | "sync_table" | "sync_scheduler" | "sync_consistency" | "control" | "audit" | "login_audit"
@@ -50,7 +59,8 @@ const LOG_TABS: { value: LogType; label: string; description: string }[] = [
   { value: "sync_package", label: "同步包日志", description: "按站点包传输审计" },
   { value: "sync_table", label: "同步表日志", description: "sync_table_log (按表写入审计)" },
   { value: "sync_scheduler", label: "调度日志", description: "sync_scheduler_log (定时调度执行审计)" },
-  { value: "sync_consistency", label: "一致性日志", description: "sync_consistency_log (跨站点对账结果)" },
+  // 推送主路径下日常不用，Tab 暂隐藏
+  // { value: "sync_consistency", label: "一致性日志", description: "sync_consistency_log (跨站点对账结果)" },
   { value: "control", label: "控制命令", description: "总控命令队列" },
   { value: "audit", label: "审计日志", description: "audit_log (权限/凭证变更)" },
   { value: "login_audit", label: "登录审计", description: "auth_login_audit (登录失败/锁定, blocked 等待 ADFS)" },
@@ -104,8 +114,15 @@ function statusBadgeColor(status: string | null): string {
   return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
 }
 
-function logTypeLabel(t: LogType): string {
-  return LOG_TABS.find((tab) => tab.value === t)?.label ?? t
+/**
+ * datetime-local 控件值保持 yyyy-MM-ddTHH:mm；
+ * 请求 API 时再转为 ISO（按浏览器本地时区解析）。
+ */
+function localDateTimeToIso(local: string): string {
+  if (!local) return ""
+  const d = new Date(local)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toISOString()
 }
 
 export default function Page() {
@@ -115,14 +132,14 @@ export default function Page() {
   const [siteCode, setSiteCode] = useState("")
   const [status, setStatus] = useState("")
   const [keyword, setKeyword] = useState("")
-  const [errorCode, setErrorCode] = useState("")
-  const [deviceId, setDeviceId] = useState("")
   const [taskType, setTaskType] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   // 数据
   const [items, setItems] = useState<LogRow[]>([])
   const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [dataSource, setDataSource] = useState<DataSource>("loading")
   const [sources, setSources] = useState<string[]>([])
   const [meta, setMeta] = useState<ApiEnvelope["meta"]>(undefined)
@@ -134,12 +151,21 @@ export default function Page() {
   const [exporting, setExporting] = useState(false)
   // 去抖 timer
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   // Round UI-Tweaks: 站点列表 (siteCode datalist), 当前 Tab 的 status 候选
   const [siteCodeOptions, setSiteCodeOptions] = useState<string[]>([])
   const statusOptions = useMemo(
     () => (activeType === "all" ? [] : (LOG_STATUS_OPTIONS_BY_TAB[activeType as LogTabKey] ?? [])),
     [activeType],
   )
+  /** 任务类型仅控制命令有结构化字段，其它 Tab 不展示 */
+  const showControlExtraFilters = activeType === "control"
+
+  useEffect(() => {
+    if (!showControlExtraFilters) {
+      setTaskType("")
+    }
+  }, [showControlExtraFilters])
 
   useEffect(() => {
     siteProvider.getAll().then((sites) => {
@@ -152,17 +178,16 @@ export default function Page() {
   const queryString = useMemo(() => {
     const sp = new URLSearchParams()
     sp.set("type", activeType)
-    sp.set("limit", "200")
+    sp.set("limit", String(pageSize))
+    sp.set("offset", String((page - 1) * pageSize))
     if (siteCode) sp.set("siteCode", siteCode)
     if (status) sp.set("status", status)
     if (keyword) sp.set("keyword", keyword)
-    if (errorCode) sp.set("errorCode", errorCode)
-    if (deviceId) sp.set("deviceId", deviceId)
     if (taskType) sp.set("taskType", taskType)
-    if (dateFrom) sp.set("dateFrom", dateFrom)
-    if (dateTo) sp.set("dateTo", dateTo)
+    if (dateFrom) sp.set("dateFrom", localDateTimeToIso(dateFrom))
+    if (dateTo) sp.set("dateTo", localDateTimeToIso(dateTo))
     return sp.toString()
-  }, [activeType, siteCode, status, keyword, errorCode, deviceId, taskType, dateFrom, dateTo])
+  }, [activeType, page, pageSize, siteCode, status, keyword, taskType, dateFrom, dateTo])
 
   const loadLogs = async () => {
     setLoading(true)
@@ -171,12 +196,13 @@ export default function Page() {
       // Sprint R.27: 登录审计走独立 API
       if (activeType === "login_audit") {
         const sp = new URLSearchParams()
-        sp.set("limit", "200")
+        sp.set("limit", String(pageSize))
+        sp.set("offset", String((page - 1) * pageSize))
         if (keyword) sp.set("username", keyword)
         if (status) sp.set("result", status)
         if (siteCode) sp.set("siteCode", siteCode)
-        if (dateFrom) sp.set("from", dateFrom)
-        if (dateTo) sp.set("to", dateTo)
+        if (dateFrom) sp.set("from", localDateTimeToIso(dateFrom))
+        if (dateTo) sp.set("to", localDateTimeToIso(dateTo))
         const res = await fetch(`/api/auth/audit?${sp.toString()}`, { cache: "no-store" })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()
@@ -227,23 +253,33 @@ export default function Page() {
     }
   }
 
-  // 初次加载 + tab 切换立即加载
+  // Tab / 筛选 / 每页条数变更时回到第 1 页
+  useEffect(() => {
+    setPage(1)
+  }, [activeType, siteCode, status, keyword, taskType, dateFrom, dateTo, pageSize])
+
+  // 总数变少时校正页码，避免停在空页
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  // 初次加载 + tab / 分页立即加载
   useEffect(() => {
     loadLogs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeType])
+  }, [activeType, page, pageSize])
 
-  // 筛选条件变更 (debounce 500ms)
+  // 筛选条件变更 (debounce 500ms)；若刚因筛选重置到第 1 页，由上面 page 效应加载
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      loadLogs()
+      if (page === 1) loadLogs()
     }, 500)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteCode, status, keyword, errorCode, deviceId, taskType, dateFrom, dateTo])
+  }, [siteCode, status, keyword, taskType, dateFrom, dateTo])
 
   const handleExport = async (format: "csv" | "json" | "xlsx") => {
     if (items.length === 0) {
@@ -259,8 +295,8 @@ export default function Page() {
         if (keyword) sp.set("username", keyword)
         if (status) sp.set("result", status)
         if (siteCode) sp.set("siteCode", siteCode)
-        if (dateFrom) sp.set("from", dateFrom)
-        if (dateTo) sp.set("to", dateTo)
+        if (dateFrom) sp.set("from", localDateTimeToIso(dateFrom))
+        if (dateTo) sp.set("to", localDateTimeToIso(dateTo))
         const res = await fetch(`/api/auth/audit/export?${sp.toString()}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const blob = await res.blob()
@@ -289,11 +325,9 @@ export default function Page() {
       if (siteCode) sp.set("siteCode", siteCode)
       if (status) sp.set("status", status)
       if (keyword) sp.set("keyword", keyword)
-      if (errorCode) sp.set("errorCode", errorCode)
-      if (deviceId) sp.set("deviceId", deviceId)
       if (taskType) sp.set("taskType", taskType)
-      if (dateFrom) sp.set("dateFrom", dateFrom)
-      if (dateTo) sp.set("dateTo", dateTo)
+      if (dateFrom) sp.set("dateFrom", localDateTimeToIso(dateFrom))
+      if (dateTo) sp.set("dateTo", localDateTimeToIso(dateTo))
       const res = await fetch(`/api/logs/export?${sp.toString()}`)
       if (res.status === 501) {
         const body = await res.json().catch(() => null)
@@ -334,14 +368,14 @@ export default function Page() {
     }
   }
 
-  // 数字签名按钮已删除 (R.1 §7 禁止假证书)
-  const handleUnsupported = (feature: string) => {
-    toast({
-      title: "功能未接入",
-      description: `${feature}：当前中心库日志未提供数字签名，证书签名需站点 app 配合`,
-      variant: "destructive",
-    })
-  }
+  // 数字签名按钮已注释，暂不提示
+  // const handleUnsupported = (feature: string) => {
+  //   toast({
+  //     title: "功能未接入",
+  //     description: `${feature}：当前中心库日志未提供数字签名，证书签名需站点 app 配合`,
+  //     variant: "destructive",
+  //   })
+  // }
 
   // 统计派生
   const stats = useMemo(() => {
@@ -360,25 +394,25 @@ export default function Page() {
     return { total: items.length, success, failed, running }
   }, [items])
 
-  // dataSource Badge
-  const dataSourceBadge = (() => {
-    if (dataSource === "database") {
-      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />正常</Badge>
-    }
-    if (dataSource === "empty") {
-      return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
-    }
-    if (dataSource === "error") {
-      return <Badge className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">读取失败</Badge>
-    }
-    return <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">loading…</Badge>
-  })()
+  // dataSource Badge（状态行暂不展示，保留逻辑便于恢复）
+  // const dataSourceBadge = (() => {
+  //   if (dataSource === "database") {
+  //     return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />正常</Badge>
+  //   }
+  //   if (dataSource === "empty") {
+  //     return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
+  //   }
+  //   if (dataSource === "error") {
+  //     return <Badge className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">读取失败</Badge>
+  //   }
+  //   return <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">loading…</Badge>
+  // })()
 
   return (
     <AppShell>
       <PageHeader
         title="日志检索"
-        description="同步包/表/调度/一致性/控制/审计/登录审计 7 类日志统一查询与导出"
+        description="同步包/表/调度/控制/审计/登录审计统一查询与导出"
         badge="LOGS"
         actions={
           <div className="flex items-center gap-2">
@@ -420,6 +454,7 @@ export default function Page() {
         }
       />
 
+      {/* 数据源状态行暂不展示
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
         {dataSourceBadge}
         {sources.length > 0 && (
@@ -431,24 +466,26 @@ export default function Page() {
           </span>
         )}
       </div>
+      */}
 
-      {/* 登录审计已接入, 仅数字签名仍 blocked (等待 ADFS) */}
+      {/* 数字签名暂未接入提示：暂不展示
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-start gap-2">
         <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800 dark:text-amber-300">
           <p className="font-medium">数字签名暂未接入</p>
           <p className="mt-1">
             数字签名需接入证书/私钥托管后启用。
-            当前可检索 7 类日志: 同步包 / 同步表 / 同步调度 / 一致性检查 / 控制命令 / 操作审计 / <strong>登录审计</strong>。
+            当前可检索日志: 同步包 / 同步表 / 同步调度 / 控制命令 / 操作审计 / <strong>登录审计</strong>。
           </p>
         </div>
       </div>
+      */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="当前检索总数" value={total} unit="条" icon={FileText} badge={<Badge className="bg-emerald-500 text-white">REAL</Badge>} />
-        <StatCard title="本次成功" value={stats.success} unit="条" icon={ShieldCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-        <StatCard title="本次失败" value={stats.failed} unit="条" icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
-        <StatCard title="运行中" value={stats.running} unit="条" icon={RefreshCw} iconBg="bg-amber-50" iconColor="text-amber-600" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <StatCard horizontal title="当前检索总数" value={total} unit="条" icon={FileText} />
+        <StatCard horizontal title="本次成功" value={stats.success} unit="条" icon={ShieldCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+        <StatCard horizontal title="本次失败" value={stats.failed} unit="条" icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
+        <StatCard horizontal title="运行中" value={stats.running} unit="条" icon={RefreshCw} iconBg="bg-amber-50" iconColor="text-amber-600" />
       </div>
 
       <Card className="gap-0">
@@ -458,7 +495,9 @@ export default function Page() {
               <TabsTrigger value="sync_package" className="text-xs">同步包</TabsTrigger>
               <TabsTrigger value="sync_table" className="text-xs">同步表</TabsTrigger>
               <TabsTrigger value="sync_scheduler" className="text-xs">调度</TabsTrigger>
+              {/* 推送主路径下日常不用，暂隐藏
               <TabsTrigger value="sync_consistency" className="text-xs">一致性</TabsTrigger>
+              */}
               <TabsTrigger value="control" className="text-xs">控制命令</TabsTrigger>
               <TabsTrigger value="audit" className="text-xs">审计</TabsTrigger>
               <TabsTrigger value="login_audit" className="text-xs">登录审计</TabsTrigger>
@@ -466,210 +505,249 @@ export default function Page() {
           </Tabs>
         </CardHeader>
         <CardContent className="pt-4">
-          {/* 筛选条 (REQ-5.1.3: siteCode/status/taskType 改 Select, 其余 Input + datalist 模糊搜索)
-              Round UI-Tweaks: 审计日志筛选下拉化 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
-            <div className="flex flex-col gap-1">
+          {/* 筛选条：各控件统一宽度 */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <div className="flex w-[180px] flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-500">站点</span>
-              <Input
-                list="logs-sitecode-list"
-                placeholder="siteCode (如 SH01)"
-                className="h-9"
-                value={siteCode}
-                onChange={(e) => setSiteCode(e.target.value)}
-                aria-label="按站点编码筛选"
-              />
-              <datalist id="logs-sitecode-list">
-                {siteCodeOptions.map((sc) => (
-                  <option key={sc} value={sc} />
-                ))}
-              </datalist>
+              <Select
+                value={siteCode || "all"}
+                onValueChange={(v) => setSiteCode(v === "all" ? "" : v)}
+              >
+                <SelectTrigger className="h-9 w-full" aria-label="按站点筛选">
+                  <SelectValue placeholder="全部站点" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部站点</SelectItem>
+                  {siteCodeOptions.map((sc) => (
+                    <SelectItem key={sc} value={sc}>
+                      {sc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-[180px] flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-500">状态</span>
               <Select
                 value={status || "all"}
                 onValueChange={(v) => setStatus(v === "all" ? "" : v)}
               >
-                <SelectTrigger className="h-9" aria-label="按状态筛选">
+                <SelectTrigger className="h-9 w-full" aria-label="按状态筛选">
                   <SelectValue placeholder="全部状态" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部状态</SelectItem>
                   {statusOptions.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                    <SelectItem key={s} value={s}>
+                      {logStatusLabel(s)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-[180px] flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-500">关键字</span>
               <Input
-                placeholder="batchId / commandNo"
-                className="h-9"
+                placeholder="批次号 / 命令号"
+                className="h-9 w-full"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 aria-label="按关键字模糊搜索"
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wide text-slate-500">错误码</span>
-              <Input
-                list="logs-errorcode-list"
-                placeholder="错误码 / 错误文本"
-                className="h-9"
-                value={errorCode}
-                onChange={(e) => setErrorCode(e.target.value)}
-                data-testid="logs-filter-error-code"
-                aria-label="按错误码筛选"
-              />
-              <datalist id="logs-errorcode-list">
-                {Array.from(
-                  new Set(
-                    items.map((it) => it.error_code).filter((c): c is string => Boolean(c))
-                  )
-                )
-                  .slice(0, 50)
-                  .map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-              </datalist>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wide text-slate-500">设备</span>
-              <Input
-                placeholder="设备ID / targetId"
-                className="h-9"
-                value={deviceId}
-                onChange={(e) => setDeviceId(e.target.value)}
-                data-testid="logs-filter-device-id"
-                aria-label="按设备 ID 筛选"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wide text-slate-500">任务类型</span>
-              <Select
-                value={taskType || "all"}
-                onValueChange={(v) => setTaskType(v === "all" ? "" : v)}
-              >
-                <SelectTrigger className="h-9" data-testid="logs-filter-task-type" aria-label="按任务类型筛选">
-                  <SelectValue placeholder="全部类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部类型</SelectItem>
-                  {LOG_TASK_TYPE_OPTIONS.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
+            {showControlExtraFilters && (
+              <div className="flex w-[180px] flex-col gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-slate-500">任务类型</span>
+                <Select
+                  value={taskType || "all"}
+                  onValueChange={(v) => setTaskType(v === "all" ? "" : v)}
+                >
+                  <SelectTrigger className="h-9 w-full" data-testid="logs-filter-task-type" aria-label="按任务类型筛选">
+                    <SelectValue placeholder="全部类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部类型</SelectItem>
+                    {LOG_TASK_TYPE_OPTIONS.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex w-[180px] flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-500">起始时间</span>
               <Input
                 type="datetime-local"
-                className="h-9"
+                className="h-9 w-full"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value ? new Date(e.target.value).toISOString() : "")}
+                onChange={(e) => setDateFrom(e.target.value)}
                 title="起始时间"
                 aria-label="起始时间"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-[180px] flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-500">结束时间</span>
               <Input
                 type="datetime-local"
-                className="h-9"
+                className="h-9 w-full"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value ? new Date(e.target.value).toISOString() : "")}
+                onChange={(e) => setDateTo(e.target.value)}
                 title="结束时间"
                 aria-label="结束时间"
               />
             </div>
-            <div className="flex items-end gap-2 col-span-2 md:col-span-3 xl:col-span-2 text-xs text-slate-500">
+            <div className="flex h-9 items-center gap-2 text-xs text-slate-500">
               <span>共 {total} 条</span>
+              <span>第 {page} / {totalPages} 页</span>
               {dataSource === "loading" && <Loader2 className="h-3 w-3 animate-spin" />}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            <div className="xl:col-span-2 overflow-x-auto">
-              {loadError && dataSource === "error" ? (
-                <div className="text-center py-8 text-red-600">
-                  <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
-                  <p className="font-medium">加载日志失败</p>
-                  <p className="text-sm text-slate-500 mt-1">{loadError}</p>
-                  <Button variant="outline" size="sm" className="mt-3" onClick={loadLogs}>重试</Button>
-                </div>
-              ) : items.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  {dataSource === "empty" ? (
-                    <>
-                      <Layers className="h-10 w-10 mx-auto mb-2 text-slate-300" />
-                      <p>无匹配日志</p>
-                      <p className="text-xs mt-1">当前筛选条件下 7 类日志源均无数据</p>
-                    </>
-                  ) : (
-                    <p>未找到匹配的日志记录</p>
-                  )}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-xs text-slate-500">类型</TableHead>
-                      <TableHead className="text-xs text-slate-500">siteCode</TableHead>
-                      <TableHead className="text-xs text-slate-500">状态</TableHead>
-                      <TableHead className="text-xs text-slate-500">时间</TableHead>
-                      <TableHead className="text-xs text-slate-500">摘要</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((row) => (
-                      <TableRow
-                        key={`${row.log_type}-${row.log_id}`}
-                        className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.log_id === row.log_id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
-                        onClick={() => setSelected(row)}
-                      >
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">{logTypeLabel(row.log_type)}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm font-mono">{row.site_code || "—"}</TableCell>
-                        <TableCell>
-                          <Badge className={`text-xs ${statusBadgeColor(row.status)}`}>{row.status || "—"}</Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-500">
-                          <TimeDisplay value={row.occurred_at} mode="datetime" />
-                        </TableCell>
-                        <TableCell className="text-xs max-w-[280px] truncate" title={row.summary}>{row.summary}</TableCell>
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
+            <div className="xl:col-span-2 flex flex-col min-h-0">
+              {/* 固定高度 + 内部滚动，避免点选底部行后还要滚回顶部看详情 */}
+              <div className="h-[560px] overflow-auto rounded-md border border-slate-100 dark:border-slate-800">
+                {loadError && dataSource === "error" ? (
+                  <div className="text-center py-8 text-red-600">
+                    <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
+                    <p className="font-medium">加载日志失败</p>
+                    <p className="text-sm text-slate-500 mt-1">{loadError}</p>
+                    <Button variant="outline" size="sm" className="mt-3" onClick={loadLogs}>重试</Button>
+                  </div>
+                ) : items.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    {dataSource === "empty" ? (
+                      <>
+                        <Layers className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+                        <p>无匹配日志</p>
+                        <p className="text-xs mt-1">当前筛选条件下暂无日志数据</p>
+                      </>
+                    ) : (
+                      <p>未找到匹配的日志记录</p>
+                    )}
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-900 shadow-sm">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-xs text-slate-500">类型</TableHead>
+                        <TableHead className="text-xs text-slate-500">操作</TableHead>
+                        <TableHead className="text-xs text-slate-500">站点</TableHead>
+                        <TableHead className="text-xs text-slate-500">状态</TableHead>
+                        <TableHead className="text-xs text-slate-500">时间</TableHead>
+                        <TableHead className="text-xs text-slate-500">摘要</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((row) => (
+                        <TableRow
+                          key={`${row.log_type}-${row.log_id}`}
+                          className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.log_id === row.log_id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
+                          onClick={() => setSelected(row)}
+                        >
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">{logTypeLabel(row.log_type)}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                            {logOperationLabel(row)}
+                          </TableCell>
+                          <TableCell className="text-sm">{logSiteCodeLabel(row.site_code)}</TableCell>
+                          <TableCell>
+                            <Badge className={`text-xs ${statusBadgeColor(row.status)}`}>
+                              {logStatusLabel(row.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-500">
+                            <TimeDisplay value={row.occurred_at} mode="datetime" />
+                          </TableCell>
+                          <TableCell className="text-xs max-w-[240px] truncate" title={row.summary}>{row.summary}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+              {total > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span>每页</span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(v) => setPageSize(Number(v))}
+                    >
+                      <SelectTrigger className="h-8 w-[5.5rem]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                        <SelectItem value="200">200</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span>条</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      disabled={loading || page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      上一页
+                    </Button>
+                    <span className="text-xs text-slate-500">
+                      第 {page} / {totalPages} 页
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      disabled={loading || page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      下一页
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 
-            <DetailPanel title="日志详情" subtitle={selected ? logTypeLabel(selected.log_type) : ""} empty={!selected}>
+            <DetailPanel
+              className="h-[560px] xl:sticky xl:top-3"
+              title="日志详情"
+              subtitle={selected ? logTypeLabel(selected.log_type) : ""}
+              empty={!selected}
+            >
               {selected && (
                 <div className="space-y-3">
                   <DetailRow label="类型" value={logTypeLabel(selected.log_type)} />
-                  <DetailRow label="siteCode" value={selected.site_code || "—"} />
+                  <DetailRow label="操作" value={logOperationLabel(selected)} />
+                  <DetailRow label="站点" value={logSiteCodeLabel(selected.site_code)} />
                   <DetailRow label="状态" value={
-                    <Badge className={`text-xs ${statusBadgeColor(selected.status)}`}>{selected.status || "—"}</Badge>
+                    <Badge className={`text-xs ${statusBadgeColor(selected.status)}`}>
+                      {logStatusLabel(selected.status)}
+                    </Badge>
                   } />
                   <DetailRow label="时间" value={<TimeDisplay value={selected.occurred_at} mode="datetime" />} />
                   {selected.operator && <DetailRow label="操作人" value={selected.operator} />}
-                  {selected.ref_batch_id && <DetailRow label="batchId" value={<code className="text-[10px]">{selected.ref_batch_id}</code>} />}
-                  {selected.ref_table_name && <DetailRow label="表名" value={selected.ref_table_name} />}
+                  {selected.ref_batch_id && <DetailRow label="批次号" value={<code className="text-[10px]">{selected.ref_batch_id}</code>} />}
+                  {(() => {
+                    const target = logTargetDisplay(selected)
+                    return target ? <DetailRow label={target.label} value={target.value} /> : null
+                  })()}
                   <div>
                     <p className="text-xs font-medium text-slate-700 mb-1">摘要</p>
                     <p className="text-xs bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-700">{selected.summary}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-700 mb-1">详细 (JSON)</p>
-                    <pre className="text-[10px] bg-slate-900 text-slate-100 p-2 rounded-lg overflow-x-auto max-h-48">
+                    <pre className="text-[10px] bg-slate-900 text-slate-100 p-2 rounded-lg overflow-x-auto max-h-64">
                       {JSON.stringify(selected.detail, null, 2)}
                     </pre>
                   </div>
+                  {/* 数字签名校验暂未接入，按钮不展示
                   <Button
                     variant="outline"
                     size="sm"
@@ -680,6 +758,7 @@ export default function Page() {
                     <ShieldCheck className="h-3 w-3 mr-1" />
                     数字签名校验 (未接入)
                   </Button>
+                  */}
                 </div>
               )}
             </DetailPanel>

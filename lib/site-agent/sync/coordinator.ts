@@ -25,7 +25,8 @@ export interface AgentSyncSource {
   close(): Promise<void>
   readTaskChanges(
     watermark: TaskWatermark | null,
-    overlapMs: number
+    overlapMs: number,
+    taskIdLookback: number
   ): Promise<Record<string, unknown>[]>
   readSnapshot(
     tableName: AllowedPackageTable
@@ -48,7 +49,11 @@ export interface AgentSyncTransport {
 export interface SyncCoordinatorOptions {
   siteCode: string
   version: string
+  siteName?: string
+  db_host?: string
+  db_port?: number
   overlapMs: number
+  taskIdLookback: number
   retryMaxAttempts: number
   retryBaseMs: number
   retryMaxMs: number
@@ -105,19 +110,6 @@ function maxTaskWatermark(
   return { maxId: maxId.toString(), maxUpdateDt }
 }
 
-function taskWindowRows(
-  rows: Record<string, unknown>[],
-  watermark: TaskWatermark | null,
-  overlapMs: number
-): Record<string, unknown>[] {
-  if (!watermark?.maxUpdateDt) return []
-  const threshold = new Date(watermark.maxUpdateDt).getTime() - overlapMs
-  return rows.filter((row) => {
-    const updateDt = dateValue(row.update_dt)
-    return updateDt !== null && new Date(updateDt).getTime() >= threshold
-  })
-}
-
 export class SyncCoordinator {
   private readonly sleep: (ms: number) => Promise<void>
   private readonly now: () => Date
@@ -141,12 +133,11 @@ export class SyncCoordinator {
     try {
       const taskRows = await this.options.source.readTaskChanges(
         state.taskWatermark,
-        this.options.overlapMs
+        this.options.overlapMs,
+        this.options.taskIdLookback
       )
       const nextWatermark = maxTaskWatermark(state.taskWatermark, taskRows)
-      const nextTaskWindowHash = hashRecords(
-        taskWindowRows(taskRows, nextWatermark, this.options.overlapMs)
-      )
+      const nextTaskWindowHash = hashRecords(taskRows)
       const maxIdAdvanced =
         nextWatermark !== null &&
         BigInt(nextWatermark.maxId) >
@@ -207,6 +198,9 @@ export class SyncCoordinator {
         siteCode: this.options.siteCode,
         version: this.options.version,
         snapshotAt: lastSyncAt,
+        siteName: this.options.siteName,
+        db_host: this.options.db_host,
+        db_port: this.options.db_port,
         tables,
       })
       const entry: SpoolEntry = {

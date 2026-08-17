@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { deriveAgentProbeStatus } from "@/lib/site/reachability"
 
 export const dynamic = "force-dynamic"
 

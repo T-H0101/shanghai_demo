@@ -9,12 +9,12 @@ import {
   LogOut,
   Command,
   Activity,
-  Settings,
   ChevronDown,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
   Info,
+  KeyRound,
 } from "lucide-react"
 import { clearSession, getSession } from "@/lib/auth/session"
 import type { AuthSession } from "@/lib/types/auth"
@@ -37,6 +37,7 @@ import { isApiMode } from "@/lib/api"
 import { AppTooltip } from "@/components/shared/tooltip"
 import { TimeDisplay } from "@/components/shared/time-format"
 import { cn } from "@/lib/utils"
+import { ChangePasswordDialog } from "@/components/auth/change-password-dialog"
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -49,6 +50,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [systemStatus, setSystemStatus] = useState<"loading" | "healthy" | "degraded">("loading")
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession(null))
@@ -185,13 +187,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       {/* 右侧: 站点选择器 + 健康徽章 + 通知 + 头像菜单 */}
       <div className="flex items-center gap-2 lg:gap-3">
-        {/* 站点选择器 */}
+        {/* 站点选择器：不包 Tooltip，避免下拉打开后悬停提示挡住选项点击 */}
         <Suspense fallback={null}>
-          <AppTooltip content="切换当前查看的站点, 或汇总全部站点">
-            <span className="inline-block">
-              <SiteSelector />
-            </span>
-          </AppTooltip>
+          <SiteSelector />
         </Suspense>
 
         {/* 三合一健康徽章 */}
@@ -225,7 +223,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         </AppTooltip>
 
         {/* 通知 */}
-        {isApiMode ? (
+        {isApiMode() ? (
           <AppTooltip content="通知接口未启用">
             <button
               className="relative p-2 rounded-lg text-slate-400 cursor-not-allowed"
@@ -345,6 +343,15 @@ export function Header({ onMenuClick }: HeaderProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                onClick={() => setChangePasswordOpen(true)}
+                className="cursor-pointer"
+                data-testid="header-menu-change-password"
+              >
+                <KeyRound className="h-3.5 w-3.5 mr-2" />
+                修改密码
+              </DropdownMenuItem>
+              {/* 当前设置页无可用配置入口，暂隐藏菜单（路由 /settings 仍保留）
+              <DropdownMenuItem
                 onClick={() => router.push("/settings")}
                 className="cursor-pointer"
                 data-testid="header-menu-settings"
@@ -352,6 +359,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <Settings className="h-3.5 w-3.5 mr-2" />
                 系统设置
               </DropdownMenuItem>
+              */}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleLogout}
@@ -364,6 +372,8 @@ export function Header({ onMenuClick }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </AppTooltip>
+
+        <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
       </div>
     </header>
   )

@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS unified_task_items (
 );
 COMMENT ON TABLE unified_task_items IS 'Unified mirror of source tbl_task_items';
 CREATE INDEX IF NOT EXISTS idx_unified_task_items_site ON unified_task_items (source_site_id);
+CREATE INDEX IF NOT EXISTS idx_unified_task_items_task
+  ON unified_task_items (source_site_id, task_id);
 CREATE INDEX IF NOT EXISTS idx_unified_task_items_raw_gin ON unified_task_items USING GIN (raw_data jsonb_path_ops);
 
 -- 2. unified_task_prints ← tbl_task_print (id)

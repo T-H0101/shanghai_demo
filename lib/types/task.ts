@@ -31,18 +31,21 @@ export type TaskPhase =
   | "paused"      // 已暂停
   | "idle"        // 空闲（设备扫描/RAID校验等）
 
-// 各任务类型的流程步骤映射
+/**
+ * 各任务类型的流程步骤映射
+ * 备份/刻录类对齐业务粗进度：开始 → 准备 → 分盘 → 刻录 → 结束（不含下载/等待/线程细节）
+ */
 export const TASK_PHASES_BY_TYPE: Record<TaskType, TaskPhase[]> = {
   full_package:    ["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "completed"],
   incremental_package: ["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "completed"],
   full_scan:       ["pending", "scanning", "completed"],
   incremental_scan:["pending", "scanning", "completed"],
-  backup:          ["pending", "scanning", "preparing", "splitting", "packaging", "verifying", "writing", "completed"],
-  restore:         ["pending", "scanning", "preparing", "writing", "completed"],
+  backup:          ["pending", "preparing", "splitting", "writing", "completed"],
+  restore:         ["pending", "preparing", "splitting", "writing", "completed"],
   migrate:         ["pending", "preparing", "writing", "completed"],
   device_scan:     ["pending", "scanning", "completed"],
   raid_check:      ["pending", "verifying", "completed"],
-  other:           ["pending", "completed"],
+  other:           ["pending", "preparing", "splitting", "writing", "completed"],
 }
 
 // 任务类型中文标签
@@ -59,7 +62,7 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   other:            "其他",
 }
 
-// 阶段中文标签
+// 阶段中文标签（列表/Badge 等通用）
 export const TASK_PHASE_LABELS: Record<TaskPhase, string> = {
   pending:    "待处理",
   scanning:   "扫描中",
@@ -67,11 +70,43 @@ export const TASK_PHASE_LABELS: Record<TaskPhase, string> = {
   splitting:  "分盘中",
   packaging:  "封包中",
   verifying:  "校验中",
-  writing:    "写入中",
+  writing:    "刻录中",
   completed:  "已完成",
   failed:     "已失败",
   paused:     "已暂停",
   idle:       "空闲",
+}
+
+/** 详情「进度流程」步骤短文案（对齐业务粗进度；末节点仍用「已完成」以区分成功/中止） */
+export const TASK_PROGRESS_FLOW_LABELS: Partial<Record<TaskPhase, string>> = {
+  pending: "开始",
+  preparing: "准备",
+  splitting: "分盘",
+  writing: "刻录",
+  completed: "已完成",
+  scanning: "扫描",
+  packaging: "封包",
+  verifying: "校验",
+}
+
+/** 按任务类型定制「进度流程」步骤文案（如 restore 的 writing 不叫刻录） */
+export const TASK_PROGRESS_FLOW_LABELS_BY_TYPE: Record<TaskType, Partial<Record<TaskPhase, string>>> = {
+  full_package: TASK_PROGRESS_FLOW_LABELS,
+  incremental_package: TASK_PROGRESS_FLOW_LABELS,
+  full_scan: TASK_PROGRESS_FLOW_LABELS,
+  incremental_scan: TASK_PROGRESS_FLOW_LABELS,
+  backup: TASK_PROGRESS_FLOW_LABELS,
+  restore: {
+    ...TASK_PROGRESS_FLOW_LABELS,
+    writing: "恢复",
+  },
+  migrate: {
+    ...TASK_PROGRESS_FLOW_LABELS,
+    writing: "迁移",
+  },
+  device_scan: TASK_PROGRESS_FLOW_LABELS,
+  raid_check: TASK_PROGRESS_FLOW_LABELS,
+  other: TASK_PROGRESS_FLOW_LABELS,
 }
 
 export const TASK_PHASE_COLORS: Record<TaskPhase, string> = {
@@ -103,6 +138,10 @@ export interface TaskItem {
   name: string
   taskNo: string
   type: TaskType
+  /** 由 task_type + task_mode 解析的业务类型中文名（API 模式） */
+  typeLabel?: string
+  /** 由 status + task_type + task_mode 解析的业务状态中文名（API 模式） */
+  statusLabel?: string
   phase: TaskPhase           // 当前业务阶段
   status: TaskStatus          // 基础状态（running/paused/completed/failed/pending_dispatch）
   priority: Priority
@@ -117,9 +156,15 @@ export interface TaskItem {
   department?: string        // 分配部门
 
   // 路径
-  sourcePath: string         // 源数据路径
-  packagePath: string       // 封包路径 / 目标存储路径
-  volumeId?: string         // 目标存储卷
+  sourcePath: string         // 源数据路径 / 回迁路径（兼容；多条时见 pathPairs）
+  packagePath: string       // 备份路径 / 介质源路径（兼容；多条时见 pathPairs）
+  volumeId?: string         // 目标存储卷名（多卷逗号连接）
+  /** 源路径↔备份路径成对列表 */
+  pathPairs?: Array<{
+    fromPath: string
+    backupPath: string
+    volumeName?: string
+  }>
 
   // 封包配置
   backupScope: BackupScope

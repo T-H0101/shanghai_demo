@@ -10,55 +10,19 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
-import type { ApiResponse, TaskDTO, TaskStatus, TaskType, TaskPhase, Priority } from "@/lib/api/dto"
-
-const STATUS_PHASE_MAP: Record<string, TaskPhase> = {
-  burn_success: "completed",
-  cancelled: "failed",
-  make_task_done_backup_running: "writing",
-  paused: "paused",
-  remote_backup_created: "pending",
-  data_preparing: "preparing",
-  ready: "pending",
-  burn_failed: "failed",
-  download_success: "completed",
-  restore_started: "writing",
-  read_from_disc_done: "completed",
-  read_from_disc_failed: "failed",
-  reading_from_disc: "writing",
-  read_failed: "failed",
-  restore_warning: "failed",
-  restful_ready: "pending",
-  no_file_changed: "completed",
-  jdf_generated: "pending",
-  make_task_scan_started: "scanning",
-  make_task_scan_unfinished: "scanning",
-  s3_data_preparing: "preparing",
-}
-
-const STATUS_MAP: Record<string, TaskStatus> = {
-  burn_success: "completed",
-  cancelled: "failed",
-  make_task_done_backup_running: "running",
-  paused: "paused",
-  remote_backup_created: "pending_dispatch",
-  data_preparing: "running",
-  ready: "pending_dispatch",
-  burn_failed: "failed",
-  download_success: "completed",
-  restore_started: "running",
-  read_from_disc_done: "completed",
-  read_from_disc_failed: "failed",
-  reading_from_disc: "running",
-  read_failed: "failed",
-  restore_warning: "failed",
-  restful_ready: "pending_dispatch",
-  no_file_changed: "completed",
-  jdf_generated: "pending_dispatch",
-  make_task_scan_started: "running",
-  make_task_scan_unfinished: "running",
-  s3_data_preparing: "running",
-}
+import type { ApiResponse, TaskDTO, TaskType, Priority } from "@/lib/api/dto"
+import { formatTaskTypeLabelFromUnified, resolveNumericTaskType } from "@/lib/tasks/task-type-display"
+import {
+  formatTaskStatusLabelFromUnified,
+  resolveNumericTaskStatus,
+  resolveTaskPhaseFromBusiness,
+  resolveTaskStatusFromBusiness,
+} from "@/lib/tasks/task-status-display"
+import { loadTaskPathAggregate } from "@/lib/tasks/task-path-aggregate"
+import {
+  loadUnifiedDiscAggregates,
+  mergeDiscAggregateIntoTaskRow,
+} from "@/lib/tasks/task-disc-aggregate"
 
 const TYPE_MAP: Record<string, TaskType> = {
   backup: "backup",
@@ -72,6 +36,7 @@ const TYPE_MAP: Record<string, TaskType> = {
   package: "full_package",
   evidence: "other",
   power_on: "other",
+  remote_backup: "other",
 }
 
 interface TaskRow {
@@ -95,6 +60,8 @@ interface TaskRow {
   created_at: Date | string | null
   updated_at: Date | string | null
   synced_at: Date | string
+  task_create_at: Date | string | null
+  task_end_at: Date | string | null
   task_mode: number | null
   error_message: string | null
   runtime_seconds: number | null
@@ -105,16 +72,31 @@ interface TaskRow {
   current_phase: string | null
 }
 
+function toIsoString(value: Date | string | null | undefined): string | undefined {
+  if (value == null) return undefined
+  return typeof value === "string" ? value : value.toISOString()
+}
+
 function mapTaskToDTO(row: TaskRow): TaskDTO {
+  const numericStatus = resolveNumericTaskStatus(row.status, row.task_type)
+  const numericType = resolveNumericTaskType(row.task_type)
+  const statusLabel = formatTaskStatusLabelFromUnified(row.task_type, row.status, row.task_mode)
+  const phase = resolveTaskPhaseFromBusiness(numericStatus, numericType, row.task_mode, row.status, {
+    packageCount: row.package_count,
+    successCount: row.success_count,
+  })
+  const status = resolveTaskStatusFromBusiness(numericStatus, row.status)
   return {
     id: row.id,
     taskNo: row.task_no,
     name: row.task_name || row.task_no,
     type: TYPE_MAP[row.task_type] ?? "other",
-    phase: STATUS_PHASE_MAP[row.status] ?? "idle",
-    status: STATUS_MAP[row.status] ?? "pending_dispatch",
+    typeLabel: formatTaskTypeLabelFromUnified(row.task_type, row.task_mode),
+    statusLabel,
+    phase,
+    status,
     priority: (row.priority as Priority) ?? "normal",
-    progress: STATUS_MAP[row.status] === "completed"
+    progress: status === "completed"
       ? 100
       : (row.progress != null ? row.progress : null),
     archiveName: row.archive_name ?? "",
@@ -125,14 +107,12 @@ function mapTaskToDTO(row: TaskRow): TaskDTO {
     department: row.department ?? undefined,
     sourcePath: row.source_path ?? "",
     packagePath: row.package_path ?? "",
+    volumeId: undefined,
     backupScope: "full",
     deviceId: row.device_id ?? undefined,
-    startedAt: row.created_at
-      ? (typeof row.created_at === "string" ? row.created_at : row.created_at.toISOString())
-      : (typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()),
-    updatedAt: row.updated_at
-      ? (typeof row.updated_at === "string" ? row.updated_at : row.updated_at.toISOString())
-      : (typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()),
+    startedAt: toIsoString(row.task_create_at) ?? "",
+    updatedAt: toIsoString(row.task_end_at) ?? toIsoString(row.updated_at) ?? "",
+    completedAt: toIsoString(row.task_end_at),
     fileCount: row.total_files ?? undefined,
     totalSize: row.total_size ? `${row.total_size}` : undefined,
     taskMode: row.task_mode ?? undefined,
@@ -182,7 +162,8 @@ export async function GET(
       `SELECT id, source_id, source_site_id, task_no, task_name, task_type,
               status, phase, priority, operator, department, archive_name,
               source_path, package_path, device_id, total_files, total_size,
-              created_at, updated_at, synced_at, task_mode, error_message,
+              created_at, updated_at, synced_at, task_create_at, task_end_at,
+              task_mode, error_message,
               runtime_seconds, package_count, success_count, error_count,
               progress, current_phase
        FROM unified_tasks
@@ -205,7 +186,37 @@ export async function GET(
       )
     }
 
-    const adaptedTask = mapTaskToDTO(rows[0] as TaskRow)
+    let row = rows[0] as TaskRow
+    // 已有库未回写时，按 unified_disc_media 即时补封包/成功/异常
+    if (row.package_count == null || row.success_count == null || row.error_count == null) {
+      const discMap = await loadUnifiedDiscAggregates(row.source_site_id, [row.source_id])
+      row = mergeDiscAggregateIntoTaskRow(row, discMap.get(String(row.source_id)))
+    }
+    const adaptedTask = mapTaskToDTO(row)
+    if (row.device_id) {
+      const deviceResult = await query<{ device_name: string }>(
+        `SELECT device_name FROM unified_devices
+         WHERE device_id = $1 AND source_site_id = $2
+         LIMIT 1`,
+        [row.device_id, row.source_site_id]
+      )
+      if (deviceResult.rows[0]?.device_name) {
+        adaptedTask.deviceName = deviceResult.rows[0].device_name
+      }
+    }
+
+    // 目标卷 / 源路径 / 备份路径：tbl_task_items + tbl_logical_volume
+    const pathAgg = await loadTaskPathAggregate(row.source_site_id, row.source_id)
+    if (pathAgg.volumeNames) adaptedTask.volumeId = pathAgg.volumeNames
+    if (pathAgg.paths.length > 0) {
+      adaptedTask.pathPairs = pathAgg.paths
+      adaptedTask.sourcePath = pathAgg.sourcePath
+      adaptedTask.packagePath = pathAgg.backupPath
+    } else {
+      if (pathAgg.sourcePath) adaptedTask.sourcePath = pathAgg.sourcePath
+      if (pathAgg.backupPath) adaptedTask.packagePath = pathAgg.backupPath
+    }
+
     const response: ApiResponse<TaskDTO> & { source?: string } = {
       code: 0,
       message: "ok",

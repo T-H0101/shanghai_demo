@@ -15,7 +15,7 @@
 import { csvFromRows } from "./csv"
 import { jsonFromRows } from "./json"
 import { xlsxNotImplemented } from "./xlsx"
-import { sanitizeRows } from "./sanitize"
+import { sanitizeRows, sanitizeColumns } from "./sanitize"
 import { contentSha256 } from "./sha256"
 import { buildManifest, type ExportManifest } from "./manifest"
 
@@ -30,6 +30,11 @@ export interface ExportInput<Row extends Record<string, unknown>> {
   format: ExportFormat
   /** 列顺序, 决定 CSV 表头和 JSON 字段次序 */
   columns: Array<keyof Row & string>
+  /**
+   * CSV 展示表头（与 columns 一一对应）。
+   * 仅影响 CSV；JSON 仍用 columns 英文字段名，便于脚本消费。
+   */
+  columnLabels?: string[]
   /** 已查询的真实数据行 (调用方负责 DB 查询) */
   rows: Row[]
   /** siteCode 过滤参数, 写到 manifest.siteCode 和文件名 */
@@ -67,7 +72,15 @@ export function buildExport<Row extends Record<string, unknown>>(
   }
 
   // sanitize: 框架兜底, 去掉 password/secret/token/auth/database_url 等字段
+  const safeColumns = sanitizeColumns(input.columns)
   const cleanRows = sanitizeRows(input.rows, input.columns)
+  const safeLabels =
+    input.columnLabels && input.columnLabels.length === input.columns.length
+      ? input.columns
+          .map((col, i) => ({ col, label: input.columnLabels![i] }))
+          .filter(({ col }) => safeColumns.includes(col))
+          .map(({ label }) => label)
+      : undefined
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
   const scope = (input.siteCode && input.siteCode.trim()) || "all-sites"
@@ -78,10 +91,10 @@ export function buildExport<Row extends Record<string, unknown>>(
   let body: string
   let contentType: string
   if (input.format === "json") {
-    body = jsonFromRows(input.exportType, input.dataSource, cleanRows, input.columns, input.siteCode ?? null)
+    body = jsonFromRows(input.exportType, input.dataSource, cleanRows, safeColumns, input.siteCode ?? null)
     contentType = "application/json; charset=utf-8"
   } else {
-    body = csvFromRows(cleanRows, input.columns)
+    body = csvFromRows(cleanRows, safeColumns, safeLabels)
     contentType = "text/csv; charset=utf-8"
   }
 

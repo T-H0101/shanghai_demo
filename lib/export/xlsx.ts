@@ -48,11 +48,19 @@ export async function buildXlsxExport<Row extends Record<string, unknown>>(
   workbook.created = new Date()
   const sheet = workbook.addWorksheet("Export")
 
-  sheet.columns = input.columns.map((column) => ({
-    header: column,
-    key: column,
-    width: Math.max(column.length + 4, 16),
-  }))
+  const headers =
+    input.columnLabels && input.columnLabels.length === input.columns.length
+      ? input.columnLabels
+      : input.columns
+
+  sheet.columns = input.columns.map((column, i) => {
+    const header = String(headers[i] ?? column)
+    return {
+      header,
+      key: column,
+      width: Math.max(header.length + 4, 16),
+    }
+  })
   for (const row of cleanRows) {
     sheet.addRow(
       input.columns.reduce<Record<string, unknown>>((acc, column) => {

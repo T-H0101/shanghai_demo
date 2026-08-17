@@ -28,6 +28,7 @@ import {
   ShieldCheck,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
+import { PRODUCT_NAME } from "@/lib/branding"
 import { formatBeijingTime } from "@/components/shared/time-format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -107,12 +108,12 @@ export function WelcomeBanner() {
               <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 UNIFIED CONTROL
               </span>
-              <span className="text-xs text-slate-600 dark:text-slate-300">集团层统一管控平台</span>
+              <span className="text-xs text-slate-600 dark:text-slate-300">{PRODUCT_NAME}</span>
             </div>
           </div>
 
           <h1 className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight dark:text-slate-50">
-            光盘库总控台
+            统一管控台
           </h1>
 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">

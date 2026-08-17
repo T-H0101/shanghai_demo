@@ -169,9 +169,11 @@ async function main() {
     `cd=${csvRes.headers.get("content-disposition")?.slice(0, 60)}`
   )
   check(
-    "/api/logs/export CSV 正文有 header 行",
-    csvBody.split("\n")[0].includes("log_type") && csvBody.split("\n")[0].includes("summary"),
-    `header=${csvBody.split("\n")[0].slice(0, 60)}`
+    "/api/logs/export CSV 正文有中文 header 行",
+    csvBody.split("\n")[0].includes("类型") &&
+      csvBody.split("\n")[0].includes("操作") &&
+      csvBody.split("\n")[0].includes("摘要"),
+    `header=${csvBody.split("\n")[0].slice(0, 80)}`
   )
 
   // 10. /api/logs/export JSON

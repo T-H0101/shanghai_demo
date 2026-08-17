@@ -125,7 +125,7 @@ export function DashboardSummaryBar() {
 
   useEffect(() => {
     if (!isReady) return
-    if (!isApiMode) {
+    if (!isApiMode()) {
       setData(null)
       setSource("mock")
       setError(null)
@@ -145,7 +145,7 @@ export function DashboardSummaryBar() {
     }
   }, [isReady, siteCode])
 
-  if (!isApiMode) return null
+  if (!isApiMode()) return null
 
   if (source === "unavailable" || error) {
     return (

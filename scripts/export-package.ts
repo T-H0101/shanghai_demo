@@ -73,6 +73,28 @@ function newBatchId(siteCode: string): string {
   return `${siteCode}-${new Date().toISOString().replace(/[:.]/g, '-')}`
 }
 
+function readPackageRegistryFields(): {
+  siteName?: string
+  db_host?: string
+  db_port?: number
+} {
+  const siteName = process.env.SITE_NAME?.trim()
+  const db_host = process.env.SITE_DB_HOST?.trim()
+  const dbPortRaw = process.env.SITE_DB_PORT?.trim()
+  let db_port: number | undefined
+  if (dbPortRaw) {
+    const parsed = Number.parseInt(dbPortRaw, 10)
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535) {
+      db_port = parsed
+    }
+  }
+  return {
+    ...(siteName ? { siteName } : {}),
+    ...(db_host ? { db_host } : {}),
+    ...(db_port ? { db_port } : {}),
+  }
+}
+
 async function connectSourceClient(): Promise<{ client: Client; label: string } | null> {
   const explicitUrl = SOURCE_URL || SITE_URL
   if (explicitUrl) {
@@ -336,6 +358,7 @@ async function main() {
     }
     const pkg = {
       siteCode,
+      ...readPackageRegistryFields(),
       batchId: newBatchId(siteCode),
       snapshotAt: new Date().toISOString(),
       version: 'r94-local-fixture',
@@ -397,6 +420,7 @@ async function main() {
     // 3. 组装 package
     const pkg = {
       siteCode,
+      ...readPackageRegistryFields(),
       batchId: newBatchId(siteCode),
       snapshotAt: new Date().toISOString(),
       version: '2H.1-exporter',

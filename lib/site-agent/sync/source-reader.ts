@@ -49,11 +49,15 @@ export class PgSiteSourceReader {
 
   async readTaskChanges(
     watermark: TaskWatermark | null,
-    overlapMs: number
+    overlapMs: number,
+    taskIdLookback = 100
   ): Promise<Record<string, unknown>[]> {
     if (!watermark) return this.readSnapshot("tbl_task")
     if (!Number.isInteger(overlapMs) || overlapMs < 0) {
       throw new Error("overlapMs must be a non-negative integer")
+    }
+    if (!Number.isInteger(taskIdLookback) || taskIdLookback < 0) {
+      throw new Error("taskIdLookback must be a non-negative integer")
     }
 
     const overlapStart = watermark.maxUpdateDt
@@ -66,8 +70,9 @@ export class PgSiteSourceReader {
        FROM tbl_task
        WHERE id > $1::bigint
           OR ($2::timestamptz IS NOT NULL AND update_dt >= $2::timestamptz)
+          OR ($3::bigint > 0 AND id > GREATEST($1::bigint - $3::bigint, 0))
        ORDER BY COALESCE(update_dt, create_dt), id`,
-      [watermark.maxId, overlapStart]
+      [watermark.maxId, overlapStart, taskIdLookback]
     )
     return result.rows
   }

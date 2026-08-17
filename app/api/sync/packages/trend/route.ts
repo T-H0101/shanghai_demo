@@ -2,7 +2,7 @@
  * GET /api/sync/packages/trend
  * R.94 补丁 — 同步包趋势聚合 (供 Dashboard SyncTrendChart 真实数据源)
  *
- * 查询 sync_package_log, 按日期聚合最近 7 天的 success/failed/partial 包数,
+ * 查询 sync_package_log, 按「北京时间日历日」聚合最近 N 天的 success/failed/partial 包数,
  * 按站点分组。
  *
  * Query params:
@@ -10,6 +10,8 @@
  *   siteCode (optional, 按站点过滤)
  *
  * 只读 sync_package_log, 不回退 mock
+ *
+ * 时区约定: 业务日 = Asia/Shanghai，禁止 DATE(timestamptz) + toISOString() 导致东八区偏一天。
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,6 +20,7 @@ import { query } from '@/lib/db'
 export const dynamic = 'force-dynamic'
 
 const SITE_CODE_PATTERN = /^[A-Za-z0-9_-]+$/
+const BEIJING_TZ = 'Asia/Shanghai'
 
 interface TrendDay {
   date: string
@@ -39,9 +42,20 @@ interface ApiResponse {
   data: TrendSite[]
 }
 
-function toDateString(val: unknown): string {
-  if (val instanceof Date) return val.toISOString().slice(0, 10)
-  if (typeof val === 'string') return val
+/** 统一为 YYYY-MM-DD；已是文本日历日则原样截取，避免 Date→UTC 偏一天 */
+function toBeijingDateString(val: unknown): string {
+  if (typeof val === 'string') {
+    const m = val.trim().match(/^(\d{4}-\d{2}-\d{2})/)
+    if (m) return m[1]
+  }
+  if (val instanceof Date && !Number.isNaN(val.getTime())) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: BEIJING_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(val)
+  }
   return String(val)
 }
 
@@ -61,20 +75,24 @@ export async function GET(request: NextRequest) {
     const params: Array<string | number> = [days]
     if (siteCode) params.push(siteCode)
     const siteFilter = siteCode ? `AND site_code = $2` : ''
+    // 用 to_char 直接返回文本日，避免 node-pg 把 date 转成 Date 后再 toISOString 偏天
     const rows = await query<{
       site_code: string
-      day: unknown
+      day: string
       status: string
       count: string
     }>(
       `SELECT site_code,
-              DATE(finished_at) AS day,
+              to_char((finished_at AT TIME ZONE '${BEIJING_TZ}'), 'YYYY-MM-DD') AS day,
               status,
               count(*)::text AS count
        FROM sync_package_log
-       WHERE finished_at >= NOW() - ($1::int * interval '1 day')
+       WHERE finished_at IS NOT NULL
+         AND finished_at >= NOW() - ($1::int * interval '1 day')
          ${siteFilter}
-       GROUP BY site_code, DATE(finished_at), status
+       GROUP BY site_code,
+                to_char((finished_at AT TIME ZONE '${BEIJING_TZ}'), 'YYYY-MM-DD'),
+                status
        ORDER BY site_code, day`,
       params
     )
@@ -83,7 +101,8 @@ export async function GET(request: NextRequest) {
     const siteMap = new Map<string, Map<string, TrendDay>>()
 
     for (const row of rows.rows) {
-      const dayStr = toDateString(row.day)
+      const dayStr = toBeijingDateString(row.day)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dayStr)) continue
       if (!siteMap.has(row.site_code)) {
         siteMap.set(row.site_code, new Map())
       }

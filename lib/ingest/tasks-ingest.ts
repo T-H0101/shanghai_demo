@@ -103,6 +103,8 @@ function mapTaskForIngest(source: TaskSourceRecord, siteCode: string, sourceTabl
     error_count: null,
     progress: null,
     current_phase: null,
+    task_create_at: null,
+    task_end_at: null,
     raw_data: source,
   }
 }

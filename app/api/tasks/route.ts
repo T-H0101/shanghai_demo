@@ -9,7 +9,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
-import type { ApiResponse, PaginatedResponse, TaskDTO, TaskStatus, TaskType, TaskPhase, Priority } from "@/lib/api/dto"
+import type { ApiResponse, PaginatedResponse, TaskDTO, TaskType, TaskPhase, Priority } from "@/lib/api/dto"
+import { formatTaskTypeLabelFromUnified, resolveNumericTaskType, buildTaskTypeFilterSql } from "@/lib/tasks/task-type-display"
+import {
+  formatTaskStatusLabelFromUnified,
+  resolveNumericTaskStatus,
+  resolveTaskPhaseFromBusiness,
+  resolveTaskStatusFromBusiness,
+  buildTaskStatusFilterSql,
+  PHASE_QUERY_TO_STATUS_FILTER,
+} from "@/lib/tasks/task-status-display"
+import { loadTaskPathAggregates } from "@/lib/tasks/task-path-aggregate"
+import {
+  loadUnifiedDiscAggregatesMultiSite,
+  mergeDiscAggregateIntoTaskRow,
+} from "@/lib/tasks/task-disc-aggregate"
 
 // unified_tasks.status → TaskDTO.phase（基于真实状态推断阶段）
 const STATUS_PHASE_MAP: Record<string, TaskPhase> = {
@@ -34,31 +48,7 @@ const STATUS_PHASE_MAP: Record<string, TaskPhase> = {
   make_task_scan_started: "scanning",
   make_task_scan_unfinished: "scanning",
   s3_data_preparing: "preparing",
-}
-
-// unified_tasks.status → TaskDTO.status
-const STATUS_MAP: Record<string, TaskStatus> = {
-  burn_success: "completed",
-  cancelled: "failed",
-  make_task_done_backup_running: "running",
-  paused: "paused",
-  remote_backup_created: "pending_dispatch",
-  data_preparing: "running",
-  ready: "pending_dispatch",
-  burn_failed: "failed",
-  download_success: "completed",
-  restore_started: "running",
-  read_from_disc_done: "completed",
-  read_from_disc_failed: "failed",
-  reading_from_disc: "running",
-  read_failed: "failed",
-  restore_warning: "failed",
-  restful_ready: "pending_dispatch",
-  no_file_changed: "completed",
-  jdf_generated: "pending_dispatch",
-  make_task_scan_started: "running",
-  make_task_scan_unfinished: "running",
-  s3_data_preparing: "running",
+  warning: "failed",
 }
 
 // unified_tasks.task_type → TaskDTO.type
@@ -74,6 +64,7 @@ const TYPE_MAP: Record<string, TaskType> = {
   package: "full_package",
   evidence: "other",
   power_on: "other",
+  remote_backup: "other",
 }
 
 interface TaskRow {
@@ -97,6 +88,8 @@ interface TaskRow {
   created_at: Date | string | null
   updated_at: Date | string | null
   synced_at: Date | string
+  task_create_at: Date | string | null
+  task_end_at: Date | string | null
   // Sprint 2F.1
   task_mode: number | null
   error_message: string | null
@@ -108,19 +101,33 @@ interface TaskRow {
   current_phase: string | null
 }
 
+function toIsoString(value: Date | string | null | undefined): string | undefined {
+  if (value == null) return undefined
+  return typeof value === "string" ? value : value.toISOString()
+}
+
 function mapTaskToDTO(row: TaskRow): TaskDTO {
-  const deviceNameMap: Record<string, string> = {}
+  const numericStatus = resolveNumericTaskStatus(row.status, row.task_type)
+  const numericType = resolveNumericTaskType(row.task_type)
+  const statusLabel = formatTaskStatusLabelFromUnified(row.task_type, row.status, row.task_mode)
+  const phase = resolveTaskPhaseFromBusiness(numericStatus, numericType, row.task_mode, row.status, {
+    packageCount: row.package_count,
+    successCount: row.success_count,
+  })
+  const status = resolveTaskStatusFromBusiness(numericStatus, row.status)
   return {
     id: row.id,
     sourceId: row.source_id,  // R.16: 源端 tbl_task.id (bigint), executor parseInt 必需
     taskNo: row.task_no,
     name: row.task_name || row.task_no,
     type: TYPE_MAP[row.task_type] ?? "other",
-    phase: STATUS_PHASE_MAP[row.status] ?? "idle",
-    status: STATUS_MAP[row.status] ?? "pending_dispatch",
+    typeLabel: formatTaskTypeLabelFromUnified(row.task_type, row.task_mode),
+    statusLabel,
+    phase,
+    status,
     priority: (row.priority as Priority) ?? "normal",
     // Sprint 2F.1: 真实 progress, completed = 100, 否则 null (前端显示 —)
-    progress: STATUS_MAP[row.status] === "completed"
+    progress: status === "completed"
       ? 100
       : (row.progress != null ? row.progress : null),
     archiveName: row.archive_name ?? "",
@@ -131,14 +138,13 @@ function mapTaskToDTO(row: TaskRow): TaskDTO {
     department: row.department ?? undefined,
     sourcePath: row.source_path ?? "",
     packagePath: row.package_path ?? "",
+    volumeId: undefined,
     backupScope: "full",
     deviceId: row.device_id ?? undefined,
-    startedAt: row.created_at
-      ? (typeof row.created_at === "string" ? row.created_at : row.created_at.toISOString())
-      : (typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()),
-    updatedAt: row.updated_at
-      ? (typeof row.updated_at === "string" ? row.updated_at : row.updated_at.toISOString())
-      : (typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()),
+    // 业务时间：create_dt → startedAt，update_dt → completedAt（勿用中心库入库时间）
+    startedAt: toIsoString(row.task_create_at) ?? "",
+    updatedAt: toIsoString(row.task_end_at) ?? toIsoString(row.updated_at) ?? "",
+    completedAt: toIsoString(row.task_end_at),
     fileCount: row.total_files ?? undefined,
     totalSize: row.total_size ? `${row.total_size}` : undefined,
     // Sprint 2F.1: 任务运行时字段
@@ -162,12 +168,16 @@ export async function GET(request: NextRequest) {
     const visibleSites = getVisibleSites(session)
 
     const searchParams = request.nextUrl.searchParams
-    const page = parseInt(searchParams.get("page") ?? "1")
-    const pageSize = parseInt(searchParams.get("pageSize") ?? "20")
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+    const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20))
     const siteCode = searchParams.get("siteCode")
     const status = searchParams.get("status")
     const type = searchParams.get("type")
+    const phase = searchParams.get("phase")
+    const phaseGroup = searchParams.get("phaseGroup")
+    const statusFilter = searchParams.get("statusFilter")
     const keyword = searchParams.get("keyword")
+    const device = searchParams.get("device")?.trim() || null
 
     const conditions: string[] = []
     const params: unknown[] = []
@@ -185,14 +195,72 @@ export async function GET(request: NextRequest) {
       conditions.push(`status = $${paramIndex++}`)
       params.push(status)
     }
+
+    // 业务状态筛选（优先于旧 phase）；兼容 ?phase=completed 等跳转
+    const resolvedStatusFilter =
+      (statusFilter && statusFilter !== "all" ? statusFilter : null) ??
+      (phase && phase !== "all" ? (PHASE_QUERY_TO_STATUS_FILTER[phase] ?? null) : null)
+
+    if (resolvedStatusFilter) {
+      const built = buildTaskStatusFilterSql(resolvedStatusFilter, paramIndex)
+      if (built) {
+        conditions.push(built.sql)
+        params.push(...built.params)
+        paramIndex = built.nextIndex
+      } else {
+        // 未识别的 statusFilter：回退旧 STATUS_PHASE_MAP phase 筛选
+        const statuses = Object.entries(STATUS_PHASE_MAP)
+          .filter(([, p]) => p === phase)
+          .map(([s]) => s)
+        if (statuses.length > 0) {
+          conditions.push(`status = ANY($${paramIndex++})`)
+          params.push(statuses)
+        }
+      }
+    } else if (phaseGroup === "running") {
+      const built = buildTaskStatusFilterSql("running", paramIndex)
+      if (built) {
+        conditions.push(built.sql)
+        params.push(...built.params)
+        paramIndex = built.nextIndex
+      }
+    }
+
     if (type && type !== "all") {
-      conditions.push(`task_type = $${paramIndex++}`)
-      params.push(type)
+      const built = buildTaskTypeFilterSql(type, paramIndex)
+      if (built) {
+        conditions.push(built.sql)
+        params.push(...built.params)
+        paramIndex = built.nextIndex
+      } else {
+        // 兼容旧 DTO TaskType 英文名
+        const dbTypes = Object.entries(TYPE_MAP)
+          .filter(([dbType, uiType]) => dbType === type || uiType === type)
+          .map(([dbType]) => dbType)
+        const typesToMatch = dbTypes.length > 0 ? dbTypes : [type]
+        conditions.push(`task_type = ANY($${paramIndex++})`)
+        params.push(typesToMatch)
+      }
     }
     if (keyword) {
       conditions.push(`(task_no ILIKE $${paramIndex} OR task_name ILIKE $${paramIndex} OR operator ILIKE $${paramIndex})`)
       params.push(`%${keyword}%`)
       paramIndex++
+    }
+
+    // 关联设备筛选：匹配 device_id，或 unified_devices.device_name
+    if (device) {
+      conditions.push(`(
+        device_id = $${paramIndex}
+        OR EXISTS (
+          SELECT 1 FROM unified_devices d
+          WHERE d.device_id = unified_tasks.device_id
+            AND d.source_site_id = unified_tasks.source_site_id
+            AND d.device_name ILIKE $${paramIndex + 1}
+        )
+      )`)
+      params.push(device, `%${device}%`)
+      paramIndex += 2
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
@@ -212,30 +280,86 @@ export async function GET(request: NextRequest) {
              phase, priority, operator, department, archive_name,
              source_path, package_path, device_id,
              total_files, total_size, created_at, updated_at, synced_at,
+             task_create_at, task_end_at,
              task_mode, error_message, runtime_seconds,
              package_count, success_count, error_count, progress, current_phase
       FROM unified_tasks ${whereClause}
-      ORDER BY created_at DESC NULLS LAST, source_id
+      -- source_id 对应 tbl_task.id（数字），按数值降序，避免字符串排序 99 > 100
+      ORDER BY
+        CASE WHEN source_id ~ '^[0-9]+$' THEN source_id::bigint ELSE NULL END DESC NULLS LAST,
+        source_id DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `
     const { rows } = await query<TaskRow>(dataSql, dataParams)
 
-    // 异步获取 device_name 映射
-    const deviceIds = [...new Set(rows.map(r => r.device_id).filter(Boolean))]
+    // 按站点+device_id 查设备名（全站视图下 lib_id 可能跨站碰撞）
+    const deviceKeys = [
+      ...new Set(
+        rows
+          .filter((r) => r.device_id)
+          .map((r) => `${r.source_site_id}\0${r.device_id}`)
+      ),
+    ]
     let deviceNameMap: Record<string, string> = {}
-    if (deviceIds.length > 0) {
-      const deviceResult = await query<{ device_id: string; device_name: string }>(
-        `SELECT device_id, device_name FROM unified_devices WHERE device_id = ANY($1) AND source_site_id = $2`,
-        [deviceIds, siteCode ?? rows[0]?.source_site_id]
+    if (deviceKeys.length > 0) {
+      const deviceIds = [...new Set(rows.map((r) => r.device_id).filter(Boolean))] as string[]
+      const siteIds = [...new Set(rows.map((r) => r.source_site_id))]
+      const deviceResult = await query<{
+        device_id: string
+        device_name: string
+        source_site_id: string
+      }>(
+        `SELECT device_id, device_name, source_site_id
+         FROM unified_devices
+         WHERE device_id = ANY($1) AND source_site_id = ANY($2)`,
+        [deviceIds, siteIds]
       )
       for (const d of deviceResult.rows) {
-        deviceNameMap[d.device_id] = d.device_name
+        deviceNameMap[`${d.source_site_id}\0${d.device_id}`] = d.device_name
       }
     }
 
-    const items = rows.map(row => {
-      const dto = mapTaskToDTO(row)
-      dto.deviceName = row.device_id ? deviceNameMap[row.device_id] ?? undefined : undefined
+    const pathAggBySite = new Map<string, Awaited<ReturnType<typeof loadTaskPathAggregates>>>()
+    const siteTaskIds = new Map<string, string[]>()
+    for (const row of rows) {
+      const list = siteTaskIds.get(row.source_site_id) ?? []
+      list.push(row.source_id)
+      siteTaskIds.set(row.source_site_id, list)
+    }
+    for (const [site, taskIds] of siteTaskIds) {
+      pathAggBySite.set(site, await loadTaskPathAggregates(site, taskIds))
+    }
+
+    // 列表缺封包统计时，按页批量从 unified_disc_media 补全
+    const needDiscAgg = rows.filter(
+      (r) => r.package_count == null || r.success_count == null || r.error_count == null
+    )
+    const discAggMap =
+      needDiscAgg.length > 0
+        ? await loadUnifiedDiscAggregatesMultiSite(
+            needDiscAgg.map((r) => ({ siteCode: r.source_site_id, taskId: r.source_id }))
+          )
+        : new Map()
+
+    const items = rows.map((row) => {
+      const enriched = mergeDiscAggregateIntoTaskRow(
+        row,
+        discAggMap.get(`${row.source_site_id}::${row.source_id}`)
+      )
+      const dto = mapTaskToDTO(enriched)
+      dto.deviceName = row.device_id
+        ? deviceNameMap[`${row.source_site_id}\0${row.device_id}`] ?? undefined
+        : undefined
+      const pathAgg = pathAggBySite.get(row.source_site_id)?.get(String(row.source_id))
+      if (pathAgg?.volumeNames) dto.volumeId = pathAgg.volumeNames
+      if (pathAgg?.paths?.length) {
+        dto.pathPairs = pathAgg.paths
+        dto.sourcePath = pathAgg.sourcePath
+        dto.packagePath = pathAgg.backupPath
+      } else {
+        if (pathAgg?.sourcePath) dto.sourcePath = pathAgg.sourcePath
+        if (pathAgg?.backupPath) dto.packagePath = pathAgg.backupPath
+      }
       return dto
     })
 

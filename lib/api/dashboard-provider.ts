@@ -9,8 +9,17 @@ import { isApiMode } from "@/lib/api"
 
 export interface DashboardSummaryData {
   taskCount: number
+  taskCompletedCount?: number
+  taskRunningCount?: number
+  taskFailedCount?: number
   deviceCount: number
+  deviceOnlineCount?: number
+  deviceOfflineCount?: number
+  deviceAbnormalCount?: number
   volumeCount: number
+  volumeTotalCapacityBytes?: number
+  volumeUsedCapacityBytes?: number
+  volumeUsagePercent?: number | null
   userCount: number
   packageCount: number
   failedPackageCount: number
@@ -74,7 +83,7 @@ export async function fetchDashboardSummary(
   siteCode?: string | null,
 ): Promise<DashboardFetchResult<DashboardSummaryData>> {
   // mock mode 不走真实端点
-  if (!isApiMode) {
+  if (!isApiMode()) {
     return { data: null, source: "mock", error: null }
   }
   try {
@@ -98,7 +107,7 @@ export async function fetchRecentSyncs(
   siteCode?: string | null,
   limit = 10,
 ): Promise<DashboardFetchResult<RecentSyncItem[]>> {
-  if (!isApiMode) {
+  if (!isApiMode()) {
     return { data: null, source: "mock", error: null }
   }
   try {

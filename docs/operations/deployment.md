@@ -7,6 +7,7 @@
 | 场景 | 推荐方式 | 说明 |
 |---|---|---|
 | 本地开发 | `pnpm dev` + Docker PG | 只验证代码和中心库 |
+| 测试服务器（离线） | 见 [offline-deploy.md](./offline-deploy.md) | U 盘拷 `unified-offline`：自带 Node22/pnpm/PG17 tar + 已 build |
 | 测试服务器 | Docker image + 外部 PG | 推荐 |
 | 生产 | k8s / systemd + secret manager | 推荐 |
 | 只看页面 | 本地开发模式 | 不作为验收证据 |
@@ -186,6 +187,8 @@ pnpm db:init
 ```
 
 它会执行 `databases/sprint-2b0/init-docker.sh` 中登记的 DDL patch。新增 schema 时必须追加到该脚本，不能只手动改库。
+
+脚本通过 `docker exec -i ... < file.sql` 灌库（不用 `docker cp`），在 Windows Git Bash 下可正常执行。Windows 上请用 Git Bash 跑 `pnpm db:init`（或确保 PATH 中有 `bash`）。
 
 当前 `pnpm db:init` 已包含 R.86 `file_index_jobs` 调度账本。开发环境启用文件索引增量任务时, 初始化后执行:
 

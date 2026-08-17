@@ -58,7 +58,7 @@ async function main() {
     "包含页面跳转项 (控制台/任务/盘架 等)",
     paletteSource.includes("控制台") &&
       paletteSource.includes("任务管理") &&
-      paletteSource.includes("盘架管理"),
+      paletteSource.includes("设备管理"),
   )
   check(
     "包含站点切换项",
@@ -131,8 +131,9 @@ async function main() {
     bannerSource.includes("/api/system/db-health"),
   )
   check(
-    "含平台定位文案 (集团层统一管控)",
-    bannerSource.includes("集团层统一管控"),
+    "含平台定位文案 (药明康德蓝光异质备份统一管控平台)",
+    bannerSource.includes("PRODUCT_NAME") &&
+      readFileSync("lib/branding.ts", "utf8").includes("药明康德蓝光异质备份统一管控平台"),
   )
   check(
     "含快捷操作按钮 (查看任务/管理站点/审计日志)",
@@ -162,7 +163,7 @@ async function main() {
   check(
     "CommandCenter 调用真实运营 API",
     commandCenterSource.includes("/api/dashboard/summary") &&
-      commandCenterSource.includes("/api/sync/sites/status") &&
+      commandCenterSource.includes("/api/sites") &&
       commandCenterSource.includes("/api/control/commands") &&
       commandCenterSource.includes("/api/alerts"),
   )

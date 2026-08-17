@@ -62,8 +62,8 @@ async function main() {
   )
   check(
     "设备导出内容含真实字段与 SH01 数据",
-    exportLines[0]?.includes("device_id") &&
-      exportLines[0]?.includes("site_code") &&
+    exportLines[0]?.includes("设备 ID") &&
+      exportLines[0]?.includes("站点代码") &&
       siteRacks.data?.every((item: { id: string }) => exportText.includes(item.id)),
     `header=${exportLines[0] ?? ""}`
   )

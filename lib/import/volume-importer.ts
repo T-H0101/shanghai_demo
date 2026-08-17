@@ -6,6 +6,7 @@
 
 import { sourceQuery } from '@/lib/db/source-pool'
 import { query } from '@/lib/db'
+import { canonicalizeVolumeTypeForStorage } from '@/lib/devices/volume-type'
 
 interface VolumeRow {
   volume_id: number
@@ -24,12 +25,6 @@ interface VolumeRow {
   max_file_id: number | null
   create_user: string | null
   update_user: string | null
-}
-
-const VOLUME_TYPE_MAP: Record<number, string> = {
-  1: 'optical',
-  2: 'magnetic',
-  3: 'hard_disk',
 }
 
 export async function importVolumes(siteCode: string): Promise<void> {
@@ -58,7 +53,7 @@ export async function importVolumes(siteCode: string): Promise<void> {
   let upserted = 0
   for (const row of volumeRows) {
     const slotCount = slotCountMap.get(row.volume_id) ?? 0
-    const volumeType = row.type != null ? (VOLUME_TYPE_MAP[row.type] ?? `unknown_${row.type}`) : 'unknown'
+    const volumeType = canonicalizeVolumeTypeForStorage(row.type) ?? 'unknown'
 
     await query(
       `INSERT INTO unified_volumes (

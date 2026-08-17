@@ -14,7 +14,7 @@ import { sourceQuery } from '@/lib/db/source-pool'
 import { transaction, query } from '@/lib/db'
 import { upsertTasksInTransaction } from '@/lib/sync/upsert'
 import { mapRealTask } from './real-field-mapper'
-import { aggregateTaskDevices } from './task-device-aggregator'
+import { aggregateTaskDevices, applyTaskDeviceIds } from './task-device-aggregator'
 import { aggregateTaskUsers } from './task-user-aggregator'
 import { aggregateTaskDisc } from './task-runtime-aggregator'
 
@@ -56,20 +56,17 @@ export async function importTasks(siteCode: string): Promise<void> {
     return upsertTasksInTransaction(mappedRecords, client)
   })
 
-  // 5. 聚合任务-设备关联
+  // 5. 聚合任务-设备关联（离线 import 显式读源库；推送路径请用 package records）
   console.log(`[Import] Aggregating task-device associations from tbl_lib_task...`)
   const deviceMap = await aggregateTaskDevices()
-  console.log(`[Import] Found device associations for ${deviceMap.size} tasks`)
-
-  let updatedCount = 0
-  for (const [taskId, mapping] of deviceMap) {
-    const result = await query(
-      `UPDATE unified_tasks SET device_id = $1 WHERE source_id = $2 AND source_site_id = $3`,
-      [String(mapping.lib_id), String(taskId), siteCode]
-    )
-    updatedCount += result.rowCount ?? 0
+  const asString = new Map<string, string>()
+  for (const [taskId, mapping] of deviceMap.entries()) {
+    asString.set(String(taskId), String(mapping.lib_id))
   }
-  console.log(`[Import] Updated device_id for ${updatedCount} tasks`)
+  const deviceBackfill = await applyTaskDeviceIds(siteCode, asString)
+  console.log(
+    `[Import] Updated device_id for ${deviceBackfill.updated}/${deviceBackfill.scanned} tasks (source=source_restore)`
+  )
 
   // 6. 聚合任务-用户关联
   console.log(`[Import] Aggregating task-user associations from tbl_user_task...`)

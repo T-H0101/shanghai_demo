@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { buildExport } from "@/lib/export"
 import { toNextResponse } from "@/lib/export/next-response"
-import { recordExport } from "@/lib/export/audit"
+import { recordExport, resolveExportActor } from "@/lib/export/audit"
 
 export const dynamic = "force-dynamic"
 
@@ -58,11 +58,28 @@ const COLUMNS: Array<keyof UserExportRow & string> = [
   "created_at",
 ]
 
+const COLUMN_LABELS = [
+  "用户 ID",
+  "用户名",
+  "显示名",
+  "邮箱",
+  "电话",
+  "角色",
+  "部门",
+  "状态",
+  "站点",
+  "来源表",
+  "来源 ID",
+  "同步时间",
+  "创建时间",
+]
+
 const ALLOWED_FORMATS = ["csv", "json", "xlsx"] as const
 type ExportFormat = (typeof ALLOWED_FORMATS)[number]
 
 export async function GET(request: NextRequest) {
   try {
+    const actor = await resolveExportActor(request)
     const sp = request.nextUrl.searchParams
     const siteCode = sp.get("siteCode")?.trim() ?? ""
     const role = sp.get("role")?.trim() ?? ""
@@ -116,6 +133,7 @@ export async function GET(request: NextRequest) {
       dataSource: "unified_users",
       format,
       columns: COLUMNS,
+      columnLabels: COLUMN_LABELS,
       rows: result.rows,
       siteCode: siteCode || null,
       filters: {
@@ -127,7 +145,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (exportResult.code === "ok") {
-      await recordExport(exportResult.manifest)
+      await recordExport(exportResult.manifest, { actor })
     }
 
     return toNextResponse(exportResult)

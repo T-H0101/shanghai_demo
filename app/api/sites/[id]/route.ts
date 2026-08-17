@@ -22,7 +22,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   let body: any
   try { body = await req.json() } catch { return NextResponse.json({ error: "invalid json" }, { status: 400 }) }
 
-  const { name, ip, port, contact, enabled } = body ?? {}
+  const { name, ip, port, db_host, db_port, contact, enabled } = body ?? {}
+  const resolvedHost = db_host ?? ip
+  const resolvedPort = db_port ?? port
 
   try {
     const before = await query(`SELECT * FROM sync_sites WHERE id = $1::uuid OR site_code = $1 LIMIT 1`, [id])
@@ -35,9 +37,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     let idx = 1
 
     if (name !== undefined) { updates.push(`site_name = $${idx}`); values.push(name); idx++ }
-    if (ip !== undefined) { updates.push(`ip_address = $${idx}`); values.push(ip); idx++ }
-    if (port !== undefined) { updates.push(`port = $${idx}`); values.push(port); idx++ }
-    if (contact !== undefined) { updates.push(`contact = $${idx}`); values.push(contact); idx++ }
+    if (resolvedHost !== undefined) { updates.push(`db_host = $${idx}`); values.push(resolvedHost); idx++ }
+    if (resolvedPort !== undefined) { updates.push(`db_port = $${idx}`); values.push(resolvedPort); idx++ }
+    if (contact !== undefined) {
+      return NextResponse.json(
+        { error: "contact is stored in sites table; not supported on sync_sites PATCH yet" },
+        { status: 400 },
+      )
+    }
     if (enabled !== undefined) { updates.push(`enabled = $${idx}`); values.push(enabled); idx++ }
 
     if (updates.length === 0) return NextResponse.json({ error: "no fields to update" }, { status: 400 })

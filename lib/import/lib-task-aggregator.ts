@@ -75,9 +75,10 @@ export function computeTaskRuntime(rows: LibTaskRow[]): Map<string, { runtime: n
 }
 
 /**
- * 推算并写回 unified_tasks.runtime_seconds
+ * 推算并写回 unified_tasks.runtime_seconds（离线 import / 本地 SOURCE 场景）。
+ * 推送路径请用 computeTaskRuntime(records)，禁止在 package-dispatcher 中调用本函数。
  *
- * 不传 siteCode 时, 默认 SH01 (与现有 importer 一致); 真实场景下 pkg endpoint 传入 siteCode。
+ * 不传 siteCode 时, 默认 SH01 (与现有 importer 一致)。
  * 该函数会扫描 unified_tasks 中 source_table='tbl_task' 的所有行, 匹配 source_id = tbl_lib_task.task_id
  */
 export async function aggregateLibTaskRuntimes(siteCode: string = 'SH01'): Promise<LibTaskAggregateResult> {

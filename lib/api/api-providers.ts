@@ -23,7 +23,9 @@ import type {
   ConsistencyReport, SyncResult,
 } from "./providers"
 import { fetchWithFallback, ApiUnavailableError } from "./fallback"
+import { httpStatusMessage } from "./http-error"
 import type { RackSlotDetailDTO } from "./dto"
+import type { TaskItem } from "@/lib/types/task"
 
 const API_BASE = ""
 
@@ -100,27 +102,58 @@ export function getTasksDataSource(): "database" | "fallback" {
   return _tasksDataSource
 }
 
+export interface TaskListPage {
+  items: TaskItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/** 分页任务列表（api 模式）；page/pageSize 默认 1/20 */
+export async function fetchTasksPage(filters?: TaskFilters): Promise<TaskListPage> {
+  const page = Math.max(1, filters?.page ?? 1)
+  const pageSize = Math.min(200, Math.max(1, filters?.pageSize ?? 20))
+  const params = new URLSearchParams()
+  if (filters?.type && filters.type !== "all") params.set("type", filters.type)
+  if (filters?.status) params.set("status", filters.status)
+  if (filters?.siteCode) params.set("siteCode", filters.siteCode)
+  if (filters?.keyword) params.set("keyword", filters.keyword)
+  if (filters?.device) params.set("device", filters.device)
+  if (filters?.statusFilter && filters.statusFilter !== "all") {
+    params.set("statusFilter", filters.statusFilter)
+  } else if (filters?.phase && filters.phase !== "all") {
+    params.set("phase", filters.phase)
+  }
+  params.set("page", String(page))
+  params.set("pageSize", String(pageSize))
+
+  const response = await fetch(`${API_BASE}/api/tasks?${params.toString()}`, { cache: "no-store" })
+  if (!response.ok) throw new Error(httpStatusMessage(response.status))
+  const json = await response.json()
+  if (json.code !== 0) throw new Error(json.message ?? "tasks request failed")
+  _tasksDataSource = json.source === "database" ? "database" : "fallback"
+  const data = json.data
+  if (Array.isArray(data)) {
+    return { items: data, total: data.length, page, pageSize }
+  }
+  return {
+    items: Array.isArray(data?.items) ? data.items : [],
+    total: Number(data?.total) || 0,
+    page: Number(data?.page) || page,
+    pageSize: Number(data?.pageSize) || pageSize,
+  }
+}
+
 export const apiTaskProvider: TaskProvider = {
   getAll: async (filters?: TaskFilters) => {
-    const params = new URLSearchParams()
-    if (filters?.type && filters.type !== "all") params.set("type", filters.type)
-    if (filters?.status) params.set("status", filters.status)
-    if (filters?.siteCode) params.set("siteCode", filters.siteCode)
-    if (filters?.keyword) params.set("keyword", filters.keyword)
-    params.set("pageSize", "100")
-
-    const query = params.toString()
-    const url = `${API_BASE}/api/tasks${query ? `?${query}` : ""}`
-
     try {
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const json = await response.json()
-      if (json.code !== 0) throw new Error(json.message)
-      _tasksDataSource = json.source === "database" ? "database" : "fallback"
-      return Array.isArray(json.data) ? json.data : (json.data?.items ?? [])
+      const result = await fetchTasksPage({
+        ...filters,
+        page: filters?.page ?? 1,
+        pageSize: filters?.pageSize ?? 100,
+      })
+      return result.items
     } catch (err) {
-      // R.90: API 模式下抛 ApiUnavailableError, 不静默 fallback.
       _tasksDataSource = "fallback"
       throw new ApiUnavailableError("Task", "getAll", err)
     }
@@ -276,9 +309,10 @@ export const apiRackProvider: RackProvider = {
     }
   },
 
-  getById: async (id: string) => {
+  getById: async (id: string, siteCode?: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/racks/${id}`)
+      const qs = siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : ""
+      const response = await fetch(`${API_BASE}/api/racks/${encodeURIComponent(id)}${qs}`)
       if (!response.ok) return undefined
       const json = await response.json()
       if (json.code !== 0) return undefined
@@ -298,11 +332,11 @@ export const apiRackProvider: RackProvider = {
       return {
         total: racks.length,
         normal: racks.filter((rack) => rack.status === "normal").length,
-        warning: racks.filter((rack) => rack.status === "warning").length,
-        fault: racks.filter((rack) => rack.status === "fault").length,
+        warning: racks.filter((rack) => rack.status === "warning" || rack.deviceStatus === "warning").length,
+        fault: racks.filter((rack) => rack.status === "fault" || rack.deviceStatus === "error").length,
         maintenance: racks.filter((rack) => rack.status === "maintenance").length,
         online: racks.filter((rack) => rack.deviceStatus === "online").length,
-        offline: racks.filter((rack) => rack.deviceStatus !== "online").length,
+        offline: racks.filter((rack) => rack.deviceStatus === "offline").length,
         totalCapacity: formatCapacity(
           racks.reduce((sum, rack) => sum + parseCapacity(rack.totalCapacity), 0)
         ),

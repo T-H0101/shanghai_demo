@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { taskProvider } from "@/lib/api"
 import type { TaskItem } from "@/lib/types/task"
-import { TASK_PHASE_LABELS } from "@/lib/types/task"
+import { TASK_PHASE_LABELS, TASK_TYPE_LABELS } from "@/lib/types/task"
 import {
   ClipboardList,
   AlertCircle,
@@ -84,15 +84,33 @@ export function TaskTable() {
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">{task.siteName}</span>
                     <span className="text-[10px] text-slate-300 dark:text-slate-400">·</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{task.type}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {task.typeLabel ?? TASK_TYPE_LABELS[task.type] ?? task.type}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
-                    <Progress value={task.phase === "completed" ? 100 : (task.progress ?? 0)} className="h-1.5 w-16 mb-0.5" />
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                      {task.phase === "completed" ? "100%" : task.progress && task.progress > 0 ? `${task.progress}%` : "—"}
-                    </span>
+                    {/* 待处理/无进度：仅灰色底轨 + —，避免 Progress value=0 的空指示条样式异常 */}
+                    {task.phase === "completed" || (task.progress != null && task.progress > 0) ? (
+                      <>
+                        <Progress
+                          value={task.phase === "completed" ? 100 : task.progress!}
+                          className="h-1.5 w-16 mb-0.5"
+                        />
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                          {task.phase === "completed" ? "100%" : `${task.progress}%`}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className="h-1.5 w-16 mb-0.5 rounded-full bg-slate-100 dark:bg-slate-700"
+                          aria-hidden
+                        />
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">—</span>
+                      </>
+                    )}
                   </div>
                   <Badge className={cn("text-[10px]", statusBadge[task.status] ?? "bg-slate-100 dark:bg-slate-700")}>
                     {task.phase === "pending" ? "待处理" : TASK_PHASE_LABELS[task.phase] ?? task.status}

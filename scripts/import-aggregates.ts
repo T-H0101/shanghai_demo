@@ -1,6 +1,6 @@
 /**
  * Aggregate Runner CLI
- * Sprint 2H.3 (autonomous) - 跑 3 张占位表的聚合器
+ * Sprint 2H.3 — 占位表聚合（推送路径已改为只消费 records，本 CLI 不再连 SOURCE_DATABASE_URL）
  *
  * 用法:
  *   pnpm tsx scripts/import-aggregates.ts lib-task [siteCode]
@@ -29,11 +29,10 @@ function loadEnvLocal() {
 }
 loadEnvLocal()
 
-import { aggregateLibTaskRuntimes } from '../lib/import/lib-task-aggregator'
-import { aggregateVolumeSlots } from '../lib/import/volume-slot-aggregator'
-import { aggregateUserTasks } from '../lib/import/user-task-aggregator'
-import { closeSourcePool } from '../lib/db/source-pool'
 import { closePool } from '../lib/db'
+
+const SKIP_MSG =
+  'skipped — 已改为仅消费站点推包 records，请通过 syncDB/Agent 推送对应表，总控勿再连 SOURCE_DATABASE_URL'
 
 async function main() {
   const args = process.argv.slice(2).filter((a) => a !== '--')
@@ -50,41 +49,17 @@ async function main() {
 
   try {
     if (target === 'lib-task' || target === 'all') {
-      const r = await aggregateLibTaskRuntimes(siteCode)
-      console.log(
-        `[Aggregates] lib-task: read=${r.readCount} distinctTasks=${r.distinctTasks} withRuntime=${r.tasksWithRuntime} updated=${r.unifiedRowsUpdated}/${r.unifiedRowsScanned} ${r.durationMs}ms`
-      )
-      if (r.perTaskRuntime && r.perTaskRuntime.length > 0) {
-        console.log('  top 10:')
-        r.perTaskRuntime.forEach((p) =>
-          console.log(`    task_id=${p.taskId} runtime=${p.runtimeSeconds}s commands=${p.commandCount}`)
-        )
-      }
+      console.log(`[Aggregates] lib-task: ${SKIP_MSG}`)
       if (target === 'all') console.log('')
     }
     if (target === 'volume-slot' || target === 'all') {
-      const r = await aggregateVolumeSlots(siteCode)
-      console.log(
-        `[Aggregates] volume-slot: read=${r.readCount} distinctVolumes=${r.distinctVolumes} updated=${r.unifiedRowsUpdated} ${r.durationMs}ms`
-      )
-      if (r.sample) {
-        r.sample.forEach((s) => console.log(`    volume_id=${s.volumeId} slots=${s.slotCount} (online=${s.online} offline=${s.offline})`))
-      }
+      console.log(`[Aggregates] volume-slot: ${SKIP_MSG}`)
       if (target === 'all') console.log('')
     }
     if (target === 'user-task' || target === 'all') {
-      const r = await aggregateUserTasks(siteCode)
-      console.log(
-        `[Aggregates] user-task: read=${r.readCount} distinctTasks=${r.distinctTasks} users=${r.userIds} updated=${r.unifiedRowsUpdated} ${r.durationMs}ms`
-      )
-      console.log(`  note: ${r.note}`)
+      console.log(`[Aggregates] user-task: ${SKIP_MSG}`)
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error(`[Aggregates] Failed: ${msg}`)
-    process.exit(1)
   } finally {
-    await closeSourcePool()
     await closePool()
   }
 }

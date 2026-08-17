@@ -1,6 +1,15 @@
 import { query } from '@/lib/db'
 
-export type PackageLogStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped' | 'duplicated'
+export type PackageLogStatus =
+  | 'pending'
+  | 'receiving'
+  | 'running'
+  | 'success'
+  | 'failed'
+  | 'partial'
+  | 'skipped'
+  | 'duplicated'
+  | 'abandoned'
 export type TableLogStatus = PackageLogStatus
 
 export interface SyncPackageLog {
@@ -208,6 +217,14 @@ export async function createTableLog(input: CreateTableLogInput): Promise<SyncTa
       table_checksum, expected_record_count, status
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (site_code, batch_id, table_name) DO UPDATE SET
+      package_log_id = EXCLUDED.package_log_id,
+      sync_mode = EXCLUDED.sync_mode,
+      table_checksum = EXCLUDED.table_checksum,
+      expected_record_count = EXCLUDED.expected_record_count,
+      status = EXCLUDED.status,
+      error_message = NULL,
+      started_at = NOW(),
+      finished_at = NULL,
       updated_at = NOW()
     RETURNING *
   `
@@ -222,6 +239,77 @@ export async function createTableLog(input: CreateTableLogInput): Promise<SyncTa
     input.status ?? 'pending',
   ])
   return tableRow(result.rows[0])
+}
+
+export async function markPackagePartial(id: string, summary: PackageSummary = {}): Promise<void> {
+  await query(
+    `UPDATE sync_package_log
+     SET status = 'partial',
+         finished_at = NOW(),
+         table_count = COALESCE($2, table_count),
+         total_record_count = COALESCE($3, total_record_count),
+         success_table_count = COALESCE($4, success_table_count),
+         failed_table_count = COALESCE($5, failed_table_count),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [
+      id,
+      summary.tableCount ?? null,
+      summary.totalRecordCount ?? null,
+      summary.successTableCount ?? null,
+      summary.failedTableCount ?? null,
+    ]
+  )
+}
+
+export async function listTableLogsByBatch(
+  siteCode: string,
+  batchId: string,
+): Promise<SyncTableLog[]> {
+  const result = await query<SyncTableLog>(
+    `SELECT * FROM sync_table_log
+     WHERE site_code = $1 AND batch_id = $2
+     ORDER BY created_at ASC`,
+    [siteCode, batchId],
+  )
+  return result.rows.map(tableRow)
+}
+
+/** 按表级日志回写包级计数（receiving 过程中或 commit 前） */
+export async function refreshPackageCountsFromTables(packageLogId: string): Promise<void> {
+  await query(
+    `UPDATE sync_package_log p
+     SET table_count = COALESCE(t.cnt, 0),
+         total_record_count = COALESCE(t.records, 0),
+         success_table_count = COALESCE(t.ok_cnt, 0),
+         failed_table_count = COALESCE(t.fail_cnt, 0),
+         updated_at = NOW()
+     FROM (
+       SELECT
+         package_log_id,
+         COUNT(*)::int AS cnt,
+         COALESCE(SUM(processed_record_count), 0)::int AS records,
+         COUNT(*) FILTER (WHERE status IN ('success', 'partial', 'skipped'))::int AS ok_cnt,
+         COUNT(*) FILTER (WHERE status = 'failed')::int AS fail_cnt
+       FROM sync_table_log
+       WHERE package_log_id = $1
+       GROUP BY package_log_id
+     ) t
+     WHERE p.id = $1 AND p.id = t.package_log_id`,
+    [packageLogId],
+  )
+  // 无表级行时也清零
+  await query(
+    `UPDATE sync_package_log
+     SET table_count = 0,
+         total_record_count = 0,
+         success_table_count = 0,
+         failed_table_count = 0,
+         updated_at = NOW()
+     WHERE id = $1
+       AND NOT EXISTS (SELECT 1 FROM sync_table_log WHERE package_log_id = $1)`,
+    [packageLogId],
+  )
 }
 
 export async function markTableSuccess(id: string, summary: TableSummary = {}): Promise<void> {

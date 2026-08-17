@@ -95,7 +95,13 @@ async function main() {
   check("Header 含三合一健康徽章 (header-health-badge testid)", headerSource.includes('data-testid="header-health-badge"'))
   check("Header 含用户头像按钮 (header-user-avatar testid)", headerSource.includes('data-testid="header-user-avatar"'))
   check("Header 含用户菜单 Logout 项 (header-menu-logout testid)", headerSource.includes('data-testid="header-menu-logout"'))
-  check("Header 含用户菜单 Settings 项 (header-menu-settings testid)", headerSource.includes('data-testid="header-menu-settings"'))
+  check(
+    "Header 系统设置菜单已隐藏（设置页暂无可用入口）",
+    headerSource.includes("暂隐藏菜单") &&
+      headerSource.includes("header-menu-settings") &&
+      /\/\*[^*]*header-menu-settings[\s\S]*?\*\//.test(headerSource),
+    "header-menu-settings 已注释"
+  )
   check("Header 用 DropdownMenu 替代了原来的用户名块", headerSource.includes("DropdownMenu") && headerSource.includes("DropdownMenuContent"))
   check("Header 去掉了 '核心服务:' 文字 (合并到徽章)", !headerSource.includes("核心服务:"))
   check("Header 去掉了 '状态检查于:' 文字 (合并到 Tooltip)", !headerSource.includes("状态检查于:"))
@@ -114,7 +120,7 @@ async function main() {
   const tasksSource = readFileSync("app/tasks/page.tsx", "utf8")
   check("Tasks 导入 AppTooltip", tasksSource.includes("AppTooltip"))
   check("Tasks 不再局部重复挂载 FirstRunCoach", !tasksSource.includes("FirstRunCoach"))
-  check("AppShell 覆盖 /tasks 指引", appShellSource.includes('pathname.startsWith("/tasks")'))
+  check("AppShell 已关闭 /tasks 首访引导", !appShellSource.includes("FirstRunCoach"))
   check("Tasks 暂停按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-pause[\s\S]*?<\/AppTooltip>/.test(tasksSource))
   check("Tasks 恢复按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-resume[\s\S]*?<\/AppTooltip>/.test(tasksSource))
   check("Tasks 暂停按钮保留 data-testid=task-row-pause", tasksSource.includes('data-testid="task-row-pause"'))
@@ -131,24 +137,13 @@ async function main() {
   check(`Tasks 含 ≥ 6 个 AppTooltip (实际 ${tasksTooltipCount})`, tasksTooltipCount >= 6)
 
   // ============================================================
-  // 6. Dashboard 改造
+  // 6. Dashboard / AppShell：首访引导已关闭
   // ============================================================
   console.log("\n=== 6. Dashboard AppShell FirstRunCoach 覆盖 ===")
   const dashSource = readFileSync("app/page.tsx", "utf8")
   check("Dashboard 不再局部重复挂载 FirstRunCoach", !dashSource.includes("FirstRunCoach"))
-  check("AppShell 覆盖首页指引", appShellSource.includes('pathname === "/"'))
-  check("AppShell 首页指引包含 ⌘K", appShellSource.includes("command-palette-trigger"))
-  check("AppShell 首页指引包含 KPI 卡片", appShellSource.includes("dashboard-stat-tasks"))
-  const dashboardGuideSelectors = [
-    "command-center-panel",
-    "dashboard-stat-tasks",
-    "dashboard-recent-syncs",
-    "dashboard-task-table",
-  ]
-  const dashStepsCount = dashboardGuideSelectors.filter((selector) => appShellSource.includes(selector)).length
-  check(`AppShell Dashboard 指引步骤足够 (实际 ${dashStepsCount})`, dashStepsCount >= 4)
-  check("AppShell 引导包含最近同步", appShellSource.includes("dashboard-recent-syncs"))
-  check("AppShell 引导包含任务表格", appShellSource.includes("dashboard-task-table"))
+  check("AppShell 已关闭首访引导 (不再挂载 FirstRunCoach)", !appShellSource.includes("FirstRunCoach"))
+  check("AppShell 不再维护路由指引步骤", !appShellSource.includes("getGuideSteps"))
 
   // ============================================================
   // 7. 运行时端到端
@@ -180,37 +175,30 @@ async function main() {
   check("/search HTTP 200 (保留兼容)", searchRes.status === 200, `HTTP ${searchRes.status}`)
 
   // ============================================================
-  // 7b. Sites 页面 Tooltip + FirstRunCoach
+  // 7b. Sites 页面 Tooltip（首访引导已由 AppShell 关闭）
   // ============================================================
   console.log("\n=== 7b. Sites 页面 Tooltip + AppShell FirstRunCoach ===")
   const sitesPageSource = readFileSync("app/sites/page.tsx", "utf8")
   check("Sites 导入 AppTooltip", sitesPageSource.includes("AppTooltip"))
   check("Sites 不再局部重复挂载 FirstRunCoach", !sitesPageSource.includes("FirstRunCoach"))
-  check("AppShell 覆盖 /sites 指引", appShellSource.includes('pathname.startsWith("/sites")'))
+  check("AppShell 已关闭 /sites 首访引导", !appShellSource.includes("FirstRunCoach"))
   check("Sites 刷新按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-refresh[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
   check("Sites 一致性按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-consistency[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
   check("Sites 注册按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?sites-register[\s\S]*?<\/AppTooltip>/.test(sitesPageSource))
   const sitesTooltipCount = (sitesPageSource.match(/<AppTooltip/g) ?? []).length
   check(`Sites 含 ≥ 3 个 AppTooltip (实际 ${sitesTooltipCount})`, sitesTooltipCount >= 3)
 
-  // FirstRunCoach 步骤分布
-  const totalCoachSteps = (appShellSource.match(/selector:/g) ?? []).length
-  check(`FirstRunCoach 全局步骤覆盖 ≥ 24 (实际 ${totalCoachSteps})`, totalCoachSteps >= 24)
-  for (const route of ["/", "/sync", "/tasks", "/racks", "/search", "/logs", "/sites", "/settings", "/users", "/racks?view=volumes"]) {
-    check(`AppShell 首访指引覆盖 ${route}`, appShellSource.includes(route === "/" ? 'pathname === "/"' : `pathname.startsWith("${route}")`))
-  }
-  // R.UI-CmdCenter: 跨页面覆盖 + 文案不含 mock 数据承诺
+  check(
+    "AppShell 不再渲染 FirstRunCoach",
+    (appShellSource.match(/<FirstRunCoach/g) ?? []).length === 0,
+    "FirstRunCoach disabled in AppShell",
+  )
   check(
     "AppShell 引导文案不含 'mock 数据将' / '将显示模拟' 等假话",
     !appShellSource.includes("mock 数据将") &&
       !appShellSource.includes("将显示模拟") &&
       !appShellSource.includes("会自动填充"),
     "no fake mock promise",
-  )
-  check(
-    "FirstRunCoach 仅一份全局实例 (AppShell 渲染, 不重复挂载)",
-    (appShellSource.match(/<FirstRunCoach/g) ?? []).length === 1,
-    "single FirstRunCoach instance",
   )
 
   // ============================================================
@@ -285,6 +273,7 @@ async function main() {
   // ============================================================
   console.log("\n=== 7e. UI-2026-06-F 时间格式统一 ===")
   const timeFormatSource = readFileSync("components/shared/time-format.tsx", "utf8")
+  const beijingLibSource = readFileSync("lib/time/beijing.ts", "utf8")
   check(
     "TimeDisplay 共享组件存在",
     timeFormatSource.includes("export function TimeDisplay") && timeFormatSource.includes("export function formatBeijingTime"),
@@ -298,23 +287,23 @@ async function main() {
   )
   check(
     "formatBeijingTime 使用 Asia/Shanghai 时区",
-    timeFormatSource.includes("BEIJING_TZ") && timeFormatSource.includes("Asia/Shanghai"),
+    beijingLibSource.includes("BEIJING_TZ") && beijingLibSource.includes("Asia/Shanghai"),
   )
   check(
     "格式标准化为 ISO 风格 (yyyy-MM-dd HH:mm:ss, 用 - 分隔)",
-    timeFormatSource.includes(".replace(/\\//g, \"-\")"),
+    beijingLibSource.includes(".replace(/\\//g, \"-\")"),
   )
   check(
     "24 小时制 (hour12: false)",
-    timeFormatSource.includes("hour12: false"),
+    beijingLibSource.includes("hour12: false"),
   )
   check(
     "locale 用 zh-CN",
-    timeFormatSource.includes('"zh-CN"'),
+    beijingLibSource.includes('"zh-CN"'),
   )
   check(
     "处理 null/invalid 输入 (返回空字符串)",
-    timeFormatSource.includes("Number.isNaN(d.getTime())"),
+    beijingLibSource.includes("Number.isNaN(d.getTime())") || timeFormatSource.includes("Number.isNaN(d.getTime())"),
   )
 
   // Header 用 TimeDisplay

@@ -28,7 +28,7 @@ const PAGES: ExpectedPage[] = [
   { route: "/search", label: "统一检索", file: "app/search/page.tsx" },
   { route: "/sync", label: "同步中心", file: "app/sync/page.tsx" },
   { route: "/tasks", label: "任务管理", file: "app/tasks/page.tsx" },
-  { route: "/racks", label: "盘架管理", file: "app/racks/page.tsx" },
+  { route: "/racks", label: "设备管理", file: "app/racks/page.tsx" },
   { route: "/users", label: "用户与权限", file: "app/users/page.tsx" },
   { route: "/logs", label: "审计日志", file: "app/logs/page.tsx" },
   { route: "/settings", label: "系统设置", file: "app/settings/page.tsx" },

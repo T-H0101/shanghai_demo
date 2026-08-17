@@ -9,15 +9,16 @@ import {
   Search,
   ClipboardList,
   HardDrive,
-  Database,
   RefreshCw,
   Users,
   FileText,
-  Settings,
+  // Settings, // 系统设置菜单已隐藏
   Disc,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { PRODUCT_NAME_LINE1, PRODUCT_NAME_LINE2 } from "@/lib/branding"
+import { ALL_SITES, useSite } from "@/lib/site/site-context"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "控制台", href: "/" },
@@ -25,10 +26,11 @@ const menuItems = [
   { icon: Search, label: "统一检索", href: "/search" },
   { icon: RefreshCw, label: "同步中心", href: "/sync" },
   { icon: ClipboardList, label: "任务管理", href: "/tasks" },
-  { icon: HardDrive, label: "盘架管理", href: "/racks" },
+  { icon: HardDrive, label: "设备管理", href: "/racks" },
   { icon: Users, label: "用户与权限", href: "/users" },
   { icon: FileText, label: "审计日志", href: "/logs" },
-  { icon: Settings, label: "系统设置", href: "/settings" },
+  // 当前设置页无可用配置入口，暂隐藏菜单（路由 /settings 仍保留）
+  // { icon: Settings, label: "系统设置", href: "/settings" },
 ]
 
 interface SidebarProps {
@@ -37,7 +39,16 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const pathname = usePathname()
+  const pathname = usePathname() ?? "/"
+  const { siteCode, isAllSites, isReady } = useSite()
+
+  const hrefWithSite = (href: string) => {
+    if (!isReady) return href
+    const code = isAllSites || !siteCode ? ALL_SITES : siteCode
+    const params = new URLSearchParams()
+    params.set("siteCode", code)
+    return `${href}?${params.toString()}`
+  }
 
   return (
     <>
@@ -66,14 +77,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <X className="h-5 w-5" />
         </Button>
 
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 shadow-lg shadow-blue-950/30 backdrop-blur">
+        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-6">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 shadow-lg shadow-blue-950/30 backdrop-blur">
             <Disc className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <h1 className="text-base font-semibold">光盘库管理平台</h1>
-            <p className="text-xs text-slate-400">UNIFIED MANAGEMENT SYSTEM</p>
-          </div>
+          <h1 className="min-w-0 flex-1 text-center text-sm font-semibold leading-snug">
+            <span className="block">{PRODUCT_NAME_LINE1}</span>
+            <span className="block">{PRODUCT_NAME_LINE2}</span>
+          </h1>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -82,7 +93,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={hrefWithSite(item.href)}
                 onClick={onClose}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",

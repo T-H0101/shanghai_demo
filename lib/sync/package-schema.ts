@@ -59,12 +59,12 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_role',
   'tbl_role_fuc',
   'tbl_fuc',
-  'tbl_dict_category',
-  'tbl_dict',
-  'tbl_dict_item',
+  // 'tbl_dict_category',
+  // 'tbl_dict',
+  // 'tbl_dict_item',
   'tbl_sys_log',
   'tbl_api_log',
-  'tbl_api_interface',
+  // 'tbl_api_interface',
   'tbl_user_mfa',
   'tbl_archives_type',
   'tbl_archives_level',
@@ -84,14 +84,14 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_check_files',
   'tbl_check_log',
   'tbl_check_patrol_strategy',
-  'tbl_check_patrol_task',
-  'tbl_check_patrol_task_item',
-  'tbl_check_patrol_log',
+  // 'tbl_check_patrol_task',
+  // 'tbl_check_patrol_task_item',
+  // 'tbl_check_patrol_log',
   // R.83.4 存储卷 + 调度/接口 + 设备业务族 15 张
   'tbl_volume_group',
   'tbl_volume_dataclass',
   'tbl_volume_depa',
-  'tbl_volume_user',
+  // 'tbl_volume_user',
   'tbl_volume_workspace',
   'tbl_schedule_job',
   'tbl_register_management',
@@ -99,8 +99,8 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_hot_backup_record',
   'tbl_hot_restore_record',
   'tbl_device_device',
-  'tbl_drivers',
-  'tbl_drivers_burn',
+  // 'tbl_drivers',
+  // 'tbl_drivers_burn',
   'tbl_raid_group',
   'tbl_hd_manager',
   // R.83.5 数据接收 + 告警 + 媒体族 15 张
@@ -130,10 +130,10 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_cd_cabinet',
   'tbl_film_operat',
   'tbl_ft_file',
-  'tbl_ft_sys',
+  // 'tbl_ft_sys',
   'tbl_back_window',
   'tbl_zip_file',
-  'tbl_temp_slots',
+  // 'tbl_temp_slots',
   'tbl_lib_group',
   // R.83.7 导入导出 + 监控 + 系统辅助族 15 张
   'tbl_csv_details',
@@ -150,23 +150,23 @@ export const ALLOWED_PACKAGE_TABLES = [
   'tbl_platform_monitor',
   'tbl_site_monitor',
   'tbl_project_monitor_files',
-  'tbl_task_folder',
-  // R.83.8 任务详情 + 槽位管理族 15 张
+  // 'tbl_task_folder',
+  // R.83.8 任务详情 + 槽位管理族
   'tbl_task_items',
-  'tbl_task_print',
-  'tbl_task_certif_status',
-  'tbl_slot_file_1000000',
-  'tbl_slot_file_12',
-  'tbl_slot_file_13',
-  'tbl_slot_file_15',
-  'tbl_slot_file_30',
-  'tbl_slot_file_31',
-  'tbl_slot_folder_1000000',
-  'tbl_slot_folder_12',
-  'tbl_slot_folder_13',
-  'tbl_slot_folder_15',
-  'tbl_slot_folder_30',
-  'tbl_slot_folder_31',
+  // 'tbl_task_print',
+  // 'tbl_task_certif_status',
+  // 'tbl_slot_file_1000000',
+  // 'tbl_slot_file_12',
+  // 'tbl_slot_file_13',
+  // 'tbl_slot_file_15',
+  // 'tbl_slot_file_30',
+  // 'tbl_slot_file_31',
+  // 'tbl_slot_folder_1000000',
+  // 'tbl_slot_folder_12',
+  // 'tbl_slot_folder_13',
+  // 'tbl_slot_folder_15',
+  // 'tbl_slot_folder_30',
+  // 'tbl_slot_folder_31',
   // R.83.9 收尾 8 张 (备份辅助 + 磁盘/文件校验 + 硬盘 + 接收单明细 + 槽位分区 + 下载等待族)
   'tbl_backup_db',
   'tbl_disk_check',
@@ -203,7 +203,58 @@ export interface SyncPackageTablePayload {
 /**
  * Package 整体 payload
  */
-export interface SyncPackagePayload {
+/** 推送包内可选站点注册字段 → sync_sites 表 */
+export interface PackageRegistryFields {
+  siteName?: string
+  /**
+   * 业务系统访问地址（MultimediumNw 等），写入 sync_sites.db_host。
+   * 包内优先读 site_host；兼容旧字段 db_host（历史列名，并非数据库地址）。
+   */
+  db_host?: string
+  /** 业务系统端口，写入 sync_sites.db_port；优先读 site_port */
+  db_port?: number
+}
+
+const REGISTRY_HOST_PATTERN = /^[a-zA-Z0-9.\[\]:_-]+$/
+
+function pickRegistryHost(payload: Record<string, unknown>): string | undefined {
+  const candidates = [
+    payload.site_host,
+    payload.siteHost,
+    payload.db_host,
+    payload.dbHost,
+  ]
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) return c.trim()
+  }
+  return undefined
+}
+
+function pickRegistryPort(payload: Record<string, unknown>): number | undefined {
+  const rawPort =
+    payload.site_port ?? payload.sitePort ?? payload.db_port ?? payload.dbPort
+  if (typeof rawPort === 'number' && Number.isInteger(rawPort)) return rawPort
+  if (typeof rawPort === 'string' && rawPort.trim()) {
+    const parsed = Number.parseInt(rawPort.trim(), 10)
+    if (Number.isInteger(parsed)) return parsed
+  }
+  return undefined
+}
+
+export function parsePackageRegistryFields(
+  payload: Record<string, unknown>
+): PackageRegistryFields {
+  const siteName =
+    typeof payload.siteName === 'string' ? payload.siteName.trim() : undefined
+
+  return {
+    siteName: siteName || undefined,
+    db_host: pickRegistryHost(payload),
+    db_port: pickRegistryPort(payload),
+  }
+}
+
+export interface SyncPackagePayload extends PackageRegistryFields {
   siteCode: string
   batchId: string
   snapshotAt: string
@@ -258,6 +309,62 @@ export function validatePackagePayload(
   }
   if (!p.mode || !['full', 'mixed', 'incremental'].includes(p.mode as string)) {
     errors.push({ field: 'mode', message: 'must be full/mixed/incremental' })
+  }
+
+  if (p.siteName !== undefined && p.siteName !== null) {
+    if (typeof p.siteName !== 'string') {
+      errors.push({ field: 'siteName', message: 'must be string when provided' })
+    } else {
+      const trimmed = p.siteName.trim()
+      if (trimmed.length === 0) {
+        errors.push({ field: 'siteName', message: 'must not be empty when provided' })
+      } else if (trimmed.length > 200) {
+        errors.push({ field: 'siteName', message: 'must be at most 200 characters' })
+      }
+    }
+  }
+
+  const registryHostRaw = p as unknown as Record<string, unknown>
+  const registryHost =
+    typeof registryHostRaw.site_host === 'string'
+      ? registryHostRaw.site_host
+      : typeof registryHostRaw.siteHost === 'string'
+        ? registryHostRaw.siteHost
+        : typeof registryHostRaw.db_host === 'string'
+          ? registryHostRaw.db_host
+          : typeof registryHostRaw.dbHost === 'string'
+            ? registryHostRaw.dbHost
+            : undefined
+  if (registryHost !== undefined && registryHost !== null) {
+    if (typeof registryHost !== 'string') {
+      errors.push({ field: 'site_host', message: 'must be string when provided' })
+    } else {
+      const trimmed = registryHost.trim()
+      if (trimmed.length === 0) {
+        errors.push({ field: 'site_host', message: 'must not be empty when provided' })
+      } else if (trimmed.length > 255) {
+        errors.push({ field: 'site_host', message: 'must be at most 255 characters' })
+      } else if (!REGISTRY_HOST_PATTERN.test(trimmed)) {
+        errors.push({ field: 'site_host', message: 'invalid host format' })
+      }
+    }
+  }
+
+  const registryPort =
+    registryHostRaw.site_port ??
+    registryHostRaw.sitePort ??
+    registryHostRaw.db_port ??
+    registryHostRaw.dbPort
+  if (registryPort !== undefined && registryPort !== null) {
+    const portNum =
+      typeof registryPort === 'number'
+        ? registryPort
+        : typeof registryPort === 'string'
+          ? Number.parseInt(registryPort.trim(), 10)
+          : NaN
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+      errors.push({ field: 'site_port', message: 'must be integer between 1 and 65535 when provided' })
+    }
   }
 
   if (!Array.isArray(p.tables) || p.tables.length === 0) {

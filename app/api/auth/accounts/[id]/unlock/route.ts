@@ -10,8 +10,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db/postgres"
 import { ensureAuthSchema } from "@/lib/auth/server"
 import { writeAudit } from "@/lib/control/audit"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let session
+  try {
+    session = await requireSession(req)
+    requirePermission(session, "user:manage")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+    throw e
+  }
+
   await ensureAuthSchema()
   const { id } = await params
 
@@ -44,7 +54,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       targetId: id,
       before,
       after: { ...before, failed_attempts: 0, locked_until: null, status: "active" },
-      actor: "admin",
+      actor: session.username,
       result: "success",
     })
 

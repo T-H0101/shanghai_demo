@@ -93,6 +93,7 @@ function coordinatorFor(input: {
     siteCode: input.siteCode,
     version: "r19c-e2e",
     overlapMs: 10_000,
+    taskIdLookback: 100,
     retryMaxAttempts: 1,
     retryBaseMs: 1,
     retryMaxMs: 1,

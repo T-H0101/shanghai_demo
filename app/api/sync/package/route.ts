@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   validatePackagePayload,
   type SyncPackagePayload,
+  parsePackageRegistryFields,
 } from '@/lib/sync/package-schema'
 import {
   findPackageByBatch,
@@ -50,6 +51,7 @@ interface TableSummary {
   upserted: number
   inserted: number      // Sprint 2H.6: 真实 inserted 行数 (来自 RETURNING xmax = 0)
   updated: number       // Sprint 2H.6: 真实 updated 行数
+  deleted: number       // syncMode=full 快照替换时删除的行数
   failed: number
   errorMessage?: string
 }
@@ -86,21 +88,44 @@ function authErrorResponse(message: string, errorCode: string, warning?: string)
   )
 }
 
-async function ensureSyncSite(siteCode: string): Promise<void> {
-  const siteName = `${siteCode} 站点`
+async function ensureSyncSite(
+  siteCode: string,
+  registry?: {
+    siteName?: string | null
+    db_host?: string | null
+    db_port?: number | null
+  },
+): Promise<void> {
+  const trimmed = typeof registry?.siteName === 'string' ? registry.siteName.trim() : ''
+  const resolvedSiteName = trimmed || `${siteCode} 站点`
   const credentialRef = `SITE_${siteCode}_DATABASE_URL`
+  const dbHost =
+    typeof registry?.db_host === 'string' && registry.db_host.trim()
+      ? registry.db_host.trim()
+      : null
+  const dbPort =
+    typeof registry?.db_port === 'number' &&
+    Number.isInteger(registry.db_port) &&
+    registry.db_port >= 1 &&
+    registry.db_port <= 65535
+      ? registry.db_port
+      : null
+
   await query(
     `INSERT INTO sync_sites (
        site_code, site_name, source_type, db_host, db_port, db_name, db_user,
        credential_ref, enabled, sync_interval_seconds, last_connected_at, status
      )
-     VALUES ($1, $2, 'site-agent', 'site-agent', 0, 'site_database', 'site_agent',
-             $3, TRUE, 3600, NOW(), 'active')
+     VALUES ($1, $2, 'site-agent', COALESCE($3, 'site-agent'), COALESCE($4, 0), 'site_database', 'site_agent',
+             $5, TRUE, 3600, NOW(), 'active')
      ON CONFLICT (site_code) DO UPDATE SET
+       site_name = EXCLUDED.site_name,
+       db_host = COALESCE($3, sync_sites.db_host),
+       db_port = COALESCE($4, sync_sites.db_port),
        last_connected_at = NOW(),
        status = 'active',
        updated_at = NOW()`,
-    [siteCode, siteName, credentialRef]
+    [siteCode, resolvedSiteName, dbHost, dbPort, credentialRef],
   )
 }
 
@@ -145,8 +170,30 @@ export async function POST(request: NextRequest) {
     return authErrorResponse(auth.message, auth.code)
   }
 
-  // dev 模式 warning 也透传
   const devWarning = auth.warning
+
+  try {
+    return await handleSyncPackage({
+      rawBody,
+      headers,
+      devWarning,
+    })
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    console.error(`[sync/package] unhandled: ${errorMessage}`, err)
+    return NextResponse.json(
+      { code: 500, message: errorMessage },
+      { status: 500 }
+    )
+  }
+}
+
+async function handleSyncPackage(input: {
+  rawBody: string
+  headers: ReturnType<typeof extractAuthHeaders>
+  devWarning?: string
+}): Promise<NextResponse> {
+  const { rawBody, headers, devWarning } = input
 
   // 2. JSON 解析 (已鉴权, 业务层解析)
   let payload: unknown
@@ -180,7 +227,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  await ensureSyncSite(p.siteCode)
+  const registry = parsePackageRegistryFields(p as unknown as Record<string, unknown>)
+  await ensureSyncSite(p.siteCode, registry)
 
   // 4. 幂等检查
   const existing = await findPackageByBatch(p.siteCode, p.batchId)
@@ -251,6 +299,7 @@ export async function POST(request: NextRequest) {
       tableName: table.tableName,
       siteCode: p.siteCode,
       records: table.records,
+      syncMode: table.syncMode,
     })
 
     totalRecords += result.upserted
@@ -285,6 +334,7 @@ export async function POST(request: NextRequest) {
       upserted: result.upserted,
       inserted: result.inserted,
       updated: result.updated,
+      deleted: result.deleted,
       failed: result.failed,
       errorMessage: result.errorMessage,
     })

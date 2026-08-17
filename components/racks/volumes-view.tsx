@@ -14,19 +14,37 @@ import { StatCard } from "@/components/platform/stat-card"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Database, HardDrive, Layers, Server, Activity, Search, RefreshCw,
-  ChevronRight, Disc, CircleDashed, AlertTriangle, Sparkles, Box,
+  ChevronRight, Disc, CircleDashed, AlertTriangle, Sparkles, Box, CassetteTape,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
 import { fetchVolumes } from "@/lib/api/api-providers"
 import { isApiMode } from "@/lib/api"
 import type { VolumeDTO } from "@/lib/api/dto"
+import { VOLUME_TYPE_DTO_LABELS } from "@/lib/devices/volume-type"
 import { cn } from "@/lib/utils"
 import { formatBeijingTime } from "@/components/shared/time-format"
 
 const typeBadge: Record<string, { label: string; color: string; icon: typeof Disc }> = {
-  optical: { label: "光盘卷", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300", icon: Disc },
-  magnetic: { label: "磁卷", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", icon: HardDrive },
-  composite: { label: "复合卷", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300", icon: Layers },
+  optical: {
+    label: VOLUME_TYPE_DTO_LABELS.optical,
+    color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+    icon: Disc,
+  },
+  magnetic: {
+    label: VOLUME_TYPE_DTO_LABELS.magnetic,
+    color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    icon: HardDrive,
+  },
+  tape: {
+    label: VOLUME_TYPE_DTO_LABELS.tape,
+    color: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+    icon: CassetteTape,
+  },
+  composite: {
+    label: VOLUME_TYPE_DTO_LABELS.composite,
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    icon: Layers,
+  },
 }
 
 const statusBadge: Record<string, { label: string; color: string }> = {
@@ -180,7 +198,7 @@ export function VolumesView() {
   return (
     <div className="space-y-4" data-testid="volumes-view">
       {/* 数据源徽章 */}
-      {isApiMode && (
+      {isApiMode() && (
         <div className="flex items-center gap-2">
           <Badge variant={source === "database" ? "default" : "secondary"}>
             <Database className="mr-1 h-3 w-3" />
@@ -197,39 +215,50 @@ export function VolumesView() {
         </div>
       )}
 
-      {/* 统计 tile */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* 统计 tile：左图标右两行，主值 + 次级指标同排 */}
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
+          horizontal
+          horizontalText="stack"
           title="卷总数"
-          value={String(stats.total)}
+          value={stats.total}
+          unit="个"
+          secondary={`${stats.totalSlots}盘位`}
           icon={Database}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
-          footer={`${stats.totalSlots} 盘位`}
         />
         <StatCard
+          horizontal
+          horizontalText="stack"
           title="总容量 / 已用"
-          value={`${stats.usedPct}%`}
+          value={stats.usedPct}
+          unit="%"
+          secondary={`${stats.usedCap} / ${stats.totalCap}`}
           icon={HardDrive}
           iconBg="bg-indigo-50"
           iconColor="text-indigo-600"
-          footer={`${stats.usedCap} / ${stats.totalCap}`}
         />
         <StatCard
+          horizontal
+          horizontalText="stack"
           title="盘位聚合"
-          value={String(stats.totalSlots)}
+          value={stats.totalSlots}
+          unit="个"
+          secondary={`${stats.onlineSlots}在线 / ${stats.totalSlots - stats.onlineSlots}离线`}
           icon={Layers}
           iconBg="bg-emerald-50"
           iconColor="text-emerald-600"
-          footer={`${stats.onlineSlots} 在线 / ${stats.totalSlots - stats.onlineSlots} 离线`}
         />
         <StatCard
+          horizontal
+          horizontalText="stack"
           title="聚合覆盖"
           value={`${stats.withAggregate}/${stats.total}`}
+          secondary="已完成盘位聚合的卷"
           icon={Sparkles}
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
-          footer="已完成盘位聚合的卷"
         />
       </div>
 
@@ -250,8 +279,10 @@ export function VolumesView() {
             <Tabs value={typeFilter} onValueChange={setTypeFilter}>
               <TabsList>
                 <TabsTrigger value="all">全部</TabsTrigger>
-                <TabsTrigger value="optical">光盘</TabsTrigger>
-                <TabsTrigger value="magnetic">磁卷</TabsTrigger>
+                <TabsTrigger value="optical">光存储</TabsTrigger>
+                <TabsTrigger value="magnetic">磁存储</TabsTrigger>
+                <TabsTrigger value="tape">磁带</TabsTrigger>
+                <TabsTrigger value="composite">组合卷</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -305,7 +336,7 @@ export function VolumesView() {
                       <TableCell>
                         <Badge className={cn("font-normal", tb.color)}>
                           <TbIcon className="mr-1 h-3 w-3" />
-                          {tb.label}
+                          {v.typeLabel ?? tb.label}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -363,7 +394,7 @@ export function VolumesView() {
                   {selected.name}
                 </DrawerTitle>
                 <DrawerDescription>
-                  {selected.id} · {typeBadge[selected.type]?.label ?? selected.type}
+                  {selected.id} · {selected.typeLabel ?? typeBadge[selected.type]?.label ?? selected.type}
                 </DrawerDescription>
               </DrawerHeader>
               <ScrollArea className="flex-1 px-6 pb-6">

@@ -6,16 +6,17 @@ import { SyncTrendChart } from "@/components/dashboard/sync-trend-chart"
 import { TaskTable } from "@/components/dashboard/task-table"
 import { AlertCenter } from "@/components/dashboard/alert-center"
 import { DashboardRecentSyncs } from "@/components/dashboard/dashboard-recent-syncs"
-import { Database } from "lucide-react"
 
 export default function Page() {
   return (
     <AppShell>
+      {/* 数据源提示暂不展示
       <div className="flex items-center gap-2 px-1 text-[10px] text-slate-500" data-testid="dashboard-datasource">
         <Database className="h-3 w-3" />
         <span>平台数据实时读取，异常时会直接提示。</span>
         <span className="text-amber-600 ml-2">数据缺失时显示空状态</span>
       </div>
+      */}
       <CommandCenterPanel />
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6 items-stretch">
         <div className="xl:col-span-2">

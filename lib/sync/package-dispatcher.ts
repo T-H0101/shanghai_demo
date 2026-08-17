@@ -6,14 +6,24 @@
  * 复用现有 mapper (lib/import/real-field-mapper.ts) for tbl_task / tbl_disc_lib
  * 其他 8 张表使用最小 inline UPSERT 写入 unified_* (避免复制原 importer 的复杂逻辑)
  *
+ * syncMode=full: 同一事务内先 DELETE (source_site_id + source_table), 再 INSERT/UPSERT
+ * syncMode=incremental/aggregate: 仅 UPSERT (aggregate 表不做快照替换)
+ *
  * 严格白名单: 见 ALLOWED_PACKAGE_TABLES
  */
 
 import { transaction, query } from '@/lib/db'
+import type { PoolClient } from 'pg'
 import { mapRealTask, mapRealDevice } from '@/lib/import/real-field-mapper'
 import { upsertTasksInTransaction, upsertDevicesInTransaction } from './upsert'
-import { aggregateLibTaskRuntimes } from '@/lib/import/lib-task-aggregator'
+import { computeTaskRuntime } from '@/lib/import/lib-task-aggregator'
+import { backfillTaskDeviceIds } from '@/lib/import/task-device-aggregator'
+import { canonicalizeVolumeTypeForStorage } from '@/lib/devices/volume-type'
 import { aggregateVolumeSlots } from '@/lib/import/volume-slot-aggregator'
+import {
+  backfillTaskDiscCounts,
+  loadUnifiedDiscAggregates,
+} from '@/lib/tasks/task-disc-aggregate'
 import { aggregateUserTasks } from '@/lib/import/user-task-aggregator'
 import {
   mapUser,
@@ -26,12 +36,17 @@ import {
   upsertSitesInTransaction,
   upsertPlatformsInTransaction,
 } from '@/lib/import/user-site-platform/upsert'
-import type { AllowedPackageTable } from './package-schema'
+import { ALLOWED_PACKAGE_TABLES, type AllowedPackageTable, type TableSyncMode } from './package-schema'
+import {
+  deleteSiteTableSnapshot,
+  shouldFullSnapshotReplace,
+} from './snapshot-replace'
 
 export interface DispatchInput {
   tableName: AllowedPackageTable
   siteCode: string
   records: Record<string, unknown>[]
+  syncMode?: TableSyncMode
 }
 
 export interface DispatchResult {
@@ -40,6 +55,7 @@ export interface DispatchResult {
   upserted: number
   inserted: number
   updated: number
+  deleted: number
   skipped: number
   failed: number
   /**
@@ -57,16 +73,35 @@ export interface DispatchResult {
 // tbl_task (复用 mapRealTask)
 // ============================================================
 async function dispatchTask(input: DispatchInput): Promise<DispatchResult> {
-  const mapped = input.records.map((r) => mapRealTask(r, input.siteCode, 'tbl_task'))
+  // 从已同步的 unified_disc_media 补封包/成功/异常（对齐业务 burn_success 计盘）
+  const taskIds = input.records
+    .map((r) => r.id)
+    .filter((id): id is string | number => id != null && id !== '')
+  const discMap = await loadUnifiedDiscAggregates(input.siteCode, taskIds)
+  const mapped = input.records.map((r) =>
+    mapRealTask(r, input.siteCode, 'tbl_task', discMap.get(String(r.id)))
+  )
+  const isFull = shouldFullSnapshotReplace(input.tableName, input.syncMode)
+
   const result = await transaction(async (client) => {
-    return upsertTasksInTransaction(mapped, client)
+    let deleted = 0
+    if (isFull) {
+      deleted = await deleteSiteTableSnapshot(client, 'unified_tasks', input.siteCode, input.tableName)
+    }
+    if (input.records.length === 0) {
+      return { rowsUpserted: 0, deleted }
+    }
+    const upsert = await upsertTasksInTransaction(mapped, client)
+    return { ...upsert, deleted }
   })
+
   return {
     tableName: input.tableName,
     received: input.records.length,
     upserted: result.rowsUpserted,
     inserted: result.rowsUpserted,
     updated: 0,
+    deleted: result.deleted ?? 0,
     skipped: 0,
     failed: 0,
     status: 'success',
@@ -78,15 +113,27 @@ async function dispatchTask(input: DispatchInput): Promise<DispatchResult> {
 // ============================================================
 async function dispatchDevice(input: DispatchInput): Promise<DispatchResult> {
   const mapped = input.records.map((r) => mapRealDevice(r, input.siteCode, 'tbl_disc_lib'))
+  const isFull = shouldFullSnapshotReplace(input.tableName, input.syncMode)
+
   const result = await transaction(async (client) => {
-    return upsertDevicesInTransaction(mapped, client)
+    let deleted = 0
+    if (isFull) {
+      deleted = await deleteSiteTableSnapshot(client, 'unified_devices', input.siteCode, input.tableName)
+    }
+    if (input.records.length === 0) {
+      return { rowsUpserted: 0, deleted }
+    }
+    const upsert = await upsertDevicesInTransaction(mapped, client)
+    return { ...upsert, deleted }
   })
+
   return {
     tableName: input.tableName,
     received: input.records.length,
     upserted: result.rowsUpserted,
     inserted: result.rowsUpserted,
     updated: 0,
+    deleted: result.deleted ?? 0,
     skipped: 0,
     failed: 0,
     status: 'success',
@@ -105,6 +152,7 @@ async function dispatchMagzines(input: DispatchInput): Promise<DispatchResult> {
     sourceIdField: 'mag_id',
     // 源 → 中心: mag_id→magazine_id, lib_id→device_id, mag_order→position, door_status→status
     // R.93: mag_id→magazine_id 是业务主键, 必须写入 (R.83.9 dispatcher 遗漏)
+    // disc_type 保留在 raw_data（R.95 聚合读取）；显式列由 sprint-r95 migration 可选补齐
     columns: [
       { source: 'mag_id',      target: 'magazine_id' },
       { source: 'lib_id',      target: 'device_id' },
@@ -120,6 +168,7 @@ async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
   // Sprint 2H.2: 源表主键是 slot_id, 不是 id
   // 字段映射: mag_id→magazine_id, slot_order→slot_index, max_cap→capacity, disc_type→media_type
   // R.17 增强: tbl_slots 没有 lib_id 列, slot.device_id 通过 tbl_magzines.mag_id→lib_id 反查填入
+  // R.95: rest_cap/max_cap 完整保留在 raw_data，站点容量聚合直接读 raw_data
   const upsertResult = await inlineUpsert(input, 'unified_slots', {
     sourceIdField: 'slot_id',
     columns: [
@@ -149,6 +198,12 @@ async function dispatchSlots(input: DispatchInput): Promise<DispatchResult> {
     } catch (e) {
       console.warn(`[R.17 dispatcherSlots] backfill device_id failed: ${(e as Error).message}`)
     }
+    try {
+      const { refreshSiteDeviceCapacities } = await import('@/lib/site/site-storage')
+      await refreshSiteDeviceCapacities(input.siteCode)
+    } catch (e) {
+      console.warn(`[R.95 dispatcherSlots] refresh device capacity failed: ${(e as Error).message}`)
+    }
   }
   return upsertResult
 }
@@ -170,25 +225,60 @@ async function dispatchHardDisks(input: DispatchInput): Promise<DispatchResult> 
 }
 
 async function dispatchLibTask(input: DispatchInput): Promise<DispatchResult> {
-  // Sprint 2H.3 (autonomous): tbl_lib_task 是任务-设备关系表, dispatcher 收到 records 后
-  // 触发 lib-task 聚合器, 把 runtime_seconds 写回 unified_tasks。
-  // 注: 聚合器读的是 source_restore.tbl_lib_task, 这里用 records 数量作为"received",
-  //     upserted 反映真实命中的 unified_tasks 行数 (runtime 推算后被更新)。
+  // Sprint 2H.3: tbl_lib_task → unified_tasks.runtime_seconds / device_id
+  // 仅消费推包 records，禁止回查 SOURCE_DATABASE_URL / 站点业务库
   try {
-    const agg = await aggregateLibTaskRuntimes(input.siteCode)
+    // 1. 设备回填：用 package records（空包直接跳过）
+    const deviceAgg = await backfillTaskDeviceIds(input.siteCode, input.records)
+
+    // 2. runtime 聚合：用 package records 计算，不回查源库
+    let runtimeUpdated = 0
+    let runtimeScanned = 0
+    const runtimeMap = computeTaskRuntime(input.records.map((r) => ({
+      task_id: String(r.task_id ?? ''),
+      command: r.command != null ? String(r.command) : null,
+      start_dt: r.start_dt != null ? String(r.start_dt) : null,
+      end_dt: r.end_dt != null ? String(r.end_dt) : null,
+    })))
+
+    for (const [taskId, { runtime }] of runtimeMap.entries()) {
+      runtimeScanned += 1
+      const r = await query(
+        `UPDATE unified_tasks
+         SET runtime_seconds = $1,
+             updated_at = NOW()
+         WHERE source_site_id = $2
+           AND source_table = 'tbl_task'
+           AND source_id = $3
+           AND (runtime_seconds IS NULL OR runtime_seconds = 0)`,
+        [runtime, input.siteCode, taskId]
+      )
+      runtimeUpdated += r.rowCount ?? 0
+    }
+
+    const updated = deviceAgg.updated + runtimeUpdated
+    const parts: string[] = []
+    if (deviceAgg.scanned > 0) {
+      parts.push(`device_id 回填 ${deviceAgg.updated}/${deviceAgg.scanned} (${deviceAgg.source})`)
+    }
+    if (runtimeMap.size > 0) {
+      parts.push(`runtime: ${runtimeMap.size} 个 task 推算完成, 更新 ${runtimeUpdated} 行`)
+    }
+    if (runtimeScanned > 0 && runtimeUpdated === 0) {
+      parts.push(`runtime: ${runtimeScanned} 个 task 已有值或未匹配`)
+    }
+
     return {
       tableName: input.tableName,
       received: input.records.length,
-      upserted: agg.unifiedRowsUpdated,
+      upserted: updated,
       inserted: 0,
-      updated: agg.unifiedRowsUpdated,
+      updated,
+      deleted: 0,
       skipped: 0,
       failed: 0,
-      status: agg.unifiedRowsUpdated > 0 ? 'success' : 'skipped',
-      errorMessage:
-        agg.readCount > 0 && agg.unifiedRowsUpdated === 0
-          ? `tbl_lib_task ${agg.readCount} 行, 推算 ${agg.tasksWithRuntime} 个 task runtime, 但 ${agg.unifiedRowsScanned - agg.unifiedRowsUpdated} 个 task 已有 runtime / 未匹配到 siteCode=${input.siteCode} 的 source_id`
-          : undefined,
+      status: updated > 0 ? 'success' : 'skipped',
+      errorMessage: parts.length > 0 && updated === 0 ? parts.join('; ') : undefined,
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown'
@@ -198,10 +288,11 @@ async function dispatchLibTask(input: DispatchInput): Promise<DispatchResult> {
       upserted: 0,
       inserted: 0,
       updated: 0,
+      deleted: 0,
       skipped: 0,
       failed: input.records.length,
       status: 'failed',
-      errorMessage: `aggregateLibTaskRuntimes failed: ${msg.slice(0, 200)}`,
+      errorMessage: `dispatchLibTask failed: ${msg.slice(0, 200)}`,
     }
   }
 }
@@ -212,7 +303,7 @@ async function dispatchDiscMedia(input: DispatchInput): Promise<DispatchResult> 
   // slot_id→slot_id, used_size→used_size, extra_size→extra_size,
   // iso_status→iso_status, iso_path→iso_path, burn_success→burn_success,
   // burn_errors→burn_errors, error_files→error_files, stage→stage
-  return inlineUpsert(input, 'unified_disc_media', {
+  const result = await inlineUpsert(input, 'unified_disc_media', {
     sourceIdField: 'id',
     columns: [
       { source: 'task_id',      target: 'source_task_id' },
@@ -230,13 +321,38 @@ async function dispatchDiscMedia(input: DispatchInput): Promise<DispatchResult> 
     ],
     sourceIdColumn: 'source_record_id',
   })
+
+  // 盘表入库后回写任务封包/成功/异常（任务可能先于盘同步）
+  const taskIds = [
+    ...new Set(
+      input.records
+        .map((r) => r.task_id)
+        .filter((id) => id != null && id !== '')
+        .map((id) => String(id))
+    ),
+  ]
+  if (taskIds.length > 0 && result.status !== 'failed') {
+    try {
+      await backfillTaskDiscCounts(input.siteCode, taskIds)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`[dispatchDiscMedia] backfillTaskDiscCounts failed: ${msg}`)
+    }
+  }
+
+  return result
 }
 
 async function dispatchLogicalVolume(input: DispatchInput): Promise<DispatchResult> {
   // Sprint 2H.2: 源表主键是 volume_id, 不是 id
   // 字段映射: volume_id→volume_id (业务主键), name→volume_name, type→volume_type, total_cap→capacity, used_cap→used_capacity, del_flag→status
   // R.93: volume_id 必须写入 unified_volumes.volume_id (R.83.9 dispatcher 遗漏)
-  return inlineUpsert(input, 'unified_volumes', {
+  // type: disc_files.sql 数字枚举 → 中心库英文枚举 (1→optical 等)
+  const records = input.records.map((record) => ({
+    ...record,
+    type: canonicalizeVolumeTypeForStorage(record.type),
+  }))
+  return inlineUpsert({ ...input, records }, 'unified_volumes', {
     sourceIdField: 'volume_id',
     columns: [
       { source: 'volume_id', target: 'volume_id' },
@@ -251,19 +367,23 @@ async function dispatchLogicalVolume(input: DispatchInput): Promise<DispatchResu
 }
 
 async function dispatchVolumeSlot(input: DispatchInput): Promise<DispatchResult> {
-  // Sprint 2H.3 (autonomous): 触发 volume-slot 聚合器, 把 slot_count/total_slot_cap
-  // 写到 unified_volumes.raw_data._aggregate。
+  // 用推包 records 聚合 slot → unified_volumes.raw_data._aggregate（不连 SOURCE_DATABASE_URL）
   try {
-    const agg = await aggregateVolumeSlots(input.siteCode)
+    const agg = await aggregateVolumeSlots(input.siteCode, input.records)
     return {
       tableName: input.tableName,
       received: input.records.length,
       upserted: agg.unifiedRowsUpdated,
       inserted: 0,
       updated: agg.unifiedRowsUpdated,
-      skipped: 0,
+      deleted: 0,
+      skipped: agg.unifiedRowsUpdated > 0 ? 0 : input.records.length,
       failed: 0,
       status: agg.unifiedRowsUpdated > 0 ? 'success' : 'skipped',
+      errorMessage:
+        agg.unifiedRowsUpdated > 0
+          ? undefined
+          : `volume-slot aggregate wrote 0 rows (read=${agg.readCount}, volumes=${agg.distinctVolumes}); ensure tbl_logical_volume already synced for site ${input.siteCode}`,
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown'
@@ -273,6 +393,7 @@ async function dispatchVolumeSlot(input: DispatchInput): Promise<DispatchResult>
       upserted: 0,
       inserted: 0,
       updated: 0,
+      deleted: 0,
       skipped: 0,
       failed: input.records.length,
       status: 'failed',
@@ -282,19 +403,23 @@ async function dispatchVolumeSlot(input: DispatchInput): Promise<DispatchResult>
 }
 
 async function dispatchUserTask(input: DispatchInput): Promise<DispatchResult> {
-  // Sprint 2H.3 (autonomous): 触发 user-task 聚合器, 写 raw_data._aggregate.user_task_count
-  // 不写 user_id 字段 (源端 user_id NULL 风险)。
+  // 用推包 records 聚合 user_task → unified_tasks.raw_data._aggregate（不连 SOURCE_DATABASE_URL）
   try {
-    const agg = await aggregateUserTasks(input.siteCode)
+    const agg = await aggregateUserTasks(input.siteCode, input.records)
     return {
       tableName: input.tableName,
       received: input.records.length,
       upserted: agg.unifiedRowsUpdated,
       inserted: 0,
       updated: agg.unifiedRowsUpdated,
-      skipped: 0,
+      deleted: 0,
+      skipped: agg.unifiedRowsUpdated > 0 ? 0 : input.records.length,
       failed: 0,
       status: agg.unifiedRowsUpdated > 0 ? 'success' : 'skipped',
+      errorMessage:
+        agg.unifiedRowsUpdated > 0
+          ? undefined
+          : agg.note,
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown'
@@ -304,6 +429,7 @@ async function dispatchUserTask(input: DispatchInput): Promise<DispatchResult> {
       upserted: 0,
       inserted: 0,
       updated: 0,
+      deleted: 0,
       skipped: 0,
       failed: input.records.length,
       status: 'failed',
@@ -318,16 +444,28 @@ async function dispatchUserTask(input: DispatchInput): Promise<DispatchResult> {
 
 async function dispatchUser(input: DispatchInput): Promise<DispatchResult> {
   const mapped = input.records.map((r) => mapUser(r, input.siteCode))
+  const isFull = shouldFullSnapshotReplace(input.tableName, input.syncMode)
+
   const result = await transaction(async (client) => {
-    return upsertUsersInTransaction(mapped, client)
+    let deleted = 0
+    if (isFull) {
+      deleted = await deleteSiteTableSnapshot(client, 'unified_users', input.siteCode, input.tableName)
+    }
+    if (input.records.length === 0) {
+      return { insertedCount: 0, updatedCount: 0, skippedCount: 0, deleted }
+    }
+    const upsert = await upsertUsersInTransaction(mapped, client)
+    return { ...upsert, deleted }
   })
+
   return {
     tableName: input.tableName,
     received: input.records.length,
     upserted: result.insertedCount + result.updatedCount,
-    inserted: result.insertedCount,
-    updated: result.updatedCount,
-    skipped: 0,
+    inserted: isFull ? result.insertedCount + result.updatedCount : result.insertedCount,
+    updated: isFull ? 0 : result.updatedCount,
+    deleted: result.deleted ?? 0,
+    skipped: result.skippedCount,
     failed: 0,
     status: 'success',
   }
@@ -335,16 +473,28 @@ async function dispatchUser(input: DispatchInput): Promise<DispatchResult> {
 
 async function dispatchSite(input: DispatchInput): Promise<DispatchResult> {
   const mapped = input.records.map((r) => mapSite(r, input.siteCode))
+  const isFull = shouldFullSnapshotReplace(input.tableName, input.syncMode)
+
   const result = await transaction(async (client) => {
-    return upsertSitesInTransaction(mapped, client)
+    let deleted = 0
+    if (isFull) {
+      deleted = await deleteSiteTableSnapshot(client, 'unified_sites', input.siteCode, input.tableName)
+    }
+    if (input.records.length === 0) {
+      return { insertedCount: 0, updatedCount: 0, skippedCount: 0, deleted }
+    }
+    const upsert = await upsertSitesInTransaction(mapped, client)
+    return { ...upsert, deleted }
   })
+
   return {
     tableName: input.tableName,
     received: input.records.length,
     upserted: result.insertedCount + result.updatedCount,
-    inserted: result.insertedCount,
-    updated: result.updatedCount,
-    skipped: 0,
+    inserted: isFull ? result.insertedCount + result.updatedCount : result.insertedCount,
+    updated: isFull ? 0 : result.updatedCount,
+    deleted: result.deleted ?? 0,
+    skipped: result.skippedCount,
     failed: 0,
     status: 'success',
   }
@@ -352,16 +502,28 @@ async function dispatchSite(input: DispatchInput): Promise<DispatchResult> {
 
 async function dispatchPlatform(input: DispatchInput): Promise<DispatchResult> {
   const mapped = input.records.map((r) => mapPlatform(r, input.siteCode))
+  const isFull = shouldFullSnapshotReplace(input.tableName, input.syncMode)
+
   const result = await transaction(async (client) => {
-    return upsertPlatformsInTransaction(mapped, client)
+    let deleted = 0
+    if (isFull) {
+      deleted = await deleteSiteTableSnapshot(client, 'unified_platforms', input.siteCode, input.tableName)
+    }
+    if (input.records.length === 0) {
+      return { insertedCount: 0, updatedCount: 0, skippedCount: 0, deleted }
+    }
+    const upsert = await upsertPlatformsInTransaction(mapped, client)
+    return { ...upsert, deleted }
   })
+
   return {
     tableName: input.tableName,
     received: input.records.length,
     upserted: result.insertedCount + result.updatedCount,
-    inserted: result.insertedCount,
-    updated: result.updatedCount,
-    skipped: 0,
+    inserted: isFull ? result.insertedCount + result.updatedCount : result.insertedCount,
+    updated: isFull ? 0 : result.updatedCount,
+    deleted: result.deleted ?? 0,
+    skipped: result.skippedCount,
     failed: 0,
     status: 'success',
   }
@@ -1442,17 +1604,44 @@ async function dispatchDiscInspect(input: DispatchInput): Promise<DispatchResult
 }
 
 async function dispatchDiscType(input: DispatchInput): Promise<DispatchResult> {
-  return inlineUpsert(input, 'unified_disc_types', {
-    sourceIdField: 'id',
-    columns: [
-      { source: 'id', target: 'src_type_id' },
-      { source: 'type_code', target: 'type_code' },
-      { source: 'type_name', target: 'type_name' },
-      { source: 'capacity_mb', target: 'capacity_mb' },
-      { source: 'description', target: 'description' },
-    ],
-    sourceIdColumn: 'source_record_id',
-  })
+  // 源表真实字段: id, description, disc_cap, disc_side, cmt
+  // disc_cap/disc_side 写入 raw_data；若已跑 R.95 migration 则同时写显式列
+  let result: DispatchResult
+  try {
+    result = await inlineUpsert(input, 'unified_disc_types', {
+      sourceIdField: 'id',
+      columns: [
+        { source: 'id', target: 'src_type_id' },
+        { source: 'description', target: 'type_name' },
+        { source: 'description', target: 'description' },
+        { source: 'disc_cap', target: 'disc_cap' },
+        { source: 'disc_side', target: 'disc_side' },
+      ],
+      sourceIdColumn: 'source_record_id',
+    })
+    if (result.failed > 0 && result.upserted === 0) {
+      throw new Error(result.errorMessage || 'disc_cap columns unavailable')
+    }
+  } catch {
+    result = await inlineUpsert(input, 'unified_disc_types', {
+      sourceIdField: 'id',
+      columns: [
+        { source: 'id', target: 'src_type_id' },
+        { source: 'description', target: 'type_name' },
+        { source: 'description', target: 'description' },
+      ],
+      sourceIdColumn: 'source_record_id',
+    })
+  }
+  if (result.upserted > 0) {
+    try {
+      const { refreshSiteDeviceCapacities } = await import('@/lib/site/site-storage')
+      await refreshSiteDeviceCapacities(input.siteCode)
+    } catch (e) {
+      console.warn(`[R.95 dispatcherDiscType] refresh device capacity failed: ${(e as Error).message}`)
+    }
+  }
+  return result
 }
 
 async function dispatchEvidenceDetail(input: DispatchInput): Promise<DispatchResult> {
@@ -1615,15 +1804,15 @@ async function dispatchSysEnv(input: DispatchInput): Promise<DispatchResult> {
 }
 
 // tbl_mount_dir (id) → unified_mount_dirs
+// 源表真实字段: encoding/protocol/src_path/manager_path/mount_point/user_name/pwd/
+// quota_bytes/mount_date/extra_param/permission/max_speed —— 全量进 raw_data
 async function dispatchMountDir(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_mount_dirs', {
     sourceIdField: 'id',
     columns: [
       { source: 'id', target: 'src_mount_id' },
-      { source: 'mount_path', target: 'mount_path' },
-      { source: 'device_id', target: 'device_id' },
-      { source: 'mount_status', target: 'mount_status' },
-      { source: 'mounted_at', target: 'mounted_at' },
+      { source: 'mount_point', target: 'mount_path' },
+      { source: 'mount_date', target: 'mounted_at' },
     ],
     sourceIdColumn: 'source_record_id',
   })
@@ -1736,16 +1925,20 @@ async function dispatchZipFile(input: DispatchInput): Promise<DispatchResult> {
   })
 }
 
-// tbl_temp_slots (id) → unified_temp_slots
+// tbl_temp_slots (task_id + slot_id) → unified_temp_slots
+// 源库真实字段: task_id, slot_id, disc_type, rest_cap (无 id 列)
 async function dispatchTempSlots(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_temp_slots', {
-    sourceIdField: 'id',
+    sourceIdField: '__composite__',
+    sourceIdTransform: (rec) => {
+      const row = rec as Record<string, unknown>
+      return `${String(row.task_id ?? '')}::${String(row.slot_id ?? '')}`
+    },
     columns: [
-      { source: 'id', target: 'src_slot_id' },
-      { source: 'slot_code', target: 'slot_code' },
-      { source: 'slot_status', target: 'slot_status' },
-      { source: 'capacity_mb', target: 'capacity_mb' },
-      { source: 'used_mb', target: 'used_mb' },
+      { source: 'slot_id', target: 'src_slot_id' },
+      { source: 'slot_id', target: 'slot_code' },
+      { source: 'disc_type', target: 'slot_status' },
+      { source: 'rest_cap', target: 'capacity_mb' },
     ],
     sourceIdColumn: 'source_record_id',
   })
@@ -2548,76 +2741,109 @@ async function inlineUpsert(
   targetTable: string,
   config: InlineUpsertConfig
 ): Promise<DispatchResult> {
-  if (config.skip || input.records.length === 0) {
+  if (config.skip) {
     return {
       tableName: input.tableName,
       received: input.records.length,
       upserted: 0,
       inserted: 0,
       updated: 0,
+      deleted: 0,
       skipped: 0,
       failed: 0,
       status: 'success',
     }
   }
 
-  const colMaps = normalizeColumns(config.columns)
-  const targetCols = colMaps.map((c) => c.target)
-  const sourceIdColumn = config.sourceIdColumn ?? 'source_id'
-  const conflictColumns =
-    sourceIdColumn === 'source_id'
-      ? 'source_site_id, source_table, source_id'
-      : 'source_site_id, source_record_id'
+  const isFull = shouldFullSnapshotReplace(input.tableName, input.syncMode)
 
-  let upserted = 0
-  let inserted = 0
-  let updated = 0
-  let skipped = 0
-  let failed = 0
-  const errorMessages: string[] = []
-
-  for (const record of input.records) {
-    // 1. 解析 sourceId
-    //    R.83.1 复合 PK 模式: sourceIdField === '__composite__',由 sourceIdTransform 自行从 record 取多列拼装
-    let sourceId: string
-    if (config.sourceIdField === '__composite__') {
-      if (!config.sourceIdTransform) {
-        throw new Error(`inlineUpsert(${targetTable}): sourceIdField='__composite__' requires sourceIdTransform`)
+  if (input.records.length === 0) {
+    if (isFull) {
+      const deleted = await transaction(async (client) =>
+        deleteSiteTableSnapshot(client, targetTable, input.siteCode, input.tableName)
+      )
+      return {
+        tableName: input.tableName,
+        received: 0,
+        upserted: 0,
+        inserted: 0,
+        updated: 0,
+        deleted,
+        skipped: 0,
+        failed: 0,
+        status: 'success',
       }
-      sourceId = config.sourceIdTransform(record)
-    } else {
-      const rawId = record[config.sourceIdField]
-      sourceId = config.sourceIdTransform ? config.sourceIdTransform(rawId) : String(rawId ?? '')
     }
-
-    if (!sourceId) {
-      // Sprint 2H.2: 不再静默 continue, 计为 failed
-      failed++
-      const msg = `missing source id (mode=${config.sourceIdField === '__composite__' ? 'composite' : config.sourceIdField})`
-      errorMessages.push(msg)
-      console.warn(`[Dispatcher] ${input.tableName}: ${msg} (record keys: ${Object.keys(record).slice(0, 5).join(',')})`)
-      continue
+    return {
+      tableName: input.tableName,
+      received: 0,
+      upserted: 0,
+      inserted: 0,
+      updated: 0,
+      deleted: 0,
+      skipped: 0,
+      failed: 0,
+      status: 'skipped',
     }
+  }
 
-    // 2. 拉取每列值 (从源字段)
-    const values = colMaps.map((m) => record[m.source] ?? null)
+  const runLoop = async (client?: PoolClient, deleted = 0): Promise<DispatchResult> => {
+    const colMaps = normalizeColumns(config.columns)
+    const targetCols = colMaps.map((c) => c.target)
+    const sourceIdColumn = config.sourceIdColumn ?? 'source_id'
+    const conflictColumns =
+      sourceIdColumn === 'source_id'
+        ? 'source_site_id, source_table, source_id'
+        : 'source_site_id, source_record_id'
 
-    // 3. 拼 SQL
-    const placeholders = [
-      '$1', // source_site_id
-      '$2', // source_table
-      '$3', // source_id (or source_record_id for R.83.1+ tables)
-      'NOW()', // synced_at
-      ...targetCols.map((_, i) => `$${i + 4}`),
-      '$' + (targetCols.length + 4) + '::jsonb', // raw_data
-    ]
+    let upserted = 0
+    let inserted = 0
+    let updated = 0
+    let failed = 0
+    const errorMessages: string[] = []
 
-    const updateSet = [
-      'synced_at = NOW()',
-      ...targetCols.map((col) => `${col} = EXCLUDED.${col}`),
-    ]
+    const exec = client
+      ? <T extends Record<string, unknown>>(text: string, params: unknown[]) =>
+          client.query<T>(text, params)
+      : query
 
-    const sql = `
+    for (const record of input.records) {
+      let sourceId: string
+      if (config.sourceIdField === '__composite__') {
+        if (!config.sourceIdTransform) {
+          throw new Error(`inlineUpsert(${targetTable}): sourceIdField='__composite__' requires sourceIdTransform`)
+        }
+        sourceId = config.sourceIdTransform(record)
+      } else {
+        const rawId = record[config.sourceIdField]
+        sourceId = config.sourceIdTransform ? config.sourceIdTransform(rawId) : String(rawId ?? '')
+      }
+
+      if (!sourceId) {
+        failed++
+        const msg = `missing source id (mode=${config.sourceIdField === '__composite__' ? 'composite' : config.sourceIdField})`
+        errorMessages.push(msg)
+        console.warn(`[Dispatcher] ${input.tableName}: ${msg} (record keys: ${Object.keys(record).slice(0, 5).join(',')})`)
+        continue
+      }
+
+      const values = colMaps.map((m) => record[m.source] ?? null)
+
+      const placeholders = [
+        '$1',
+        '$2',
+        '$3',
+        'NOW()',
+        ...targetCols.map((_, i) => `$${i + 4}`),
+        '$' + (targetCols.length + 4) + '::jsonb',
+      ]
+
+      const updateSet = [
+        'synced_at = NOW()',
+        ...targetCols.map((col) => `${col} = EXCLUDED.${col}`),
+      ]
+
+      const sql = `
       INSERT INTO ${targetTable} (
         source_site_id, source_table, ${sourceIdColumn}, synced_at,
         ${targetCols.join(', ')},
@@ -2630,63 +2856,62 @@ async function inlineUpsert(
       RETURNING (xmax = 0) AS is_insert
     `
 
-    try {
-      const result = await query<{ is_insert: boolean }>(sql, [
-        input.siteCode,
-        input.tableName,
-        sourceId,
-        ...values,
-        JSON.stringify(record),
-      ])
-      // Sprint 2H.6: 用 RETURNING (xmax = 0) 区分 inserted vs updated
-      // xmax = 0 表示行是新插入的 (没有老版本); xmax != 0 表示 update
-      upserted += result.rowCount ?? 0
-      if (result.rows.length > 0) {
-        if (result.rows[0].is_insert) inserted++
-        else updated++
+      try {
+        const result = await exec<{ is_insert: boolean }>(sql, [
+          input.siteCode,
+          input.tableName,
+          sourceId,
+          ...values,
+          JSON.stringify(record),
+        ])
+        upserted += result.rowCount ?? 0
+        if (result.rows.length > 0) {
+          if (isFull || result.rows[0].is_insert) inserted++
+          else updated++
+        }
+      } catch (err) {
+        failed++
+        const msg = err instanceof Error ? err.message : 'unknown'
+        errorMessages.push(`sourceId=${sourceId}: ${msg.slice(0, 100)}`)
+        console.error(`[Dispatcher] ${input.tableName} upsert error: sourceId=${sourceId} ${msg}`)
       }
-    } catch (err) {
-      failed++
-      const msg = err instanceof Error ? err.message : 'unknown'
-      errorMessages.push(`sourceId=${sourceId}: ${msg.slice(0, 100)}`)
-      console.error(`[Dispatcher] ${input.tableName} upsert error: sourceId=${sourceId} ${msg}`)
+    }
+
+    let status: 'success' | 'failed' | 'partial' | 'skipped' = 'success'
+    if (upserted === 0 && failed > 0) {
+      status = 'failed'
+    } else if (upserted > 0 && failed > 0) {
+      status = 'partial'
+    }
+
+    return {
+      tableName: input.tableName,
+      received: input.records.length,
+      upserted,
+      inserted,
+      updated,
+      deleted,
+      skipped: 0,
+      failed,
+      status,
+      errorMessage: errorMessages.length > 0 ? errorMessages.slice(0, 3).join('; ') : undefined,
     }
   }
 
-  // 4. 决定 table status
-  //    - received == 0 → success (空包)
-  //    - upserted > 0 且 failed == 0 → success
-  //    - upserted > 0 且 failed > 0 → partial (有 upserted 行, 也有 failed)
-  //    - upserted == 0 且 failed == 0 → success (可能空)
-  //    - upserted == 0 且 failed == received → failed (全部失败)
-  let status: 'success' | 'failed' | 'partial' | 'skipped' = 'success'
-  if (input.records.length === 0) {
-    status = 'skipped'
-  } else if (upserted === 0 && failed > 0) {
-    status = 'failed'
-  } else if (upserted > 0 && failed > 0) {
-    status = 'partial'
+  if (isFull) {
+    return transaction(async (client) => {
+      const deleted = await deleteSiteTableSnapshot(client, targetTable, input.siteCode, input.tableName)
+      return runLoop(client, deleted)
+    })
   }
 
-  // 5. inserted / updated 不可区分 (PG ON CONFLICT 不返回)
-  //    真实处理数 = upserted, 文档化
-  return {
-    tableName: input.tableName,
-    received: input.records.length,
-    upserted,
-    inserted,        // Sprint 2H.6: 真实 inserted 行数 (来自 RETURNING xmax = 0)
-    updated,         // Sprint 2H.6: 真实 updated 行数
-    skipped,
-    failed,
-    status,
-    errorMessage: errorMessages.length > 0 ? errorMessages.slice(0, 3).join('; ') : undefined,
-  }
+  return runLoop()
 }
 
 // ============================================================
 // Dispatch Registry
 // ============================================================
-const REGISTRY: Record<AllowedPackageTable, (input: DispatchInput) => Promise<DispatchResult>> = {
+const REGISTRY: Record<string, (input: DispatchInput) => Promise<DispatchResult>> = {
   tbl_task: dispatchTask,
   tbl_disc_lib: dispatchDevice,
   tbl_magzines: dispatchMagzines,
@@ -2851,6 +3076,7 @@ export async function dispatchTable(input: DispatchInput): Promise<DispatchResul
       upserted: 0,
       inserted: 0,
       updated: 0,
+      deleted: 0,
       skipped: 0,
       failed: input.records.length,
       status: 'failed',
@@ -2868,6 +3094,7 @@ export async function dispatchTable(input: DispatchInput): Promise<DispatchResul
       upserted: 0,
       inserted: 0,
       updated: 0,
+      deleted: 0,
       skipped: 0,
       failed: input.records.length,
       status: 'failed',
@@ -2876,4 +3103,6 @@ export async function dispatchTable(input: DispatchInput): Promise<DispatchResul
   }
 }
 
-export const SUPPORTED_PACKAGE_TABLES = Object.keys(REGISTRY) as AllowedPackageTable[]
+export const SUPPORTED_PACKAGE_TABLES = ALLOWED_PACKAGE_TABLES.filter(
+  (table): table is AllowedPackageTable => table in REGISTRY
+)

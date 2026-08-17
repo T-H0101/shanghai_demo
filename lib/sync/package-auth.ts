@@ -63,6 +63,12 @@ const DEV_DEFAULT_SECRET = 'TEST_SYNC_SECRET'  // 文档化标明, 仅 dev 使�
 
 const TIMESTAMP_WINDOW_MS = 5 * 60 * 1000  // 5 分钟
 
+/** 去掉 trim / Windows CRLF，避免 next start 与站点 secret 不一致导致 401 */
+export function normalizeSyncPackageSecret(raw: string | undefined | null): string {
+  if (raw == null) return ''
+  return String(raw).trim().replace(/\r/g, '')
+}
+
 export interface AuthConfig {
   mode: AuthMode
   secret: string | null
@@ -79,7 +85,7 @@ export function getSyncPackageAuthConfig(): AuthConfig {
   const modeRaw = (process.env.SYNC_PACKAGE_AUTH_MODE ?? 'strict').toLowerCase()
   const mode: AuthMode = modeRaw === 'dev' ? 'dev' : 'strict'
 
-  let secret = process.env.SYNC_PACKAGE_SECRET ?? ''
+  let secret = normalizeSyncPackageSecret(process.env.SYNC_PACKAGE_SECRET)
   if (!secret && mode === 'dev') {
     // dev 模式缺省 secret, 用 dev default, 但响应里带警告
     secret = DEV_DEFAULT_SECRET

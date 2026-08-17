@@ -14,6 +14,9 @@ export interface SiteAgentConfigView {
 
 export interface SiteAgentRuntimeConfig {
   siteCode: string
+  siteName?: string
+  db_host?: string
+  db_port?: number
   agentId: string
   agentVersion: string
   platformUrl: string
@@ -27,6 +30,7 @@ export interface SiteAgentRuntimeConfig {
   retryBaseMs: number
   retryMaxMs: number
   overlapMs: number
+  taskIdLookback: number
   stateDir: string
   siteDatabaseUrl: string
   secret: string
@@ -65,6 +69,16 @@ export function getSiteAgentSecret(): string | null {
   return process.env.SITE_AGENT_SECRET ?? process.env.SYNC_PACKAGE_SECRET ?? null
 }
 
+function optionalPortEnv(name: string): number | undefined {
+  const raw = process.env[name]?.trim()
+  if (!raw) return undefined
+  const parsed = Number.parseInt(raw, 10)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    throw new Error(`${name} must be an integer between 1 and 65535`)
+  }
+  return parsed
+}
+
 export function getSiteAgentRuntimeConfig(): SiteAgentRuntimeConfig {
   const interval = integerEnv(
     "SITE_AGENT_HEARTBEAT_INTERVAL_MS",
@@ -79,6 +93,9 @@ export function getSiteAgentRuntimeConfig(): SiteAgentRuntimeConfig {
 
   return {
     siteCode: requiredEnv("SITE_CODE"),
+    siteName: process.env.SITE_NAME?.trim() || undefined,
+    db_host: process.env.SITE_DB_HOST?.trim() || undefined,
+    db_port: optionalPortEnv("SITE_DB_PORT"),
     agentId: requiredEnv("SITE_AGENT_ID"),
     agentVersion: requiredEnv("SITE_AGENT_VERSION"),
     platformUrl: (process.env.PLATFORM_URL ?? "http://localhost:3000").replace(
@@ -119,6 +136,7 @@ export function getSiteAgentRuntimeConfig(): SiteAgentRuntimeConfig {
     retryBaseMs: integerEnv("SITE_AGENT_SYNC_RETRY_BASE_MS", 1_000, 0),
     retryMaxMs: integerEnv("SITE_AGENT_SYNC_RETRY_MAX_MS", 30_000, 1),
     overlapMs: integerEnv("SITE_AGENT_SYNC_OVERLAP_MS", 10_000, 0),
+    taskIdLookback: integerEnv("SITE_AGENT_TASK_ID_LOOKBACK", 100, 0),
     stateDir:
       process.env.SITE_AGENT_STATE_DIR?.trim() ||
       resolve(process.cwd(), ".site-agent-state"),

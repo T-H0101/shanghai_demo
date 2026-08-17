@@ -18,33 +18,15 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
-import type { ApiResponse, RackDTO, RackSlotGroupDTO, RackSlotDTO, SlotStatus, MediaType, OnlineStatus, RackStatus, DeviceMode } from "@/lib/api/dto"
-
-const DEVICE_TYPE_LABELS: Record<string, string> = {
-  gen2_library: "Gen2 光盘库",
-  gen2_offline: "Gen2 离线库",
-  gen1_legacy: "Gen1 旧库",
-  gen1_new: "Gen1 新库",
-  gen1_offline: "Gen1 离线库",
-  gen3_library: "Gen3 光盘库",
-  publisher: "光盘打印机",
-  hdd_library: "智能硬盘库",
-  tape_library: "磁带库",
-  tape_drive: "磁带机",
-  sas_hdd_library: "SAS 硬盘库",
-  film_library: "胶片库",
-  nas: "NAS",
-  alarm: "告警设备",
-  gen4_library: "Gen4 光盘库",
-}
-
-const DEVICE_STATUS_MAP: Record<string, OnlineStatus> = {
-  online: "online", offline: "offline", deleted: "offline", warning: "offline", error: "offline",
-}
-
-const RACK_STATUS_MAP: Record<string, RackStatus> = {
-  online: "normal", offline: "fault", deleted: "fault", warning: "warning", error: "fault",
-}
+import type { ApiResponse, RackDTO, RackSlotGroupDTO, RackSlotDTO, SlotStatus, MediaType, DeviceMode } from "@/lib/api/dto"
+import { DEVICE_TYPE_LABELS, pickDeviceIp } from "@/lib/devices/device-display"
+import { buildNasMountInfo } from "@/lib/devices/nas-mount-display"
+import {
+  isDeletedDeviceStatus,
+  mapUnifiedStatusToDeviceRuntime,
+  mapUnifiedStatusToOnline,
+  mapUnifiedStatusToRackStatus,
+} from "@/lib/devices/device-status"
 
 // R.17: tbl_slots.disc_type 数值 → 介质类型 + 状态
 // disc_type: 0=空位, 1=新盘未使用, 2=封盘, 3=有剩余容量, 4=损坏, 5=硬盘格式化中, 10=中间状态
@@ -71,6 +53,24 @@ function formatBytes(bytes: number | null | undefined): string | undefined {
   return `${size.toFixed(1)} ${units[i]}`
 }
 
+/** 所属站点仅展示名称，不展示站点编码 */
+function formatSiteDisplayName(siteName: string | null | undefined): string {
+  const name = siteName?.trim()
+  return name || "—"
+}
+
+async function resolveSiteDisplayName(siteCode: string): Promise<string> {
+  try {
+    const res = await query<{ site_name: string | null }>(
+      `SELECT site_name FROM sync_sites WHERE site_code = $1 LIMIT 1`,
+      [siteCode]
+    )
+    return formatSiteDisplayName(res.rows[0]?.site_name)
+  } catch {
+    return "—"
+  }
+}
+
 interface DeviceRow {
   device_id: string
   device_name: string | null
@@ -88,6 +88,7 @@ interface DeviceRow {
   total_capacity: number | null
   used_capacity: number | null
   used_slots: number | null
+  raw_data: Record<string, unknown> | null
 }
 
 interface SlotRow {
@@ -142,7 +143,7 @@ export async function GET(
       `SELECT device_id, device_name, device_type, status, ip_address,
               source_site_id, site_code, slot_count, cage_count,
               model, manufacturer, serial_no, synced_at,
-              total_capacity, used_capacity, used_slots
+              total_capacity, used_capacity, used_slots, raw_data
        FROM unified_devices
        WHERE (id::text = $1 OR device_id = $1 OR source_id = $1)
        ${siteCondition}
@@ -167,6 +168,86 @@ export async function GET(
         { code: 404, message: "Rack not found", data: null, blocker: "blocked_by_source_schema" as any, traceId: `api-${Date.now()}` },
         { status: 404 }
       )
+    }
+    if (isDeletedDeviceStatus(dev.status)) {
+      return NextResponse.json(
+        { code: 404, message: "Rack not found (device deleted)", data: null, traceId: `api-${Date.now()}` },
+        { status: 404 }
+      )
+    }
+
+    const siteDisplayName = await resolveSiteDisplayName(dev.source_site_id)
+
+    const isNas = dev.device_type === "nas"
+    const serialNo =
+      (dev.serial_no && String(dev.serial_no).trim()) ||
+      (dev.raw_data?.sn != null && String(dev.raw_data.sn).trim()) ||
+      (dev.raw_data?.SN != null && String(dev.raw_data.SN).trim()) ||
+      undefined
+
+    // 网盘：合并 tbl_mount_dir（serial_no = mount id），不展示盘位/容量
+    let mountInfo = undefined as ReturnType<typeof buildNasMountInfo>
+    if (isNas && serialNo) {
+      const mountRes = await query<{
+        mount_path: string | null
+        mounted_at: Date | string | null
+        raw_data: Record<string, unknown> | null
+      }>(
+        `SELECT mount_path, mounted_at, raw_data
+         FROM unified_mount_dirs
+         WHERE source_site_id = $1
+           AND (
+             src_mount_id::text = $2
+             OR source_record_id = $2
+           )
+         ORDER BY synced_at DESC NULLS LAST
+         LIMIT 1`,
+        [dev.source_site_id, serialNo]
+      )
+      mountInfo = buildNasMountInfo(mountRes.rows[0])
+    }
+
+    if (isNas) {
+      const rack: RackDTO = {
+        id: dev.device_id,
+        rackId: dev.device_id,
+        rackName: dev.device_name ?? `设备-${dev.device_id}`,
+        siteName: siteDisplayName,
+        siteCode: dev.source_site_id,
+        datacenter: "",
+        cages: [],
+        totalSlots: 0,
+        usedSlots: 0,
+        usagePercent: undefined,
+        status: mapUnifiedStatusToRackStatus(dev.status),
+        lastSyncAt: typeof dev.synced_at === "string" ? dev.synced_at : dev.synced_at.toISOString(),
+        ip: (dev.ip_address && dev.ip_address.trim()) || pickDeviceIp(dev.raw_data) || undefined,
+        serialNo,
+        deviceType: DEVICE_TYPE_LABELS[dev.device_type] ?? dev.device_type,
+        deviceStatus: mapUnifiedStatusToDeviceRuntime(dev.status),
+        onlineStatus: mapUnifiedStatusToOnline(dev.status),
+        totalCapacity: undefined,
+        remainingCapacity: undefined,
+        currentTaskCount: 0,
+        cageCount: 0,
+        slots: [],
+        mountInfo,
+      }
+
+      return NextResponse.json({
+        code: 0,
+        message: "ok",
+        data: { ...rack, cages: [] },
+        source: "database" as const,
+        sourceEvidence: {
+          sourceTable: "unified_devices+unified_mount_dirs",
+          sourceId: dev.device_id,
+          rawData: { device: { device_id: dev.device_id, device_type: dev.device_type }, hasMount: Boolean(mountInfo) },
+          syncedAt: rack.lastSyncAt,
+          mapper: "NAS mount merge (lib.sn → tbl_mount_dir.id)",
+        },
+        traceId: `api-${Date.now()}`,
+      })
     }
 
     // 2. 查该设备下所有盘匣 (按 site 拉所有, R.17 简化为 site 级)
@@ -313,19 +394,24 @@ export async function GET(
       id: dev.device_id,
       rackId: dev.device_id,
       rackName: dev.device_name ?? `设备-${dev.device_id}`,
-      siteName: dev.site_code ?? dev.source_site_id,
+      siteName: siteDisplayName,
       siteCode: dev.source_site_id,
       datacenter: "",
       cages: slotGroups.map(g => g.cageName),
       totalSlots: dev.slot_count ?? slots.length,
       usedSlots: dev.used_slots ?? usedSlotsCount,
       usagePercent,
-      status: RACK_STATUS_MAP[dev.status ?? ""] ?? "fault",
+      status: mapUnifiedStatusToRackStatus(dev.status),
       lastSyncAt: typeof dev.synced_at === "string" ? dev.synced_at : dev.synced_at.toISOString(),
-      ip: dev.ip_address ?? undefined,
+      ip: (dev.ip_address && dev.ip_address.trim()) || pickDeviceIp(dev.raw_data) || undefined,
+      serialNo:
+        (dev.serial_no && dev.serial_no.trim()) ||
+        (typeof dev.raw_data?.sn === "string" && dev.raw_data.sn.trim()) ||
+        (typeof dev.raw_data?.SN === "string" && dev.raw_data.SN.trim()) ||
+        undefined,
       deviceType: DEVICE_TYPE_LABELS[dev.device_type] ?? dev.device_type,
-      deviceStatus: DEVICE_STATUS_MAP[dev.status ?? ""] ?? "offline",
-      onlineStatus: DEVICE_STATUS_MAP[dev.status ?? ""] ?? "offline",
+      deviceStatus: mapUnifiedStatusToDeviceRuntime(dev.status),
+      onlineStatus: mapUnifiedStatusToOnline(dev.status),
       totalCapacity: formatBytes(totalCapacity),
       remainingCapacity: totalCapacity && usedCapacity != null ? formatBytes(totalCapacity - usedCapacity) : undefined,
       currentTaskCount: 0,

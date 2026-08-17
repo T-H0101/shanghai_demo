@@ -8,13 +8,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Settings,
   Server,
   ListTodo,
   Users,
   FileText,
   Search,
-  Settings2,
   X,
   ChevronRight,
   Zap,
@@ -49,12 +47,13 @@ import { useTheme } from "next-themes"
 const NAV_ITEMS = [
   { label: "平台概览", path: "/", icon: Home, category: "首页" },
   { label: "站点管理", path: "/sites", icon: Globe, category: "管理" },
-  { label: "盘架管理", path: "/racks", icon: Server, category: "管理" },
+  { label: "设备管理", path: "/racks", icon: Server, category: "管理" },
   { label: "任务管理", path: "/tasks", icon: ListTodo, category: "管理" },
   { label: "用户权限", path: "/users", icon: Users, category: "系统" },
   { label: "审计日志", path: "/logs", icon: FileText, category: "系统" },
   { label: "统一检索", path: "/search", icon: Search, category: "功能" },
-  { label: "系统设置", path: "/settings", icon: Settings2, category: "系统" },
+  // 当前设置页无可用配置入口，暂隐藏导航入口
+  // { label: "系统设置", path: "/settings", icon: Settings2, category: "系统" },
 ]
 
 const QUICK_ACTIONS = [
@@ -125,7 +124,7 @@ const BLOCKERS = [
 
 export function GlobalControlBall() {
   const router = useRouter()
-  const pathname = usePathname()
+  const pathname = usePathname() ?? "/"
   const { theme, setTheme } = useTheme()
 
   const [showPanel, setShowPanel] = useState(false)

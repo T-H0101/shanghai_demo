@@ -7,14 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
 import type { ApiResponse, VolumeDTO } from "@/lib/api/dto"
-
-const VOLUME_TYPE_MAP: Record<string, VolumeDTO["type"]> = {
-  optical: "optical",
-  magnetic: "magnetic",
-  hard_disk: "magnetic",
-  hdd: "magnetic",
-  composite: "composite",
-}
+import { mapVolumeTypeToDto, mapVolumeTypeLabel, volumeTypeFilterValues } from "@/lib/devices/volume-type"
 
 interface VolumeRow {
   id: string
@@ -63,7 +56,6 @@ function mapVolumeToDTO(row: VolumeRow): VolumeDTO {
     ? Math.max(capacity - usedCapacity, 0)
     : undefined
 
-  const type = row.volume_type ? VOLUME_TYPE_MAP[row.volume_type] : undefined
   const syncedAt = typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()
   const statusParts = [
     `站点 ${row.site_code ?? row.source_site_id}`,
@@ -75,7 +67,8 @@ function mapVolumeToDTO(row: VolumeRow): VolumeDTO {
   return {
     id: row.volume_id ?? row.source_id,
     name: row.volume_name ?? `卷-${row.source_id}`,
-    type: type ?? "composite",
+    type: mapVolumeTypeToDto(row.volume_type),
+    typeLabel: mapVolumeTypeLabel(row.volume_type),
     totalCapacity: formatBytes(row.capacity),
     remainingCapacity: remainingCapacity == null ? "" : formatBytes(remainingCapacity),
     info: statusParts.join(" · "),
@@ -107,13 +100,8 @@ export async function GET(request: NextRequest) {
       params.push(visibleSites)
     }
     if (type && type !== "all") {
-      if (type === "magnetic") {
-        conditions.push(`volume_type = ANY($${paramIndex++})`)
-        params.push(["magnetic", "hard_disk", "hdd"])
-      } else {
-        conditions.push(`volume_type = $${paramIndex++}`)
-        params.push(type)
-      }
+      conditions.push(`volume_type = ANY($${paramIndex++})`)
+      params.push(volumeTypeFilterValues(type))
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""

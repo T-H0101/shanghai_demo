@@ -5,6 +5,7 @@
  * - null/undefined → 空串
  * - object/array → JSON.stringify (e.g. result_json jsonb 字段)
  * - Date → toISOString
+ * - 可选 headers：展示表头（中文等）；缺省则用 columns 字段名
  */
 
 export function csvCell(value: unknown): string {
@@ -19,9 +20,15 @@ export function csvCell(value: unknown): string {
 
 export function csvFromRows<Row extends Record<string, unknown>>(
   rows: Row[],
-  columns: Array<keyof Row & string>
+  columns: Array<keyof Row & string>,
+  headers?: string[],
 ): string {
-  const header = columns.join(",")
+  const headerCols =
+    headers && headers.length === columns.length
+      ? headers
+      : (columns as string[])
+  const header = headerCols.map((h) => csvCell(h)).join(",")
   const body = rows.map((row) => columns.map((col) => csvCell(row[col])).join(","))
-  return [header, ...body].join("\r\n")
+  // Excel 打开中文表头更稳：UTF-8 BOM
+  return `\uFEFF${[header, ...body].join("\r\n")}`
 }

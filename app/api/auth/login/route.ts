@@ -29,6 +29,6 @@ export async function POST(request: NextRequest) {
       permissions: result.user.permissions,
     },
   })
-  setSessionCookie(response, result.token)
+  setSessionCookie(response, result.token, request)
   return response
 }

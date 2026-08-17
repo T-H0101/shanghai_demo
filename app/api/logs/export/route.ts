@@ -18,8 +18,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { buildExport } from "@/lib/export"
 import { toNextResponse } from "@/lib/export/next-response"
-import { recordExport } from "@/lib/export/audit"
+import { recordExport, resolveExportActor } from "@/lib/export/audit"
 import { buildXlsxExport } from "@/lib/export/xlsx"
+import { formatBeijingTime } from "@/lib/time/beijing"
+import { logOperationLabel, logSiteCodeLabel, logStatusLabel, logTypeLabel } from "@/lib/types/logs"
 
 export const dynamic = "force-dynamic"
 
@@ -178,12 +180,46 @@ function csvEscape(v: unknown): string {
   return s
 }
 
-// R.13 起 CSV/JSON 主体由 lib/export 框架生成, buildCsv 不再使用 (保留 csvEscape 为字段级 utility 备用)
-const LOG_COLUMNS = ["log_type", "log_id", "site_code", "status", "occurred_at", "operator", "ref_batch_id", "ref_table_name", "summary"] as const
+// CSV/XLSX 与列表展示对齐；JSON 仍导出原始字段供脚本消费
+const LOG_RAW_COLUMNS = [
+  "log_type", "log_id", "site_code", "status", "occurred_at",
+  "operator", "ref_batch_id", "ref_table_name", "summary",
+] as const
+const LOG_DISPLAY_COLUMNS = [
+  "log_type", "operation", "site_code", "status", "occurred_at", "operator", "summary",
+] as const
+const LOG_DISPLAY_LABELS = ["类型", "操作", "站点", "状态", "时间", "操作人", "摘要"] as const
+
+type LogDisplayRow = {
+  log_type: string
+  operation: string
+  site_code: string
+  status: string
+  occurred_at: string
+  operator: string
+  summary: string
+  [key: string]: unknown
+}
+
+function toDisplayRows(rows: Array<UnifiedLogRow & { occurred_at: string }>): LogDisplayRow[] {
+  return rows.map((r) => {
+    const site = logSiteCodeLabel(r.site_code)
+    return {
+      log_type: logTypeLabel(r.log_type),
+      operation: logOperationLabel(r),
+      site_code: site === "—" ? "" : site,
+      status: logStatusLabel(r.status),
+      occurred_at: formatBeijingTime(r.occurred_at) || r.occurred_at,
+      operator: r.operator || "",
+      summary: r.summary,
+    }
+  })
+}
 
 export async function GET(request: NextRequest) {
   const traceId = `api-${Date.now()}`
   try {
+    const actor = await resolveExportActor(request)
     const sp = request.nextUrl.searchParams
     const typeParam = sp.get("type") ?? "all"
     const format = (sp.get("format") ?? "csv").toLowerCase()
@@ -217,8 +253,6 @@ export async function GET(request: NextRequest) {
       occurred_at: r.occurred_at instanceof Date ? r.occurred_at.toISOString() : String(r.occurred_at),
     })).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, max)
 
-    // R.13: 统一走 lib/export 框架 (CSV 9 列 + JSON + sanitize + manifest + audit)
-    // 注: 为保 e2e:logs 兼容, 文件名前缀仍用 "logs", JSON 体保持 items[]/count 结构
     type LogRowForExport = (typeof merged)[number] & Record<string, unknown>
     if (format === "json") {
       // logs/export 的 JSON 体 schema 与框架默认不同 (items/count), 保留旧体让 e2e:logs 通过
@@ -227,13 +261,12 @@ export async function GET(request: NextRequest) {
         exportType: "logs",
         dataSource: "database",
         format: "json",
-        columns: LOG_COLUMNS as unknown as Array<keyof LogRowForExport & string>,
+        columns: LOG_RAW_COLUMNS as unknown as Array<keyof LogRowForExport & string>,
         rows: merged as LogRowForExport[],
         siteCode: siteCode || null,
         filters: { types: types.join(","), status: status || null, keyword: keyword || null },
         filenamePrefix: "logs",
       })
-      // 覆盖 framework body 为 items/count 旧结构 (e2e:logs 依赖)
       const { contentSha256 } = await import("@/lib/export/sha256")
       const overriddenSha = contentSha256(body)
       const overridden = {
@@ -243,37 +276,42 @@ export async function GET(request: NextRequest) {
         manifest: { ...result.manifest, sha256: overriddenSha, rowCount: merged.length },
         rowCount: merged.length,
       }
-      await recordExport(overridden.manifest)
+      await recordExport(overridden.manifest, { actor })
       return toNextResponse(overridden)
     }
 
+    const displayRows = toDisplayRows(merged)
+    const displayColumns = LOG_DISPLAY_COLUMNS as unknown as Array<keyof LogDisplayRow & string>
+    const displayLabels = [...LOG_DISPLAY_LABELS]
+
     if (format === "xlsx") {
-      const result = await buildXlsxExport<LogRowForExport>({
+      const result = await buildXlsxExport<LogDisplayRow>({
         exportType: "logs",
         dataSource: "database",
         format: "xlsx",
-        columns: LOG_COLUMNS as unknown as Array<keyof LogRowForExport & string>,
-        rows: merged as LogRowForExport[],
+        columns: displayColumns,
+        columnLabels: displayLabels,
+        rows: displayRows,
         siteCode: siteCode || null,
         filters: { types: types.join(","), status: status || null, keyword: keyword || null },
         filenamePrefix: "logs",
       })
-      await recordExport(result.manifest)
+      await recordExport(result.manifest, { actor })
       return toNextResponse(result)
     }
 
-    // CSV (default): 用框架统一生成
-    const csvResult = buildExport<LogRowForExport>({
+    const csvResult = buildExport<LogDisplayRow>({
       exportType: "logs",
       dataSource: "database",
       format: "csv",
-      columns: LOG_COLUMNS as unknown as Array<keyof LogRowForExport & string>,
-      rows: merged as LogRowForExport[],
+      columns: displayColumns,
+      columnLabels: displayLabels,
+      rows: displayRows,
       siteCode: siteCode || null,
       filters: { types: types.join(","), status: status || null, keyword: keyword || null },
       filenamePrefix: "logs",
     })
-    await recordExport(csvResult.manifest)
+    await recordExport(csvResult.manifest, { actor })
     return toNextResponse(csvResult)
   } catch (error) {
     console.error("[API Error] /api/logs/export:", error)

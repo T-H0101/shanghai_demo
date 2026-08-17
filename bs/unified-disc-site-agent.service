@@ -1,0 +1,18 @@
+[Unit]
+Description=Unified Disc Platform Site Agent (root test)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/shanghai_demo
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/unified-disc-site-agent.env
+
+ExecStart=/opt/shanghai_demo/node/node node_modules/tsx/dist/cli.mjs scripts/site-agent/run.ts
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,10 @@
 import { Client } from "pg"
+import {
+  callSiteTaskControl,
+  commandTypeToSiteAction,
+  resolveSiteTaskControlBaseUrl,
+  resolveSiteTaskControlSecret,
+} from "@/lib/control/site-task-control-client"
 import type {
   AgentControlCommand,
   PauseState,
@@ -33,6 +39,80 @@ function allowedRunningStatuses(taskType: number | null): readonly number[] {
   return []
 }
 
+/**
+ * 优先走站点 MultimediumNw HTTP（与总控直调同一接口）：
+ * POST /unified-task-control → TCP Central 预检 + 原业务 pause/reset。
+ * 未配置密钥时回退为直连库改 status（仅本地/测试兜底）。
+ *
+ * 生产部署：站点不装 Site Agent；任务控制由总控
+ * `dispatchSiteTaskControl` 直调站点 HTTP。本 adapter 仅保留兼容测试路径。
+ */
+async function tryBusinessHttpControl(
+  command: AgentControlCommand,
+): Promise<SiteActionResult | null> {
+  const action = commandTypeToSiteAction(command.commandType)
+  if (!action) return null
+  const baseUrl = resolveSiteTaskControlBaseUrl(command.sourceSiteId)
+  const secret = resolveSiteTaskControlSecret()
+  if (!baseUrl || !secret) return null
+
+  const result = await callSiteTaskControl({
+    baseUrl,
+    secret,
+    taskId: command.targetId,
+    action,
+    siteCode: command.sourceSiteId,
+    requestedBy:
+      typeof command.payload?.requestedBy === "string"
+        ? command.payload.requestedBy
+        : null,
+  })
+
+  const before: TaskSnapshot | null = {
+    id: String(command.targetId),
+    taskType: null,
+    status: result.currentStatus,
+    updateDt: null,
+  }
+
+  if (result.ok) {
+    return {
+      status: "success",
+      before,
+      after: {
+        id: String(command.targetId),
+        taskType: null,
+        status: result.currentStatus,
+        updateDt: null,
+      },
+      previousStatus:
+        command.commandType === "task_pause" && result.currentStatus != null
+          ? result.currentStatus
+          : undefined,
+    }
+  }
+
+  const blocker =
+    result.reasonCode === "TASK_ALREADY_FINISHED" ||
+    result.reasonCode === "NOT_ALLOWED" ||
+    result.reasonCode === "ALREADY_PAUSED" ||
+    result.reasonCode === "USE_RESET_INSTEAD"
+      ? "task_state_not_allowed_live"
+      : result.reasonCode === "NETWORK_ERROR"
+        ? "site_control_http_unreachable"
+        : result.reasonCode === "UNAUTHORIZED" || result.reasonCode === "SECRET_NOT_CONFIGURED"
+          ? "site_control_auth_failed"
+          : "site_control_rejected"
+
+  return {
+    status: result.reasonCode === "TASK_NOT_FOUND" ? "failed" : "unsupported",
+    before,
+    after: before,
+    blocker,
+    reason: result.message,
+  }
+}
+
 export class PostgresSiteActionAdapter {
   constructor(private readonly connectionString: string) {}
 
@@ -59,6 +139,9 @@ export class PostgresSiteActionAdapter {
       }
     }
 
+    const httpResult = await tryBusinessHttpControl(command)
+    if (httpResult) return httpResult
+
     const client = new Client({ connectionString: this.connectionString })
     await client.connect()
     try {
@@ -81,6 +164,17 @@ export class PostgresSiteActionAdapter {
       }
 
       const before = snapshot(selected.rows[0])
+      // 直连库路径：再次用实时 status 挡终态（总控滞后）
+      if ([0, 10, 11].includes(before.status ?? -1) && command.commandType === "task_pause") {
+        await client.query("ROLLBACK")
+        return {
+          status: "unsupported",
+          before,
+          after: before,
+          blocker: "task_already_finished",
+          reason: `live status=${before.status} is finished; skip pause (center view may be stale)`,
+        }
+      }
       if (command.commandType === "task_pause") {
         const allowed = allowedRunningStatuses(before.taskType)
         if (before.status === null || !allowed.includes(before.status)) {
@@ -185,6 +279,11 @@ export class PostgresSiteActionAdapter {
         blocker: "invalid_source_task_id",
         reason: "targetId must be the numeric tbl_task.id",
       }
+    }
+
+    if (command.commandType === "task_reset") {
+      const httpResult = await tryBusinessHttpControl(command)
+      if (httpResult) return httpResult
     }
 
     const client = new Client({ connectionString: this.connectionString })

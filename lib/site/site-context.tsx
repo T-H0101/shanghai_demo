@@ -9,6 +9,8 @@
  * - localStorage 记忆 (selectedSiteCode)
  * - URL query 同步 (?siteCode=SH01)
  * - 优先级: URL query > localStorage > 默认 null (All Sites)
+ * - URL 无 siteCode 时从 localStorage 恢复并写回 URL（登录页除外）
+ * - URL 的 siteCode 变化会同步到 Context（含登录成功跳转）
  * - "All Sites" 用 null 表示
  *
  * 候选站点列表 (Sprint R.69 修订):
@@ -53,6 +55,8 @@ interface SiteContextValue {
   siteCode: string | null // null = All Sites
   isAllSites: boolean
   setSiteCode: (code: string | null) => void
+  /** 仅更新状态 + localStorage（登录成功等需改站点但不走当前 pathname 的场景） */
+  syncSiteCode: (code: string | null) => void
   isReady: boolean
   sites: SiteOption[]
   sitesLoading: boolean
@@ -73,45 +77,64 @@ interface SyncConfigSitesResponse {
   }
 }
 
+function readStoredSiteCode(): string | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored || stored === ALL_SITES) return null
+    return stored
+  } catch {
+    return null
+  }
+}
+
+function writeStoredSiteCode(code: string | null) {
+  try {
+    localStorage.setItem(STORAGE_KEY, code == null ? ALL_SITES : code)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function SiteProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
-  // null = All Sites; '' = 尚未初始化
   const [siteCode, setSiteCodeState] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
 
-  // Sprint R.69: 中心注册表作为唯一来源
   const [sites, setSites] = useState<SiteOption[]>(FALLBACK_SITES)
   const [sitesLoading, setSitesLoading] = useState<boolean>(true)
   const [sitesError, setSitesError] = useState<string | null>(null)
   const [sitesSource, setSitesSource] = useState<SiteSource>("sync_sites")
 
-  // 初始化: URL query > localStorage > null
-  useEffect(() => {
-    const urlSite = searchParams.get("siteCode")
-    if (urlSite !== null) {
-      setSiteCodeState(urlSite === ALL_SITES ? null : urlSite)
-      try {
-        localStorage.setItem(STORAGE_KEY, urlSite)
-      } catch {}
-    } else {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY)
-        if (stored && stored !== ALL_SITES) {
-          setSiteCodeState(stored)
-        } else {
-          setSiteCodeState(null) // 默认 All Sites
-        }
-      } catch {
-        setSiteCodeState(null)
-      }
-    }
-    setIsReady(true)
-  }, []) // 仅初次加载, URL 变化由 setSiteCode 主动同步
+  // 依赖具体 query 字符串，避免 searchParams 对象引用不变导致不刷新
+  const urlSiteParam = searchParams?.get("siteCode") ?? null
+  const isLoginPath = (pathname ?? "").startsWith("/login")
 
-  // Sprint R.69: 从中心注册表拉取真实站点列表
+  useEffect(() => {
+    if (urlSiteParam !== null) {
+      const next = urlSiteParam === ALL_SITES ? null : urlSiteParam
+      setSiteCodeState(next)
+      writeStoredSiteCode(next)
+      setIsReady(true)
+      return
+    }
+
+    // 侧栏跳转常丢掉 query：回退 localStorage，保证登录写入的站点仍生效
+    const stored = readStoredSiteCode()
+    setSiteCodeState(stored)
+    setIsReady(true)
+
+    // 写回 URL，避免页面切换后 Select remount 时与 URL 脱节、误落到列表第一项
+    if (isLoginPath) return
+    const params = new URLSearchParams(searchParams?.toString() ?? "")
+    params.set("siteCode", stored == null ? ALL_SITES : stored)
+    const qs = params.toString()
+    const basePath = pathname ?? "/"
+    router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+  }, [urlSiteParam, pathname, router, searchParams, isLoginPath])
+
   useEffect(() => {
     let cancelled = false
     async function loadSites() {
@@ -140,7 +163,6 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : String(err)
-        // 失败降级: 只保留 ALL_SITES, 不默认 SH01
         setSites(FALLBACK_SITES)
         setSitesSource("error")
         setSitesError(message)
@@ -154,28 +176,26 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const syncSiteCode = useCallback((code: string | null) => {
+    setSiteCodeState(code)
+    writeStoredSiteCode(code)
+  }, [])
+
   const setSiteCode = useCallback(
     (code: string | null) => {
-      setSiteCodeState(code)
-      try {
-        if (code == null) {
-          localStorage.setItem(STORAGE_KEY, ALL_SITES)
-        } else {
-          localStorage.setItem(STORAGE_KEY, code)
-        }
-      } catch {}
+      syncSiteCode(code)
 
-      // 同步 URL query
-      const params = new URLSearchParams(searchParams.toString())
+      const params = new URLSearchParams(searchParams?.toString() ?? "")
       if (code == null) {
         params.set("siteCode", ALL_SITES)
       } else {
         params.set("siteCode", code)
       }
       const qs = params.toString()
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+      const basePath = pathname ?? "/"
+      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
     },
-    [searchParams, router, pathname]
+    [searchParams, router, pathname, syncSiteCode]
   )
 
   const value = useMemo<SiteContextValue>(
@@ -183,13 +203,14 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       siteCode,
       isAllSites: siteCode == null,
       setSiteCode,
+      syncSiteCode,
       isReady,
       sites,
       sitesLoading,
       sitesError,
       sitesSource,
     }),
-    [siteCode, setSiteCode, isReady, sites, sitesLoading, sitesError, sitesSource]
+    [siteCode, setSiteCode, syncSiteCode, isReady, sites, sitesLoading, sitesError, sitesSource]
   )
 
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>
@@ -198,11 +219,11 @@ export function SiteProvider({ children }: { children: ReactNode }) {
 export function useSite(): SiteContextValue {
   const ctx = useContext(SiteContext)
   if (!ctx) {
-    // 兼容 SSR / 未在 Provider 内时返回安全默认值
     return {
       siteCode: null,
       isAllSites: true,
       setSiteCode: () => {},
+      syncSiteCode: () => {},
       isReady: false,
       sites: FALLBACK_SITES,
       sitesLoading: false,

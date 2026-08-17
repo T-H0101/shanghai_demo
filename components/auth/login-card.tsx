@@ -1,12 +1,10 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Building2, Loader2, Lock, ShieldCheck, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -15,23 +13,88 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { useSite } from "@/lib/site/site-context"
 
-interface LoginCardProps {
-  availableSites: string[]
+type SiteOption = { code: string; label: string }
+
+const SITE_STORAGE_KEY = "unified.selectedSiteCode"
+
+function formatSiteOption(opt: SiteOption): string {
+  return opt.label === opt.code ? opt.code : `${opt.label}（${opt.code}）`
 }
 
-export function LoginCard({ availableSites }: LoginCardProps) {
-  const router = useRouter()
+export function LoginCard() {
+  const { syncSiteCode } = useSite()
   const [account, setAccount] = useState("")
   const [password, setPassword] = useState("")
   const [site, setSite] = useState("")
+  const [availableSites, setAvailableSites] = useState<SiteOption[]>([])
+  const [sitesLoading, setSitesLoading] = useState(false)
+  /** 账号失焦并完成一次查询后才为 true，避免输入过程中闪提示 */
+  const [sitesQueried, setSitesQueried] = useState(false)
   const [accountError, setAccountError] = useState("")
   const [passwordError, setPasswordError] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const sitesRequestId = useRef(0)
+  const lastQueriedUsername = useRef("")
 
-  const hasEnteredAccount = account.trim().length > 0
+  // 列表到位后若当前未选或选中项不在列表中，自动落到第一项并显示
+  useEffect(() => {
+    if (availableSites.length === 0) return
+    if (!site || !availableSites.some((s) => s.code === site)) {
+      setSite(availableSites[0].code)
+    }
+  }, [availableSites, site])
+
+  const loadAvailableSites = async (rawUsername: string) => {
+    const username = rawUsername.trim()
+    const reqId = ++sitesRequestId.current
+    if (!username) {
+      setAvailableSites([])
+      setSite("")
+      setSitesQueried(false)
+      setSitesLoading(false)
+      lastQueriedUsername.current = ""
+      return [] as SiteOption[]
+    }
+
+    setSitesLoading(true)
+    try {
+      const res = await fetch(
+        `/api/auth/available-sites?username=${encodeURIComponent(username)}`,
+        { cache: "no-store" },
+      )
+      const json = await res.json().catch(() => null)
+      if (sitesRequestId.current !== reqId) return [] as SiteOption[]
+      const sites = Array.isArray(json?.data?.sites) ? (json.data.sites as SiteOption[]) : []
+      const defaultCode = sites[0]?.code ?? ""
+      setAvailableSites(sites)
+      setSitesQueried(true)
+      lastQueriedUsername.current = username
+      setSite(defaultCode)
+      return sites
+    } catch {
+      if (sitesRequestId.current !== reqId) return [] as SiteOption[]
+      setAvailableSites([])
+      setSitesQueried(true)
+      lastQueriedUsername.current = username
+      setSite("")
+      return [] as SiteOption[]
+    } finally {
+      if (sitesRequestId.current === reqId) setSitesLoading(false)
+    }
+  }
+
+  const effectiveSite =
+    site && availableSites.some((s) => s.code === site)
+      ? site
+      : (availableSites[0]?.code ?? "")
+  const selectedSiteOpt = availableSites.find((s) => s.code === effectiveSite)
+  const siteSelectKey = availableSites.length
+    ? `sites-${availableSites.map((s) => s.code).join("|")}-${effectiveSite}`
+    : "sites-empty"
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -39,8 +102,9 @@ export function LoginCard({ availableSites }: LoginCardProps) {
     setPasswordError("")
     setError("")
 
-    if (!account.trim()) {
-      setAccountError("请输入域账号")
+    const username = account.trim()
+    if (!username) {
+      setAccountError("请输入账号")
       return
     }
     if (!password) {
@@ -52,28 +116,53 @@ export function LoginCard({ availableSites }: LoginCardProps) {
       return
     }
 
+    // 未失焦就点登录时，先补一次站点查询；有列表则默认第一个
+    let sites = availableSites
+    let selected = effectiveSite || site
+    if (lastQueriedUsername.current !== username) {
+      sites = await loadAvailableSites(username)
+      selected = sites.length > 0 ? sites[0].code : ""
+      if (selected) setSite(selected)
+    } else if (!selected && sites.length > 0) {
+      selected = sites[0].code
+      setSite(selected)
+    }
+
     setLoading(true)
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username: account, password, siteCode: site }),
+        body: JSON.stringify({
+          username,
+          password,
+          ...(selected ? { siteCode: selected } : {}),
+        }),
       })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
         if (response.status === 423 || payload?.code === "AUTH_LOCKED") {
           setIsLocked(true)
           setError("账户已被临时锁定，请稍后再试")
-        } else if (payload?.code === "AUTH_SITE_DENIED") {
-          setError("您没有访问该站点的权限，请联系管理员")
         } else {
           setPasswordError("用户名或密码错误")
         }
         return
       }
       setIsLocked(false)
-      router.replace("/")
+      if (selected) {
+        try {
+          localStorage.setItem(SITE_STORAGE_KEY, selected)
+        } catch {
+          /* ignore */
+        }
+        syncSiteCode(selected)
+        window.location.assign(`/?siteCode=${encodeURIComponent(selected)}`)
+      } else {
+        window.location.assign("/")
+      }
+      return
     } catch {
       setError("认证服务暂不可用")
     } finally {
@@ -81,20 +170,26 @@ export function LoginCard({ availableSites }: LoginCardProps) {
     }
   }
 
+  const sitePlaceholder = (() => {
+    if (!account.trim()) return "请先输入账号"
+    if (sitesLoading) return "正在加载可用站点…"
+    if (!sitesQueried) return "输入账号后自动加载"
+    if (availableSites.length === 0) return "暂无可用站点"
+    return "选择站点"
+  })()
+
   return (
     <div
       data-testid="login-card"
       className={cn(
         "relative w-full max-w-md rounded-2xl border p-8 shadow-2xl",
         "border-white/15 shadow-black/40 dark:border-white/15",
-        // 双主题玻璃: 浅色下用白底高透 + 浅蓝紫光,暗色下保留原夜空玻璃感
         "bg-white/70 backdrop-blur-2xl backdrop-saturate-180",
         "dark:bg-white/[0.12]",
         "shadow-slate-900/10 dark:shadow-black/40",
         "animate-in fade-in slide-in-from-bottom-3 duration-300",
       )}
     >
-      {/* inner highlight: top 1px bright line + soft gradient overlay */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden"
@@ -104,9 +199,9 @@ export function LoginCard({ availableSites }: LoginCardProps) {
       </div>
 
       <div className="relative z-10 mb-8">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] uppercase tracking-widest text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] tracking-wide text-blue-700 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
           <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-          Enterprise Auth
+          企业认证
         </div>
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">统一身份登录</h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">平台认证基座 · 单点登录与会话统一</p>
@@ -116,24 +211,37 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         <div className="space-y-2">
           <Label
             htmlFor="account"
-            className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400"
+            className="text-xs tracking-wide text-slate-600 dark:text-slate-400"
           >
-            Domain Account
+            账号
           </Label>
           <div className="relative">
             <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <Input
               id="account"
               type="text"
-              placeholder="username@domain.corp"
+              placeholder="请输入账号"
               value={account}
               onChange={(e) => {
                 setAccount(e.target.value)
                 setSite("")
+                setAvailableSites([])
+                setSitesQueried(false)
+                lastQueriedUsername.current = ""
                 setAccountError("")
                 setPasswordError("")
+                setError("")
               }}
-              onBlur={() => account.trim() === "" && setAccountError("请输入域账号")}
+              onBlur={() => {
+                if (account.trim() === "") {
+                  setAccountError("请输入账号")
+                  setAvailableSites([])
+                  setSitesQueried(false)
+                  lastQueriedUsername.current = ""
+                  return
+                }
+                void loadAvailableSites(account)
+              }}
               aria-invalid={!!accountError}
               aria-describedby={accountError ? "account-error" : undefined}
               className={cn(
@@ -152,46 +260,24 @@ export function LoginCard({ availableSites }: LoginCardProps) {
           )}
         </div>
 
-        {hasEnteredAccount && (
-          <div className="animate-in space-y-2 fade-in duration-200">
-            <Label className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">
-              Available Sites
-            </Label>
-            <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-              {availableSites.length > 0 ? (
-                availableSites.map((s) => (
-                  <Badge
-                    key={s}
-                    variant="outline"
-                    className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-700/50 dark:bg-blue-950/30 dark:text-blue-300"
-                  >
-                    {s}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-xs text-slate-500">请输入账号后选择站点</p>
-              )}
-            </div>
-          </div>
-        )}
-
         <div className="space-y-2">
           <Label
             htmlFor="password"
-            className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400"
+            className="text-xs tracking-wide text-slate-600 dark:text-slate-400"
           >
-            Password
+            密码
           </Label>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <Input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder="请输入密码"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value)
                 setPasswordError("")
+                setError("")
               }}
               onBlur={() => password === "" && setPasswordError("请输入密码")}
               aria-invalid={!!passwordError}
@@ -213,31 +299,33 @@ export function LoginCard({ availableSites }: LoginCardProps) {
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">
-            Site / Data Center
+          <Label className="text-xs tracking-wide text-slate-600 dark:text-slate-400">
+            站点
           </Label>
           <div className="relative">
             <Building2 className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <Select
-              value={site}
+              key={siteSelectKey}
+              value={effectiveSite || undefined}
               onValueChange={setSite}
-              disabled={!hasEnteredAccount || availableSites.length === 0}
+              disabled={sitesLoading || availableSites.length === 0}
             >
               <SelectTrigger
                 className={cn(
-                  "h-11 border-slate-300 bg-white pl-10 text-slate-900",
+                  "h-11 w-full border-slate-300 bg-white pl-10 text-slate-900",
                   "dark:border-slate-700 dark:bg-slate-800 dark:text-white",
                   "focus:ring-blue-500/40",
                 )}
+                aria-label="选择站点"
               >
-                <SelectValue
-                  placeholder={hasEnteredAccount ? "选择站点" : "先输入账号"}
-                />
+                <SelectValue placeholder={sitePlaceholder}>
+                  {selectedSiteOpt ? formatSiteOption(selectedSiteOpt) : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {availableSites.map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {opt}
+                  <SelectItem key={opt.code} value={opt.code}>
+                    {formatSiteOption(opt)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -264,7 +352,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
 
         <Button
           type="submit"
-          disabled={loading || !site || isLocked}
+          disabled={loading || isLocked || sitesLoading}
           data-testid="login-submit"
           className="h-11 w-full bg-blue-600 font-medium text-white hover:bg-blue-500 active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
         >
@@ -274,7 +362,7 @@ export function LoginCard({ availableSites }: LoginCardProps) {
               正在认证...
             </>
           ) : (
-            "登录统一管控平台"
+            "登录"
           )}
         </Button>
       </form>

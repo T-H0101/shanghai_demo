@@ -5,6 +5,7 @@
 
 import type { Rack, RackSlot, RackStats, StorageVolume, DeviceLog } from "@/lib/types/rack"
 import type { RackDTO, RackStatsDTO, RackSlotDTO, VolumeDTO } from "@/lib/api/dto"
+import { mapVolumeTypeToDto, mapVolumeTypeLabel } from "@/lib/devices/volume-type"
 
 // RackStatus 映射
 const STATUS_MAP: Record<string, RackDTO["status"]> = {
@@ -14,10 +15,12 @@ const STATUS_MAP: Record<string, RackDTO["status"]> = {
   maintenance: "maintenance",
 }
 
-// OnlineStatus 映射
-const ONLINE_STATUS_MAP: Record<string, RackDTO["deviceStatus"]> = {
+// OnlineStatus / DeviceRuntimeStatus 映射
+const ONLINE_STATUS_MAP: Record<string, NonNullable<RackDTO["deviceStatus"]>> = {
   online: "online",
   offline: "offline",
+  warning: "warning",
+  error: "error",
 }
 
 // SlotStatus 映射
@@ -35,20 +38,13 @@ const MEDIA_TYPE_MAP: Record<string, RackSlotDTO["mediaType"]> = {
   offline: "offline",
 }
 
-// VolumeType 映射
-const VOLUME_TYPE_MAP: Record<string, VolumeDTO["type"]> = {
-  optical: "optical",
-  magnetic: "magnetic",
-  composite: "composite",
-}
-
 // 安全的类型转换
 function safeAdaptStatus(status: string): RackDTO["status"] {
   return STATUS_MAP[status] ?? "normal"
 }
 
 function safeAdaptOnlineStatus(status: string): RackDTO["deviceStatus"] {
-  return ONLINE_STATUS_MAP[status] ?? "online"
+  return ONLINE_STATUS_MAP[status] ?? "offline"
 }
 
 function safeAdaptSlotStatus(status: string): RackSlotDTO["status"] {
@@ -60,20 +56,20 @@ function safeAdaptMediaType(type: string | undefined): RackSlotDTO["mediaType"] 
   return MEDIA_TYPE_MAP[type] ?? "hdd"
 }
 
-function safeAdaptVolumeType(type: string): VolumeDTO["type"] {
-  return VOLUME_TYPE_MAP[type] ?? "composite"
-}
-
 function adaptSlot(slot: RackSlot): RackSlotDTO {
   return {
     id: slot.id,
     index: slot.index,
     occupied: slot.occupied ?? false,
     status: safeAdaptSlotStatus(slot.status ?? (slot.occupied ? "used" : "free")),
+    discType: slot.discType,
+    discTypeLabel: slot.discTypeLabel,
     discNo: slot.discNo,
     label: slot.label,
     mediaType: safeAdaptMediaType(slot.mediaType),
     capacity: slot.capacity,
+    usedCapacity: slot.usedCapacity,
+    remainingCapacity: slot.remainingCapacity,
     volumeId: slot.volumeId,
   }
 }
@@ -82,7 +78,8 @@ function adaptVolume(volume: StorageVolume): VolumeDTO {
   return {
     id: volume.id,
     name: volume.name ?? "",
-    type: safeAdaptVolumeType(volume.type ?? "composite"),
+    type: mapVolumeTypeToDto(volume.type),
+    typeLabel: mapVolumeTypeLabel(volume.type),
     totalCapacity: volume.totalCapacity ?? "",
     remainingCapacity: volume.remainingCapacity ?? "",
     info: volume.info ?? "",
@@ -111,14 +108,16 @@ export function adaptRack(rack: Rack): RackDTO {
 
     // 设备信息
     ip: rack.ip,
+    serialNo: rack.serialNo,
     deviceType: rack.deviceType,
     deviceStatus: rack.deviceStatus ? safeAdaptOnlineStatus(rack.deviceStatus) : undefined,
-    onlineStatus: rack.onlineStatus ? safeAdaptOnlineStatus(rack.onlineStatus) : undefined,
+    onlineStatus: rack.onlineStatus === "online" ? "online" : rack.onlineStatus ? "offline" : undefined,
     totalCapacity: rack.totalCapacity,
     remainingCapacity: rack.remainingCapacity,
     currentTaskCount: rack.currentTaskCount,
     mode: rack.mode,
     cageCount: rack.cages?.length,
+    mountInfo: rack.mountInfo,
 
     // 详情
     slots: rack.slots?.map(adaptSlot),

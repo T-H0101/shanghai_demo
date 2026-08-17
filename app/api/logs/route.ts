@@ -21,8 +21,9 @@
  *   - taskType: 任务类型 (刻录/回迁/控制动作) 匹配
  *   - dateFrom: ISO 时间起点 (含)
  *   - dateTo:   ISO 时间终点 (含)
- *   - limit:    默认 50, 最大 500
+ *   - limit:    默认 50, 最大 200
  *   - offset:   默认 0
+ *   - 单 type 时走 SQL LIMIT/OFFSET + COUNT；扩展筛选 (errorCode/deviceId/taskType) 时先取池再内存分页
  *
  * 严格 R.1 §7: 不允许 mock fallback, dataSource 显式 (database | empty | error)
  */
@@ -374,29 +375,159 @@ export async function GET(request: NextRequest) {
     const taskType = sp.get("taskType") ?? ""
     const dateFrom = sp.get("dateFrom") ?? ""
     const dateTo = sp.get("dateTo") ?? ""
-    const limit = Math.min(parseInt(sp.get("limit") ?? "50", 10) || 50, 500)
+    const limit = Math.min(parseInt(sp.get("limit") ?? "50", 10) || 50, 200)
     const offset = Math.max(parseInt(sp.get("offset") ?? "0", 10) || 0, 0)
+    const hasExtended = Boolean(errorCode.trim() || deviceId.trim() || taskType.trim())
 
-    const perTypeLimit = Math.max(limit, 50) // 至少取 50/类, 再合并排序
-    const tasks: Promise<UnifiedLogRow[]>[] = []
-    if (types.includes("sync_package")) tasks.push(fetchSyncPackage(siteCode, status, dateFrom, dateTo, keyword, perTypeLimit, 0))
-    if (types.includes("sync_table")) tasks.push(fetchSyncTable(siteCode, status, dateFrom, dateTo, keyword, perTypeLimit, 0))
-    if (types.includes("sync_scheduler")) tasks.push(fetchSyncScheduler(siteCode, status, dateFrom, dateTo, keyword, perTypeLimit, 0))
-    if (types.includes("sync_consistency")) tasks.push(fetchSyncConsistency(siteCode, status, dateFrom, dateTo, keyword, perTypeLimit, 0))
-    if (types.includes("control")) tasks.push(fetchControl(siteCode, status, dateFrom, dateTo, keyword, perTypeLimit, 0))
-    if (types.includes("audit")) tasks.push(fetchAudit(siteCode, status, dateFrom, dateTo, keyword, perTypeLimit, 0))
+    const loadType = (t: LogType, lim: number, off: number) => {
+      switch (t) {
+        case "sync_package":
+          return fetchSyncPackage(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+        case "sync_table":
+          return fetchSyncTable(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+        case "sync_scheduler":
+          return fetchSyncScheduler(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+        case "sync_consistency":
+          return fetchSyncConsistency(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+        case "control":
+          return fetchControl(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+        case "audit":
+          return fetchAudit(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+        default:
+          return Promise.resolve([] as UnifiedLogRow[])
+      }
+    }
 
-    const results = await Promise.all(tasks)
-    const merged = results.flat().map((r) => ({
-      ...r,
-      occurred_at: r.occurred_at instanceof Date ? r.occurred_at.toISOString() : String(r.occurred_at),
-    })).sort((a, b) =>
-      b.occurred_at.localeCompare(a.occurred_at)
-    )
+    const countType = async (t: LogType): Promise<number> => {
+      const conds: string[] = []
+      const params: unknown[] = []
+      const eq = (col: string, val: string) => {
+        params.push(val)
+        conds.push(`${col} = $${params.length}`)
+      }
+      const gte = (col: string, val: string) => {
+        params.push(val)
+        conds.push(`${col} >= $${params.length}`)
+      }
+      const lte = (col: string, val: string) => {
+        params.push(val)
+        conds.push(`${col} <= $${params.length}`)
+      }
 
-    const filtered = merged.filter((row) => rowMatchesExtendedFilters(row, { errorCode, deviceId, taskType }))
-    const total = filtered.length
-    const items = filtered.slice(offset, offset + limit)
+      let table = ""
+      if (t === "sync_package") {
+        table = "sync_package_log"
+        if (siteCode) eq("site_code", siteCode)
+        if (status) eq("status", status)
+        if (dateFrom) gte("started_at", dateFrom)
+        if (dateTo) lte("started_at", dateTo)
+        if (keyword.trim()) {
+          params.push(`%${keyword.trim()}%`)
+          conds.push(`(batch_id ILIKE $${params.length} OR COALESCE(site_code,'') ILIKE $${params.length})`)
+        }
+      } else if (t === "sync_table") {
+        table = "sync_table_log"
+        if (siteCode) eq("site_code", siteCode)
+        if (status) eq("status", status)
+        if (dateFrom) gte("started_at", dateFrom)
+        if (dateTo) lte("started_at", dateTo)
+        if (keyword.trim()) {
+          params.push(`%${keyword.trim()}%`)
+          conds.push(`(table_name ILIKE $${params.length} OR batch_id ILIKE $${params.length})`)
+        }
+      } else if (t === "sync_scheduler") {
+        table = "sync_scheduler_log"
+        if (siteCode) eq("site_code", siteCode)
+        if (status) eq("status", status)
+        if (dateFrom) gte("started_at", dateFrom)
+        if (dateTo) lte("started_at", dateTo)
+        if (keyword.trim()) {
+          params.push(`%${keyword.trim()}%`)
+          conds.push(`(run_id ILIKE $${params.length} OR COALESCE(site_code,'') ILIKE $${params.length})`)
+        }
+      } else if (t === "sync_consistency") {
+        table = "sync_consistency_log"
+        if (siteCode) eq("site_code", siteCode)
+        if (status) eq("status", status)
+        if (dateFrom) gte("checked_at", dateFrom)
+        if (dateTo) lte("checked_at", dateTo)
+        if (keyword.trim()) {
+          params.push(`%${keyword.trim()}%`)
+          conds.push(`(COALESCE(site_code,'') ILIKE $${params.length})`)
+        }
+      } else if (t === "control") {
+        table = "control_command"
+        if (siteCode) eq("source_site_id", siteCode)
+        if (status) eq("status", status)
+        if (dateFrom) gte("requested_at", dateFrom)
+        if (dateTo) lte("requested_at", dateTo)
+        if (keyword.trim()) {
+          params.push(`%${keyword.trim()}%`)
+          conds.push(`(command_no ILIKE $${params.length} OR command_type ILIKE $${params.length} OR COALESCE(source_site_id,'') ILIKE $${params.length})`)
+        }
+      } else if (t === "audit") {
+        table = "audit_log"
+        if (siteCode) eq("site_code", siteCode)
+        if (status) eq("result", status)
+        if (dateFrom) gte("created_at", dateFrom)
+        if (dateTo) lte("created_at", dateTo)
+        if (keyword.trim()) {
+          params.push(`%${keyword.trim()}%`)
+          conds.push(`(command_no ILIKE $${params.length} OR action ILIKE $${params.length} OR target_table ILIKE $${params.length} OR COALESCE(site_code,'') ILIKE $${params.length} OR COALESCE(actor,'') ILIKE $${params.length})`)
+        }
+      } else {
+        return 0
+      }
+
+      const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : ""
+      const r = await query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM ${table} ${where}`, params)
+      return Number(r.rows[0]?.count ?? 0)
+    }
+
+    const normalize = (rows: UnifiedLogRow[]) =>
+      rows.map((r) => ({
+        ...r,
+        occurred_at: r.occurred_at instanceof Date ? r.occurred_at.toISOString() : String(r.occurred_at),
+      }))
+
+    let items: ReturnType<typeof normalize>
+    let total: number
+
+    if (types.length === 1) {
+      const t = types[0]
+      if (hasExtended) {
+        const pool = normalize(await loadType(t, 500, 0)).sort((a, b) =>
+          String(b.occurred_at).localeCompare(String(a.occurred_at)),
+        )
+        const filtered = pool.filter((row) =>
+          rowMatchesExtendedFilters(row, { errorCode, deviceId, taskType }),
+        )
+        total = filtered.length
+        items = filtered.slice(offset, offset + limit)
+      } else {
+        const [rows, cnt] = await Promise.all([loadType(t, limit, offset), countType(t)])
+        items = normalize(rows)
+        total = cnt
+      }
+    } else {
+      const perTypeLimit = Math.min(500, Math.max(limit + offset, 50))
+      const tasks: Promise<UnifiedLogRow[]>[] = []
+      if (types.includes("sync_package")) tasks.push(loadType("sync_package", perTypeLimit, 0))
+      if (types.includes("sync_table")) tasks.push(loadType("sync_table", perTypeLimit, 0))
+      if (types.includes("sync_scheduler")) tasks.push(loadType("sync_scheduler", perTypeLimit, 0))
+      if (types.includes("sync_consistency")) tasks.push(loadType("sync_consistency", perTypeLimit, 0))
+      if (types.includes("control")) tasks.push(loadType("control", perTypeLimit, 0))
+      if (types.includes("audit")) tasks.push(loadType("audit", perTypeLimit, 0))
+      const results = await Promise.all(tasks)
+      const merged = normalize(results.flat()).sort((a, b) =>
+        String(b.occurred_at).localeCompare(String(a.occurred_at)),
+      )
+      const filtered = merged.filter((row) =>
+        rowMatchesExtendedFilters(row, { errorCode, deviceId, taskType }),
+      )
+      total = filtered.length
+      items = filtered.slice(offset, offset + limit)
+    }
 
     return NextResponse.json({
       code: 0,

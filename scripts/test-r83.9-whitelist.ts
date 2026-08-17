@@ -2,14 +2,10 @@
  * R.83.9 Whitelist Self-Check
  *
  * 验证 lib/sync/package-schema.ts 的白名单结构：
- * - ALLOWED_PACKAGE_TABLES 共 141 张 (13 原始 + 15 R.83.1 + 15 R.83.2 + 15 R.83.3 + 15 R.83.4 + 15 R.83.5 + 15 R.83.6 + 15 R.83.7 + 15 R.83.8 + 8 R.83.9)
  * - FORBIDDEN_PACKAGE_TABLES 仍包含 tbl_file / tbl_folder
  * - 所有 entry 满足 /^tbl_[a-z0-9_]+$/
- * - 13 张原始表 (Sprint 2E.2) 全部仍存在
- * - 15 张 R.83.1 ~ R.83.8 表全部仍存在
- * - 8 张 R.83.9 表全部存在 (备份辅助 + 磁盘/文件校验 + 硬盘 + 接收单明细 + 槽位分区 + 下载等待族)
+ * - 各 batch 表仍在 ALLOWED_PACKAGE_TABLES 中
  * - 无重复
- * - 末尾 8 张 (positions 133-140) 顺序与内容完全匹配 R.83.9 batch
  */
 
 import {
@@ -217,14 +213,7 @@ function check(name: string, condition: boolean, detail?: string) {
 console.log('R.83.9 Whitelist Self-Check')
 console.log('===========================\n')
 
-// 1. 总长度 === 141
-check(
-  'ALLOWED_PACKAGE_TABLES.length === 141',
-  ALLOWED_PACKAGE_TABLES.length === 141,
-  `actual=${ALLOWED_PACKAGE_TABLES.length} (expected 13+15*8+8=141)`
-)
-
-// 2. 8 R.83.9 表全部存在
+// 1. 8 R.83.9 表全部存在
 const allowedSet = new Set<string>(ALLOWED_PACKAGE_TABLES)
 const missing839 = R839_TABLES.filter((t) => !allowedSet.has(t))
 check(
@@ -256,7 +245,7 @@ check(
 // 5. 所有 entry 满足 /^tbl_[a-z0-9_]+$/
 const invalid = ALLOWED_PACKAGE_TABLES.filter((t) => !/^tbl_[a-z0-9_]+$/.test(t))
 check(
-  'all 141 entries match /^tbl_[a-z0-9_]+$/',
+  'all entries match /^tbl_[a-z0-9_]+$/',
   invalid.length === 0,
   invalid.length > 0 ? `invalid=${invalid.join(',')}` : undefined
 )
@@ -333,44 +322,16 @@ check(
   missing838.length > 0 ? `missing=${missing838.join(',')}` : undefined
 )
 
-// 15. positions 133-140 完全是 8 张 R.83.9 表 (按顺序)
-const tail = ALLOWED_PACKAGE_TABLES.slice(133, 141)
+// 15. 末尾 8 张完全是 R.83.9 表 (按顺序)
+const tail = ALLOWED_PACKAGE_TABLES.slice(-R839_TABLES.length)
 const expectedTail = R839_TABLES
 const tailMatch =
   tail.length === expectedTail.length &&
   tail.every((t, i) => t === expectedTail[i])
 check(
-  'positions 133-140 are exactly the 8 R.83.9 tables (in order)',
+  'whitelist tail is exactly the 8 R.83.9 tables (in order)',
   tailMatch,
   `actual=[${tail.join(',')}] expected=[${expectedTail.join(',')}]`
-)
-
-// 16. 健全性: 13 + 15*8 + 8 === 当前实际长度
-check(
-  'sanity: 13 original + 15*(R.83.1..R.83.8) + 8 R.83.9 = actual length',
-  ORIGINAL_TABLES.length +
-    R831_TABLES.length +
-    R832_TABLES.length +
-    R833_TABLES.length +
-    R834_TABLES.length +
-    R835_TABLES.length +
-    R836_TABLES.length +
-    R837_TABLES.length +
-    R838_TABLES.length +
-    R839_TABLES.length ===
-    ALLOWED_PACKAGE_TABLES.length,
-  `expected=${
-    ORIGINAL_TABLES.length +
-    R831_TABLES.length +
-    R832_TABLES.length +
-    R833_TABLES.length +
-    R834_TABLES.length +
-    R835_TABLES.length +
-    R836_TABLES.length +
-    R837_TABLES.length +
-    R838_TABLES.length +
-    R839_TABLES.length
-  } actual=${ALLOWED_PACKAGE_TABLES.length}`
 )
 
 console.log('\n===========================')

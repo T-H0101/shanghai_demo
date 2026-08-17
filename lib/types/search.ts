@@ -6,22 +6,24 @@ export interface SearchFile {
   sizeBytes: number
   siteName: string
   siteCode: string
-  discNo: string
-  rackSlot: string
-  department: string
-  fileType: string
-  createdAt: string
+  docType: string
+  volumeId: number | null
   volume: string
+  slotId: number | null
+  fileType: string
+  contentType: string | null
+  createdAt: string
   checksum?: string
+  taskId?: string | null
+  status?: number | null
+  sourceTable?: string | null
 }
 
 export interface SearchFilters {
   keyword: string
   site: string
-  department: string
-  discNo: string
   volume: string
-  fileType: string
+  docType: string
   dateFrom: string
   dateTo: string
 }

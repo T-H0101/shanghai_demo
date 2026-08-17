@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useSite } from "@/lib/site/site-context"
+import { formatBeijingTime } from "@/components/shared/time-format"
 
 interface AlertItem {
   id: string
@@ -74,8 +75,8 @@ export function AlertCenter() {
         })
       })
 
-      // 高使用率设备
-      racks.filter(r => r.usagePercent >= 90).forEach(r => {
+      // 高使用率设备（网盘等无容量数据的设备 usagePercent 为空，跳过）
+      racks.filter(r => (r.usagePercent ?? 0) >= 90).forEach(r => {
         items.push({
           id: `usage-${r.siteCode}-${r.rackId}-${r.id}`,
           type: "device_error",
@@ -163,7 +164,8 @@ export function AlertCenter() {
                       <span className="text-[10px] text-slate-400 dark:text-slate-500">{alert.detail}</span>
                       <span className="text-[10px] text-slate-300 dark:text-slate-400">·</span>
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5">
-                        <Clock className="h-2.5 w-2.5" />{alert.time}
+                        <Clock className="h-2.5 w-2.5" />
+                        {alert.time ? formatBeijingTime(alert.time) || "—" : "—"}
                       </span>
                     </div>
                   </div>

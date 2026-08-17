@@ -14,14 +14,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import type { VolumeDTO } from "@/lib/api/dto"
-
-const VOLUME_TYPE_MAP: Record<string, VolumeDTO["type"]> = {
-  optical: "optical",
-  magnetic: "magnetic",
-  hard_disk: "magnetic",
-  hdd: "magnetic",
-  composite: "composite",
-}
+import { mapVolumeTypeToDto, mapVolumeTypeLabel } from "@/lib/devices/volume-type"
 
 function toNumber(value: number | string | null | undefined): number | undefined {
   if (value == null || value === "") return undefined
@@ -119,7 +112,8 @@ export async function GET(
     } = {
       id: vol.volume_id ?? vol.source_id ?? vol.source_record_id ?? vol.id,
       name: vol.volume_name ?? `卷-${vol.volume_id ?? vol.source_id ?? vol.source_record_id ?? vol.id}`,
-      type: (vol.volume_type ? VOLUME_TYPE_MAP[vol.volume_type] : undefined) ?? "composite",
+      type: mapVolumeTypeToDto(vol.volume_type),
+      typeLabel: mapVolumeTypeLabel(vol.volume_type),
       totalCapacity: formatBytes(vol.capacity),
       remainingCapacity: remainingCapacity == null ? "" : formatBytes(remainingCapacity),
       info: [

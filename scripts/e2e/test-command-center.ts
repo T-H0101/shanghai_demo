@@ -36,7 +36,7 @@ async function main() {
 
   const endpoints = [
     "/api/dashboard/summary",
-    "/api/sync/sites/status",
+    "/api/sites",
     "/api/sync/packages?pageSize=3",
     "/api/control/commands?limit=3",
     "/api/alerts?pageSize=3",
@@ -61,7 +61,8 @@ async function main() {
   check("Command Center 有同步健康锚点", componentSource.includes('testid="command-center-sync-health"'))
   check("Command Center 有控制队列锚点", componentSource.includes('testid="command-center-control-queue"'))
   check("Command Center 消费 dashboard summary API", componentSource.includes("/api/dashboard/summary"))
-  check("Command Center 消费 site status API", componentSource.includes("/api/sync/sites/status"))
+  check("Command Center 消费站点 TCP 在线 API", componentSource.includes("/api/sites"))
+  check("Command Center 不以 Agent 心跳判定在线", !componentSource.includes("/api/sync/sites/status"))
   check("Command Center 消费 control commands API", componentSource.includes("/api/control/commands"))
   check("Command Center 消费 alerts API", componentSource.includes("/api/alerts"))
   check(
@@ -75,7 +76,7 @@ async function main() {
     "truth wording present"
   )
 
-  // R.UI-CmdCenter: 4 大通道 + strict/candidate 状态
+  // R.UI-CmdCenter: 4 大通道；strict/candidate 验收徽标已移除（不对业务用户展示）
   check(
     "Command Center shows sync/control/search/security lanes",
     componentSource.includes("command-center-lane-sync") &&
@@ -85,17 +86,19 @@ async function main() {
     "4 lanes present",
   )
   check(
-    "Command Center exposes blocked/candidate wording (strict + candidate)",
-    componentSource.includes("strict 29/45") && componentSource.includes("candidate 45/45"),
-    "strict/candidate badges present",
+    "Command Center 已移除 strict/candidate 验收徽标",
+    !componentSource.includes("strict 29/45") &&
+      !componentSource.includes("candidate 45/45") &&
+      !componentSource.includes("command-center-status-badges"),
+    "strict/candidate badges removed",
   )
   check(
-    "Command Center 通道文案含同步/控制/检索/安全",
-    componentSource.includes("白名单同步") &&
+    "Command Center 通道与队列文案中文化",
+    componentSource.includes("站点推送入库") &&
       componentSource.includes("命令队列") &&
-      componentSource.includes("全文索引") &&
-      componentSource.includes("本地登录"),
-    "lane evidence text present",
+      componentSource.includes("最近 4 条") &&
+      componentSource.includes("暂停任务"),
+    "Chinese labels present",
   )
 
   console.log(`\nResult: ${pass} passed, ${fail} failed`)

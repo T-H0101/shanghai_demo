@@ -13,6 +13,7 @@
 # - 使用 Docker 容器内的 psql，不要求本机安装 PostgreSQL 客户端
 # - 自动检查 Docker 容器状态
 # - 支持 schema、后续 DDL patch 和 auth bootstrap 初始化
+# - SQL 经 stdin 管道灌入 (docker exec -i)，避免 Git Bash 下 docker cp 路径被改成 D:\d: 失败
 #
 # ============================================================
 
@@ -146,7 +147,7 @@ create_extensions() {
   docker_psql -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
 }
 
-# 执行 SQL 文件
+# 执行 SQL 文件（stdin 管道；勿用 docker cp，Windows Git Bash 会错误转换主机路径）
 execute_sql_file() {
   local sql_file="$1"
   local description="${2:-SQL 文件}"
@@ -156,10 +157,9 @@ execute_sql_file() {
     return 1
   fi
 
-  local target="/tmp/$(basename "$sql_file")"
   log_info "执行 $description..."
-  docker cp "$sql_file" "$CONTAINER_NAME:$target" >/dev/null
-  docker exec "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" -f "$target"
+  docker exec -i "$CONTAINER_NAME" \
+    psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" < "$sql_file"
 }
 
 # 重置数据库（删除所有表）
@@ -227,8 +227,7 @@ if [[ -f "$SCHEMA_FILE" ]]; then
     log_warn "数据库已包含 $table_count 张表，跳过 schema 创建"
     log_info "使用 --reset 参数可重新初始化"
   else
-    docker cp "$SCHEMA_FILE" "$CONTAINER_NAME:/tmp/unified_schema.sql"
-    docker exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -f /tmp/unified_schema.sql
+    execute_sql_file "$SCHEMA_FILE" "unified_schema.sql"
   fi
 else
   log_error "Schema 文件不存在: $SCHEMA_FILE"
@@ -263,6 +262,9 @@ MIGRATION_FILES=(
   "databases/sprint-r83.9/01-final-8-tables.sql"
   "databases/sprint-r86/01-file-index-jobs.sql"
   "databases/sprint-r93/01-legacy-identity-columns.sql"
+  "databases/sprint-r95/01-storage-capacity-columns.sql"
+  "databases/sprint-r96/01-task-create-end-at.sql"
+  "databases/sprint-r97/01-push-session-status-note.sql"
 )
 
 log_step "执行当前版本 DDL patch..."

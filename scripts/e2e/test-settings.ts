@@ -66,12 +66,13 @@ async function main() {
     !/from\s+["']@\/lib\/mock\/settings["']/.test(source)
   )
   check(
-    "settings shows sync config source",
-    source.includes("settings-sync-config") &&
-      source.includes("同步配置 (只读)") &&
-      source.includes("凭据引用") &&
-      source.includes("不展示敏感值"),
-    "settings-sync-config 卡片存在且显示产品化配置引用"
+    "settings sync/scheduler 旧中心调度 UI 已注释（push 主路径不适配）",
+    source.includes("DEPRECATED_CENTER_SCHEDULER_UI") &&
+      source.includes("settings-sync-config") &&
+      source.includes("settings-scheduler-config") &&
+      source.includes("settings-site-runtime") &&
+      source.includes("settings-external-agent"),
+    "DEPRECATED_CENTER_SCHEDULER_UI 标记保留被注释卡片"
   )
   check(
     "settings shows site registry",
@@ -81,12 +82,11 @@ async function main() {
     "settings-site-registry 卡片存在"
   )
   check(
-    "settings shows scheduler config",
-    source.includes("settings-scheduler-config") &&
-      source.includes("调度配置") &&
-      source.includes("60") &&
-      source.includes("平台配置"),
-    "settings-scheduler-config 卡片存在且标注 60 分钟 + 平台配置"
+    "settings shows env key refs (仍适用)",
+    source.includes("settings-env-keys") &&
+      source.includes("运行时配置引用") &&
+      source.includes("不展示敏感值"),
+    "settings-env-keys 卡片存在"
   )
   check(
     "settings shows auth boundary",
@@ -162,7 +162,7 @@ async function main() {
   )
   check(
     "安全配置只展示环境变量键引用",
-    source.includes("envKeyRefs") && source.includes("credentialKeyRef")
+    source.includes("envKeyRefs") && source.includes("settings-env-keys")
   )
   check(
     "Auth 可替换配置边界只返回安全状态",
@@ -188,20 +188,20 @@ async function main() {
       source.includes("认证配置边界")
   )
   check(
-    "页面区分站点注册来源与中心调度配置",
+    "页面保留站点注册；旧中心调度卡片已标记废弃注释",
     source.includes("settings-site-registry") &&
-      source.includes("settings-site-runtime") &&
       source.includes("站点注册状态") &&
+      source.includes("DEPRECATED_CENTER_SCHEDULER_UI") &&
       source.includes("中心调度配置"),
-    "provenance 不混称"
+    "provenance 不混称；调度 UI 已注释"
   )
   check(
-    "页面展示每站点周期与最近状态",
-    source.includes("intervalSeconds") &&
+    "旧调度字段仅保留在已注释代码中",
+    source.includes("DEPRECATED_CENTER_SCHEDULER_UI") &&
+      source.includes("intervalSeconds") &&
       source.includes("schedulerStatus") &&
-      source.includes("consistencyStatus") &&
-      source.includes("not_run"),
-    "缺日志不显示假成功"
+      source.includes("consistencyStatus"),
+    "注释块仍含旧字段便于回溯"
   )
 
   console.log(`\n=== Settings: ${pass} pass, ${fail} fail ===`)

@@ -6,6 +6,6 @@ export async function POST(request: NextRequest) {
   await recordLogout(request, user?.username ?? "unknown")
 
   const response = NextResponse.json({ code: 200, message: "logged out", data: null })
-  clearSessionCookie(response)
+  clearSessionCookie(response, request)
   return response
 }

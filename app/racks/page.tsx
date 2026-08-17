@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -27,15 +27,27 @@ import { useSite } from "@/lib/site/site-context"
 import { InspectionView } from "@/components/racks/inspection-view"
 import { VolumesView } from "@/components/racks/volumes-view"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
-import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
+// DEVICE_MODE_LABELS / DeviceMode：模式控制 UI 暂隐藏，恢复时取消下行注释
+// import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
+import {
+  isHddDeviceTypeLabel,
+  isNasDeviceTypeLabel,
+  isOpticalDeviceTypeLabel,
+} from "@/lib/devices/device-display"
+import {
+  OPTICAL_DISC_TYPE_COLORS,
+  OPTICAL_DISC_TYPE_LABELS,
+  normalizeOpticalDiscType,
+  type OpticalDiscType,
+} from "@/lib/devices/disc-slot-display"
 import type { TaskItem } from "@/lib/types/task"
 import type { AddMediaInput, MountInput, CreateTaskInput } from "@/lib/api/providers"
 import {
   Server, HardDrive, Database, Wifi, WifiOff, AlertTriangle, Layers,
   Search, RefreshCw, Download, ListChecks, ChevronRight,
-  Info, Grid3X3, Link2, CheckCircle2, XCircle, Clock, Wrench,
-  Activity, Plus, Plug, Eye as ScanIcon, Shield, Settings,
-  Box, Timer, Power, RotateCcw, FolderOpen, FileText, ArrowRight,
+  Info, Grid3X3, Link2, CheckCircle2, XCircle, Clock,
+  Activity, Plug, Eye as ScanIcon,
+  Box, Timer, RotateCcw, FolderOpen, FileText, ArrowRight,
   FolderTree, ChevronDown, ChevronRight as ChevronRightIcon, Loader2,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
@@ -49,8 +61,8 @@ type ApiRacksDataSource = "database" | "empty" | "error"
 const deviceStatusMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   online: { label: "在线", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
   offline: { label: "离线", color: "bg-slate-100 text-slate-600", icon: XCircle },
-  error: { label: "异常", color: "bg-red-100 text-red-700", icon: AlertTriangle },
-  maintenance: { label: "维护中", color: "bg-amber-100 text-amber-700", icon: Wrench },
+  warning: { label: "警告", color: "bg-amber-100 text-amber-700", icon: AlertTriangle },
+  error: { label: "错误", color: "bg-red-100 text-red-700", icon: AlertTriangle },
 }
 
 const slotStatusColor: Record<string, { bg: string; text: string; border: string }> = {
@@ -58,6 +70,42 @@ const slotStatusColor: Record<string, { bg: string; text: string; border: string
   free:   { bg: "bg-slate-100",  text: "text-slate-400", border: "border-slate-200" },
   error:  { bg: "bg-red-500",    text: "text-white", border: "border-red-500" },
   empty:  { bg: "bg-slate-50",   text: "text-slate-300", border: "border-dashed border-slate-300" },
+}
+
+function resolveSlotDisplay(slot: RackSlot | undefined) {
+  const discType = normalizeOpticalDiscType(slot?.discType)
+  if (discType !== null) {
+    return {
+      discType,
+      label: slot?.discTypeLabel ?? OPTICAL_DISC_TYPE_LABELS[discType],
+      colors: OPTICAL_DISC_TYPE_COLORS[discType],
+    }
+  }
+  const isError = slot?.status === "error"
+  const isOccupied = slot?.occupied
+  const legacy = isError ? "error" : isOccupied ? "used" : slot ? "free" : "empty"
+  return {
+    discType: null as OpticalDiscType | null,
+    label: isError ? "坏盘" : isOccupied ? "已使用" : slot ? "无盘" : "空位",
+    colors: slotStatusColor[legacy],
+  }
+}
+
+/** 悬浮展示：把纯数字字节串格式化为可读容量 */
+function formatSlotCapacityLabel(value: string | undefined): string {
+  if (!value || value === "—") return "—"
+  const trimmed = value.trim()
+  if (/^\d+(\.\d+)?\s*[KMGTP]?B$/i.test(trimmed)) return trimmed
+  const bytes = Number(trimmed)
+  if (!Number.isFinite(bytes) || bytes < 0) return trimmed
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"]
+  let size = bytes
+  let index = 0
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024
+    index++
+  }
+  return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
 }
 
 // P1-1: logLevelColor 收敛到 lib/types/colors
@@ -69,13 +117,35 @@ interface TreeNode {
   icon: typeof HardDrive
 }
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+/** 短字段两列网格：上标签下值，减少单列右侧留白 */
+function DetailField({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: React.ReactNode
+  className?: string
+}) {
   return (
-    <div className="flex gap-3 py-2 border-b border-slate-50 dark:border-slate-700/40 last:border-0 text-sm">
-      <span className="text-slate-400 shrink-0 w-24 text-right">{label}</span>
-      <span className="text-slate-900 min-w-0 break-words">{value}</span>
+    <div
+      className={cn(
+        "min-w-0 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900/40",
+        className
+      )}
+    >
+      <p className="text-[10px] text-slate-400 mb-1">{label}</p>
+      <div className="text-sm font-medium text-slate-900 dark:text-slate-100 min-w-0 break-words">{value}</div>
     </div>
   )
+}
+
+/** 把 "203.6 TB" 拆成数字与单位，便于卡片两行展示时单位不加粗 */
+function splitCapacityLabel(raw: string): { value: string; unit?: string } {
+  const m = String(raw).trim().match(/^([\d.,]+)\s*(.*)$/)
+  if (!m) return { value: raw }
+  const unit = m[2]?.trim()
+  return unit ? { value: m[1], unit } : { value: m[1] }
 }
 
 export default function Page() {
@@ -91,26 +161,27 @@ export default function Page() {
   const [slotGroups, setSlotGroups] = useState<RackSlotGroup[]>([])
   const [slotDetailStatus, setSlotDetailStatus] = useState<"idle" | "loading" | "ready" | "empty" | "error">("idle")
   const [racksDataSource, setRacksDataSource] = useState<ApiRacksDataSource>(
-    isApiMode ? "empty" : "empty"
+    isApiMode() ? "empty" : "empty"
   )
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
   const [syncing, setSyncing] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [exportFormat, setExportFormat] = useState<"csv" | "json" | "xlsx">("csv")
+  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv")
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
 
   // R.91.1: URL view parameter for sub-views (inspection, volumes)
   const searchParams = useSearchParams()
-  const view = searchParams.get("view")
+  const view = searchParams?.get("view") ?? null
 
   // 弹窗状态
   const [showAddMedia, setShowAddMedia] = useState(false)
   const [addMediaSlot, setAddMediaSlot] = useState<number | null>(null)
   const [addMediaForm, setAddMediaForm] = useState<Partial<AddMediaInput>>({ mediaType: "hdd" })
 
+  // 挂载网盘未接真控制：状态保留供下方 false && 弹窗源码编译，入口按钮已注释
   const [showMount, setShowMount] = useState(false)
   const [mountForm, setMountForm] = useState<Partial<MountInput>>({ protocol: "CIFS", encoding: "UTF-8", permission: "readonly" })
 
@@ -137,7 +208,7 @@ export default function Page() {
   // 恢复提交中
   const [restoreSubmitting, setRestoreSubmitting] = useState(false)
 
-  // R.15: mountForm.siteName 改用真实 /api/sites, 不用 mockSites
+  // R.15: mountForm.siteName 改用真实 /api/sites（弹窗暂隐藏，仍加载以便恢复）
   const [siteOptions, setSiteOptions] = useState<{ code: string; name: string }[]>([])
 
   const showApiWriteUnavailable = (action: string) => {
@@ -147,9 +218,8 @@ export default function Page() {
     })
   }
 
-  // R.15: 加载 /api/sites 站点列表 (真实接口, 替 mockSites)
   useEffect(() => {
-    if (!isApiMode) return
+    if (!isApiMode()) return
     let cancelled = false
     fetch("/api/sites", { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
@@ -160,7 +230,7 @@ export default function Page() {
       })
       .catch(() => { /* ignore, 走 empty 兜底 */ })
     return () => { cancelled = true }
-  }, [isApiMode])
+  }, [])
 
   // 初始化浏览文件
   useEffect(() => {
@@ -282,7 +352,7 @@ export default function Page() {
 
   // 提交恢复任务
   const handleRestoreSubmit = async () => {
-    if (isApiMode) {
+    if (isApiMode()) {
       showApiWriteUnavailable("创建恢复任务")
       return
     }
@@ -401,7 +471,7 @@ export default function Page() {
         racksData.find(rack => rack.id === current?.id) ?? racksData[0] ?? null
       )
       // 数据源追踪 (R.92: mock 模式已移除, API 模式恒为 source of truth)
-      if (isApiMode) {
+      if (isApiMode()) {
         setRacksDataSource(getRacksDataSource())
       } else {
         setRacksDataSource("empty")
@@ -409,7 +479,7 @@ export default function Page() {
     } catch {
       setRackList([])
       setSelected(null)
-      setRacksDataSource(isApiMode ? "error" : "empty")
+      setRacksDataSource(isApiMode() ? "error" : "empty")
     }
   }, [isAllSites, siteCode])
 
@@ -438,12 +508,17 @@ export default function Page() {
   const filtered = useMemo(() => {
     return rackList.filter(r => {
       const matchCat = category === "all" ? true :
-        category === "hdd" ? r.deviceType === "智能硬盘库" :
-        category === "optical" ? r.deviceType === "光盘库" :
-        category === "offline" ? r.deviceStatus === "offline" :
-        category === "nas" ? (r.deviceType?.includes("网盘") || r.deviceType?.includes("NAS") || r.deviceType?.includes("CIFS")) :
-        category === "abnormal" ? (r.deviceStatus === "error" || r.status === "maintenance" || r.status === "fault") : true
-      const matchKw = !keyword || r.rackId.includes(keyword) || r.siteName.includes(keyword) || (r.ip ?? "").includes(keyword) || (r.deviceType ?? "").includes(keyword)
+        category === "hdd" ? isHddDeviceTypeLabel(r.deviceType) :
+        category === "optical" ? isOpticalDeviceTypeLabel(r.deviceType) :
+        category === "offline" ? (r.deviceType?.includes("离线库") || r.deviceStatus === "offline") :
+        category === "nas" ? isNasDeviceTypeLabel(r.deviceType) :
+        category === "abnormal" ? (r.deviceStatus === "error" || r.deviceStatus === "warning" || r.status === "warning" || r.status === "fault" || r.status === "maintenance") : true
+      const matchKw = !keyword
+        || r.rackId.includes(keyword)
+        || (r.rackName ?? "").includes(keyword)
+        || r.siteName.includes(keyword)
+        || (r.ip ?? "").includes(keyword)
+        || (r.deviceType ?? "").includes(keyword)
       return matchCat && matchKw
     })
   }, [rackList, category, keyword])
@@ -454,11 +529,11 @@ export default function Page() {
     treeNodes.forEach(n => {
       map[n.id] = rackList.filter(r => {
         if (n.id === "all") return true
-        if (n.id === "hdd") return r.deviceType === "智能硬盘库"
-        if (n.id === "optical") return r.deviceType === "光盘库"
-        if (n.id === "offline") return r.deviceStatus === "offline"
-        if (n.id === "nas") return r.deviceType?.includes("网盘") || r.deviceType?.includes("NAS") || r.deviceType?.includes("CIFS")
-        if (n.id === "abnormal") return r.deviceStatus === "error" || r.status === "maintenance" || r.status === "fault"
+        if (n.id === "hdd") return isHddDeviceTypeLabel(r.deviceType)
+        if (n.id === "optical") return isOpticalDeviceTypeLabel(r.deviceType)
+        if (n.id === "offline") return r.deviceType?.includes("离线库") || r.deviceStatus === "offline"
+        if (n.id === "nas") return isNasDeviceTypeLabel(r.deviceType)
+        if (n.id === "abnormal") return r.deviceStatus === "error" || r.deviceStatus === "warning" || r.status === "warning" || r.status === "fault" || r.status === "maintenance"
         return false
       }).length
     })
@@ -466,7 +541,12 @@ export default function Page() {
   }, [rackList])
 
   const loadSlotDetails = async (rack: Rack) => {
-    if (!isApiMode) {
+    if (isNasDeviceTypeLabel(rack.deviceType)) {
+      setSlotGroups([])
+      setSlotDetailStatus("idle")
+      return
+    }
+    if (!isApiMode()) {
       setSlotGroups([])
       setSlotDetailStatus(rack.slots?.length > 0 ? "ready" : "empty")
       return
@@ -490,16 +570,47 @@ export default function Page() {
     }
   }
 
+  const loadNasMountDetail = async (rack: Rack) => {
+    if (!isApiMode() || !isNasDeviceTypeLabel(rack.deviceType)) return
+    try {
+      const detail = await rackProvider.getById(rack.rackId, rack.siteCode)
+      if (!detail) return
+      setSelected(current => current?.siteCode === rack.siteCode && current?.rackId === rack.rackId
+        ? {
+            ...current,
+            ...detail,
+            // 列表侧已有站点名时优先保留
+            siteName: current.siteName || detail.siteName,
+            mountInfo: detail.mountInfo,
+            totalCapacity: undefined,
+            remainingCapacity: undefined,
+            usagePercent: undefined,
+            totalSlots: 0,
+            usedSlots: 0,
+            slots: [],
+          }
+        : current)
+    } catch {
+      // 挂载信息缺失时仍展示基础字段
+    }
+  }
+
   const openDetail = (rack: Rack) => {
     setSelected(rack)
     setDrawerOpen(true)
+    if (isNasDeviceTypeLabel(rack.deviceType)) {
+      setSlotGroups([])
+      setSlotDetailStatus("idle")
+      void loadNasMountDetail(rack)
+      return
+    }
     void loadSlotDetails(rack)
   }
 
   const handleSync = async () => {
     setSyncing(true)
     try {
-      if (isApiMode) {
+      if (isApiMode()) {
         await loadRacks()
         toast({ title: "数据已刷新", description: "已重新读取中心库设备数据" })
         return
@@ -560,7 +671,7 @@ export default function Page() {
 
   const handleScan = async (rack: Rack, e?: React.MouseEvent) => {
     e?.stopPropagation()
-    if (isApiMode) {
+    if (isApiMode()) {
       showApiWriteUnavailable("创建设备扫描任务")
       return
     }
@@ -573,7 +684,7 @@ export default function Page() {
 
   const handleRaidCheck = async (rack: Rack, e?: React.MouseEvent) => {
     e?.stopPropagation()
-    if (isApiMode) {
+    if (isApiMode()) {
       showApiWriteUnavailable("创建 RAID 校验任务")
       return
     }
@@ -586,7 +697,7 @@ export default function Page() {
 
   const handleCreateTaskFromDevice = async () => {
     if (!selected) return
-    if (isApiMode) {
+    if (isApiMode()) {
       showApiWriteUnavailable("生成设备任务")
       return
     }
@@ -598,8 +709,9 @@ export default function Page() {
     } catch { toast({ title: "生成失败", variant: "destructive" }) }
   }
 
+  // 挂载网盘未接真控制，暂隐藏（入口按钮已注释）
   const handleMount = async () => {
-    if (isApiMode) {
+    if (isApiMode()) {
       showApiWriteUnavailable("挂载网络存储")
       return
     }
@@ -626,7 +738,7 @@ export default function Page() {
 
   const handleAddMedia = async () => {
     if (!selected || addMediaSlot === null) return
-    if (isApiMode) {
+    if (isApiMode()) {
       showApiWriteUnavailable("添加介质")
       return
     }
@@ -644,65 +756,64 @@ export default function Page() {
     } catch { toast({ title: "添加失败", variant: "destructive" }) }
   }
 
-  const handleModeChange = async (rack: Rack, mode: string) => {
-    if (isApiMode) {
-      showApiWriteUnavailable("切换设备模式")
-      return
-    }
-    // 立即更新 UI
-    setRackList(prev => prev.map(r => r.id === rack.id ? { ...r, mode: mode as DeviceMode } : r))
-    setSelected(prev => prev ? { ...prev, mode: mode as DeviceMode } : prev)
-    try {
-      await rackProvider.updateDeviceMode(rack.id, mode)
-      toast({ title: "模式切换成功", description: `设备已切换为 ${DEVICE_MODE_LABELS[mode as DeviceMode] ?? mode}` })
-    } catch {
-      // 回滚
-      setRackList(prev => prev.map(r => r.id === rack.id ? { ...r, mode: rack.mode as DeviceMode } : r))
-      setSelected(prev => prev ? { ...prev, mode: rack.mode as DeviceMode } : prev)
-      toast({ title: "切换失败", variant: "destructive" })
-    }
-  }
+  // 模式控制未接真控制，UI 已隐藏；保留 handler 便于恢复
+  // const handleModeChange = async (rack: Rack, mode: string) => {
+  //   if (isApiMode()) {
+  //     showApiWriteUnavailable("切换设备模式")
+  //     return
+  //   }
+  //   setRackList(prev => prev.map(r => r.id === rack.id ? { ...r, mode: mode as DeviceMode } : r))
+  //   setSelected(prev => prev ? { ...prev, mode: mode as DeviceMode } : prev)
+  //   try {
+  //     await rackProvider.updateDeviceMode(rack.id, mode)
+  //     toast({ title: "模式切换成功", description: `设备已切换为 ${DEVICE_MODE_LABELS[mode as DeviceMode] ?? mode}` })
+  //   } catch {
+  //     setRackList(prev => prev.map(r => r.id === rack.id ? { ...r, mode: rack.mode as DeviceMode } : r))
+  //     setSelected(prev => prev ? { ...prev, mode: rack.mode as DeviceMode } : prev)
+  //     toast({ title: "切换失败", variant: "destructive" })
+  //   }
+  // }
 
   const openDrawerDetail = openDetail
 
   const renderSlotCell = (slot: RackSlot | undefined, index: number, key: string) => {
-    const isOccupied = slot?.occupied
-    const isError = slot?.status === "error"
-    const status = isError ? "error" : isOccupied ? "used" : slot ? "free" : "empty"
-    const sc = slotStatusColor[status]
+    const displayIndex = slot?.index && slot.index > 0 ? slot.index : index
+    const { discType, label, colors: sc } = resolveSlotDisplay(slot)
+    const isEmptyOptical = discType === 0 || (!slot?.occupied && discType === null && slot?.status !== "error")
+    const showPlus = !slot || (isEmptyOptical && !isApiMode())
 
     return (
       <Tooltip key={key}>
         <TooltipTrigger asChild>
-          {isOccupied || isError ? (
-            <button
-              className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer transition-colors", sc.bg, sc.text, isError && "ring-2 ring-red-400")}
-              onClick={() => {
-                toast({
-                  title: `盘位 ${index} 信息`,
-                  description: `编号: ${slot?.discNo ?? "—"} | 类型: ${slot?.mediaType === "hdd" ? "硬盘" : slot?.mediaType === "bd" ? "蓝光" : "离线"} | 容量: ${slot?.capacity ?? "—"}`
-                })
-              }}
-            >
-              <span>{index}</span>
-              <span className="text-[8px] opacity-75">{isError ? "异常" : "已用"}</span>
-            </button>
-          ) : (
-            <button
-              className={cn("aspect-square rounded text-xs font-medium flex flex-col items-center justify-center cursor-pointer border transition-colors", sc.bg, sc.text, sc.border)}
-              onClick={() => isApiMode ? showApiWriteUnavailable("添加介质") : openAddMedia(index)}
-            >
-              <span>{index}</span>
-              <Plus className="h-2.5 w-2.5" />
-            </button>
-          )}
+          <button
+            type="button"
+            className={cn(
+              "h-8 w-full rounded text-[11px] font-medium flex items-center justify-center cursor-pointer transition-colors tabular-nums leading-none",
+              sc.bg,
+              sc.text,
+              discType === null && showPlus && sc.border && `border ${sc.border}`,
+              discType === 4 && "ring-1 ring-red-400"
+            )}
+            onClick={() => {
+              if (showPlus && !isApiMode()) {
+                openAddMedia(displayIndex)
+                return
+              }
+              toast({
+                title: `盘位 ${displayIndex}`,
+                description: `状态: ${label} | 总容量: ${formatSlotCapacityLabel(slot?.capacity)} | 已使用: ${formatSlotCapacityLabel(slot?.usedCapacity)}`,
+              })
+            }}
+          >
+            <span>{displayIndex}</span>
+          </button>
         </TooltipTrigger>
         <TooltipContent>
-          <p className="text-xs">
-            盘位 {index}: {slot?.occupied
-              ? `${slot.discNo ?? "已占用"} (${slot.mediaType === "hdd" ? "硬盘" : slot.mediaType === "bd" ? "蓝光" : "离线"})`
-              : "空闲"}
-          </p>
+          <div className="space-y-0.5 text-xs">
+            <p>盘位 {displayIndex}{label ? ` · ${label}` : ""}</p>
+            <p>总容量：{formatSlotCapacityLabel(slot?.capacity)}</p>
+            <p>已使用：{formatSlotCapacityLabel(slot?.usedCapacity)}</p>
+          </div>
         </TooltipContent>
       </Tooltip>
     )
@@ -715,7 +826,7 @@ export default function Page() {
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-4">
             <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-700" onClick={() => router.push("/racks")}>
-              <span className="mr-1">&larr;</span> 返回盘架管理
+              <span className="mr-1">&larr;</span> 返回设备管理
             </Button>
           </div>
           <InspectionView />
@@ -730,7 +841,7 @@ export default function Page() {
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-4">
             <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-700" onClick={() => router.push("/racks")}>
-              <span className="mr-1">&larr;</span> 返回盘架管理
+              <span className="mr-1">&larr;</span> 返回设备管理
             </Button>
           </div>
           <VolumesView />
@@ -739,17 +850,22 @@ export default function Page() {
     )
   }
 
+  const totalCapacityParts = splitCapacityLabel(stats.totalCapacity)
+  const remainingCapacityParts = splitCapacityLabel(stats.remainingCapacity)
+
   return (
     <AppShell>
       <PageHeader
-        title="盘架管理"
+        title="设备管理"
         description="存储设备总览、盘位监控与任务关联"
         badge="DEVICE MGMT"
         actions={
           <div className="flex items-center gap-2">
+            {/* 挂载网盘未接真控制，暂隐藏
             <Button variant="outline" size="sm" className="h-8" onClick={() => setShowMount(true)}>
               <Plug className="h-4 w-4 mr-1" />挂载网盘
             </Button>
+            */}
             <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as typeof exportFormat)}>
               <SelectTrigger className="h-8 w-[100px]" data-testid="racks-export-format">
                 <SelectValue />
@@ -757,7 +873,9 @@ export default function Page() {
               <SelectContent>
                 <SelectItem value="csv">CSV</SelectItem>
                 <SelectItem value="json">JSON</SelectItem>
-                <SelectItem value="xlsx">XLSX (未接入)</SelectItem>
+                {/* XLSX 导出未接入，暂隐藏
+                <SelectItem value="xlsx">XLSX</SelectItem>
+                */}
               </SelectContent>
             </Select>
             <Button
@@ -777,13 +895,13 @@ export default function Page() {
         }
       />
 
-      {isApiMode && racksDataSource === "error" && (
+      {isApiMode() && racksDataSource === "error" && (
         <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>中心库设备数据读取失败，请检查数据库连接与同步状态。</span>
         </div>
       )}
-      {isApiMode && racksDataSource === "empty" && (
+      {isApiMode() && racksDataSource === "empty" && (
         <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300">
           <Info className="h-4 w-4 shrink-0" />
           <span>暂无中心库设备记录，请先完成站点同步。</span>
@@ -797,14 +915,14 @@ export default function Page() {
         description="存储设备数量、容量、盘位使用率及健康状态实时汇总"
       >
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-          <StatCard title="设备总数" value={stats.total} unit="台" icon={Server} />
-          <StatCard title="在线" value={stats.online} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-          <StatCard title="离线" value={stats.offline} icon={WifiOff} iconBg="bg-slate-50" iconColor="text-slate-600" />
-          <StatCard title="异常" value={stats.fault + stats.maintenance} icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
-          <StatCard title="总容量" value={stats.totalCapacity} icon={Database} iconBg="bg-blue-50" iconColor="text-blue-600" />
-          <StatCard title="剩余容量" value={stats.remainingCapacity} icon={Activity} iconBg="bg-cyan-50" iconColor="text-cyan-600" />
-          <StatCard title="已用盘位" value={stats.usedSlots} unit="个" icon={Grid3X3} iconBg="bg-violet-50" iconColor="text-violet-600" />
-          <StatCard title="平均使用率" value={`${stats.avgUsage}%`} icon={Box} iconBg="bg-amber-50" iconColor="text-amber-600" />
+          <StatCard horizontal horizontalText="stack" title="设备总数" value={stats.total} unit="台" icon={Server} />
+          <StatCard horizontal horizontalText="stack" title="在线" value={stats.online} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+          <StatCard horizontal horizontalText="stack" title="离线" value={stats.offline} icon={WifiOff} iconBg="bg-slate-50" iconColor="text-slate-600" />
+          <StatCard horizontal horizontalText="stack" title="异常" value={stats.fault + stats.warning + stats.maintenance} icon={AlertTriangle} iconBg="bg-red-50" iconColor="text-red-600" />
+          <StatCard horizontal horizontalText="stack" title="总容量" value={totalCapacityParts.value} unit={totalCapacityParts.unit} icon={Database} iconBg="bg-blue-50" iconColor="text-blue-600" />
+          <StatCard horizontal horizontalText="stack" title="剩余容量" value={remainingCapacityParts.value} unit={remainingCapacityParts.unit} icon={Activity} iconBg="bg-cyan-50" iconColor="text-cyan-600" />
+          <StatCard horizontal horizontalText="stack" title="已用盘位" value={stats.usedSlots} unit="个" icon={Grid3X3} iconBg="bg-violet-50" iconColor="text-violet-600" />
+          <StatCard horizontal horizontalText="stack" title="平均使用率" value={stats.avgUsage} unit="%" icon={Box} iconBg="bg-amber-50" iconColor="text-amber-600" />
         </div>
       </GlassPanel>
 
@@ -895,12 +1013,12 @@ export default function Page() {
                     return (
                       <TableRow key={`${r.siteCode}-${r.rackId}-${r.id}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" onClick={() => openDrawerDetail(r)}>
                         <TableCell>
-                          <p className="font-medium text-sm font-mono">{r.rackId}</p>
-                          <p className="text-[10px] text-slate-400">{r.room ?? r.datacenter}</p>
+                          <p className="font-medium text-sm">{r.rackName}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">ID {r.rackId}</p>
                         </TableCell>
                         <TableCell className="font-mono text-xs">{r.ip ?? "—"}</TableCell>
                         <TableCell className="text-xs">{r.deviceType ?? "—"}</TableCell>
-                        <TableCell><p className="text-sm">{r.siteName}</p><p className="text-[10px] text-slate-400">{r.siteCode}</p></TableCell>
+                        <TableCell><p className="text-sm">{r.siteName}</p></TableCell>
                         <TableCell className="text-xs">{r.totalCapacity ?? "—"}</TableCell>
                         <TableCell className="text-xs">{r.remainingCapacity ?? "—"}</TableCell>
                         <TableCell>
@@ -944,10 +1062,7 @@ export default function Page() {
         <DrawerContent className="!w-[720px] !max-w-[90vw]">
           <DrawerHeader className="border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-start justify-between">
-              <div>
-                <DrawerTitle className="text-base font-mono">{selected?.rackId}</DrawerTitle>
-                <DrawerDescription className="text-xs mt-1">{selected?.deviceType} · {selected?.siteName}</DrawerDescription>
-              </div>
+              <DrawerTitle className="text-base">{selected?.rackName}</DrawerTitle>
               {selected && (() => {
                 const ds = deviceStatusMap[selected.deviceStatus ?? "online"]
                 return <Badge className={cn("text-xs", ds.color)}>{ds.label}</Badge>
@@ -955,125 +1070,116 @@ export default function Page() {
             </div>
           </DrawerHeader>
           <ScrollArea className="flex-1 min-h-0">
-            {selected && (
-              <div className="p-5 space-y-5">
-                {/* 基础信息 */}
-                <section>
-                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-slate-400" />基础信息</h4>
-                  <div className="text-sm">
-                    <DetailRow label="设备名称" value={selected.rackId} />
-                    <DetailRow label="IP 地址" value={<span className="font-mono">{selected.ip ?? "—"}</span>} />
-                    <DetailRow label="设备类型" value={selected.deviceType ?? "—"} />
-                    <DetailRow label="所属站点" value={selected.siteName} />
-                    <DetailRow label="总容量" value={selected.totalCapacity ?? "—"} />
-                    <DetailRow label="剩余容量" value={selected.remainingCapacity ?? "—"} />
-                    <DetailRow label="使用率" value={
-                      selected.usagePercent != null
-                        ? <div className="flex items-center gap-2"><Progress value={selected.usagePercent} className="h-1.5 w-20" /><span>{selected.usagePercent}%</span></div>
-                        : "—"
-                    } />
-                    <DetailRow label="最近同步" value={formatBeijingTime(selected.lastSyncAt) || "—"} />
-                    <DetailRow label="当前任务数" value={(selected.currentTaskCount ?? 0).toString()} />
-                  </div>
-                </section>
-
-                <Separator />
-
-                {/* 模式控制 */}
-                <section>
-                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Power className="h-4 w-4 text-slate-400" />模式控制</h4>
-                  <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-full flex relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
-                    {/* 滑动指示器 */}
-                    <div
-                      className="absolute top-1 bottom-1 bg-white dark:bg-slate-700 rounded-full shadow-md transition-[left] duration-200 ease-out"
-                      style={{
-                        width: "calc(33.333% - 2px)",
-                        left: selected ? `calc(2px + ${(["off", "standard", "high_speed"].indexOf(selected.mode ?? 'off') * (100 / 3))}%)` : "2px",
-                      }}
-                    />
-                    {(["off", "standard", "high_speed"] as DeviceMode[]).map(mode => (
-                      <button
-                        key={mode}
-                        className={cn(
-                          "flex-1 relative z-10 h-8 text-xs font-medium rounded-full transition-colors duration-200",
-                          selected.mode === mode ? "text-blue-600 dark:text-blue-300" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        )}
-                        onClick={() => handleModeChange(selected, mode)}
-                      >
-                        {DEVICE_MODE_LABELS[mode]}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-2">模式切换需在设备本地控制台操作</p>
-                </section>
-
-                {/* 控制按钮 */}
-                <section>
-                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Settings className="h-4 w-4 text-slate-400" />设备操作</h4>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleScan(selected)}>
-                      <ScanIcon className="h-3.5 w-3.5 mr-1" />扫描设备
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleRaidCheck(selected)}>
-                      <Shield className="h-3.5 w-3.5 mr-1" />RAID 校验
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setShowCreateTask(true) }}>
-                      <Plus className="h-3.5 w-3.5 mr-1" />生成任务
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleViewTasks(selected)}>
-                      <ListChecks className="h-3.5 w-3.5 mr-1" />查看任务
-                    </Button>
-                  </div>
-                </section>
-
-                {/* 托盘信息 */}
-                {selected.trays && selected.trays.length > 0 && (
-                  <>
-                    <Separator />
-                    <section>
-                      <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Layers className="h-4 w-4 text-slate-400" />托盘信息</h4>
-                      <div className="grid grid-cols-4 gap-2">
-                        {selected.trays.map(tray => (
-                          <div key={tray.id} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-center">
-                            <p className="text-xs text-slate-400">{tray.label}</p>
-                            <p className="text-lg font-bold text-slate-900 mt-1">{tray.usedCount}/{tray.slotCount}</p>
-                            <p className="text-[10px] text-slate-400">块/位</p>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  </>
+            {selected && (() => {
+              const isNasSelected = isNasDeviceTypeLabel(selected.deviceType)
+              const mount = selected.mountInfo
+              const isS3 = mount?.protocol === 5
+              return (
+              <div className="pt-[13px] px-5 pb-5">
+                {/* 1. NAS：挂载信息优先 */}
+                {isNasSelected && (
+                  <section>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                      <Plug className="h-4 w-4 text-slate-400" />挂载信息
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <DetailField label="协议类型" value={mount?.protocolLabel ?? "—"} />
+                      {isS3 ? (
+                        <>
+                          <DetailField label="传输协议" value={mount?.transportProtocol ?? "—"} />
+                          <DetailField label="S3服务" value={mount?.srcPath ?? "—"} className="col-span-2" />
+                          <DetailField label="密钥ID" value={mount?.userName ?? "—"} />
+                          <DetailField label="密钥" value={mount?.passwordMasked ?? (mount?.hasPassword ? "****" : "—")} />
+                          <DetailField label="挂载目录" value={mount?.mountPoint ?? "—"} className="col-span-2" />
+                          <DetailField label="管理端目录" value={mount?.managerPath ?? "—"} className="col-span-2" />
+                          <DetailField label="权限" value={mount?.permissionLabel ?? "—"} />
+                          <DetailField label="限速" value={mount?.maxSpeedLabel ?? "—"} />
+                          <DetailField label="附加参数" value={mount?.extraParam ?? "—"} className="col-span-2" />
+                        </>
+                      ) : (
+                        <>
+                          <DetailField label="挂载目录" value={mount?.mountPoint ?? "—"} className="col-span-2" />
+                          <DetailField label="管理端目录" value={mount?.managerPath ?? "—"} className="col-span-2" />
+                          <DetailField label="编码类型" value={mount?.encodingLabel ?? "—"} />
+                          <DetailField label="用户" value={mount?.userName ?? "—"} />
+                          <DetailField label="数据源" value={mount?.srcPath ?? "—"} className="col-span-2" />
+                          <DetailField label="密码" value={mount?.passwordMasked ?? (mount?.hasPassword ? "****" : "—")} />
+                          <DetailField label="配额" value={mount?.quotaLabel ?? "—"} />
+                          <DetailField label="权限" value={mount?.permissionLabel ?? "—"} />
+                          <DetailField label="限速" value={mount?.maxSpeedLabel ?? "—"} />
+                          <DetailField label="附加参数" value={mount?.extraParam ?? "—"} className="col-span-2" />
+                        </>
+                      )}
+                    </div>
+                    {!mount && (
+                      <p className="mt-2 text-xs text-slate-400">挂载明细未同步或未能按序列号关联到 tbl_mount_dir</p>
+                    )}
+                  </section>
                 )}
 
-                {/* 盘位信息 */}
-                {(selected.totalSlots > 0 || slotDetailStatus !== "idle") && (
+                {/* 1. 非 NAS：托盘摘要（有则紧挨盘位前） */}
+                {!isNasSelected && selected.trays && selected.trays.length > 0 && (
+                  <section>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Layers className="h-4 w-4 text-slate-400" />托盘信息</h4>
+                    <div className="grid grid-cols-4 gap-2">
+                      {selected.trays.map(tray => (
+                        <div key={tray.id} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-center">
+                          <p className="text-xs text-slate-400">{tray.label}</p>
+                          <p className="text-lg font-bold text-slate-900 mt-1">{tray.usedCount}/{tray.slotCount}</p>
+                          <p className="text-[10px] text-slate-400">块/位</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* 盘位信息：网盘不展示 */}
+                {!isNasSelected && (selected.totalSlots > 0 || slotDetailStatus !== "idle") && (
                   <>
-                    <Separator />
+                    {selected.trays && selected.trays.length > 0 ? <Separator className="mt-2 mb-[15px]" /> : null}
                     <section>
-                      <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                        <Grid3X3 className="h-4 w-4 text-slate-400" />盘位信息
-                        <span className="text-xs font-normal text-slate-400">（{selected.usedSlots}/{selected.totalSlots} 已占用）</span>
-                      </h4>
-                      {isApiMode && slotDetailStatus === "loading" && (
+                      {/* 标题 + 图例置顶 sticky，滚动盘位时仍可见 */}
+                      <div className="sticky top-0 z-10 -mx-1 mb-3 flex items-center justify-between gap-3 bg-background/95 px-1 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                        <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2 shrink-0 min-w-0">
+                          <Grid3X3 className="h-4 w-4 text-slate-400" />盘位信息
+                          <span className="text-xs font-normal text-slate-400">（{selected.usedSlots}/{selected.totalSlots} 已占用）</span>
+                        </h4>
+                        {(!isApiMode() || slotDetailStatus === "ready") && (
+                          <div className="flex flex-wrap justify-end gap-3 text-xs text-slate-500">
+                            {([0, 1, 2, 3, 4] as OpticalDiscType[]).map((key) => (
+                              <span key={key} className="flex items-center gap-1">
+                                <span className={cn("h-2.5 w-2.5 rounded", OPTICAL_DISC_TYPE_COLORS[key].swatch)} />
+                                {OPTICAL_DISC_TYPE_LABELS[key]}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {isApiMode() && slotDetailStatus === "loading" && (
                         <div className="py-6 text-center text-xs text-slate-400">正在加载盘位明细...</div>
                       )}
-                      {isApiMode && slotDetailStatus === "empty" && (
+                      {isApiMode() && slotDetailStatus === "empty" && (
                         <div className="py-6 text-center text-xs text-slate-400">
                           盘位明细未同步，当前仅展示汇总
                         </div>
                       )}
-                      {isApiMode && slotDetailStatus === "error" && (
+                      {isApiMode() && slotDetailStatus === "error" && (
                         <div className="py-6 text-center text-xs text-red-500">
                           盘位明细加载失败，当前仅展示汇总
                         </div>
                       )}
                       <TooltipProvider>
-                        {isApiMode && slotDetailStatus === "ready" && (
-                          <div className="space-y-4">
+                        {isApiMode() && slotDetailStatus === "ready" && (
+                          <div className="space-y-3">
                             {slotGroups.map(group => (
                               <div key={`${selected.siteCode}-${selected.rackId}-${group.cageId}`}>
-                                <p className="mb-2 text-xs font-medium text-slate-600">{group.cageName}</p>
-                                <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(8, Math.max(1, group.slots.length))}, minmax(0, 1fr))` }}>
+                                {group.cageName ? (
+                                  <p className="mb-1.5 text-xs font-medium text-slate-600">{group.cageName}</p>
+                                ) : null}
+                                <div
+                                  className="grid gap-1"
+                                  style={{ gridTemplateColumns: "repeat(15, minmax(0, 1fr))" }}
+                                >
                                   {group.slots.map(slot => renderSlotCell(
                                     slot,
                                     slot.index,
@@ -1084,8 +1190,11 @@ export default function Page() {
                             ))}
                           </div>
                         )}
-                        {!isApiMode && (
-                          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(8, selected.totalSlots)}, minmax(0, 1fr))` }}>
+                        {!isApiMode() && (
+                          <div
+                            className="grid gap-1"
+                            style={{ gridTemplateColumns: "repeat(15, minmax(0, 1fr))" }}
+                          >
                             {Array.from({ length: selected.totalSlots }, (_, i) => {
                               const slot = selected.slots?.find(s => s.index === i + 1)
                               return renderSlotCell(slot, i + 1, `${selected.siteCode}-${selected.rackId}-${i + 1}`)
@@ -1093,21 +1202,44 @@ export default function Page() {
                           </div>
                         )}
                       </TooltipProvider>
-                      {(!isApiMode || slotDetailStatus === "ready") && (
-                        <div className="flex gap-4 text-xs text-slate-500 mt-3">
-                          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-blue-600" />已使用</span>
-                          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-slate-100 border border-slate-200" />空闲</span>
-                          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-red-500" />异常</span>
-                        </div>
-                      )}
                     </section>
                   </>
                 )}
 
+                {/* 模式控制 + 设备操作：未接真控制，UI 已移除（查看任务用列表入口）。恢复时从 git 历史取回该区块。 */}
+
+                <Separator className="mt-2 mb-[15px]" />
+
+                {/* 2. 基础信息：三列网格（与任务详情基本信息一致） */}
+                <section>
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-slate-400" />基础信息</h4>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <DetailField label="设备名称" value={selected.rackName} />
+                    <DetailField label="设备类型" value={selected.deviceType ?? "—"} />
+                    <DetailField label="序列号" value={<span className="font-mono text-xs">{selected.serialNo ?? "—"}</span>} />
+                    {/* <DetailField label="设备 ID" value={<span className="font-mono">{selected.rackId}</span>} /> */}
+                    {!isNasSelected && (
+                      <>
+                        <DetailField label="总容量" value={selected.totalCapacity ?? "—"} />
+                        <DetailField label="剩余容量" value={selected.remainingCapacity ?? "—"} />
+                        <DetailField label="使用率" value={
+                          selected.usagePercent != null
+                            ? <div className="flex items-center gap-2"><Progress value={selected.usagePercent} className="h-1.5 w-20" /><span>{selected.usagePercent}%</span></div>
+                            : "—"
+                        } />
+                      </>
+                    )}
+                    <DetailField label="所属站点" value={selected.siteName} />
+                    <DetailField label="IP 地址" value={<span className="font-mono">{selected.ip ?? "—"}</span>} />
+                    <DetailField label="最近同步" value={formatBeijingTime(selected.lastSyncAt) || "—"} />
+                    {/* <DetailField label="当前任务数" value={(selected.currentTaskCount ?? 0).toString()} /> */}
+                  </div>
+                </section>
+
                 {/* 关联任务 */}
                 {selected.recentTasks && selected.recentTasks.length > 0 && (
                   <>
-                    <Separator />
+                    <Separator className="mt-2 mb-[15px]" />
                     <section>
                       <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
                         <Link2 className="h-4 w-4 text-slate-400" />关联任务
@@ -1153,7 +1285,7 @@ export default function Page() {
                 {/* 设备日志 */}
                 {selected.deviceLogs && selected.deviceLogs.length > 0 && (
                   <>
-                    <Separator />
+                    <Separator className="mt-2 mb-[15px]" />
                     <section>
                       <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Timer className="h-4 w-4 text-slate-400" />设备日志</h4>
                       <div className="space-y-1.5">
@@ -1167,7 +1299,8 @@ export default function Page() {
                   </>
                 )}
               </div>
-            )}
+              )
+            })()}
           </ScrollArea>
         </DrawerContent>
       </Drawer>
@@ -1208,7 +1341,8 @@ export default function Page() {
         </DialogContent>
       </Dialog>
 
-      {/* ── 挂载网盘弹窗 ─────────────────────────────────────── */}
+      {/* 挂载网盘弹窗：未接真控制，暂不渲染（false && 保留源码便于恢复） */}
+      {false && (
       <Dialog open={showMount} onOpenChange={setShowMount}>
         <DialogContent className="!max-w-2xl">
           <DialogHeader><DialogTitle><Plug className="h-5 w-5 inline mr-1" />挂载网盘 / 网络存储</DialogTitle><DialogDescription>配置 CIFS/NFS 网络存储挂载参数</DialogDescription></DialogHeader>
@@ -1235,10 +1369,10 @@ export default function Page() {
               <Select value={mountForm.siteName ?? ""} onValueChange={v => setMountForm(f => ({ ...f, siteName: v }))}>
                 <SelectTrigger><SelectValue placeholder="选择站点" /></SelectTrigger>
                 <SelectContent>
-                  {(isApiMode ? siteOptions : []).map(site => (
+                  {(isApiMode() ? siteOptions : []).map(site => (
                     <SelectItem key={site.code} value={site.name}>{site.name} ({site.code})</SelectItem>
                   ))}
-                  {!isApiMode && (
+                  {!isApiMode() && (
                     <SelectItem value="disabled" disabled>请先在站点管理完成站点配置</SelectItem>
                   )}
                 </SelectContent>
@@ -1309,6 +1443,7 @@ export default function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* ── 从设备生成任务弹窗 ───────────────────────────────── */}
       <Dialog open={showCreateTask} onOpenChange={setShowCreateTask}>
@@ -1395,7 +1530,7 @@ export default function Page() {
           <div className="p-4 bg-slate-50 dark:bg-slate-900/50 min-h-[260px]">
             {/* 存储浏览 */}
             <TabsContent value="browse" forceMount={undefined} className="m-0">
-              {isApiMode ? (
+              {isApiMode() ? (
                 <EmptyState
                   severity="blocked"
                   icon={FolderTree}
@@ -1459,7 +1594,7 @@ export default function Page() {
 
             {/* 数据恢复 */}
             <TabsContent value="restore" className="m-0">
-              {isApiMode ? (
+              {isApiMode() ? (
                 <EmptyState
                   severity="blocked"
                   icon={RotateCcw}
@@ -1595,7 +1730,7 @@ export default function Page() {
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">离线</p>
                     </div>
                     <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3">
-                      <p className="text-2xl font-semibold text-red-700 dark:text-red-300">{filtered.filter(r => r.deviceStatus === "error" || r.status === "fault").length}</p>
+                      <p className="text-2xl font-semibold text-red-700 dark:text-red-300">{filtered.filter(r => r.deviceStatus === "error" || r.deviceStatus === "warning" || r.status === "fault" || r.status === "warning").length}</p>
                       <p className="mt-1 text-xs text-red-700/70 dark:text-red-400">异常</p>
                     </div>
                   </div>
@@ -1648,7 +1783,7 @@ export default function Page() {
                         return (
                           <div key={`overview-${r.siteCode}-${r.rackId}-${r.id}`} className="rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 p-2">
                             <div className="flex items-center justify-between gap-1">
-                              <span className="font-mono font-medium truncate text-slate-900">{r.rackId}</span>
+                              <span className="font-medium truncate text-slate-900">{r.rackName}</span>
                               <Badge className={cn("text-[10px] shrink-0", ds.color)}>{ds.label}</Badge>
                             </div>
                             <p className="mt-1 text-[10px] text-slate-400 truncate">{r.siteName} · {r.deviceType ?? "—"}</p>

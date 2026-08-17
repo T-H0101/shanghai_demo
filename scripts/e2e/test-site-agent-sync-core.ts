@@ -278,6 +278,7 @@ async function main() {
         siteCode: "SH01",
         version: "r19c-test",
         overlapMs: 10_000,
+        taskIdLookback: 100,
         retryMaxAttempts: 1,
         retryBaseMs: 1,
         retryMaxMs: 1,
@@ -328,6 +329,26 @@ async function main() {
       assert.equal(
         (await coordinatorStore.loadState())?.taskWatermark?.maxId,
         "42"
+      )
+
+      sourceTaskRows = [
+        {
+          id: "41",
+          create_dt: new Date("2026-06-15T00:00:00.000Z"),
+          update_dt: new Date("2026-06-15T00:00:01.000Z"),
+          task_type: 0,
+          status: 0,
+        },
+      ]
+      const statusOnlyUpdate = await coordinator.syncOnce({
+        includeSnapshots: false,
+      })
+      assert.equal(statusOnlyUpdate.status, "success")
+      assert.equal(attempts, 4)
+      assert.equal(
+        sent.at(-1)?.tables.find((table) => table.tableName === "tbl_task")
+          ?.records[0]?.status,
+        0
       )
     })
 

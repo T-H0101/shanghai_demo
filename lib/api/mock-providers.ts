@@ -322,7 +322,7 @@ export const mockTaskProvider: TaskProvider = {
       splitting: "准备完成，开始分盘操作",
       packaging: "分盘完成，开始多线程封包",
       verifying: "封包完成，开始 SM3 校验",
-      writing: "校验完成，开始写入目标存储",
+      writing: "准备完成，开始刻录目标介质",
       completed: "任务执行完成",
       failed: "任务执行失败",
       paused: "任务已暂停",
@@ -559,14 +559,16 @@ export const mockRackProvider: RackProvider = {
     const filtered = siteCode ? mockRacks.filter(r => r.siteCode === siteCode) : mockRacks
     const total = filtered.length
     const normal = filtered.filter(r => r.status === "normal").length
-    const warning = filtered.filter(r => r.status === "warning").length
-    const fault = filtered.filter(r => r.status === "fault").length
+    const warning = filtered.filter(r => r.status === "warning" || r.deviceStatus === "warning").length
+    const fault = filtered.filter(r => r.status === "fault" || r.deviceStatus === "error").length
     const maintenance = filtered.filter(r => r.status === "maintenance").length
     const online = filtered.filter(r => r.deviceStatus === "online").length
-    const offline = filtered.filter(r => r.deviceStatus === "offline" || r.deviceStatus === "error").length
+    const offline = filtered.filter(r => r.deviceStatus === "offline").length
     const usedSlots = filtered.reduce((s, r) => s + (r.usedSlots || 0), 0)
     const totalSlotsAll = filtered.reduce((s, r) => s + (r.totalSlots || 0), 0)
-    const avgUsage = total > 0 ? Math.round(filtered.reduce((s, r) => s + r.usagePercent, 0) / total) : 0
+    const avgUsage = total > 0
+      ? Math.round(filtered.reduce((s, r) => s + (r.usagePercent ?? 0), 0) / total)
+      : 0
     return {
       total, normal, warning, fault, maintenance,
       online, offline,
@@ -819,14 +821,12 @@ export const mockSearchProvider: SearchProvider = {
     if (filters.keyword) {
       result = result.filter(f =>
         f.fileName.includes(filters.keyword) ||
-        f.discNo.includes(filters.keyword)
+        (f.checksum ?? "").includes(filters.keyword) ||
+        (f.path ?? "").includes(filters.keyword)
       )
     }
     if (filters.siteCode) {
       result = result.filter(f => f.siteCode === filters.siteCode)
-    }
-    if (filters.department) {
-      result = result.filter(f => f.department === filters.department)
     }
     if (filters.fileType) {
       result = result.filter(f => f.fileType === filters.fileType)

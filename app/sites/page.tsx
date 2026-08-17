@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { AppTooltip } from "@/components/shared/tooltip"
-import { TimeDisplay } from "@/components/shared/time-format"
+import { formatBeijingTime } from "@/components/shared/time-format"
 import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -24,7 +24,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import type { Site } from "@/lib/types/site"
-import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, Power, ShieldCheck, Database } from "lucide-react"
+import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, ShieldCheck } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import type { SiteDTO } from "@/lib/api/dto"
 
@@ -42,8 +42,9 @@ import type { SiteDTO } from "@/lib/api/dto"
  *   - dataSource 显式: database / empty / error (不允许 mock 静默 fallback)
  *   - 站点列表只统计 sync_sites 注册站点
  *   - 业务表里未注册 siteCode 仅作为 meta.orphanSiteCodes 数据质量证据
- *   - 写操作按钮 (注册新站点 / 启用禁用 / SSO 跳转) 全部 disabled, tooltip 提示
- *   - 一致性校验按钮走 /api/sync/consistency (R.7 真实 API, 替换 mockSiteProvider)
+ *   - 不提供站点业务系统启停 (Power)
+ *   - SSO：有真实 db_host:db_port 时可跳转（近期 ticket，见 docs/source/site-sso-jump-v1.md）
+ *   - 一致性校验入口已隐藏（只读易误导）；结果见 /sync 与日志检索「一致性」
  *
  * 范围严格限定:
  *   - 不新增数据库表
@@ -71,7 +72,7 @@ interface ApiEnvelope {
 }
 
 // 把 /api/sites 的 SiteDTO 转成前端 Site (缺失展示字段统一显示 —)
-function toSite(dto: SiteDTO): Site {
+function toSite(dto: SiteDTO): Site & { reachabilityNote?: string; reachabilitySource?: string; ssoEnabled?: boolean } {
   return {
     id: dto.id,
     name: dto.name,
@@ -83,7 +84,11 @@ function toSite(dto: SiteDTO): Site {
     contact: dto.contact || "—",
     contactPhone: dto.contactPhone || "—",
     deviceCount: dto.deviceCount ?? 0,
-    lastSyncAt: dto.lastSyncAt || "—",
+    lastSyncAt: (() => {
+      if (!dto.lastSyncAt) return "—"
+      const formatted = formatBeijingTime(dto.lastSyncAt)
+      return formatted || "—"
+    })(),
     syncStatus: dto.syncStatus ?? "pending",
     storageUsedPercent: dto.storageUsedPercent ?? 0,
     storageTotal: dto.storageTotal || "—",
@@ -97,12 +102,16 @@ function toSite(dto: SiteDTO): Site {
     usedSlots: dto.usedSlots,
     taskCount: dto.taskCount,
     description: dto.description,
+    reachabilityNote: dto.reachabilityNote,
+    reachabilitySource: dto.reachabilitySource,
   }
 }
 
+type SiteRow = ReturnType<typeof toSite>
+
 export default function Page() {
-  const [sites, setSites] = useState<Site[]>([])
-  const [selected, setSelected] = useState<Site | null>(null)
+  const [sites, setSites] = useState<SiteRow[]>([])
+  const [selected, setSelected] = useState<SiteRow | null>(null)
   const [keyword, setKeyword] = useState("")
   const [statusFilter, setStatusFilter] = useState<SiteStatusFilter>("all")
   const [loading, setLoading] = useState(false)
@@ -110,9 +119,10 @@ export default function Page() {
   const [source, setSource] = useState<string>("")
   const [meta, setMeta] = useState<ApiEnvelope["meta"]>(undefined)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [checking, setChecking] = useState(false)
-  const [showConsistencyResult, setShowConsistencyResult] = useState(false)
-  const [consistencyReport, setConsistencyReport] = useState<any>(null)
+  // 一致性入口已隐藏（只读易误导）；保留逻辑便于恢复
+  // const [checking, setChecking] = useState(false)
+  // const [showConsistencyResult, setShowConsistencyResult] = useState(false)
+  // const [consistencyReport, setConsistencyReport] = useState<any>(null)
   const [showOrphanDetail, setShowOrphanDetail] = useState(false)
   const [orphanDetail, setOrphanDetail] = useState<Array<{ site_code: string; sources: { tasks: number; devices: number; volumes: number; packages: number } }>>([])
   const [orphanLoading, setOrphanLoading] = useState(false)
@@ -187,71 +197,128 @@ export default function Page() {
     const matchKeyword = !keyword ||
       s.name.includes(keyword) ||
       s.code.toLowerCase().includes(keyword.toLowerCase()) ||
-      s.datacenter.includes(keyword)
+      (s.ip !== "—" && s.ip.includes(keyword))
     const matchStatus = statusFilter === "all" || s.status === statusFilter
     return matchKeyword && matchStatus
   })
 
-  // 写操作 / 未实现能力 — 全部 disabled, 走 toast 提示
-  const handleUnsupported = (feature: string) => {
-    toast({
-      title: "功能未接入",
-      description: `${feature}：站点登记功能未接入，当前仅提供列表与一致性校验。`,
-      variant: "destructive",
-    })
-  }
+  // 写操作 — 注册入口已隐藏
+  // const handleUnsupported = (feature: string) => {
+  //   toast({
+  //     title: "功能未接入",
+  //     description: `${feature}：站点登记功能未接入，当前仅提供列表与一致性校验。`,
+  //     variant: "destructive",
+  //   })
+  // }
 
-  // 一致性校验 — 替换 mockSiteProvider, 走 R.7 真实 API
-  const handleCheckConsistency = async (site: Site) => {
-    setChecking(true)
+  const [ssoJumping, setSsoJumping] = useState<string | null>(null)
+
+  const handleSsoJump = async (site: SiteRow) => {
+    if (!site.ssoEnabled && (site.ip === "—" || !site.port)) {
+      toast({
+        title: "无法 SSO 跳转",
+        description: `${site.code} 未登记真实管理 IP:端口，请先由站点推送 db_host/db_port`,
+        variant: "destructive",
+      })
+      return
+    }
+    setSsoJumping(site.code)
     try {
-      const res = await fetch(`/api/sync/consistency?siteCode=${encodeURIComponent(site.code)}`, { cache: "no-store" })
-      if (!res.ok) {
-        // 失败时尝试无 siteCode 查询, 让 R.7 API 自己选
-        const fallback = await fetch("/api/sync/consistency", { cache: "no-store" })
-        if (!fallback.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await fallback.json()
-        setConsistencyReport(data.data ?? data)
-        setShowConsistencyResult(true)
+      const res = await fetch(`/api/sites/${encodeURIComponent(site.code)}/sso`, {
+        cache: "no-store",
+        credentials: "include",
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        toast({
+          title: "请先登录总控",
+          description: "SSO 跳转需要总控登录会话",
+          variant: "destructive",
+        })
         return
       }
-      const data = await res.json()
-      setConsistencyReport(data.data ?? data)
-      setShowConsistencyResult(true)
+      if (!res.ok) {
+        toast({
+          title: "SSO 跳转失败",
+          description: json.message || `HTTP ${res.status}`,
+          variant: "destructive",
+        })
+        return
+      }
+      if (json.status !== "ready" || !json.jumpUrl) {
+        toast({
+          title: "SSO 跳转未就绪",
+          description: json.message || json.blocker || "站点侧或密钥未配置",
+          variant: "destructive",
+        })
+        return
+      }
       toast({
-        title: "校验完成",
-        description: `${site.code} 数据一致性校验已完成`,
+        title: "正在打开站点",
+        description: `已签发跳转票据 → ${site.name}（${site.code}）`,
       })
+      window.open(json.jumpUrl, "_blank", "noopener,noreferrer")
     } catch (e) {
       toast({
-        title: "校验失败",
-        description: "数据一致性校验失败，请稍后重试",
+        title: "SSO 跳转失败",
+        description: e instanceof Error ? e.message : String(e),
         variant: "destructive",
       })
     } finally {
-      setChecking(false)
+      setSsoJumping(null)
     }
   }
 
-  // dataSource 标识徽章
-  const dataSourceBadge = (() => {
-    if (dataSource === "database") {
-      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />已注册</Badge>
-    }
-    if (dataSource === "empty") {
-      return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
-    }
-    if (dataSource === "error") {
-      return <Badge className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">加载失败</Badge>
-    }
-    return <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">加载中…</Badge>
-  })()
+  // 一致性校验入口已隐藏 — 仅只读最近一次 log，不写操作日志；请用 /sync 与日志检索「一致性」
+  // const handleCheckConsistency = async (site: SiteRow) => {
+  //   setChecking(true)
+  //   try {
+  //     const res = await fetch(`/api/sync/consistency?siteCode=${encodeURIComponent(site.code)}`, { cache: "no-store" })
+  //     if (!res.ok) {
+  //       const fallback = await fetch("/api/sync/consistency", { cache: "no-store" })
+  //       if (!fallback.ok) throw new Error(`HTTP ${res.status}`)
+  //       const data = await fallback.json()
+  //       setConsistencyReport(data.data ?? data)
+  //       setShowConsistencyResult(true)
+  //       return
+  //     }
+  //     const data = await res.json()
+  //     setConsistencyReport(data.data ?? data)
+  //     setShowConsistencyResult(true)
+  //     toast({
+  //       title: "校验完成",
+  //       description: `${site.code} 数据一致性校验已完成`,
+  //     })
+  //   } catch (e) {
+  //     toast({
+  //       title: "校验失败",
+  //       description: "数据一致性校验失败，请稍后重试",
+  //       variant: "destructive",
+  //     })
+  //   } finally {
+  //     setChecking(false)
+  //   }
+  // }
+
+  // dataSource 标识徽章（状态行暂不展示，保留逻辑便于恢复）
+  // const dataSourceBadge = (() => {
+  //   if (dataSource === "database") {
+  //     return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"><Database className="h-3 w-3 mr-1" />已注册</Badge>
+  //   }
+  //   if (dataSource === "empty") {
+  //     return <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">暂无数据</Badge>
+  //   }
+  //   if (dataSource === "error") {
+  //     return <Badge className="bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">加载失败</Badge>
+  //   }
+  //   return <Badge className="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">加载中…</Badge>
+  // })()
 
   return (
     <AppShell>
       <PageHeader
         title="站点管理"
-        description="统一管理各数据中心光盘库站点，监控在线状态与存储容量"
+        description="统一管理各数据中心光盘库站点；在线状态依据管理 IP:端口 TCP 探测"
         badge="SITE MGMT"
         actions={
           <div className="flex items-center gap-2">
@@ -268,6 +335,7 @@ export default function Page() {
                 刷新
               </Button>
             </AppTooltip>
+            {/* 注册新站点暂未启用，先隐藏入口
             <AppTooltip content="站点登记功能未启用">
               <Button
                 size="sm"
@@ -278,76 +346,72 @@ export default function Page() {
                 注册新站点
               </Button>
             </AppTooltip>
+            */}
           </div>
         }
       />
 
+      {/* 数据源/需求状态行暂不展示（列表即 sync_sites；「已注册」无业务意义）
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
         {dataSourceBadge}
-        {meta?.orphanSiteCodes && meta.orphanSiteCodes.length > 0 && (
-          <>
-            <span className="text-xs text-slate-500">
-              检测到 {meta.orphanSiteCodes.length} 个未注册历史 siteCode，未计入站点总数
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              data-testid="orphan-detail-trigger"
-              onClick={() => setShowOrphanDetail(true)}
-            >
-              查看明细
-            </Button>
-          </>
-        )}
         {meta?.requirement && (
           <span className="text-xs text-slate-400">
             {meta.requirement.text}
           </span>
         )}
       </div>
+      */}
+      {meta?.orphanSiteCodes && meta.orphanSiteCodes.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
+          <span className="text-xs text-slate-500">
+            检测到 {meta.orphanSiteCodes.length} 个未注册历史 siteCode，未计入站点总数
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            data-testid="orphan-detail-trigger"
+            onClick={() => setShowOrphanDetail(true)}
+          >
+            查看明细
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
+          horizontal
           title="站点总数"
           value={stats.total}
           unit="个站点"
           icon={LayoutGrid}
-          badge={<Badge className="bg-emerald-500 text-white">REAL</Badge>}
-          footer={
-            <div className="flex gap-3 text-xs">
-              <span className="text-emerald-600">在线 {stats.online}</span>
-              <span className="text-red-600">异常 {stats.offline}</span>
-              {stats.syncing > 0 && <span className="text-blue-600">同步中 {stats.syncing}</span>}
-            </div>
-          }
         />
         <StatCard
+          horizontal
           title="同步中站点"
           value={stats.syncing}
           unit="个"
           icon={RefreshCw}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
-          footer={<p className="text-xs text-slate-400">来自站点同步状态</p>}
         />
         <StatCard
+          horizontal
           title="设备总数"
           value={stats.deviceCount}
           unit="台"
           icon={Server}
           iconBg="bg-orange-50"
           iconColor="text-orange-600"
-          footer={<p className="text-xs text-slate-400">来自设备同步结果</p>}
         />
         <StatCard
-          title="异常站点"
+          horizontal
+          title="离线站点"
           value={stats.offline}
           unit="需关注"
           icon={AlertTriangle}
           iconBg="bg-red-50"
           iconColor="text-red-600"
-          footer={<p className="text-xs text-slate-400">离线或异常注册站点</p>}
         />
       </div>
 
@@ -370,7 +434,7 @@ export default function Page() {
                 </Select>
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input placeholder="搜索站点、编码、机房..." className="pl-9 h-9" value={keyword} onChange={(e) => setKeyword(e.target.value)} aria-label="搜索站点" />
+                  <Input placeholder="搜索站点、编码、IP..." className="pl-9 h-9" value={keyword} onChange={(e) => setKeyword(e.target.value)} aria-label="搜索站点" />
                 </div>
               </div>
             </div>
@@ -402,8 +466,6 @@ export default function Page() {
                     <TableHead className="text-xs text-slate-500">站点</TableHead>
                     <TableHead className="text-xs text-slate-500">状态</TableHead>
                     <TableHead className="text-xs text-slate-500">IP:端口</TableHead>
-                    <TableHead className="text-xs text-slate-500">数据中心</TableHead>
-                    <TableHead className="text-xs text-slate-500">联系人</TableHead>
                     <TableHead className="text-xs text-slate-500">设备</TableHead>
                     <TableHead className="text-xs text-slate-500">同步</TableHead>
                     <TableHead className="text-xs text-slate-500">操作</TableHead>
@@ -421,42 +483,46 @@ export default function Page() {
                         <p className="text-xs text-slate-400">{site.code}</p>
                       </TableCell>
                       <TableCell>
-                        <OnlineStatusBadge status={site.status} />
+                        <AppTooltip content={site.reachabilityNote || "在线状态依据管理 IP:端口 TCP 探测"}>
+                          <span>
+                            <OnlineStatusBadge status={site.status} />
+                          </span>
+                        </AppTooltip>
                       </TableCell>
                       <TableCell className="text-sm font-mono">{site.ip}:{site.port || "—"}</TableCell>
-                      <TableCell className="text-sm">{site.datacenter}</TableCell>
-                      <TableCell>
-                        <p className="text-sm">{site.contact}</p>
-                        <p className="text-xs text-slate-400">{site.contactPhone}</p>
-                      </TableCell>
                       <TableCell className="text-sm">{site.deviceCount}</TableCell>
                       <TableCell>
                         <SyncStatusBadge status={site.syncStatus} />
                         <p className="text-xs text-slate-400 mt-1">{site.lastSyncAt}</p>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            disabled
-                            title="站点启用/禁用功能未接入"
-                            onClick={(e) => { e.stopPropagation(); handleUnsupported("启用/禁用") }}
-                          >
-                            <Power className="h-3.5 w-3.5" />
-                          </Button>
+                        <AppTooltip
+                          content={
+                            site.ssoEnabled
+                              ? "免登打开站点业务系统（近期 ticket）；站点退出后应返回本页"
+                              : "需站点推送真实 db_host:db_port 后才可 SSO"
+                          }
+                        >
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-7 text-xs"
-                            disabled
-                            title="SSO 跳转功能未接入"
-                            onClick={(e) => { e.stopPropagation(); handleUnsupported("SSO 跳转") }}
+                            disabled={!site.ssoEnabled || ssoJumping === site.code}
+                            title={site.ssoEnabled ? "SSO 跳转" : "未登记管理地址"}
+                            data-testid="sites-sso"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handleSsoJump(site)
+                            }}
                           >
-                            <ExternalLink className="h-3 w-3 mr-1" />SSO
+                            {ssoJumping === site.code ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                            )}
+                            SSO
                           </Button>
-                        </div>
+                        </AppTooltip>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -470,23 +536,61 @@ export default function Page() {
           {selected && (
             <div className="space-y-4">
               <DetailRow label="站点名称" value={selected.name} />
-              <DetailRow label="区域" value={selected.region} />
-              <DetailRow label="在线状态" value={
-                <OnlineStatusBadge status={selected.status} />
+              <DetailRow label="IP:端口" value={
+                selected.ip && selected.ip !== "—"
+                  ? `${selected.ip}:${selected.port || "—"}`
+                  : "—"
               } />
+              <DetailRow label="在线状态" value={
+                <AppTooltip content={selected.reachabilityNote || "在线状态依据管理 IP:端口 TCP 探测"}>
+                  <span>
+                    <OnlineStatusBadge status={selected.status} />
+                  </span>
+                </AppTooltip>
+              } />
+              {selected.reachabilitySource && (
+                <p className="text-xs text-slate-500">
+                  判定来源：
+                  {selected.reachabilitySource === "tcp_probe" && "管理端口 TCP 探测"}
+                  {selected.reachabilitySource === "no_address" && "未登记管理地址"}
+                  {selected.reachabilitySource === "disabled" && "总控已禁用"}
+                  {selected.reachabilitySource === "probe_error" && "探测未执行"}
+                </p>
+              )}
+              {selected.reachabilityNote && (
+                <p className="text-xs text-slate-400">{selected.reachabilityNote}</p>
+              )}
               <DetailRow label="同步状态" value={<SyncStatusBadge status={selected.syncStatus} />} />
               <DetailRow label="最后同步" value={selected.lastSyncAt} />
               <DetailRow label="存储总量" value={selected.storageTotal} />
               <DetailRow label="已用存储" value={`${selected.storageUsed} (${selected.storageUsedPercent}%)`} />
               {selected.storageUsedPercent > 0 && <Progress value={selected.storageUsedPercent} className="h-2" />}
               <DetailRow label="设备数量" value={`${selected.deviceCount} 台`} />
-              <DetailRow label="盘架数量" value={selected.rackCount ? `${selected.rackCount} 个（${selected.onlineRackCount} 在线）` : "—"} />
-              <DetailRow label="盘笼数量" value={selected.cageCount ? `${selected.cageCount} 个` : "—"} />
-              <DetailRow label="槽位总数" value={selected.totalSlots ? `${selected.totalSlots} 槽位（${selected.usedSlots} 已占用）` : "—"} />
+              <DetailRow
+                label="盘架数量"
+                value={
+                  selected.rackCount != null
+                    ? `${selected.rackCount} 个（${selected.onlineRackCount ?? 0} 在线）`
+                    : "—"
+                }
+              />
+              <DetailRow
+                label="盘笼数量"
+                value={selected.cageCount != null ? `${selected.cageCount} 个` : "—"}
+              />
+              <DetailRow
+                label="槽位总数"
+                value={
+                  selected.totalSlots != null
+                    ? `${selected.totalSlots} 槽位（${selected.usedSlots ?? 0} 已占用）`
+                    : "—"
+                }
+              />
               <DetailRow label="活跃任务" value={selected.taskCount ?? 0} />
               {selected.description && (
                 <p className="text-xs text-slate-600 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg p-3">{selected.description}</p>
               )}
+              {/* 站点页仅只读最近一次校验结果，易与「点即校验」混淆；一致性请看 /sync 与日志检索「一致性」
               <AppTooltip content="校验中心库与源站点的数据一致性, 找出差异行">
                 <Button
                   variant="outline"
@@ -500,11 +604,13 @@ export default function Page() {
                   数据一致性校验
                 </Button>
               </AppTooltip>
+              */}
             </div>
           )}
         </DetailPanel>
       </div>
 
+      {/*
       <Dialog open={showConsistencyResult} onOpenChange={setShowConsistencyResult}>
         <DialogContent>
           <DialogHeader>
@@ -582,6 +688,7 @@ export default function Page() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      */}
 
       <Dialog open={showOrphanDetail} onOpenChange={setShowOrphanDetail}>
         <DialogContent>

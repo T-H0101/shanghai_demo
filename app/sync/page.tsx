@@ -118,6 +118,22 @@ interface SyncAlertItem {
   createdAt: string
 }
 
+const SYNC_STATUS_LABELS: Record<string, string> = {
+  success: '成功',
+  failed: '失败',
+  running: '运行中',
+  receiving: '接收中',
+  pending: '待处理',
+  partial: '部分成功',
+  duplicated: '重复',
+  skipped: '已跳过',
+  abandoned: '已放弃',
+}
+
+function formatSyncStatus(status: string): string {
+  return SYNC_STATUS_LABELS[status] ?? status
+}
+
 function statusColor(status: string): string {
   switch (status) {
     case 'success':
@@ -128,11 +144,15 @@ function statusColor(status: string): string {
     case 'degraded':
       return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
     case 'running':
+    case 'receiving':
       return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
     case 'duplicated':
     case 'stale':
+    case 'partial':
       return 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
     case 'skipped':
+    case 'pending':
+    case 'abandoned':
       return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
     default:
       return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
@@ -192,10 +212,11 @@ export default function SyncCenterPage() {
   const [syncAlertTotal, setSyncAlertTotal] = useState(0)
   const [syncAlertError, setSyncAlertError] = useState("")
   const [exportKind, setExportKind] = useState<'package' | 'table' | 'scheduler' | 'consistency'>('package')
-  const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'xlsx'>('csv')
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv')
   const [exporting, setExporting] = useState(false)
   const [triggeringSync, setTriggeringSync] = useState<'full' | 'incremental' | null>(null)
   const [dumpNowRunning, setDumpNowRunning] = useState(false)
+  const [notifyingPush, setNotifyingPush] = useState(false)
 
   // 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
@@ -428,6 +449,43 @@ export default function SyncCenterPage() {
     }
   }
 
+  const handleNotifyPush = async () => {
+    const effectiveSiteCode = !isAllSites && siteCode ? siteCode : ""
+    if (!effectiveSiteCode) {
+      toast({
+        title: "请先选择所属站点",
+        description: "立即同步须指定具体站点，不能选择「全部站点」。",
+        variant: "destructive",
+      })
+      return
+    }
+    setNotifyingPush(true)
+    try {
+      const res = await fetch("/api/sync/notify-push", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ siteCode: effectiveSiteCode }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body.message ?? body.error ?? `HTTP ${res.status}`)
+      }
+      toast({
+        title: "已通知站点执行推送",
+        description: `${effectiveSiteCode}：等待站点上报同步包（调度日志 runId=${body.runId ?? "—"}）`,
+      })
+      void loadPackages()
+    } catch (error) {
+      toast({
+        title: "通知站点失败",
+        description: error instanceof Error ? error.message : "请检查站点地址与密钥配置。",
+        variant: "destructive",
+      })
+    } finally {
+      setNotifyingPush(false)
+    }
+  }
+
   const handleManualSync = async (syncType: 'full' | 'incremental') => {
     setTriggeringSync(syncType)
     const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
@@ -513,7 +571,7 @@ export default function SyncCenterPage() {
       <div className="space-y-5">
         <PageHeader
           title="同步中心"
-          description="查看站点同步批次、调度状态和一致性结果"
+          description="查看站点推送的同步批次与表级日志（站点侧主动推送，总控不再下发控制）"
           actions={
             <div className="flex items-center gap-2">
               <Select value={exportKind} onValueChange={(value) => setExportKind(value as typeof exportKind)}>
@@ -523,8 +581,10 @@ export default function SyncCenterPage() {
                 <SelectContent>
                   <SelectItem value="package">同步批次</SelectItem>
                   <SelectItem value="table">表级日志</SelectItem>
+                  {/* 推送模式：调度/一致性导出入口暂隐藏
                   <SelectItem value="scheduler">调度日志</SelectItem>
                   <SelectItem value="consistency">一致性日志</SelectItem>
+                  */}
                 </SelectContent>
               </Select>
               <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as typeof exportFormat)}>
@@ -534,7 +594,9 @@ export default function SyncCenterPage() {
                 <SelectContent>
                   <SelectItem value="csv">CSV</SelectItem>
                   <SelectItem value="json">JSON</SelectItem>
-                  <SelectItem value="xlsx">XLSX (未接入)</SelectItem>
+                  {/* XLSX 导出未接入，暂隐藏
+                  <SelectItem value="xlsx">XLSX</SelectItem>
+                  */}
                 </SelectContent>
               </Select>
               <Button
@@ -552,6 +614,51 @@ export default function SyncCenterPage() {
           }
         />
 
+        <GlassPanel
+          testId="notify-push-card"
+          title="立即同步"
+          description="通知当前所属站点业务系统异步执行一次全量推送"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900"
+              disabled={notifyingPush || isAllSites || !siteCode}
+              onClick={() => void handleNotifyPush()}
+              data-testid="notify-push-button"
+            >
+              {notifyingPush ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1" />
+              )}
+              {notifyingPush ? "通知中…" : "立即同步"}
+            </Button>
+            <span className="text-xs text-slate-500">
+              目标站点:{" "}
+              <code className="font-mono">
+                {!isAllSites && siteCode ? siteCode : "请先在顶部选择具体站点"}
+              </code>
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            仅表示「已通知站点」；推送结果请在下方同步包列表或审计日志「调度」Tab 查看。
+          </p>
+        </GlassPanel>
+
+        {/*
+          推送模式：站点业务系统主动推包，总控不再下发/控制站点。
+          以下模块仅隐藏展示，代码保留便于日后恢复。
+          - 同步操作（/api/sync/trigger → Agent 队列）
+          - 同步任务（/api/sync/dump-now → 总控直连源库）
+          - 同步告警摘要
+          - 数据一致性校验
+          - 多站点同步配置
+        */}
+        {false && (
+          <>
         <GlassPanel
           testId="sync-hero-glass-panel"
           title="同步操作"
@@ -703,29 +810,28 @@ export default function SyncCenterPage() {
           </CardContent>
         </Card>
 
-        {/* 数据一致性校验卡片 */}
-        {consistency && (
+        {consistency != null && (
           <Card className="gap-0" data-testid="consistency-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4" />
                 数据一致性校验
-                {consistency.status === "matched" && (
+                {consistency?.status === "matched" && (
                   <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">匹配</Badge>
                 )}
-                {consistency.status === "mismatched" && (
+                {consistency?.status === "mismatched" && (
                   <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">异常</Badge>
                 )}
-                {consistency.status === "failed" && (
+                {consistency?.status === "failed" && (
                   <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">失败</Badge>
                 )}
-                {consistency.status === "not_run" && (
+                {consistency?.status === "not_run" && (
                   <Badge className="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">未运行</Badge>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              {consistency.status === "not_run" ? (
+              {consistency?.status === "not_run" ? (
                 <div className="text-sm text-slate-600 dark:text-slate-300">
                   尚未运行一致性校验。
                   请选择站点后运行校验。
@@ -735,23 +841,23 @@ export default function SyncCenterPage() {
                   <div>
                     <div className="text-slate-500">最近校验</div>
                     <div className="font-mono text-xs">
-                      {formatDateTime(consistency.checkedAt ?? null)}
+                      {formatDateTime(consistency?.checkedAt ?? null)}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-500">总表数</div>
-                    <div className="font-mono text-lg">{consistency.tableCount ?? "—"}</div>
+                    <div className="font-mono text-lg">{consistency?.tableCount ?? "—"}</div>
                   </div>
                   <div>
                     <div className="text-slate-500">匹配</div>
                     <div className="font-mono text-lg text-emerald-600 dark:text-emerald-300">
-                      {consistency.matchedTableCount ?? "—"}
+                      {consistency?.matchedTableCount ?? "—"}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-500">异常</div>
                     <div className="font-mono text-lg text-amber-600 dark:text-amber-300">
-                      {consistency.mismatchedTableCount ?? "—"}
+                      {consistency?.mismatchedTableCount ?? "—"}
                     </div>
                   </div>
                 </div>
@@ -807,7 +913,11 @@ export default function SyncCenterPage() {
             )}
           </CardContent>
         </Card>
+          </>
+        )}
 
+        {/* 推送模式：站点最新同步状态（Agent/调度列）不适配，暂隐藏；推送结果见下方批次/表级日志 */}
+        {false && (
         <Card className="gap-0" data-testid="site-sync-status-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -885,8 +995,10 @@ export default function SyncCenterPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
-        {/* 自动同步调度区域 */}
+        {/* 推送模式：自动同步调度（总控 scheduler）暂隐藏 */}
+        {false && (
         <Card className="gap-0" data-testid="scheduler-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -947,74 +1059,75 @@ export default function SyncCenterPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* 筛选器 */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Search className="h-4 w-4" />筛选条件
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div>
-                <Label htmlFor="siteCode" className="text-xs">站点代码</Label>
+        <Card className="gap-0 py-0">
+          <CardContent className="px-4 py-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5 w-40">
+                <Label htmlFor="siteCode" className="text-xs text-slate-500">站点代码</Label>
                 <Input
                   id="siteCode"
                   placeholder="如 SH01"
                   value={siteCodeFilter}
                   onChange={(e) => setSiteCodeFilter(e.target.value)}
-                  className="mt-1"
+                  className="h-9"
                 />
               </div>
-              <div>
-                <Label htmlFor="status" className="text-xs">状态</Label>
+              <div className="space-y-1.5 w-40">
+                <Label htmlFor="status" className="text-xs text-slate-500">状态</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger id="status" className="mt-1">
+                  <SelectTrigger id="status" className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部</SelectItem>
-                    <SelectItem value="success">success</SelectItem>
-                    <SelectItem value="failed">failed</SelectItem>
-                    <SelectItem value="running">running</SelectItem>
-                    <SelectItem value="duplicated">duplicated</SelectItem>
-                    <SelectItem value="skipped">skipped</SelectItem>
+                    <SelectItem value="success">成功</SelectItem>
+                    <SelectItem value="failed">失败</SelectItem>
+                    <SelectItem value="running">运行中</SelectItem>
+                    <SelectItem value="receiving">接收中</SelectItem>
+                    <SelectItem value="partial">部分成功</SelectItem>
+                    <SelectItem value="pending">待处理</SelectItem>
+                    <SelectItem value="duplicated">重复</SelectItem>
+                    <SelectItem value="skipped">已跳过</SelectItem>
+                    <SelectItem value="abandoned">已放弃</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="batchId" className="text-xs">批次 ID</Label>
+              <div className="space-y-1.5 flex-1 min-w-[180px]">
+                <Label htmlFor="batchId" className="text-xs text-slate-500">批次 ID</Label>
                 <Input
                   id="batchId"
                   placeholder="模糊匹配"
                   value={batchIdFilter}
                   onChange={(e) => setBatchIdFilter(e.target.value)}
-                  className="mt-1"
+                  className="h-9"
                 />
               </div>
-              <div className="flex items-end gap-2">
-                <Button
-                  onClick={() => {
-                    setPage(1)
-                    loadPackages()
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  <Search className="h-4 w-4" />查询
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSiteCodeFilter('')
-                    setStatusFilter('all')
-                    setBatchIdFilter('')
-                    setPage(1)
-                  }}
-                >
-                  重置
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                className="h-9"
+                onClick={() => {
+                  setPage(1)
+                  loadPackages()
+                }}
+              >
+                <Search className="h-3.5 w-3.5 mr-1" />查询
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9"
+                onClick={() => {
+                  setSiteCodeFilter('')
+                  setStatusFilter('all')
+                  setBatchIdFilter('')
+                  setPage(1)
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />重置
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1074,7 +1187,7 @@ export default function SyncCenterPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`text-[10px] ${statusColor(pkg.status)}`}>
-                            {pkg.status}
+                            {formatSyncStatus(pkg.status)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-right">{pkg.tableCount}</TableCell>
@@ -1145,7 +1258,7 @@ export default function SyncCenterPage() {
                         <TableCell className="text-xs font-mono">{t.tableName}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`text-[10px] ${statusColor(t.status)}`}>
-                            {t.status}
+                            {formatSyncStatus(t.status)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-right">
