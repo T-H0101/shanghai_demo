@@ -20,6 +20,10 @@ export type EsIndexDocument = {
   create_date?: string | null
   status?: number | null
   slot_id?: number | null
+  slot_order?: number | null
+  magazine_rfid?: string | null
+  device_ip?: string | null
+  device_port?: string | null
   content_type?: string | null
   extension?: string | null
   folder_name?: string | null

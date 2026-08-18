@@ -119,6 +119,17 @@ ORDER BY id
 LIMIT 1000;
 ```
 
+### 5.3 盘位/设备映射（每轮一次，不 JOIN file 大表）
+
+推送开始时一次 JOIN 小表，建成 `slot_id → { slot_order, magazine_rfid, device_ip, device_port }`，文件行按 `tbl_file.slot_id` O(1) 填入。无 `slot_id` 或映射未命中时四字段写 `null`。
+
+```sql
+SELECT s.slot_id, s.slot_order, m.RFID AS magazine_rfid, d.IP AS device_ip, d.port AS device_port
+FROM tbl_slots s
+LEFT JOIN tbl_magzines m ON m.mag_id = s.mag_id
+LEFT JOIN tbl_disc_lib d ON d.lib_id = m.lib_id
+```
+
 ## 6. 进度文件
 
 路径：`<syncDB_data_root>/es-push-progress.json`  
@@ -196,7 +207,11 @@ LIMIT 1000;
 | `items_id` | keyword | 表（转 string） |
 | `create_date` | date | 表 datetime → ISO-8601（**源表时间**） |
 | `status` | integer | 表 |
-| `slot_id` | integer | 表 |
+| `slot_id` | integer | 表（关联键） |
+| `slot_order` | integer | **推送时** `slot_id` Map ← `tbl_slots.slot_order`（片匣内盘位号，从 0 起）；未命中为 null |
+| `magazine_rfid` | keyword | **推送时** Map ← `tbl_magzines.RFID` |
+| `device_ip` | keyword | **推送时** Map ← `tbl_disc_lib.IP`（节点设备 IP，不是站点 `site_host`） |
+| `device_port` | keyword | **推送时** Map ← `tbl_disc_lib.port` |
 | `content_type` | keyword | 表 |
 | `extension` | keyword | 从 `file_name` 推导（无后缀则为 null） |
 
@@ -221,6 +236,7 @@ LIMIT 1000;
 
 1. `HEAD /disc_file_index`（或不存在时）
 2. `PUT /disc_file_index` 写入与上表一致的 mapping（snake_case）
+3. 索引已存在时：`PUT /disc_file_index/_mapping` 补 `slot_order` / `magazine_rfid` / `device_ip` / `device_port`
 
 字段类型冲突时以本契约为准。不要用自动生成 `_id` 的单条 `POST /_doc` 作为生产写入方式。
 
@@ -233,7 +249,7 @@ Content-Type: application/x-ndjson
 
 ```text
 {"index":{"_index":"disc_file_index","_id":"CD01:tbl_file_1_a:125801"}}
-{"source_site_id":"CD01","source_table":"tbl_file_1_a","source_record_id":"125801","volume_id":1,"doc_type":"file","file_name":"报告.pdf","file_size":1048576,"folder_id":789,"folder_path":"/归档/报告","hash":"...","hash1":"...","task_id":"1001","items_id":"2002","create_date":"2026-08-01T08:00:00.000Z","status":1,"slot_id":12,"content_type":"application/pdf","extension":"pdf","indexed_at":"2026-08-13T02:00:00.000Z","deleted":false}
+{"source_site_id":"CD01","source_table":"tbl_file_1_a","source_record_id":"125801","volume_id":1,"doc_type":"file","file_name":"报告.pdf","file_size":1048576,"folder_id":789,"folder_path":"/归档/报告","hash":"...","hash1":"...","task_id":"1001","items_id":"2002","create_date":"2026-08-01T08:00:00.000Z","status":1,"slot_id":12,"slot_order":3,"magazine_rfid":"E200001122334455","device_ip":"10.186.1.21","device_port":"5000","content_type":"application/pdf","extension":"pdf","indexed_at":"2026-08-13T02:00:00.000Z","deleted":false}
 {"index":{"_index":"disc_file_index","_id":"CD01:tbl_folder_1:3201"}}
 {"source_site_id":"CD01","source_table":"tbl_folder_1","source_record_id":"3201","volume_id":1,"doc_type":"folder","folder_name":"归档","folder_path":"/归档","disc_path":"","s_level":1,"parent":0,"sum_files":0,"files":0,"subs":0,"indexed_at":"2026-08-13T02:00:00.000Z","deleted":false}
 ```

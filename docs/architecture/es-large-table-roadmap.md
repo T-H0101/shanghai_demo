@@ -57,7 +57,7 @@ flowchart LR
 
 ## 3. 索引字段
 
-**生产写入字段以 [site-opensearch-file-push-v1.md](../source/site-opensearch-file-push-v1.md) §7 为准**（含 `doc_type`、`file_size`、`hash`/`hash1`、`create_date`、folder 字段等；水位在 syncDB JSON，不依赖文档内 `updated_at`）。
+**生产写入字段以 [site-opensearch-file-push-v1.md](../source/site-opensearch-file-push-v1.md) §7 为准**（含 `doc_type`、`file_size`、`hash`/`hash1`、`create_date`、`slot_order` / `magazine_rfid` / `device_ip` / `device_port`、folder 字段等；水位在 syncDB JSON，不依赖文档内 `updated_at`）。
 
 下列为早期 roadmap 最小字段（总控 `FileIndexDocument` 历史样例）；与生产契约并存时，**写入侧以 v1 契约为准**，总控检索对齐另开任务：
 
