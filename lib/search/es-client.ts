@@ -2,6 +2,7 @@
  * lib/search/es-client.ts
  * OpenSearch/ES HTTP client — 对齐业务 syncDB 推送契约 (snake_case disc_file_index)
  * 分页：仅按文档 _id 排序 + search_after（不用 from，避免 max_result_window=10000）
+ * 关键字：wildcard 整段包含（LIKE '%关键字%'），不分词；排序仍按 _id
  */
 
 export type EsIndexDocument = {
@@ -102,6 +103,22 @@ export interface EsSearchResult {
   hasMore: boolean
 }
 
+/** LIKE '%keyword%'：转义用户输入中的通配符，避免 * ? \ 被当成语法 */
+function escapeWildcardLiteral(value: string): string {
+  return value.replace(/[\\*?]/g, "\\$&")
+}
+
+function wildcardContains(field: string, keyword: string) {
+  return {
+    wildcard: {
+      [field]: {
+        value: `*${escapeWildcardLiteral(keyword)}*`,
+        case_insensitive: true,
+      },
+    },
+  }
+}
+
 function buildSearchQuery(params: {
   q: string
   siteCodes: string[]
@@ -129,22 +146,23 @@ function buildSearchQuery(params: {
   })
 
   const keyword = params.q?.trim() ?? ""
+  // 不分词，整段包含（等价 LIKE '%关键字%'）。「你好中国」不会命中只有「你好」或只有「中国」。
+  // 打在 .keyword / keyword 字段上，避免 standard 把中文拆成单字、把 2025-001.jpg 拆成 2025/001/jpg。
   const must =
     keyword && keyword !== "detect"
       ? [
           {
-            multi_match: {
-              query: keyword,
-              fields: [
-                "file_name^3",
-                "folder_name^2",
-                "folder_path",
-                "hash",
-                "hash1",
-                "content_type",
-                "extension",
-                "source_record_id",
+            bool: {
+              should: [
+                wildcardContains("file_name.keyword", keyword),
+                wildcardContains("folder_name.keyword", keyword),
+                wildcardContains("folder_path.keyword", keyword),
+                wildcardContains("hash", keyword),
+                wildcardContains("hash1", keyword),
+                wildcardContains("extension", keyword),
+                wildcardContains("source_record_id", keyword),
               ],
+              minimum_should_match: 1,
             },
           },
         ]
