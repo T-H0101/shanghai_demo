@@ -1,9 +1,22 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-06-30
+> 截至: 2026-08-18
 
 快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
+## R.98 跨站点盘笼移位登记 (2026-08-18)
+
+- [x] 中心表 `unified_cage_move_register` + `pnpm db:init` 注册。
+- [x] `GET/POST /api/racks/cage-moves`（总控登记，不走 control_command 完成证据）。
+- [x] `/racks` 第 4 Tab「盘笼移位」登记表单与历史。
+- [x] 选站点检索按最新 RFID 位置扩条件，不改 ES 文档。
+- [x] `e2e:cage-move` + sprint-r98 requirements review。
+- [ ] 站点入架后自动上报 RFID 当前位置（`blocked_by_site_change`）。
+- [ ] 真实回迁读登记表目标 IP:port（本 Sprint 不做）。
+- [ ] REQ-4.3.1 关闭为 complete（需站点配合）。
+
+R.98 不宣称站点已执行移位。
 
 ## R.94 最终开发交付验收 (2026-06-30)
 

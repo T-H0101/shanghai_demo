@@ -11,6 +11,8 @@ export type FileSearchQuery = {
   volumeId?: number
   docType?: "file" | "folder"
   departmentIds?: string[]
+  inboundRfids?: string[]
+  outboundRfids?: string[]
   limit: number
   /** @deprecated 已改为 search_after；保留兼容，忽略 */
   offset?: number

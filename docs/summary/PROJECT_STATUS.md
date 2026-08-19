@@ -1,8 +1,24 @@
 # Project Status
 
-> **截至**: 2026-06-30
-> **当前分支**: `codex/r94-final-acceptance-closeout`
-> **当前主线**: R.94 最终开发交付验收
+> **截至**: 2026-08-18
+> **当前主线**: Sprint R.98 跨站点盘笼移位登记（总控）
+
+## Sprint R.98 — 跨站点盘笼移位登记 (partial)
+
+**目标**: 人为把盘笼从站点 A 迁到站点 B 后，在总控登记 RFID 与两端设备 IP/port；统一检索选目标站时按登记表扩 `magazine_rfid`。不向站点下发移位，不改 OpenSearch 已有 file 文档。
+
+**对应**: `requirements.md` §4.3.1 / §4.1.1。REQ-4.3.1 仍为 `partial`（缺站点自动上报、缺站点执行回写）。
+
+**交付**:
+- 中心表 `unified_cage_move_register`（`pnpm db:init` 已登记）
+- `GET/POST /api/racks/cage-moves` + `/racks`「盘笼移位」Tab
+- 检索/count/export：`(source_site_id IN selected AND RFID NOT IN outbound) OR RFID IN inbound`
+- Toast：「盘笼移位已登记到总控…」，禁止「移位成功」
+- `pnpm e2e:cage-move`；审查 `docs/database-analysis/sprint-r98-requirements-review.md`
+
+**非宣称**: 站点已执行移位、ES 文档已改归属、回迁完成。
+
+---
 
 ## Sprint R.94 — Final Acceptance Closeout (进行中)
 

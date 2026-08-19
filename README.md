@@ -134,7 +134,7 @@ docker build -t unified-disc-platform:latest .
 | 控制台 (Dashboard) | `/` | `unified_*` 聚合, 真实数据 |
 | 同步中心 (Sync) | `/sync` | `sync_package_log`, `sync_sites` 等, 真实数据 |
 | 任务管理 (Tasks) | `/tasks` | `unified_tasks`, `control_command`; `?view=commands` 控制命令 |
-| 盘架管理 (Racks) | `/racks` | `unified_devices`, `unified_cages`; `?view=inspection` 巡检, `?view=volumes` 存储卷 |
+| 盘架管理 (Racks) | `/racks` | `unified_devices`, `unified_cages`; `?view=inspection` 巡检, `?view=volumes` 存储卷；「盘笼移位」Tab 写 `unified_cage_move_register`（总控登记，不代表站点已执行） |
 | 用户与权限 (Users) | `/users` | `unified_users`, `auth_accounts` |
 | 站点管理 (Sites) | `/sites` | `sync_sites` 注册表 |
 | 审计日志 (Logs) | `/logs` | 7 类日志表 |

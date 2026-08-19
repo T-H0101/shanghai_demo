@@ -190,7 +190,7 @@ pnpm db:init
 
 脚本通过 `docker exec -i ... < file.sql` 灌库（不用 `docker cp`），在 Windows Git Bash 下可正常执行。Windows 上请用 Git Bash 跑 `pnpm db:init`（或确保 PATH 中有 `bash`）。
 
-当前 `pnpm db:init` 已包含 R.86 `file_index_jobs` 调度账本。开发环境启用文件索引增量任务时, 初始化后执行:
+当前 `pnpm db:init` 已包含 R.86 `file_index_jobs` 调度账本，以及 R.98 `unified_cage_move_register`（总控盘笼移位登记表）。已有中心库只需再跑一次 `pnpm db:init`（`CREATE TABLE IF NOT EXISTS`）或执行 `databases/sprint-r98/01-cage-move-register.sql`。开发环境启用文件索引增量任务时, 初始化后执行:
 
 ```bash
 pnpm import:file-index-job-bootstrap -- --sites SH01
@@ -561,7 +561,7 @@ pnpm e2e:volumes
 验收点:
 
 - `auth_accounts` 包含本地 `group_admin` 开发账号, 登录接口不返回 password hash。
-- `sync_sites`, `file_index_jobs`, `control_command`, `sync_package_log`, R.93 identity columns 均由 `pnpm db:init` 创建。
+- `sync_sites`, `file_index_jobs`, `control_command`, `sync_package_log`, R.93 identity columns、R.98 `unified_cage_move_register` 均由 `pnpm db:init` 创建。
 - `TEST_SMOKE` 执行后必须自清理, `pnpm audit:center-db -- --strict --matrix` 不允许出现测试污染。
 - SH01 / BJ02 restore 站点库或本地 fixture 必须通过 `export-and-push` 写入中心库, 页面数据验收不能只依赖 `smoke:sync`。
 - `.env.local` 中 `DATABASE_URL`, `POSTGRES_PASSWORD`, `DB_PASSWORD` 三元组必须一致。

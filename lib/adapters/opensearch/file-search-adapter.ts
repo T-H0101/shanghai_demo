@@ -96,6 +96,8 @@ export function createOpenSearchFileSearchAdapter(): SearchPort {
           docType: query.docType,
           limit: Math.min(Math.max(query.limit, 1), 500),
           searchAfter: query.searchAfter,
+          inboundRfids: query.inboundRfids,
+          outboundRfids: query.outboundRfids,
         })
         return {
           hits: result.items.map(esDocToHit),

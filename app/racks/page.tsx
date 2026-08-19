@@ -26,6 +26,7 @@ import { loadRacksBrowseMock, loadRacksRestoreTargetsMock } from "@/lib/mock-mod
 import { useSite } from "@/lib/site/site-context"
 import { InspectionView } from "@/components/racks/inspection-view"
 import { VolumesView } from "@/components/racks/volumes-view"
+import { CageMoveView } from "@/components/racks/cage-move-view"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 // DEVICE_MODE_LABELS / DeviceMode：模式控制 UI 暂隐藏，恢复时取消下行注释
 // import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
@@ -47,7 +48,7 @@ import {
   Search, RefreshCw, Download, ListChecks, ChevronRight,
   Info, Grid3X3, Link2, CheckCircle2, XCircle, Clock,
   Activity, Plug, Eye as ScanIcon,
-  Box, Timer, RotateCcw, FolderOpen, FileText, ArrowRight,
+  Box, Timer, RotateCcw, FolderOpen, FileText, ArrowRight, ArrowLeftRight,
   FolderTree, ChevronDown, ChevronRight as ChevronRightIcon, Loader2,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
@@ -192,7 +193,7 @@ export default function Page() {
   // ============================================================
   // 存储浏览 / 数据恢复状态
   // ============================================================
-  const [storageTab, setStorageTab] = useState<"overview" | "browse" | "restore">("overview")
+  const [storageTab, setStorageTab] = useState<"overview" | "browse" | "restore" | "cage-move">("overview")
   const [restoreMode, setRestoreMode] = useState<"server" | "local">("server")
   // 目录树状态
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(["/backup", "/backup/hdd", "/backup/optical"]))
@@ -1504,6 +1505,13 @@ export default function Page() {
               >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />数据恢复
               </TabsTrigger>
+              <TabsTrigger
+                value="cage-move"
+                className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                data-testid="racks-storage-tab-cage-move"
+              >
+                <ArrowLeftRight className="h-3.5 w-3.5 mr-1" />盘笼移位
+              </TabsTrigger>
             </TabsList>
             {storageTab === "restore" && (
               <div className="flex items-center gap-2">
@@ -1795,6 +1803,10 @@ export default function Page() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="cage-move" className="m-0">
+              <CageMoveView />
             </TabsContent>
           </div>
         </Tabs>

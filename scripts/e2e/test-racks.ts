@@ -126,12 +126,14 @@ async function main() {
     pageSource.includes("TabsContent") &&
       pageSource.includes('value="browse"') &&
       pageSource.includes('value="restore"') &&
-      pageSource.includes('value="overview"'),
+      pageSource.includes('value="overview"') &&
+      pageSource.includes('value="cage-move"'),
   )
   check(
     "存储浏览/数据恢复 Tab 可切换且不 disabled",
     pageSource.includes('data-testid="racks-storage-tab-browse"') &&
       pageSource.includes('data-testid="racks-storage-tab-restore"') &&
+      pageSource.includes('data-testid="racks-storage-tab-cage-move"') &&
       !/TabsTrigger[\s\S]{0,160}value="browse"[\s\S]{0,160}disabled=/.test(pageSource) &&
       !/TabsTrigger[\s\S]{0,160}value="restore"[\s\S]{0,160}disabled=/.test(pageSource)
   )

@@ -25,6 +25,7 @@ const scripts = [
   "e2e:auth",
   "e2e:users",
   "e2e:racks",
+  "e2e:cage-move",
   "e2e:volumes",
   "e2e:login",
   "e2e:command-palette",

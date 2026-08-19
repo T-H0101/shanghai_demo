@@ -77,6 +77,11 @@ function esAuthHeaders(): Record<string, string> {
   return { Authorization: `Basic ${token}` }
 }
 
+export interface EsSiteRfidFilter {
+  inboundRfids?: string[]
+  outboundRfids?: string[]
+}
+
 export interface EsSearchParams {
   q: string
   siteCodes: string[]
@@ -85,6 +90,8 @@ export interface EsSearchParams {
   limit: number
   /** 上一页最后一条文档 _id；首页不传 */
   searchAfter?: string | null
+  inboundRfids?: string[]
+  outboundRfids?: string[]
 }
 
 export type EsCountParams = {
@@ -92,6 +99,8 @@ export type EsCountParams = {
   siteCodes: string[]
   volumeId?: number
   docType?: "file" | "folder"
+  inboundRfids?: string[]
+  outboundRfids?: string[]
 }
 
 export type EsSearchHit = EsIndexDocument & { _id: string }
@@ -119,15 +128,37 @@ function wildcardContains(field: string, keyword: string) {
   }
 }
 
+function siteOwnershipFilter(params: {
+  siteCodes: string[]
+  inboundRfids?: string[]
+  outboundRfids?: string[]
+}): object | null {
+  if (!params.siteCodes.length) return null
+  const inbound = (params.inboundRfids ?? []).filter(Boolean)
+  const outbound = (params.outboundRfids ?? []).filter(Boolean)
+  const nativeMust: object[] = [{ terms: { source_site_id: params.siteCodes } }]
+  if (outbound.length) {
+    nativeMust.push({ bool: { must_not: [{ terms: { magazine_rfid: outbound } }] } })
+  }
+  const should: object[] = [{ bool: { must: nativeMust } }]
+  if (inbound.length) {
+    should.push({ terms: { magazine_rfid: inbound } })
+  }
+  return { bool: { should, minimum_should_match: 1 } }
+}
+
 function buildSearchQuery(params: {
   q: string
   siteCodes: string[]
   volumeId?: number
   docType?: "file" | "folder"
+  inboundRfids?: string[]
+  outboundRfids?: string[]
 }): object {
   const filters: object[] = []
-  if (params.siteCodes.length) {
-    filters.push({ terms: { source_site_id: params.siteCodes } })
+  const ownership = siteOwnershipFilter(params)
+  if (ownership) {
+    filters.push(ownership)
   }
   if (params.volumeId != null && Number.isFinite(params.volumeId)) {
     filters.push({ term: { volume_id: params.volumeId } })

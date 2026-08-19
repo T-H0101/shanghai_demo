@@ -5,6 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { loadSiteRfidRelocationFilter } from "@/lib/control/cage-move-register"
 import { countFilesInEs, isEsConfigured } from "@/lib/search/es-client"
 
 export async function GET(request: NextRequest) {
@@ -41,11 +42,17 @@ export async function GET(request: NextRequest) {
     const docType =
       docTypeRaw === "file" || docTypeRaw === "folder" ? docTypeRaw : undefined
 
+    const rfidFilter = siteCode
+      ? await loadSiteRfidRelocationFilter([siteCode])
+      : { inboundRfids: [], outboundRfids: [] }
+
     const total = await countFilesInEs({
       q: keyword,
       siteCodes: siteCode ? [siteCode] : [],
       volumeId,
       docType,
+      inboundRfids: rfidFilter.inboundRfids,
+      outboundRfids: rfidFilter.outboundRfids,
     })
 
     return NextResponse.json({

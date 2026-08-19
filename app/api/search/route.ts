@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
 import { query } from "@/lib/db"
+import { loadSiteRfidRelocationFilter } from "@/lib/control/cage-move-register"
 import type { FileSearchHit } from "@/lib/ports/search-port"
 
 const DEFAULT_LIMIT = 50
@@ -117,6 +118,10 @@ export async function GET(request: NextRequest) {
     const searchAfter =
       searchAfterRaw != null && searchAfterRaw.trim() !== "" ? searchAfterRaw.trim() : null
 
+    const rfidFilter = siteCode
+      ? await loadSiteRfidRelocationFilter([siteCode])
+      : { inboundRfids: [], outboundRfids: [] }
+
     const adapter = createOpenSearchFileSearchAdapter()
     const result = await adapter.searchFiles({
       keyword,
@@ -125,6 +130,8 @@ export async function GET(request: NextRequest) {
       docType,
       limit: pageSize,
       searchAfter,
+      inboundRfids: rfidFilter.inboundRfids,
+      outboundRfids: rfidFilter.outboundRfids,
     })
 
     if (result.source === "blocked_by_external_system") {
