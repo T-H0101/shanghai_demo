@@ -38,9 +38,7 @@ export async function GET(request: NextRequest) {
       volumeRaw != null && volumeRaw !== "" && Number.isFinite(Number(volumeRaw))
         ? Number(volumeRaw)
         : undefined
-    const docTypeRaw = request.nextUrl.searchParams.get("docType")
-    const docType =
-      docTypeRaw === "file" || docTypeRaw === "folder" ? docTypeRaw : undefined
+    const docType = "file" as const
 
     const rfidFilter = siteCode
       ? await loadSiteRfidRelocationFilter([siteCode])

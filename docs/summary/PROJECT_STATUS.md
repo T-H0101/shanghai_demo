@@ -1,19 +1,38 @@
 # Project Status
 
-> **截至**: 2026-08-18
-> **当前主线**: Sprint R.98 跨站点盘笼移位登记（总控）
+> **截至**: 2026-08-21
+> **当前主线**: 检索按物理位置登记待回迁（总控 → 站点 tbl_task + tbl_restore_file，仅落库）
+
+## 跨站回迁登记（物理位置，register_only）
+
+**目标**: 检索「发起回迁」校验物理位置六元组齐全后，调目标站 `POST /unified-restore-file`：站点创建 `tbl_task`（`task_type=1`/`task_mode=2`）并 `INSERT tbl_restore_file`（含 `task_id`/`size`/`restore_root_path`，`restore_status=1`），**不写** `tbl_task_items`，**不执行**物理回迁。
+
+**对应**: `requirements.md` §4.1（从检索发起回迁）。状态：`partial`（落库完成；真实取盘执行仍 blocked_by_site_change）。
+
+**交付**:
+- 总控：`POST /api/search/restore`；校验 device_ip/port、magazine_rfid、slot_order、disc_side、file_path、file_hash；可选补传 `size`；直调站点业务地址
+- 站点 Nw：`/unified-restore-file`（注入 `unifiedDisc.restore.path` → `restore_root_path`）
+- Central：`center_restore_file_register` → `tbl_task` + `tbl_restore_file`（无 task_items）
+- 字段映射：`device_ip→lib_ip`，`magazine_rfid→mag_rfid`，`file_path→file_full_path`，`file_hash→hash`，`disc_side→disc_side`，`size→size`，配置路径→`restore_root_path`
+- Toast：「回迁记录已提交…」，禁止「回迁成功」
+- 契约：`docs/source/site-restore-file-api-v1.md`
+
+**非宣称**: 站点已执行回迁、光盘已取出、需求 complete。
+
+---
 
 ## Sprint R.98 — 跨站点盘笼移位登记 (partial)
 
-**目标**: 人为把盘笼从站点 A 迁到站点 B 后，在总控登记 RFID 与两端设备 IP/port；统一检索选目标站时按登记表扩 `magazine_rfid`。不向站点下发移位，不改 OpenSearch 已有 file 文档。
+**目标**: 人为把盘笼从站点 A 迁到站点 B 后，在总控登记 RFID 与两端设备 IP/port；统一检索选目标站时按登记表扩 `magazine_rfid`，结果展示按最新登记覆盖站点/设备（不改 OpenSearch 文档）。
 
 **对应**: `requirements.md` §4.3.1 / §4.1.1。REQ-4.3.1 仍为 `partial`（缺站点自动上报、缺站点执行回写）。
 
 **交付**:
 - 中心表 `unified_cage_move_register`（`pnpm db:init` 已登记）
-- `GET/POST /api/racks/cage-moves` + `/racks`「盘笼移位」Tab
-- 检索/count/export：`(source_site_id IN selected AND RFID NOT IN outbound) OR RFID IN inbound`
-- Toast：「盘笼移位已登记到总控…」，禁止「移位成功」
+- `GET/POST /api/racks/cage-moves`，`DELETE /api/racks/cage-moves/[id]`；顶部 Dialog 登记；下方「盘笼移位」Tab 仅历史（已去掉「数据恢复」Tab）
+- 检索/count/export：`(source_site_id IN selected AND RFID NOT IN outbound) OR RFID IN inbound`；取消登记后该 RFID 不再扩条件
+- 检索结果列表/导出：站点后展示盘笼；设备与归档存储卷改到详情；有移位登记时站点/设备按最新目标覆盖
+- Toast：「盘笼移位已登记到总控…」/「已撤销这次移位登记…」，禁止「移位成功」
 - `pnpm e2e:cage-move`；审查 `docs/database-analysis/sprint-r98-requirements-review.md`
 
 **非宣称**: 站点已执行移位、ES 文档已改归属、回迁完成。

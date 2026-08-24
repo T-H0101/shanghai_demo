@@ -22,6 +22,8 @@ export type EsIndexDocument = {
   status?: number | null
   slot_id?: number | null
   slot_order?: number | null
+  /** 光盘 AB 面：0=A，1=B（来自 tbl_slots.disc_side） */
+  disc_side?: number | null
   magazine_rfid?: string | null
   device_ip?: string | null
   device_port?: string | null
@@ -163,9 +165,8 @@ function buildSearchQuery(params: {
   if (params.volumeId != null && Number.isFinite(params.volumeId)) {
     filters.push({ term: { volume_id: params.volumeId } })
   }
-  if (params.docType === "file" || params.docType === "folder") {
-    filters.push({ term: { doc_type: params.docType } })
-  }
+  // 仅排除 doc_type=folder 的目录文档；文件仍可用路径关键字命中（folder_path）
+  filters.push({ term: { doc_type: "file" } })
   filters.push({
     bool: {
       should: [
@@ -179,6 +180,7 @@ function buildSearchQuery(params: {
   const keyword = params.q?.trim() ?? ""
   // 不分词，整段包含（等价 LIKE '%关键字%'）。「你好中国」不会命中只有「你好」或只有「中国」。
   // 打在 .keyword / keyword 字段上，避免 standard 把中文拆成单字、把 2025-001.jpg 拆成 2025/001/jpg。
+  // 路径字段保留：文件可通过父路径/目录层级关键字检索到。
   const must =
     keyword && keyword !== "detect"
       ? [
@@ -186,7 +188,6 @@ function buildSearchQuery(params: {
             bool: {
               should: [
                 wildcardContains("file_name.keyword", keyword),
-                wildcardContains("folder_name.keyword", keyword),
                 wildcardContains("folder_path.keyword", keyword),
                 wildcardContains("hash", keyword),
                 wildcardContains("hash1", keyword),

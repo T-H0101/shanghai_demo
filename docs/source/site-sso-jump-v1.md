@@ -18,7 +18,7 @@
 双方必须一致（64 位 hex = 32 字节）：
 
 - 总控 `.env.local`：`SITE_SSO_SECRET=...`
-- 站点 NW `config`：`unifiedDiscSso.secretKey=...`（或 `authToken.secretKey`）
+- 站点 NW `config`：`unifiedDisc.secretKey=...`（或 `authToken.secretKey`）
 
 ```bash
 openssl rand -hex 32
@@ -39,7 +39,7 @@ openssl rand -hex 32
 ```
 
 3. 浏览器打开 `jumpUrl`。
-4. NW 解密 ticket（AES-256-GCM，与 `crypto-util` 相同），校验可选 `unifiedDiscSso.siteCode`。
+4. NW 解密 ticket（AES-256-GCM，与 `crypto-util` 相同），校验可选 `unifiedDisc.siteCode`。
 5. TCP 调 Central `user_authToken`（`username` = 总控当前用户名）：
    - 站点 `tbl_user.name` 已存在 → 直接建会话；
    - 不存在 → Central 自动创建普通用户（`role_id=4`）后再建会话。
@@ -58,16 +58,21 @@ openssl rand -hex 32
 }
 ```
 
-有效期默认 120 秒（NW：`unifiedDiscSso.ticketTtlSeconds`）。
+有效期默认 120 秒（NW：`unifiedDisc.sso.ticketTtlSeconds`）。
 
 ## 站点配置示例（MultimediumNw）
 
 ```json
-"unifiedDiscSso": {
+"unifiedDisc": {
   "secretKey": "<与总控 SITE_SSO_SECRET 相同的 64 hex>",
   "siteCode": "CD01",
-  "portalUrl": "http://172.168.6.52:3000/sites",
-  "ticketTtlSeconds": 120
+  "sso": {
+    "portalUrl": "http://172.168.6.52:3000/sites",
+    "ticketTtlSeconds": 120
+  },
+  "restore": {
+    "path": ""
+  }
 }
 ```
 

@@ -1,16 +1,17 @@
 /**
  * 统一检索导出列 — 与检索结果表对齐（不含「操作」）
+ * 设备 / 存储卷改到详情展示，导出不再带这两列。
  */
 
 import { formatBeijingTime } from "@/lib/time/beijing"
 
 export const SEARCH_EXPORT_COLUMNS = [
   "name",
-  "docType",
+  // "docType", // 仅文件检索，类型列暂隐藏
   "path",
   "size",
   "site",
-  "volume",
+  "magazineRfid",
   "extension",
   "checksum",
   "createdAt",
@@ -20,11 +21,11 @@ export type SearchExportColumn = (typeof SEARCH_EXPORT_COLUMNS)[number]
 
 export const SEARCH_EXPORT_LABELS: string[] = [
   "名称",
-  "类型",
+  // "类型",
   "路径",
   "大小",
   "站点",
-  "存储卷",
+  "盘笼",
   "扩展名",
   "校验码",
   "创建时间",
@@ -71,6 +72,7 @@ export function toSearchExportRowFromUi(file: {
   sizeBytes?: number | null
   siteName?: string | null
   siteCode?: string | null
+  magazineRfid?: string | null
   volume?: string | null
   fileType?: string | null
   checksum?: string | null
@@ -78,14 +80,13 @@ export function toSearchExportRowFromUi(file: {
 }): SearchExportRow {
   return {
     name: dashToEmpty(file.fileName),
-    docType: formatSearchDocType(file.docType),
     path: dashToEmpty(file.path),
     size:
       file.docType === "folder"
         ? ""
         : dashToEmpty(file.size) || formatSearchSize(file.sizeBytes, file.docType),
     site: formatSearchSiteLabel(file.siteName, file.siteCode),
-    volume: dashToEmpty(file.volume),
+    magazineRfid: dashToEmpty(file.magazineRfid),
     extension: file.docType === "folder" ? "目录" : dashToEmpty(file.fileType),
     checksum: dashToEmpty(file.checksum),
     createdAt: formatBeijingTime(file.createdAt) || "",
@@ -102,6 +103,8 @@ export function toSearchExportRowFromHit(hit: {
   sizeBytes?: number | null
   siteName?: string | null
   sourceSiteId?: string | null
+  displaySiteCode?: string | null
+  magazineRfid?: string | null
   volumeName?: string | null
   volumeId?: number | null
   extension?: string | null
@@ -114,16 +117,13 @@ export function toSearchExportRowFromHit(hit: {
     hit.displayName ||
     hit.fileName ||
     (docType === "folder" ? "(未命名目录)" : "(未命名文件)")
-  const volume =
-    hit.volumeName ||
-    (hit.volumeId != null ? `卷-${hit.volumeId}` : "")
+  const siteCode = hit.displaySiteCode || hit.sourceSiteId
   return {
     name,
-    docType: formatSearchDocType(docType),
     path: dashToEmpty(hit.folderPath || hit.filePath),
     size: formatSearchSize(hit.sizeBytes, docType),
-    site: formatSearchSiteLabel(hit.siteName, hit.sourceSiteId),
-    volume: dashToEmpty(volume),
+    site: formatSearchSiteLabel(hit.siteName, siteCode),
+    magazineRfid: dashToEmpty(hit.magazineRfid),
     extension: docType === "folder" ? "目录" : dashToEmpty(hit.extension),
     checksum: dashToEmpty(hit.hash),
     createdAt: formatBeijingTime(hit.createDate ?? hit.updatedAt) || "",

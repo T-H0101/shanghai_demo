@@ -3,6 +3,7 @@
  * Sprint R.98 — 总控盘笼移位登记（REQ-4.3.1）
  *
  * POST 只写入中心库 unified_cage_move_register，不向站点下发移位执行。
+ * GET 仅返回 status=registered；错误登记走 DELETE /api/racks/cage-moves/[id]。
  */
 
 import { NextRequest, NextResponse } from "next/server"

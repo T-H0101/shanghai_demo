@@ -18,7 +18,7 @@
 | 端 | 配置 |
 |---|---|
 | 总控 | `SITE_SSO_SECRET` 或 `SITE_SYNC_TRIGGER_SECRET`（优先） |
-| NW | `unifiedDiscSso.secretKey`（须一致） |
+| NW | `unifiedDisc.secretKey`（须一致） |
 
 请求头：`x-unified-sync-secret`、`x-site-code`。
 

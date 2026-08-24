@@ -24,7 +24,7 @@
 |---|---|---|
 | POST | `/unified-task-control` | 任务控制入口 |
 
-鉴权头（二选一，值与 `unifiedDiscSso.secretKey` / 总控 `SITE_SSO_SECRET` 一致）：
+鉴权头（二选一，值与 `unifiedDisc.secretKey` / 总控 `SITE_SSO_SECRET` 一致）：
 
 - `x-unified-task-control-secret`
 - `x-unified-sync-secret`（兼容立即推送同一密钥）
@@ -57,7 +57,7 @@ Body：
 
 | 环境变量 | 说明 |
 |---|---|
-| `SITE_SSO_SECRET` 或 `SITE_SYNC_TRIGGER_SECRET` | 与 Nw `unifiedDiscSso.secretKey` 一致 |
+| `SITE_SSO_SECRET` 或 `SITE_SYNC_TRIGGER_SECRET` | 与 Nw `unifiedDisc.secretKey` 一致 |
 | `SITE_TASK_CONTROL_BASE_URL` | 可选覆盖整站基址 |
 | `SITE_TASK_CONTROL_BASE_URL_<SITE>` | 按站点覆盖，如 `SITE_TASK_CONTROL_BASE_URL_SH01` |
 | `SITE_TASK_CONTROL_PATH` | 默认 `/unified-task-control` |

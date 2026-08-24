@@ -122,28 +122,25 @@ async function main() {
       pageSource.includes("当前概况")
   )
   check(
-    "存储浏览/数据恢复 Tab 用 TabsContent 包结构 (切换能正确 mount)",
+    "存储浏览/盘笼移位 Tab 用 TabsContent 包结构 (切换能正确 mount)",
     pageSource.includes("TabsContent") &&
       pageSource.includes('value="browse"') &&
-      pageSource.includes('value="restore"') &&
       pageSource.includes('value="overview"') &&
-      pageSource.includes('value="cage-move"'),
+      pageSource.includes('value="cage-move"') &&
+      !pageSource.includes('data-testid="racks-storage-tab-restore"'),
   )
   check(
-    "存储浏览/数据恢复 Tab 可切换且不 disabled",
+    "存储浏览/盘笼移位 Tab 可切换且不 disabled",
     pageSource.includes('data-testid="racks-storage-tab-browse"') &&
-      pageSource.includes('data-testid="racks-storage-tab-restore"') &&
       pageSource.includes('data-testid="racks-storage-tab-cage-move"') &&
-      !/TabsTrigger[\s\S]{0,160}value="browse"[\s\S]{0,160}disabled=/.test(pageSource) &&
-      !/TabsTrigger[\s\S]{0,160}value="restore"[\s\S]{0,160}disabled=/.test(pageSource)
+      pageSource.includes('data-testid="racks-cage-move-open"') &&
+      !pageSource.includes("handleSync") &&
+      !/TabsTrigger[\s\S]{0,160}value="browse"[\s\S]{0,160}disabled=/.test(pageSource)
   )
   check(
-    "API 模式存储浏览/数据恢复显示 blocked 而非 mock 内容",
+    "API 模式存储浏览显示 blocked 而非 mock 内容",
       pageSource.includes('testid="racks-storage-browse-blocked"') &&
-      pageSource.includes('testid="racks-storage-restore-blocked"') &&
-      pageSource.includes("完整目录浏览需要接入站点文件索引服务") &&
-      pageSource.includes("总控保留完整控制能力") &&
-      pageSource.includes("站点代理恢复协议")
+      pageSource.includes("完整目录浏览需要接入站点文件索引服务")
   )
   check(
     "EmptyState blocked 状态用 severity 参数驱动 (R.UI-CmdCenter)",

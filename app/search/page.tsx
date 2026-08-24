@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { Card, CardContent } from "@/components/ui/card"
@@ -34,6 +34,7 @@ type SearchDataSource = "opensearch" | "blocked" | "empty"
 
 type SearchApiHit = {
   sourceSiteId?: string
+  displaySiteCode?: string | null
   siteName?: string | null
   sourceTable?: string | null
   sourceRecordId?: string
@@ -48,6 +49,13 @@ type SearchApiHit = {
   volumeId?: number | null
   volumeCode?: string | null
   volumeName?: string | null
+  magazineRfid?: string | null
+  deviceIp?: string | null
+  devicePort?: string | null
+  deviceName?: string | null
+  slotId?: number | null
+  slotOrder?: number | null
+  discSide?: number | null
   hash?: string | null
   taskId?: string | null
   status?: number | null
@@ -66,23 +74,58 @@ function formatSize(sizeBytes: number | null | undefined): string {
   return `${(sizeBytes / 1024 / 1024 / 1024).toFixed(1)} GB`
 }
 
+function formatDeviceLabel(hit: SearchApiHit): string {
+  const tip = hit.deviceIp?.trim()
+  const port = hit.devicePort?.trim()
+  const endpoint = tip ? (port ? `${tip}:${port}` : tip) : ""
+  const name = hit.deviceName?.trim()
+  if (name && endpoint) return `${name} · ${endpoint}`
+  if (name) return name
+  return endpoint || "—"
+}
+
+function SearchDetailRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex gap-3 py-1.5 text-sm border-b border-slate-100 last:border-0 dark:border-slate-800">
+      <span className="w-28 shrink-0 text-slate-500">{label}</span>
+      <span className="min-w-0 flex-1 break-words text-slate-900 dark:text-slate-100">{value}</span>
+    </div>
+  )
+}
+
 function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
-  const sourceSiteId = hit.sourceSiteId ?? "—"
+  const archiveSiteId = hit.sourceSiteId ?? "—"
+  const displaySiteCode = hit.displaySiteCode?.trim() || archiveSiteId
   const sourceRecordId = hit.sourceRecordId ?? String(index)
   const docType = hit.docType ?? "file"
   const name = hit.displayName ?? hit.fileName ?? (docType === "folder" ? "(未命名目录)" : "(未命名文件)")
   return {
-    id: `${sourceSiteId}:${hit.sourceTable ?? "row"}:${sourceRecordId}`,
+    id: `${archiveSiteId}:${hit.sourceTable ?? "row"}:${sourceRecordId}`,
     fileName: name,
     path: hit.folderPath || hit.filePath || "—",
     size: docType === "folder" ? "—" : formatSize(hit.sizeBytes),
     sizeBytes: hit.sizeBytes ?? 0,
-    siteName: hit.siteName ?? sourceSiteId,
-    siteCode: sourceSiteId,
+    siteName: hit.siteName ?? displaySiteCode,
+    siteCode: displaySiteCode,
     docType,
     volumeId: hit.volumeId ?? null,
     volume: hit.volumeName ?? (hit.volumeId != null ? `卷-${hit.volumeId}` : "—"),
-    slotId: null,
+    deviceLabel: formatDeviceLabel(hit),
+    deviceIp: hit.deviceIp?.trim() || null,
+    devicePort: hit.devicePort?.trim() || null,
+    magazineRfid: hit.magazineRfid?.trim() || null,
+    slotId:
+      hit.slotId != null && Number.isFinite(Number(hit.slotId))
+        ? Number(hit.slotId)
+        : null,
+    slotOrder:
+      hit.slotOrder != null && Number.isFinite(Number(hit.slotOrder))
+        ? Number(hit.slotOrder)
+        : null,
+    discSide:
+      hit.discSide != null && Number.isFinite(Number(hit.discSide))
+        ? Number(hit.discSide)
+        : null,
     fileType: hit.extension ?? (docType === "folder" ? "目录" : "—"),
     contentType: hit.contentType ?? null,
     createdAt: hit.createDate ?? hit.updatedAt ?? "",
@@ -108,9 +151,10 @@ export default function Page() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(100)
   const [siteFilter, setSiteFilter] = useState("all")
-  const [typeFilter, setTypeFilter] = useState("all")
+  // const [typeFilter, setTypeFilter] = useState("all") // 仅文件检索，类型筛选暂隐藏
   const [volumeFilter, setVolumeFilter] = useState("all")
   const [showExport, setShowExport] = useState(false)
+  const [detailFile, setDetailFile] = useState<SearchFile | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
   const [blk, setBlk] = useState<SearchBlkInfo | null>(null)
   const [dataSource, setDataSource] = useState<SearchDataSource>("blocked")
@@ -150,25 +194,25 @@ export default function Page() {
   const canGoNext = hasMore && Boolean(nextSearchAfter)
 
   const buildFilterKey = useCallback(
-    (kw: string, site: string, volume: string, docType: string) =>
+    (kw: string, site: string, volume: string) =>
       JSON.stringify({
         q: kw.trim(),
         site,
         volume,
-        docType,
+        docType: "file",
       }),
     [],
   )
 
   const currentFilterKey = useMemo(
-    () => buildFilterKey(keyword, siteFilter, volumeFilter, typeFilter),
-    [buildFilterKey, keyword, siteFilter, volumeFilter, typeFilter],
+    () => buildFilterKey(keyword, siteFilter, volumeFilter),
+    [buildFilterKey, keyword, siteFilter, volumeFilter],
   )
 
   const appendFilterParams = (sp: URLSearchParams) => {
     if (siteFilter !== "all") sp.set("siteCode", siteFilter)
     if (volumeFilter !== "all") sp.set("volumeId", volumeFilter)
-    if (typeFilter === "file" || typeFilter === "folder") sp.set("docType", typeFilter)
+    sp.set("docType", "file")
   }
 
   const fetchTotalIfNeeded = async (filterKey: string): Promise<number | null> => {
@@ -389,7 +433,7 @@ export default function Page() {
   const handleReset = () => {
     setKeyword("")
     setSiteFilter("all")
-    setTypeFilter("all")
+    // setTypeFilter("all")
     setVolumeFilter("all")
     setPage(1)
     setSearchResults([])
@@ -447,12 +491,88 @@ export default function Page() {
     })
   }
 
-  const handleRestore = (file: SearchFile) => {
-    toast({
-      title: "回迁命令未提交",
-      description: `文件「${file.fileName}」暂不能定位到可执行的回迁目标。`,
-      variant: "destructive",
-    })
+  const handleRestore = async (file: SearchFile) => {
+    if (file.docType === "folder") {
+      toast({
+        title: "回迁记录未提交",
+        description: "目录暂不支持按物理位置登记回迁，请选择文件。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const missing: string[] = []
+    if (!file.deviceIp?.trim()) missing.push("设备IP")
+    if (!file.devicePort?.trim()) missing.push("设备端口")
+    if (!file.magazineRfid?.trim()) missing.push("盘笼RFID")
+    if (file.slotOrder == null || !Number.isFinite(file.slotOrder)) missing.push("盘位号")
+    if (file.discSide == null || !Number.isFinite(file.discSide)) missing.push("光盘面(AB)")
+    if (!file.path?.trim() || file.path === "—") missing.push("文件路径")
+    if (!file.checksum?.trim()) missing.push("文件校验码")
+    if (!file.siteCode?.trim() || file.siteCode === "—") missing.push("目标站点")
+
+    if (missing.length) {
+      toast({
+        title: "回迁记录未提交",
+        description: `物理位置不齐全，缺少：${missing.join("、")}`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const res = await fetch("/api/search/restore", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetSiteCode: file.siteCode,
+          deviceIp: file.deviceIp,
+          devicePort: file.devicePort,
+          magazineRfid: file.magazineRfid,
+          slotOrder: file.slotOrder,
+          discSide: file.discSide,
+          folderPath: file.path,
+          fileName: file.fileName,
+          fileHash: file.checksum,
+          fileSize:
+            typeof file.sizeBytes === "number" && Number.isFinite(file.sizeBytes)
+              ? file.sizeBytes
+              : null,
+          docType: file.docType,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      const message =
+        typeof body?.message === "string"
+          ? body.message
+          : res.ok
+            ? "回迁记录已提交到站点待回迁表，等待站点处理"
+            : "回迁记录提交失败"
+
+      if (!res.ok || body?.code !== 0) {
+        const missingFields = Array.isArray(body?.data?.missing)
+          ? body.data.missing.join(", ")
+          : ""
+        toast({
+          title: "回迁记录未提交",
+          description: missingFields ? `${message}（${missingFields}）` : message,
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "回迁记录已提交",
+        description: message,
+      })
+    } catch (e) {
+      toast({
+        title: "回迁记录未提交",
+        description: e instanceof Error ? e.message : "网络异常",
+        variant: "destructive",
+      })
+    }
   }
 
   const filterSelects = (
@@ -490,6 +610,7 @@ export default function Page() {
           ))}
         </SelectContent>
       </Select>
+      {/* 仅文件检索，类型筛选暂隐藏
       <Select value={typeFilter} onValueChange={setTypeFilter}>
         <SelectTrigger className="h-9 w-[120px] shrink-0" data-testid="search-type-filter">
           <SelectValue placeholder="全部类型" />
@@ -500,6 +621,7 @@ export default function Page() {
           <SelectItem value="folder">目录</SelectItem>
         </SelectContent>
       </Select>
+      */}
     </>
   )
 
@@ -554,7 +676,7 @@ export default function Page() {
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="输入文件名、目录名、路径或 hash…"
+                    placeholder="输入文件名、路径（含目录）或 hash…"
                     className="h-12 rounded-full border-slate-300 pl-12 pr-4 text-base shadow-sm focus-visible:ring-blue-500"
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
@@ -578,9 +700,9 @@ export default function Page() {
               <div className="space-y-2 text-center text-sm text-slate-500">
                 <p className="font-medium text-slate-600 dark:text-slate-400">检索说明</p>
                 <ul className="mx-auto max-w-xl space-y-1 text-left sm:text-center">
-                  <li>支持按文件名、目录名、路径、hash 关键词检索</li>
-                  <li>可先选择站点、存储卷、文件/目录类型缩小范围</li>
-                  <li>结果来自各站点推送到 OpenSearch 的文件索引</li>
+                  <li>支持按文件名、路径（含目录层级）、hash 关键词检索</li>
+                  <li>可先选择站点、存储卷缩小范围</li>
+                  <li>结果仅含文件（不含目录条目），来自各站点 OpenSearch 文件索引</li>
                   <li>回车或点击「检索」后展示结果列表，可导出当前页或已加载结果</li>
                 </ul>
                 {blk && (
@@ -602,7 +724,7 @@ export default function Page() {
                 <div className="relative min-w-[200px] flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="按文件名、目录名、路径、hash 搜索..."
+                    placeholder="按文件名、路径（含目录）、hash 搜索..."
                     className="h-9 pl-9"
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
@@ -650,35 +772,36 @@ export default function Page() {
             <div ref={tableScrollRef} className="min-h-0 flex-1 overflow-auto px-4">
               <Table className="table-fixed w-full" containerClassName="overflow-visible">
                 <colgroup>
-                  <col style={{ width: 180 }} />
-                  <col style={{ width: 56 }} />
-                  <col style={{ width: 220 }} />
-                  <col style={{ width: 80 }} />
-                  <col style={{ width: 120 }} />
-                  <col style={{ width: 120 }} />
-                  <col style={{ width: 72 }} />
-                  <col style={{ width: 140 }} />
-                  <col style={{ width: 140 }} />
-                  <col style={{ width: 88 }} />
+                  <col style={{ width: "16%" }} />
+                  {/* <col style={{ width: "4%" }} /> 类型列暂隐藏 */}
+                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "7%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "5%" }} />
+                  <col style={{ width: "15%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "9%" }} />
                 </colgroup>
                 <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-card">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">名称</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">类型</TableHead>
+                    {/* <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">类型</TableHead> */}
                     <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">路径</TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">大小</TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">站点</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">存储卷</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">盘笼</TableHead>
+                    {/* 设备、存储卷列已隐藏，改到详情弹窗展示 */}
                     <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">扩展名</TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">校验码</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">创建时间</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">操作</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500 whitespace-nowrap">创建时间</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500 whitespace-nowrap">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paged.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="py-8 text-center text-slate-500" data-testid="search-empty">
+                      <TableCell colSpan={9} className="py-8 text-center text-slate-500" data-testid="search-empty">
                         {dataSource === "blocked"
                           ? "全文检索服务未接入，当前无可检索文件"
                           : "未找到匹配的检索结果"}
@@ -694,41 +817,53 @@ export default function Page() {
                           key={f.id}
                           className="transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20"
                         >
-                          <TableCell className="align-top whitespace-normal break-all text-sm font-medium text-blue-700 dark:text-blue-300">
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all text-sm font-medium text-blue-700 dark:text-blue-300">
                             {f.fileName || "—"}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal text-sm">
+                          {/* <TableCell className="align-top whitespace-nowrap text-sm">
                             {f.docType === "folder" ? "目录" : "文件"}
-                          </TableCell>
-                          <TableCell className="align-top whitespace-normal break-all font-mono text-xs">
+                          </TableCell> */}
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all font-mono text-xs">
                             {f.path || "—"}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal text-sm">{f.size}</TableCell>
-                          <TableCell className="align-top whitespace-normal break-all text-sm">
+                          <TableCell className="align-top whitespace-nowrap text-sm">{f.size}</TableCell>
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all text-sm">
                             {siteLabel || "—"}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal break-all text-sm">
-                            {f.volume || "—"}
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all font-mono text-xs">
+                            {f.magazineRfid || "—"}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal break-all text-sm">
+                          {/* 设备、存储卷改到详情弹窗 */}
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all text-sm">
                             {f.fileType || "—"}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal break-all font-mono text-xs text-slate-500">
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all font-mono text-xs text-slate-500">
                             {f.checksum || "—"}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal break-all text-sm text-slate-500">
+                          <TableCell className="align-top whitespace-nowrap text-sm text-slate-500">
                             {created}
                           </TableCell>
-                          <TableCell className="align-top whitespace-normal">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 cursor-pointer text-xs"
-                              onClick={() => handleRestore(f)}
-                              data-testid="search-row-restore"
-                            >
-                              发起回迁
-                            </Button>
+                          <TableCell className="align-top whitespace-nowrap">
+                            <div className="flex flex-nowrap items-center gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 shrink-0 cursor-pointer px-2.5 text-xs"
+                                onClick={() => setDetailFile(f)}
+                                data-testid="search-row-detail"
+                              >
+                                详情
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 shrink-0 cursor-pointer px-2.5 text-xs"
+                                onClick={() => handleRestore(f)}
+                                data-testid="search-row-restore"
+                              >
+                                发起回迁
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       )
@@ -785,6 +920,118 @@ export default function Page() {
         )}
       </div>
 
+      <Dialog open={detailFile != null} onOpenChange={(open) => { if (!open) setDetailFile(null) }}>
+        <DialogContent className="sm:max-w-lg" data-testid="search-detail-dialog">
+          <DialogHeader>
+            <DialogTitle className="pr-6 break-all">
+              {detailFile?.fileName || "检索详情"}
+            </DialogTitle>
+          </DialogHeader>
+          {detailFile && (
+            <div className="max-h-[60vh] overflow-y-auto py-1">
+              <SearchDetailRow label="名称" value={detailFile.fileName || "—"} />
+              {/* <SearchDetailRow
+                label="类型"
+                value={detailFile.docType === "folder" ? "目录" : "文件"}
+              /> */}
+              <SearchDetailRow label="大小" value={detailFile.size || "—"} />
+              <SearchDetailRow
+                label="路径"
+                value={<span className="break-all font-mono text-xs">{detailFile.path || "—"}</span>}
+              />
+              <SearchDetailRow
+                label="站点"
+                value={
+                  detailFile.siteName && detailFile.siteName !== detailFile.siteCode
+                    ? `${detailFile.siteName} (${detailFile.siteCode})`
+                    : detailFile.siteCode || "—"
+                }
+              />
+              <SearchDetailRow label="设备" value={detailFile.deviceLabel || "—"} />
+              <SearchDetailRow
+                label="盘笼 RFID"
+                value={
+                  <span className="break-all font-mono text-xs">{detailFile.magazineRfid || "—"}</span>
+                }
+              />
+              <SearchDetailRow
+                label="盘位号"
+                value={
+                  detailFile.slotOrder != null && Number.isFinite(detailFile.slotOrder)
+                    ? String(detailFile.slotOrder)
+                    : "—"
+                }
+              />
+              <SearchDetailRow
+                label="光盘面"
+                value={
+                  detailFile.discSide == null || !Number.isFinite(detailFile.discSide)
+                    ? "—"
+                    : detailFile.discSide === 0
+                      ? "A面 (0)"
+                      : detailFile.discSide === 1
+                        ? "B面 (1)"
+                        : String(detailFile.discSide)
+                }
+              />
+              <SearchDetailRow
+                label="归档存储卷"
+                value={
+                  <span>
+                    {detailFile.volume || "—"}
+                    <span className="mt-0.5 block text-[11px] font-normal text-slate-400">
+                      索引归档信息；盘笼移位后目标站一般不再对应此逻辑卷。
+                    </span>
+                  </span>
+                }
+              />
+              <SearchDetailRow label="扩展名" value={detailFile.fileType || "—"} />
+              <SearchDetailRow
+                label="创建时间"
+                value={formatBeijingTime(detailFile.createdAt) || "—"}
+              />
+              <SearchDetailRow
+                label="校验码"
+                value={
+                  <span className="break-all font-mono text-xs">{detailFile.checksum || "—"}</span>
+                }
+              />
+              {detailFile.contentType ? (
+                <SearchDetailRow label="内容类型" value={detailFile.contentType} />
+              ) : null}
+              {detailFile.taskId ? (
+                <SearchDetailRow
+                  label="关联任务"
+                  value={<span className="break-all font-mono text-xs">{detailFile.taskId}</span>}
+                />
+              ) : null}
+              {detailFile.sourceTable ? (
+                <SearchDetailRow
+                  label="源表"
+                  value={<span className="break-all font-mono text-xs">{detailFile.sourceTable}</span>}
+                />
+              ) : null}
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setDetailFile(null)}>
+              关闭
+            </Button>
+            {detailFile ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  handleRestore(detailFile)
+                }}
+                data-testid="search-detail-restore"
+              >
+                发起回迁
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showExport} onOpenChange={setShowExport}>
         <DialogContent>
           <DialogHeader>
@@ -822,7 +1069,7 @@ export default function Page() {
               </Select>
             </div>
             <p className="text-xs text-slate-500">
-              导出列与列表一致：名称、类型、路径、大小、站点、存储卷、扩展名、校验码、创建时间（中文表头，时间已格式化）。
+              导出列与列表一致：名称、路径、大小、站点、盘笼、扩展名、校验码、创建时间（中文表头，时间已格式化）。
             </p>
           </div>
           <DialogFooter>

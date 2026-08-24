@@ -66,6 +66,18 @@ function esDocToHit(doc: EsIndexDocument & { _id?: string }): FileSearchHit {
       doc.slot_id != null && Number.isFinite(Number(doc.slot_id))
         ? Number(doc.slot_id)
         : null,
+    slotOrder:
+      doc.slot_order != null && Number.isFinite(Number(doc.slot_order))
+        ? Number(doc.slot_order)
+        : null,
+    discSide:
+      doc.disc_side != null && Number.isFinite(Number(doc.disc_side))
+        ? Number(doc.disc_side)
+        : null,
+    magazineRfid: doc.magazine_rfid?.trim() || null,
+    deviceIp: doc.device_ip?.trim() || null,
+    devicePort: doc.device_port?.trim() || null,
+    deviceName: null,
     hash: doc.hash ?? doc.hash1 ?? null,
     taskId: doc.task_id ?? null,
     status: doc.status != null && Number.isFinite(Number(doc.status)) ? Number(doc.status) : null,
@@ -93,7 +105,7 @@ export function createOpenSearchFileSearchAdapter(): SearchPort {
           q: query.keyword,
           siteCodes: query.siteCode ? [query.siteCode] : [],
           volumeId: query.volumeId,
-          docType: query.docType,
+          docType: "file",
           limit: Math.min(Math.max(query.limit, 1), 500),
           searchAfter: query.searchAfter,
           inboundRfids: query.inboundRfids,

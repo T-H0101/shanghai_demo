@@ -9,8 +9,10 @@
 
 - [x] 中心表 `unified_cage_move_register` + `pnpm db:init` 注册。
 - [x] `GET/POST /api/racks/cage-moves`（总控登记，不走 control_command 完成证据）。
-- [x] `/racks` 第 4 Tab「盘笼移位」登记表单与历史。
+- [x] `DELETE /api/racks/cage-moves/[id]`：错误登记 `status=cancelled`，检索映射移除（行保留追溯）。
+- [x] `/racks` 顶部「盘笼移位」Dialog + 下方 Tab 仅登记历史。
 - [x] 选站点检索按最新 RFID 位置扩条件，不改 ES 文档。
+- [x] 检索结果展示设备/盘笼RFID，有登记时站点与设备按目标覆盖。
 - [x] `e2e:cage-move` + sprint-r98 requirements review。
 - [ ] 站点入架后自动上报 RFID 当前位置（`blocked_by_site_change`）。
 - [ ] 真实回迁读登记表目标 IP:port（本 Sprint 不做）。

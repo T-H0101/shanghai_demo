@@ -26,7 +26,8 @@ import { loadRacksBrowseMock, loadRacksRestoreTargetsMock } from "@/lib/mock-mod
 import { useSite } from "@/lib/site/site-context"
 import { InspectionView } from "@/components/racks/inspection-view"
 import { VolumesView } from "@/components/racks/volumes-view"
-import { CageMoveView } from "@/components/racks/cage-move-view"
+import { CageMoveHistoryView } from "@/components/racks/cage-move-view"
+import { CageMoveDialog } from "@/components/racks/cage-move-dialog"
 import type { Rack, RackSlot, RackSlotGroup, RackStats, BackupFile, RestoreItem, RestoreTarget } from "@/lib/types/rack"
 // DEVICE_MODE_LABELS / DeviceMode：模式控制 UI 暂隐藏，恢复时取消下行注释
 // import { DEVICE_MODE_LABELS, type DeviceMode } from "@/lib/types/rack"
@@ -45,7 +46,7 @@ import type { TaskItem } from "@/lib/types/task"
 import type { AddMediaInput, MountInput, CreateTaskInput } from "@/lib/api/providers"
 import {
   Server, HardDrive, Database, Wifi, WifiOff, AlertTriangle, Layers,
-  Search, RefreshCw, Download, ListChecks, ChevronRight,
+  Search, Download, ListChecks, ChevronRight,
   Info, Grid3X3, Link2, CheckCircle2, XCircle, Clock,
   Activity, Plug, Eye as ScanIcon,
   Box, Timer, RotateCcw, FolderOpen, FileText, ArrowRight, ArrowLeftRight,
@@ -166,7 +167,6 @@ export default function Page() {
   )
   const [category, setCategory] = useState<DeviceCategory>("all")
   const [keyword, setKeyword] = useState("")
-  const [syncing, setSyncing] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv")
 
@@ -193,8 +193,10 @@ export default function Page() {
   // ============================================================
   // 存储浏览 / 数据恢复状态
   // ============================================================
-  const [storageTab, setStorageTab] = useState<"overview" | "browse" | "restore" | "cage-move">("overview")
+  const [storageTab, setStorageTab] = useState<"overview" | "browse" | "cage-move">("overview")
   const [restoreMode, setRestoreMode] = useState<"server" | "local">("server")
+  const [showCageMove, setShowCageMove] = useState(false)
+  const [cageMoveRefreshToken, setCageMoveRefreshToken] = useState(0)
   // 目录树状态
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(["/backup", "/backup/hdd", "/backup/optical"]))
   const [currentVolumeId, setCurrentVolumeId] = useState<string>("v1")
@@ -235,9 +237,9 @@ export default function Page() {
 
   // 初始化浏览文件
   useEffect(() => {
-    if (storageTab !== "browse" && storageTab !== "restore") return
+    if (storageTab !== "browse") return
     let cancelled = false
-    loadRacksBrowseMock(storageTab).then((res) => {
+    loadRacksBrowseMock("browse").then((res) => {
       if (cancelled) return
       if (res.source === "mock" && res.root) {
         setBrowsedFiles((res.root.children ?? []) as any)
@@ -608,21 +610,6 @@ export default function Page() {
     void loadSlotDetails(rack)
   }
 
-  const handleSync = async () => {
-    setSyncing(true)
-    try {
-      if (isApiMode()) {
-        await loadRacks()
-        toast({ title: "数据已刷新", description: "已重新读取中心库设备数据" })
-        return
-      }
-      await rackProvider.syncRacks()
-      await loadRacks()
-      toast({ title: "设备列表已刷新", description: "所有设备同步时间已更新" })
-    } catch { toast({ title: "同步失败", variant: "destructive" }) }
-    finally { setSyncing(false) }
-  }
-
   const handleExport = async () => {
     setExporting(true)
     try {
@@ -889,8 +876,13 @@ export default function Page() {
             >
               <Download className="h-4 w-4 mr-1" />{exporting ? "导出中" : `导出 ${exportFormat.toUpperCase()}`}
             </Button>
-            <Button size="sm" className="h-8" onClick={handleSync} disabled={syncing}>
-              <RefreshCw className={cn("h-4 w-4 mr-1", syncing && "animate-spin")} />同步
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => setShowCageMove(true)}
+              data-testid="racks-cage-move-open"
+            >
+              <ArrowLeftRight className="h-4 w-4 mr-1" />盘笼移位
             </Button>
           </div>
         }
@@ -1499,13 +1491,6 @@ export default function Page() {
                 <FolderTree className="h-3.5 w-3.5 mr-1" />存储浏览
               </TabsTrigger>
               <TabsTrigger
-                value="restore"
-                className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
-                data-testid="racks-storage-tab-restore"
-              >
-                <RotateCcw className="h-3.5 w-3.5 mr-1" />数据恢复
-              </TabsTrigger>
-              <TabsTrigger
                 value="cage-move"
                 className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
                 data-testid="racks-storage-tab-cage-move"
@@ -1513,25 +1498,6 @@ export default function Page() {
                 <ArrowLeftRight className="h-3.5 w-3.5 mr-1" />盘笼移位
               </TabsTrigger>
             </TabsList>
-            {storageTab === "restore" && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 dark:text-slate-400">恢复模式：</span>
-                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
-                  <button
-                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "server" ? "bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-300" : "text-slate-500 dark:text-slate-400")}
-                    onClick={() => setRestoreMode("server")}
-                  >
-                    恢复到服务器路径
-                  </button>
-                  <button
-                    className={cn("px-3 py-1 text-xs rounded-md transition-colors", restoreMode === "local" ? "bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-300" : "text-slate-500 dark:text-slate-400")}
-                    onClick={() => setRestoreMode("local")}
-                  >
-                    下载到本地目录
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* 内容区 — 使用 TabsContent 保证切换时内容 mount/unmount */}
@@ -1600,126 +1566,6 @@ export default function Page() {
               )}
             </TabsContent>
 
-            {/* 数据恢复 */}
-            <TabsContent value="restore" className="m-0">
-              {isApiMode() ? (
-                <EmptyState
-                  severity="blocked"
-                  icon={RotateCcw}
-                  title="数据恢复任务等待站点代理结果"
-                  description="总控保留完整控制能力；文件索引与站点代理恢复协议接入后可执行恢复任务。"
-                  testid="racks-storage-restore-blocked"
-                  action={{ label: "查看任务中心控制队列", href: "/tasks?view=commands" }}
-                />
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-restore-content">
-                  {/* 左侧目录树 */}
-                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                    <h4 className="text-sm font-medium mb-3">选择恢复数据</h4>
-                    <ScrollArea className="h-[320px]">
-                      <div className="text-xs">
-                        {browsedFiles.map(file => renderTreeItem(file, 0))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-
-                  {/* 中间待恢复列表 */}
-                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                    <h4 className="text-sm font-medium mb-3">
-                      待恢复列表
-                      {restoreList.length > 0 && (
-                        <Badge variant="outline" className="ml-2 text-xs">{restoreList.length} 项</Badge>
-                      )}
-                    </h4>
-                    {restoreList.length === 0 ? (
-                      <div className="text-center py-12 text-slate-400 text-sm">
-                        <FileText className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                        <p>点击左侧"添加"加入恢复列表</p>
-                      </div>
-                    ) : (
-                      <ScrollArea className="h-[280px]">
-                        <div className="space-y-1">
-                          {restoreList.map(item => (
-                            <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/50 rounded text-xs">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium truncate">{item.name}</p>
-                                <p className="text-slate-400 truncate">{item.sourcePath}</p>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {item.size && <span className="text-slate-500">{item.size}</span>}
-                                <button
-                                  className="h-5 w-5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center"
-                                  onClick={() => removeFromRestoreList(item.id)}
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    )}
-                  </div>
-
-                  {/* 右侧目标选择 + 容量看板 */}
-                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                    <h4 className="text-sm font-medium mb-3">恢复目标</h4>
-                    <div className="space-y-3">
-                      <Select value={targetPath} onValueChange={setTargetPath}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="选择目标路径" /></SelectTrigger>
-                        <SelectContent>
-                          {targetOptions.map(t => (
-                            <SelectItem key={t.id} value={t.path}>{t.name} ({t.path})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {/* 容量看板 */}
-                      <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg space-y-2">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">容量看板</p>
-                        <div className="space-y-1.5 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500 dark:text-slate-400">已选文件数</span>
-                            <span className="font-medium">{restoreList.length} 个</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500 dark:text-slate-400">计划使用</span>
-                            <span className="font-medium">{calcTotalSize(restoreList).display}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500 dark:text-slate-400">目标剩余</span>
-                            <span className="font-medium">{getTargetRemaining()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500 dark:text-slate-400">恢复模式</span>
-                            <span className="font-medium">{restoreMode === "server" ? "恢复到服务器" : "下载到本地"}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500 dark:text-slate-400">源存储卷</span>
-                            <span className="font-medium">{getVolumeName(currentVolumeId)}</span>
-                          </div>
-                        </div>
-                        {isCapacityInsufficient() && (
-                          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-red-600 dark:text-red-300 text-xs">
-                            目标容量不足，请选择其他路径或减少文件
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        className="w-full"
-                        disabled={restoreList.length === 0 || !targetPath || isCapacityInsufficient() || restoreSubmitting}
-                        onClick={handleRestoreSubmit}
-                      >
-                        {restoreSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
-                        开始恢复
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
             {/* 设备总览（默认） */}
             <TabsContent value="overview" className="m-0">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-testid="racks-storage-overview-content">
@@ -1771,7 +1617,7 @@ export default function Page() {
                     <p>设备数量: {filtered.length} 台</p>
                     <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
                     <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>
-                    <p className="text-amber-700 dark:text-amber-300">存储浏览/数据恢复按接入状态展示，未配置时保持不可操作。</p>
+                    <p className="text-amber-700 dark:text-amber-300">存储浏览按接入状态展示，未配置时保持不可操作。盘笼移位登记用顶部按钮，下方 Tab 仅看历史。</p>
                   </div>
                 </div>
 
@@ -1806,11 +1652,20 @@ export default function Page() {
             </TabsContent>
 
             <TabsContent value="cage-move" className="m-0">
-              <CageMoveView />
+              <CageMoveHistoryView refreshToken={cageMoveRefreshToken} />
             </TabsContent>
           </div>
         </Tabs>
       </div>
+      <CageMoveDialog
+        open={showCageMove}
+        onOpenChange={setShowCageMove}
+        sites={siteOptions}
+        onRegistered={() => {
+          setCageMoveRefreshToken((n) => n + 1)
+          setStorageTab("cage-move")
+        }}
+      />
     </AppShell>
   )
 }

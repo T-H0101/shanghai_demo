@@ -55,15 +55,15 @@
 | # | 项 | 说明 |
 |---|---|---|
 | 1 | 新增页面/组件 | `components/racks/cage-move-view.tsx`（非新导航页） |
-| 2 | 修改按钮/交互 | `/racks` 增加第 4 个 Tab「盘笼移位」；表单提交「登记移位」 |
-| 3 | 删除按钮/交互 | 无 |
+| 2 | 修改按钮/交互 | 去掉「数据恢复」Tab；「盘笼移位」Tab 仅历史；顶部「盘笼移位」按钮打开 Dialog（原/目标左右级联）；历史列改为盘笼RFID + 站点名称/设备名称 + 站点IP/设备IP；操作列「撤销登记」 |
+| 3 | 删除按钮/交互 | 去掉历史表「盘笼 ID」列 |
 | 4 | UI-only | 无。历史表读 `GET /api/racks/cage-moves` |
 | 5 | 真实后端 | POST 写 `unified_cage_move_register` + `audit_log`；检索按登记表扩 `magazine_rfid` |
 | 6 | simulator / DRY_RUN | 无。不走 `control_command`，不宣称站点已执行 |
 | 7 | 是否超出 requirements | 否。总控登记是 §4.3.1 日志能力的中心侧实现；检索扩条件支撑 §4.1.1 归属 |
 | 8 | 超出理由 | — |
 
-Toast / 文案：**「盘笼移位已登记到总控，检索将按目标站点归属，等待站点库同步盘笼位置」**。禁止「移位成功 / 已移位」。
+Toast / 文案：**「盘笼移位已登记到总控，检索将按目标站点归属，等待站点库同步盘笼位置」**。撤销：**「已撤销这次移位登记。在目标站点检索将不再包含该盘笼」**。禁止「移位成功 / 已移位」。
 
 ---
 
@@ -71,11 +71,12 @@ Toast / 文案：**「盘笼移位已登记到总控，检索将按目标站点�
 
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
-| GET | `/api/racks/cage-moves` | `platform:read` | 分页登记历史 `created_at DESC` |
+| GET | `/api/racks/cage-moves` | `platform:read` | 分页登记历史（仅 `status=registered`） |
 | POST | `/api/racks/cage-moves` | `racks:operate` | 写登记表；`operator_account_id = session.id` |
-| GET | `/api/search` | 既有 | 选站点时扩 inbound/outbound RFID |
-| GET | `/api/search/count` | 既有 | 与列表同一套 `loadSiteRfidRelocationFilter` |
-| GET | `/api/search/export` | 既有 | 同样扩 RFID，避免导出与列表不一致 |
+| DELETE | `/api/racks/cage-moves/[id]` | `racks:operate` | 错误登记：`status=cancelled`，检索映射移除；不物理删行、不下发站点 |
+| GET | `/api/search` | 既有 | 选站点时扩 inbound/outbound RFID；结果按登记覆盖展示站点/设备 |
+| GET | `/api/search/count` | 既有 | 与列表同一套 RFID 过滤 |
+| GET | `/api/search/export` | 既有 | 同样扩 RFID + 同一套展示覆盖 |
 
 保留旧 `POST /api/racks/cage-move`（控制队列，blocked），**不是**本功能入口。
 
@@ -87,7 +88,7 @@ Toast / 文案：**「盘笼移位已登记到总控，检索将按目标站点�
 
 不写站点库；不改 OpenSearch mapping；不重推 file 文档。
 
-当前位置 = 该 `magazine_rfid` 最新一条 `status=registered` 的 `target_site_code` / `target_device_ip`（port 可空）。
+当前位置 = 该 `magazine_rfid` 最新一条 `status=registered` 的 `target_site_code` / `target_device_ip`（port 可空）。错误登记 DELETE 将行标为 `cancelled`（不物理删行），该 RFID 立即退出映射；若同 RFID 仍有更早的 `registered` 行，映射回退到那一条。
 
 ---
 
@@ -98,6 +99,7 @@ Toast / 文案：**「盘笼移位已登记到总控，检索将按目标站点�
 | REQ-4.3.1 | `databases/sprint-r98/01-cage-move-register.sql` | 新建 |
 | REQ-4.3.1 | `lib/control/cage-move-register.ts` | 新建 |
 | REQ-4.3.1 | `app/api/racks/cage-moves/route.ts` | 新建 |
+| REQ-4.3.1 | `app/api/racks/cage-moves/[id]/route.ts` | 新建（DELETE 取消登记） |
 | REQ-4.3.1 | `components/racks/cage-move-view.tsx` | 新建 |
 | REQ-4.3.1 | `app/racks/page.tsx` | 修改（第 4 Tab） |
 | REQ-4.1.1 | `lib/search/es-client.ts` | 修改（站点归属 OR RFID） |
@@ -111,10 +113,11 @@ Toast / 文案：**「盘笼移位已登记到总控，检索将按目标站点�
 | Req ID | 后端真实能力 | 证据 |
 |---|---|---|
 | REQ-4.3.1 总控登记 | ✅ 中心库 INSERT + audit_log `cage_move_registered` | `pnpm e2e:cage-move`：POST 201 + `SELECT` 一行 |
+| REQ-4.3.1 取消错误登记 | ✅ UPDATE `status=cancelled` + audit `cage_move_cancelled`；映射不再含该 RFID | DELETE 200 + 列表不含 + registered=0 |
 | REQ-4.3.1 站点执行移位 | ❌ 未做 | 无人把盘笼放入目标库的应用回写 |
 | REQ-4.3.1 移入自动报告 | ❌ 未做 | 无站点上报 API / 无站点移位表 poll |
 | REQ-4.3.1 审批人 | ❌ 表无 approver 列 | 需求字段未实现 |
-| REQ-4.1.1 跨站归属 | ⚠️ 选站点时 ES filter 扩 RFID；ES 文档 `source_site_id` 仍是归档站 | `siteOwnershipFilter`；全站检索不扩 RFID |
+| REQ-4.1.1 跨站归属 | ⚠️ 选站点时 ES filter 扩 RFID；列表站点/设备按登记覆盖展示；ES 文档 `source_site_id` 仍是归档站 | `enrichSearchHits` + `siteOwnershipFilter`；全站检索不扩 RFID |
 | REQ-4.1.1 权限过滤 | ❌ 本 Sprint 未做 | 既有 `permission_filter_hardening` missing |
 
 ---
@@ -123,16 +126,18 @@ Toast / 文案：**「盘笼移位已登记到总控，检索将按目标站点�
 
 | 元素 | 真实点击行为 | 是否误导 |
 |---|---|---|
-| Tab「盘笼移位」 | `data-testid="racks-storage-tab-cage-move"` | 否 |
-| 提交「登记移位」 | POST `/api/racks/cage-moves` | 否（登记 ≠ 站点已移位） |
-| toast | API `message` 含「已登记到总控」 | 否 |
-| 历史表 | GET 真实行 | 状态展示「已登记」= 总控登记态 |
+| Tab「盘笼移位」 | 仅展示 `registered` 登记历史 | 否 |
+| 顶部「盘笼移位」 | 打开 Dialog，POST `/api/racks/cage-moves` | 否（登记 ≠ 站点已移位） |
+| toast 登记 | API `message` 含「已登记到总控」 | 否 |
+| 历史表 | GET 真实行；位置为站点名称/设备名称 + 站点 IP/设备 IP | 否 |
+| 「撤销登记」 | 确认后 DELETE，行 `status=cancelled`，列表与 RFID 映射移除 | 否（不宣称现场已撤回） |
+| toast 撤销 | API `message` 含「已撤销这次移位登记」 | 否 |
 
 ---
 
 ## E. 事件测试清单 (10 项)
 
-见 `scripts/e2e/test-cage-move.ts`：Tab selector、GET 前状态、POST、201+message、psql 一行、列表刷新、toast 口径、无 mock、不误导、REQ-4.3.1/4.1.1。
+见 `scripts/e2e/test-cage-move.ts`：Tab selector、GET 前状态、POST、201+message、psql 一行、列表刷新、DELETE 取消、status=cancelled、列表与映射移除、toast 口径、无 mock、不误导、REQ-4.3.1/4.1.1。
 
 命令: `pnpm e2e:cage-move`（需 dev server + Docker PG）。
 

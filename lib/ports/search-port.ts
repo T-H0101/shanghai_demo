@@ -38,6 +38,23 @@ export type FileSearchHit = {
   volumeCode: string | null
   volumeName: string | null
   slotId: number | null
+  /** 片匣内盘位号（推送 slot_order，从 0 起）；跨站回迁寻址用，非 slot_id */
+  slotOrder: number | null
+  /** 光盘 AB 面：0=A，1=B（tbl_slots.disc_side） */
+  discSide: number | null
+  /** 索引盘笼 RFID；移位登记后身份不变 */
+  magazineRfid: string | null
+  /** 索引或登记覆盖后的设备 IP */
+  deviceIp: string | null
+  devicePort: string | null
+  /** 设备展示名（可选，来自中心库补全） */
+  deviceName: string | null
+  /**
+   * 列表展示用站点编码：有移位登记时为最新目标站，否则为归档 sourceSiteId。
+   * sourceSiteId 仍保留 ES 归档站，供存储卷名解析。
+   */
+  displaySiteCode?: string | null
+  siteName?: string | null
   hash: string | null
   taskId: string | null
   status: number | null

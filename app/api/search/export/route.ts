@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
 import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
-import { loadSiteRfidRelocationFilter } from "@/lib/control/cage-move-register"
+import { listCurrentMagazineLocations } from "@/lib/control/cage-move-register"
 import { query } from "@/lib/db"
 import { buildExport } from "@/lib/export"
 import { toNextResponse } from "@/lib/export/next-response"
@@ -16,6 +16,12 @@ import {
   toSearchExportRowFromHit,
   type SearchExportRow,
 } from "@/lib/search/export-format"
+import {
+  enrichSearchHits,
+  loadDeviceNameByIp,
+  locationMapFromRows,
+  relocationFilterFromLocations,
+} from "@/lib/search/hit-enrichment"
 
 type VolumeRow = {
   source_site_id: string
@@ -86,15 +92,15 @@ export async function GET(req: NextRequest) {
     volumeRaw != null && volumeRaw !== "" && Number.isFinite(Number(volumeRaw))
       ? Number(volumeRaw)
       : undefined
-  const docTypeRaw = url.searchParams.get("docType")
-  const docType =
-    docTypeRaw === "file" || docTypeRaw === "folder" ? docTypeRaw : undefined
+  const docType = "file" as const
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 10000), 50000)
 
   try {
     const selectedSite = siteCode || undefined
+    const locations = await listCurrentMagazineLocations()
+    const locationMap = locationMapFromRows(locations)
     const rfidFilter = selectedSite
-      ? await loadSiteRfidRelocationFilter([selectedSite])
+      ? relocationFilterFromLocations(locations, [selectedSite])
       : { inboundRfids: [], outboundRfids: [] }
 
     const adapter = createOpenSearchFileSearchAdapter()
@@ -120,19 +126,24 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const [volumeMap, siteMap] = await Promise.all([loadVolumeNameMap(), loadSiteNameMap()])
-    const rows: SearchExportRow[] = result.hits.map((hit) => {
-      const enriched = {
-        ...hit,
-        siteName: hit.sourceSiteId ? siteMap.get(hit.sourceSiteId) ?? hit.sourceSiteId : null,
-        volumeName:
-          hit.volumeId != null && hit.sourceSiteId
-            ? volumeMap.get(volumeKey(hit.sourceSiteId, hit.volumeId)) ??
-              (hit.volumeName || null)
-            : hit.volumeName,
-      }
-      return toSearchExportRowFromHit(enriched)
+    const previewIps = result.hits.map((h) => {
+      const rfid = h.magazineRfid?.trim()
+      const loc = rfid ? locationMap.get(rfid) : undefined
+      return (loc?.target_device_ip || h.deviceIp || "").trim()
+    }).filter(Boolean)
+
+    const [volumeMap, siteMap, deviceNames] = await Promise.all([
+      loadVolumeNameMap(),
+      loadSiteNameMap(),
+      loadDeviceNameByIp(previewIps),
+    ])
+    const enriched = enrichSearchHits(result.hits, {
+      volumeNames: volumeMap,
+      siteNames: siteMap,
+      locationMap,
+      deviceNames,
     })
+    const rows: SearchExportRow[] = enriched.map((hit) => toSearchExportRowFromHit(hit))
 
     const exportResult = buildExport({
       exportType: "search",

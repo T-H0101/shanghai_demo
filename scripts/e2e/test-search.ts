@@ -105,6 +105,65 @@ async function main() {
       searchPage.includes("SEARCH_BLOCKER_REASON"),
     "使用产品化检索阻塞文案"
   )
+  check(
+    "结果表含盘笼列与详情按钮；存储卷不在列表展示",
+    searchPage.includes(">盘笼<") &&
+      searchPage.includes("search-row-detail") &&
+      searchPage.includes("search-detail-dialog") &&
+      !searchPage.includes(">存储卷</TableHead>") &&
+      !searchPage.includes(">设备</TableHead>"),
+    "列表精简列 + 详情弹窗"
+  )
+  check(
+    "仅文件检索：类型列与类型筛选已注释",
+    searchPage.includes("类型列暂隐藏") &&
+      searchPage.includes("类型筛选暂隐藏"),
+    "UI 不再筛目录"
+  )
+
+  const esClient = await readFile("lib/search/es-client.ts", "utf8")
+  check(
+    "OpenSearch 仅排除目录文档，路径关键字仍可命中文件",
+    esClient.includes('{ term: { doc_type: "file" } }') &&
+      esClient.includes('wildcardContains("folder_path.keyword", keyword)'),
+    "doc_type=file + folder_path 关键字"
+  )
+  check(
+    "发起回迁调用 /api/search/restore 且文案为记录已提交",
+    searchPage.includes("/api/search/restore") &&
+      searchPage.includes("回迁记录已提交") &&
+      searchPage.includes("fileSize") &&
+      !searchPage.includes("回迁成功") &&
+      !searchPage.includes("已回迁"),
+    "物理位置登记口径（含可选 size）"
+  )
+
+  const restorePhysical = await readFile("lib/search/restore-physical.ts", "utf8")
+  check(
+    "根目录 / 组路径时不被剥成空串",
+    restorePhysical.includes("stripTrailingSlashesPreserveRoot") &&
+      restorePhysical.includes('if (raw === "/") return "/"'),
+    "OS 真有 / 时拼成 /文件名；空路径不臆造"
+  )
+
+  // 8. 回迁 API：缺字段应 400（需登录时可能 401，均不可伪装成功）
+  const restoreRes = await fetch(`${BASE}/api/search/restore`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetSiteCode: "SH01" }),
+  })
+  const restoreBody = await restoreRes.json().catch(() => ({}))
+  check(
+    "POST /api/search/restore 缺物理位置时不返回成功",
+    restoreRes.status !== 200 || restoreBody?.code !== 0,
+    `HTTP ${restoreRes.status} code=${restoreBody?.code}`
+  )
+  check(
+    "回迁响应不宣称执行完成",
+    !JSON.stringify(restoreBody).includes("回迁成功") &&
+      !JSON.stringify(restoreBody).includes("已回迁"),
+    "文案合规"
+  )
 
   // 7. 多种 siteCode 验证
   for (const sc of ["SH01", "BJ02", ""]) {

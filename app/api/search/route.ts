@@ -6,8 +6,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
 import { query } from "@/lib/db"
-import { loadSiteRfidRelocationFilter } from "@/lib/control/cage-move-register"
-import type { FileSearchHit } from "@/lib/ports/search-port"
+import { listCurrentMagazineLocations } from "@/lib/control/cage-move-register"
+import {
+  enrichSearchHits,
+  loadDeviceNameByIp,
+  locationMapFromRows,
+  relocationFilterFromLocations,
+} from "@/lib/search/hit-enrichment"
 
 const DEFAULT_LIMIT = 50
 const SEARCH_REQUIREMENTS = ["REQ-4.1.1", "REQ-4.1.2", "REQ-5.2.1"]
@@ -68,29 +73,6 @@ async function loadSiteNameMap(): Promise<Map<string, string>> {
   return map
 }
 
-function enrichHits(
-  hits: FileSearchHit[],
-  volumeNames: Map<string, string>,
-  siteNames: Map<string, string>
-): Array<FileSearchHit & { siteName: string | null }> {
-  return hits.map((hit) => {
-    let volumeName = hit.volumeName
-    if (!volumeName && hit.volumeId != null) {
-      volumeName =
-        volumeNames.get(volumeKey(hit.sourceSiteId, hit.volumeId)) ??
-        `卷-${hit.volumeId}`
-    } else if (!volumeName && hit.volumeId != null) {
-      volumeName = `卷-${hit.volumeId}`
-    }
-    return {
-      ...hit,
-      volumeName: volumeName ?? (hit.volumeId != null ? `卷-${hit.volumeId}` : null),
-      volumeCode: hit.volumeCode ?? (hit.volumeId != null ? String(hit.volumeId) : null),
-      siteName: siteNames.get(hit.sourceSiteId) ?? hit.sourceSiteId,
-    }
-  })
-}
-
 export async function GET(request: NextRequest) {
   try {
     const keyword =
@@ -106,9 +88,8 @@ export async function GET(request: NextRequest) {
       volumeRaw != null && volumeRaw !== "" && Number.isFinite(Number(volumeRaw))
         ? Number(volumeRaw)
         : undefined
-    const docTypeRaw = request.nextUrl.searchParams.get("docType")
-    const docType =
-      docTypeRaw === "file" || docTypeRaw === "folder" ? docTypeRaw : undefined
+    // 统一检索仅文件；忽略客户端 docType=folder
+    const docType = "file" as const
 
     const pageSize = Math.min(
       Number(request.nextUrl.searchParams.get("pageSize") ?? request.nextUrl.searchParams.get("limit") ?? DEFAULT_LIMIT),
@@ -118,8 +99,11 @@ export async function GET(request: NextRequest) {
     const searchAfter =
       searchAfterRaw != null && searchAfterRaw.trim() !== "" ? searchAfterRaw.trim() : null
 
+    // 移位登记表通常很小：一次加载同时用于选站过滤 + 结果展示覆盖
+    const locations = await listCurrentMagazineLocations()
+    const locationMap = locationMapFromRows(locations)
     const rfidFilter = siteCode
-      ? await loadSiteRfidRelocationFilter([siteCode])
+      ? relocationFilterFromLocations(locations, [siteCode])
       : { inboundRfids: [], outboundRfids: [] }
 
     const adapter = createOpenSearchFileSearchAdapter()
@@ -155,11 +139,23 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const [volumeNames, siteNames] = await Promise.all([
+    const previewIps = result.hits.map((h) => {
+      const rfid = h.magazineRfid?.trim()
+      const loc = rfid ? locationMap.get(rfid) : undefined
+      return (loc?.target_device_ip || h.deviceIp || "").trim()
+    }).filter(Boolean)
+
+    const [volumeNames, siteNames, deviceNames] = await Promise.all([
       loadVolumeNameMap(),
       loadSiteNameMap(),
+      loadDeviceNameByIp(previewIps),
     ])
-    const items = enrichHits(result.hits, volumeNames, siteNames)
+    const items = enrichSearchHits(result.hits, {
+      volumeNames,
+      siteNames,
+      locationMap,
+      deviceNames,
+    })
 
     let facets: {
       sites: Array<{ code: string; name: string }>

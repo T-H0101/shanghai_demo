@@ -2,16 +2,17 @@
  * 盘笼移位登记事件 e2e — Sprint R.98
  *
  * 必测 10 项 (R.5 §1.1):
- *   1. 点击位置: /racks Tab data-testid="racks-storage-tab-cage-move" + 表单 cage-move-submit
+ *   1. 点击位置: 顶部 data-testid="racks-cage-move-open" + Dialog 提交 cage-move-submit
  *   2. 点击前: GET /api/racks/cage-moves 列表
  *   3. 点击后 API: POST /api/racks/cage-moves
  *   4. API 返回: 201 + message 含「已登记到总控」
  *   5. 数据库: unified_cage_move_register 新增一行
- *   6. 列表刷新: GET 含该 RFID
+ *   6. 列表刷新: GET 含该 RFID；下方 Tab 仅历史
  *   7. toast: API message，禁止「移位成功」
  *   8. 无 mock fallback
  *   9. 不误导: 只宣称总控登记，不宣称站点已执行
  *  10. requirements: REQ-4.3.1 / REQ-4.1.1
+ *  附加: DELETE /api/racks/cage-moves/:id → status=cancelled，列表与 RFID 映射移除
  */
 
 import { execSync } from "node:child_process"
@@ -68,9 +69,11 @@ async function main() {
     const pageHtml = await pageRes.text()
     check("页面 /racks 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
     check(
-      "盘笼移位 Tab 存在 (selector)",
-      pageHtml.includes('data-testid="racks-storage-tab-cage-move"'),
-      "racks-storage-tab-cage-move"
+      "盘笼移位顶部按钮与历史 Tab",
+      pageHtml.includes('data-testid="racks-cage-move-open"') &&
+        pageHtml.includes('data-testid="racks-storage-tab-cage-move"') &&
+        !pageHtml.includes('data-testid="racks-storage-tab-restore"'),
+      "open + history tab, no restore tab"
     )
 
     const beforeRes = await fetch(`${BASE}/api/racks/cage-moves?limit=5`)
@@ -166,8 +169,63 @@ async function main() {
 
     const afterRes = await fetch(`${BASE}/api/racks/cage-moves?limit=20`)
     const afterJson = await afterRes.json()
-    const found = (afterJson.data?.items ?? []).some((row: { magazine_rfid: string }) => row.magazine_rfid === rfid)
-    check("GET 列表含新登记 RFID", afterRes.status === 200 && found, `found=${found}`)
+    const listed = (afterJson.data?.items ?? []).find(
+      (row: { magazine_rfid: string; id?: string; source_site_name?: string; cage_id?: string }) =>
+        row.magazine_rfid === rfid
+    )
+    check("GET 列表含新登记 RFID", afterRes.status === 200 && Boolean(listed), `found=${Boolean(listed)}`)
+    check(
+      "列表含站点名称/设备字段且无盘笼 ID 依赖展示",
+      Boolean(listed?.source_site_name) && listed?.id != null,
+      `id=${listed?.id ?? "—"} siteName=${listed?.source_site_name ?? "—"}`
+    )
+
+    const registerId = String(postJson.data?.id ?? listed?.id ?? "")
+    const delRes = await fetch(`${BASE}/api/racks/cage-moves/${encodeURIComponent(registerId)}`, {
+      method: "DELETE",
+    })
+    const delJson = await delRes.json()
+    const delMsg = String(delJson.message ?? "")
+    check(
+      "DELETE /api/racks/cage-moves/:id 取消登记",
+      delRes.status === 200 && delJson.code === 0 && delJson.data?.status === "cancelled",
+      `HTTP ${delRes.status} status=${delJson.data?.status ?? "—"}`
+    )
+    check(
+      "撤销文案为总控登记口径",
+      delMsg.includes("已撤销这次移位登记") &&
+        delMsg.includes("目标站点检索") &&
+        !delMsg.includes("移位成功") &&
+        !delMsg.includes("已移位"),
+      delMsg
+    )
+
+    const dbStatus = psql(
+      `SELECT status FROM unified_cage_move_register WHERE magazine_rfid='${rfid}' ORDER BY created_at DESC LIMIT 1`
+    )
+    check("数据库 status=cancelled", dbStatus === "cancelled", `status=${dbStatus}`)
+
+    const cancelAudit = psql(
+      `SELECT COUNT(*)::text FROM audit_log WHERE action='cage_move_cancelled' AND after_json->>'magazineRfid'='${rfid}'`
+    )
+    check("audit_log cage_move_cancelled", Number.parseInt(cancelAudit, 10) >= 1, `count=${cancelAudit}`)
+
+    const afterDelRes = await fetch(`${BASE}/api/racks/cage-moves?limit=20`)
+    const afterDelJson = await afterDelRes.json()
+    const stillListed = (afterDelJson.data?.items ?? []).some(
+      (row: { magazine_rfid: string }) => row.magazine_rfid === rfid
+    )
+    check("取消后列表不再含该 RFID", afterDelRes.status === 200 && !stillListed, `stillListed=${stillListed}`)
+
+    const locAfterCancel = psql(
+      `SELECT COUNT(*)::text FROM unified_cage_move_register WHERE magazine_rfid='${rfid}' AND status='registered'`
+    )
+    check("映射不再含该 RFID", locAfterCancel === "0", `registered=${locAfterCancel}`)
+
+    const delAgainRes = await fetch(`${BASE}/api/racks/cage-moves/${encodeURIComponent(registerId)}`, {
+      method: "DELETE",
+    })
+    check("重复删除 409", delAgainRes.status === 409, `HTTP ${delAgainRes.status}`)
 
     const searchRes = await fetch(
       `${BASE}/api/search?siteCode=${encodeURIComponent(targetSite)}&q=${encodeURIComponent(rfid)}&limit=5`
@@ -188,34 +246,52 @@ async function main() {
       `HTTP ${countRes.status} total=${countJson.data?.total ?? "?"}`
     )
 
-    const [pageSrc, viewSrc, routeSrc, esSrc, searchSrc, countSrc] = await Promise.all([
+    const [pageSrc, viewSrc, dialogSrc, routeSrc, delRouteSrc, esSrc, searchSrc, countSrc] = await Promise.all([
       readFile("app/racks/page.tsx", "utf8"),
       readFile("components/racks/cage-move-view.tsx", "utf8"),
+      readFile("components/racks/cage-move-dialog.tsx", "utf8"),
       readFile("app/api/racks/cage-moves/route.ts", "utf8"),
+      readFile("app/api/racks/cage-moves/[id]/route.ts", "utf8"),
       readFile("lib/search/es-client.ts", "utf8"),
       readFile("app/api/search/route.ts", "utf8"),
       readFile("app/api/search/count/route.ts", "utf8"),
     ])
     const misleading =
       /移位成功|已移位/.test(viewSrc) ||
+      /移位成功|已移位/.test(dialogSrc) ||
       /移位成功|已移位/.test(routeSrc) ||
-      /toast[\s\S]{0,80}移位成功/.test(viewSrc)
+      /移位成功|已移位/.test(delRouteSrc) ||
+      /toast[\s\S]{0,80}移位成功/.test(dialogSrc)
     check("文案不含「移位成功/已移位」", !misleading)
     check(
-      "前端 Tab 与提交按钮 testid",
-      pageSrc.includes('data-testid="racks-storage-tab-cage-move"') &&
-        viewSrc.includes('data-testid="cage-move-submit"') &&
-        viewSrc.includes("/api/racks/cage-moves"),
+      "顶部 Dialog 提交 + Tab 仅历史",
+      pageSrc.includes('data-testid="racks-cage-move-open"') &&
+        dialogSrc.includes('data-testid="cage-move-submit"') &&
+        dialogSrc.includes("/api/racks/cage-moves") &&
+        viewSrc.includes('data-testid="cage-move-history"') &&
+        !viewSrc.includes('data-testid="cage-move-submit"'),
+    )
+    check(
+      "列表列：盘笼RFID、位置名称+IP、撤销登记",
+      viewSrc.includes("盘笼RFID") &&
+        viewSrc.includes("撤销登记") &&
+        viewSrc.includes("/api/racks/cage-moves/") &&
+        viewSrc.includes("method: \"DELETE\"") &&
+        !viewSrc.includes("盘笼 ID") &&
+        !viewSrc.includes(">RFID<"),
     )
     check(
       "ES 扩条件含 inbound RFID",
       esSrc.includes("magazine_rfid: inbound") && esSrc.includes("source_site_id: params.siteCodes"),
     )
     check(
-      "search/count 共用 loadSiteRfidRelocationFilter",
-      searchSrc.includes("loadSiteRfidRelocationFilter") && countSrc.includes("loadSiteRfidRelocationFilter"),
+      "search 用登记表扩 RFID；count 共用 loadSiteRfidRelocationFilter",
+      (searchSrc.includes("relocationFilterFromLocations") ||
+        searchSrc.includes("listCurrentMagazineLocations")) &&
+        searchSrc.includes("enrichSearchHits") &&
+        countSrc.includes("loadSiteRfidRelocationFilter"),
     )
-    check("不走旧 cage-move 控制队列入口", viewSrc.includes("/api/racks/cage-moves") && !viewSrc.includes("/api/racks/cage-move\""))
+    check("不走旧 cage-move 控制队列入口", dialogSrc.includes("/api/racks/cage-moves") && !dialogSrc.includes("/api/racks/cage-move\""))
   } finally {
     try {
       psql(`DELETE FROM unified_cage_move_register WHERE magazine_rfid='${rfid}'`)

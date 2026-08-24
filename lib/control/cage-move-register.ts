@@ -32,6 +32,56 @@ export type CageMoveRegisterRow = {
   created_at: string
 }
 
+/** 列表展示用：站点名称/设备名称 + 站点 IP/设备 IP */
+export type CageMoveRegisterListItem = CageMoveRegisterRow & {
+  source_site_name: string
+  source_site_ip: string | null
+  source_device_name: string
+  target_site_name: string
+  target_site_ip: string | null
+  target_device_name: string
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const LIST_SELECT = `SELECT r.id, r.cage_id, r.magazine_rfid,
+       r.source_site_code, r.source_device_ip, r.source_device_port,
+       r.target_site_code, r.target_device_ip, r.target_device_port,
+       r.registrar_name, r.operator_account_id::text AS operator_account_id,
+       r.remark, r.status, r.created_at::text,
+       COALESCE(NULLIF(TRIM(ss.site_name), ''), r.source_site_code) AS source_site_name,
+       NULLIF(TRIM(ss.db_host), '') AS source_site_ip,
+       COALESCE(NULLIF(TRIM(sd.device_name), ''), r.source_device_ip) AS source_device_name,
+       COALESCE(NULLIF(TRIM(ts.site_name), ''), r.target_site_code) AS target_site_name,
+       NULLIF(TRIM(ts.db_host), '') AS target_site_ip,
+       COALESCE(NULLIF(TRIM(td.device_name), ''), r.target_device_ip) AS target_device_name
+FROM unified_cage_move_register r
+LEFT JOIN sync_sites ss ON ss.site_code = r.source_site_code
+LEFT JOIN sync_sites ts ON ts.site_code = r.target_site_code
+LEFT JOIN LATERAL (
+  SELECT d.device_name
+  FROM unified_devices d
+  WHERE d.source_site_id = r.source_site_code
+    AND (
+      NULLIF(TRIM(d.ip_address), '') = r.source_device_ip
+      OR COALESCE(d.raw_data->>'ip', d.raw_data->>'IP', d.raw_data->>'ip_address') = r.source_device_ip
+    )
+  ORDER BY d.synced_at DESC NULLS LAST
+  LIMIT 1
+) sd ON TRUE
+LEFT JOIN LATERAL (
+  SELECT d.device_name
+  FROM unified_devices d
+  WHERE d.source_site_id = r.target_site_code
+    AND (
+      NULLIF(TRIM(d.ip_address), '') = r.target_device_ip
+      OR COALESCE(d.raw_data->>'ip', d.raw_data->>'IP', d.raw_data->>'ip_address') = r.target_device_ip
+    )
+  ORDER BY d.synced_at DESC NULLS LAST
+  LIMIT 1
+) td ON TRUE`
+
 export type CageMoveRegisterInput = {
   cageId?: string | null
   magazineRfid: string
@@ -135,23 +185,89 @@ export async function createCageMoveRegister(
   return row
 }
 
+export async function cancelCageMoveRegister(input: {
+  id: string
+  operatorAccountId: string
+  actor?: string
+  actorIp?: string
+}): Promise<CageMoveRegisterRow> {
+  const id = requireText(input.id, "登记 ID")
+  if (!UUID_RE.test(id)) throw new CageMoveRegisterError("登记 ID 无效")
+  const operatorAccountId = requireText(input.operatorAccountId, "操作人")
+
+  const found = await query<CageMoveRegisterRow>(
+    `SELECT id, cage_id, magazine_rfid,
+            source_site_code, source_device_ip, source_device_port,
+            target_site_code, target_device_ip, target_device_port,
+            registrar_name, operator_account_id::text AS operator_account_id,
+            remark, status, created_at::text
+     FROM unified_cage_move_register
+     WHERE id = $1::uuid
+     LIMIT 1`,
+    [id]
+  )
+  const row = found.rows[0]
+  if (!row) throw new CageMoveRegisterError("登记不存在", 404)
+  if (row.status !== "registered") {
+    throw new CageMoveRegisterError("该登记已不在映射中", 409)
+  }
+
+  const upd = await query<CageMoveRegisterRow>(
+    `UPDATE unified_cage_move_register
+     SET status = 'cancelled'
+     WHERE id = $1::uuid AND status = 'registered'
+     RETURNING id, cage_id, magazine_rfid,
+               source_site_code, source_device_ip, source_device_port,
+               target_site_code, target_device_ip, target_device_port,
+               registrar_name, operator_account_id::text AS operator_account_id,
+               remark, status, created_at::text`,
+    [id]
+  )
+  const cancelled = upd.rows[0]
+  if (!cancelled) throw new CageMoveRegisterError("该登记已不在映射中", 409)
+
+  await writeAudit({
+    action: "cage_move_cancelled",
+    targetTable: "unified_cage_move_register",
+    targetId: cancelled.id,
+    before: {
+      magazineRfid: row.magazine_rfid,
+      sourceSiteCode: row.source_site_code,
+      targetSiteCode: row.target_site_code,
+      sourceDeviceIp: row.source_device_ip,
+      targetDeviceIp: row.target_device_ip,
+      status: row.status,
+    },
+    after: {
+      magazineRfid: cancelled.magazine_rfid,
+      status: "cancelled",
+    },
+    actor: input.actor ?? operatorAccountId,
+    actorIp: input.actorIp,
+    siteCode: row.source_site_code,
+    result: "success",
+  })
+
+  return cancelled
+}
+
 export async function listCageMoveRegisters(opts?: {
   limit?: number
   offset?: number
-}): Promise<{ items: CageMoveRegisterRow[]; total: number }> {
+}): Promise<{ items: CageMoveRegisterListItem[]; total: number }> {
   const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200)
   const offset = Math.max(opts?.offset ?? 0, 0)
   try {
     const [countRes, dataRes] = await Promise.all([
-      query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM unified_cage_move_register`),
-      query<CageMoveRegisterRow>(
-        `SELECT id, cage_id, magazine_rfid,
-                source_site_code, source_device_ip, source_device_port,
-                target_site_code, target_device_ip, target_device_port,
-                registrar_name, operator_account_id::text AS operator_account_id,
-                remark, status, created_at::text
+      query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count
          FROM unified_cage_move_register
-         ORDER BY created_at DESC
+         WHERE status = 'registered'`
+      ),
+      query<CageMoveRegisterListItem>(
+        `${LIST_SELECT}
+         WHERE r.status = 'registered'
+         ORDER BY r.created_at DESC
          LIMIT $1 OFFSET $2`,
         [limit, offset]
       ),
