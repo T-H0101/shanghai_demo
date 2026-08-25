@@ -122,23 +122,23 @@ async function main() {
       pageSource.includes("当前概况")
   )
   check(
-    "存储浏览/盘笼移位 Tab 用 TabsContent 包结构 (切换能正确 mount)",
+    "设备总览/盘笼移位 Tab 用 TabsContent 包结构 (切换能正确 mount)",
     pageSource.includes("TabsContent") &&
-      pageSource.includes('value="browse"') &&
       pageSource.includes('value="overview"') &&
       pageSource.includes('value="cage-move"') &&
+      pageSource.includes("SHOW_STORAGE_BROWSE_TAB") &&
       !pageSource.includes('data-testid="racks-storage-tab-restore"'),
   )
   check(
-    "存储浏览/盘笼移位 Tab 可切换且不 disabled",
-    pageSource.includes('data-testid="racks-storage-tab-browse"') &&
+    "存储浏览 Tab 已隐藏（SRS 无此需求）",
+    pageSource.includes("SHOW_STORAGE_BROWSE_TAB = false") &&
       pageSource.includes('data-testid="racks-storage-tab-cage-move"') &&
       pageSource.includes('data-testid="racks-cage-move-open"') &&
-      !pageSource.includes("handleSync") &&
-      !/TabsTrigger[\s\S]{0,160}value="browse"[\s\S]{0,160}disabled=/.test(pageSource)
+      !pageSource.includes("handleSync")
   )
   check(
-    "API 模式存储浏览显示 blocked 而非 mock 内容",
+    "存储浏览实现保留但入口关闭",
+    pageSource.includes('data-testid="racks-storage-tab-browse"') &&
       pageSource.includes('testid="racks-storage-browse-blocked"') &&
       pageSource.includes("完整目录浏览需要接入站点文件索引服务")
   )

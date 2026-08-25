@@ -50,10 +50,11 @@
 - `GET/POST /api/racks/cage-moves`，`DELETE /api/racks/cage-moves/[id]`；顶部 Dialog 登记；下方「盘笼移位」Tab 仅历史（已去掉「数据恢复」Tab）
 - 检索/count/export：`(source_site_id IN selected AND RFID NOT IN outbound) OR RFID IN inbound`；取消登记后该 RFID 不再扩条件
 - 检索结果列表/导出：站点后展示盘笼；设备与归档存储卷改到详情；有移位登记时站点/设备按最新目标覆盖
+- 光盘库设备详情盘位：有入站移位登记时按 RFID 映射原设备同笼历史 `disc_type`/容量展示（推送落库不变；撤销登记回退当前设备态）
 - Toast：「盘笼移位已登记到总控…」/「已撤销这次移位登记…」，禁止「移位成功」
 - `pnpm e2e:cage-move`；审查 `docs/database-analysis/sprint-r98-requirements-review.md`
 
-**非宣称**: 站点已执行移位、ES 文档已改归属、回迁完成。
+**非宣称**: 站点已执行移位、ES 文档已改归属、回迁完成、站点盘位业务数据已恢复。
 
 ---
 

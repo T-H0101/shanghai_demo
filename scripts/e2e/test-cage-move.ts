@@ -291,6 +291,15 @@ async function main() {
         searchSrc.includes("enrichSearchHits") &&
         countSrc.includes("loadSiteRfidRelocationFilter"),
     )
+    const slotsSrc = await readFile("app/api/racks/[id]/slots/route.ts", "utf8")
+    const overlaySrc = await readFile("lib/devices/cage-move-slot-overlay.ts", "utf8")
+    check(
+      "设备详情盘位按 RFID 映射原设备历史态",
+      slotsSrc.includes("loadSlotHistoryOverlayMaps") &&
+        slotsSrc.includes("applyHistoricalSlotOverlay") &&
+        overlaySrc.includes("listCurrentMagazineRelocations") &&
+        overlaySrc.includes("loadHistoricalSlotsByRfid"),
+    )
     check("不走旧 cage-move 控制队列入口", dialogSrc.includes("/api/racks/cage-moves") && !dialogSrc.includes("/api/racks/cage-move\""))
   } finally {
     try {

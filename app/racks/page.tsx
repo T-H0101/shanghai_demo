@@ -191,8 +191,10 @@ export default function Page() {
   const [createTaskName, setCreateTaskName] = useState("")
 
   // ============================================================
-  // 存储浏览 / 数据恢复状态
+  // 存储浏览 / 盘笼移位 Tab（「存储浏览」不在 SRS，暂隐藏入口）
   // ============================================================
+  /** SRS 无此需求；保留实现，仅隐藏 Tab */
+  const SHOW_STORAGE_BROWSE_TAB = false
   const [storageTab, setStorageTab] = useState<"overview" | "browse" | "cage-move">("overview")
   const [restoreMode, setRestoreMode] = useState<"server" | "local">("server")
   const [showCageMove, setShowCageMove] = useState(false)
@@ -235,8 +237,9 @@ export default function Page() {
     return () => { cancelled = true }
   }, [])
 
-  // 初始化浏览文件
+  // 初始化浏览文件（存储浏览 Tab 隐藏时不加载）
   useEffect(() => {
+    if (!SHOW_STORAGE_BROWSE_TAB) return
     if (storageTab !== "browse") return
     let cancelled = false
     loadRacksBrowseMock("browse").then((res) => {
@@ -1483,13 +1486,15 @@ export default function Page() {
               >
                 <HardDrive className="h-3.5 w-3.5 mr-1" />设备总览
               </TabsTrigger>
-              <TabsTrigger
-                value="browse"
-                className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
-                data-testid="racks-storage-tab-browse"
-              >
-                <FolderTree className="h-3.5 w-3.5 mr-1" />存储浏览
-              </TabsTrigger>
+              {SHOW_STORAGE_BROWSE_TAB && (
+                <TabsTrigger
+                  value="browse"
+                  className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                  data-testid="racks-storage-tab-browse"
+                >
+                  <FolderTree className="h-3.5 w-3.5 mr-1" />存储浏览
+                </TabsTrigger>
+              )}
               <TabsTrigger
                 value="cage-move"
                 className="h-7 text-xs data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
@@ -1502,7 +1507,8 @@ export default function Page() {
 
           {/* 内容区 — 使用 TabsContent 保证切换时内容 mount/unmount */}
           <div className="p-4 bg-slate-50 dark:bg-slate-900/50 min-h-[260px]">
-            {/* 存储浏览 */}
+            {/* 存储浏览（SRS 无此需求，Tab 入口已隐藏） */}
+            {SHOW_STORAGE_BROWSE_TAB && (
             <TabsContent value="browse" forceMount={undefined} className="m-0">
               {isApiMode() ? (
                 <EmptyState
@@ -1565,6 +1571,7 @@ export default function Page() {
                 </div>
               )}
             </TabsContent>
+            )}
 
             {/* 设备总览（默认） */}
             <TabsContent value="overview" className="m-0">
@@ -1617,7 +1624,7 @@ export default function Page() {
                     <p>设备数量: {filtered.length} 台</p>
                     <p>当前站点: {isAllSites ? "全部站点" : siteCode ?? "未选择"}</p>
                     <p>总容量 / 剩余: {stats.totalCapacity} / {stats.remainingCapacity}</p>
-                    <p className="text-amber-700 dark:text-amber-300">存储浏览按接入状态展示，未配置时保持不可操作。盘笼移位登记用顶部按钮，下方 Tab 仅看历史。</p>
+                    <p className="text-amber-700 dark:text-amber-300">盘笼移位登记用顶部按钮，下方 Tab 仅看历史。</p>
                   </div>
                 </div>
 

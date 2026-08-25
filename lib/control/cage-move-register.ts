@@ -105,6 +105,13 @@ export type MagazineCurrentLocation = {
   target_device_port: string | null
 }
 
+/** 详情盘位映射用：含原站/原设备，便于按 RFID 回查历史盘位 */
+export type MagazineRelocation = MagazineCurrentLocation & {
+  source_site_code: string
+  source_device_ip: string
+  source_device_port: string | null
+}
+
 function trimOrNull(value: string | null | undefined): string | null {
   if (value == null) return null
   const t = String(value).trim()
@@ -286,10 +293,22 @@ export async function listCageMoveRegisters(opts?: {
 }
 
 export async function listCurrentMagazineLocations(): Promise<MagazineCurrentLocation[]> {
+  const rows = await listCurrentMagazineRelocations()
+  return rows.map((row) => ({
+    magazine_rfid: row.magazine_rfid,
+    target_site_code: row.target_site_code,
+    target_device_ip: row.target_device_ip,
+    target_device_port: row.target_device_port,
+  }))
+}
+
+export async function listCurrentMagazineRelocations(): Promise<MagazineRelocation[]> {
   try {
-    const r = await query<MagazineCurrentLocation>(
+    const r = await query<MagazineRelocation>(
       `SELECT DISTINCT ON (magazine_rfid)
-              magazine_rfid, target_site_code, target_device_ip, target_device_port
+              magazine_rfid,
+              source_site_code, source_device_ip, source_device_port,
+              target_site_code, target_device_ip, target_device_port
        FROM unified_cage_move_register
        WHERE status = 'registered'
        ORDER BY magazine_rfid, created_at DESC`

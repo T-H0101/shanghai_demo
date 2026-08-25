@@ -26,7 +26,7 @@ openssl rand -hex 32
 
 ## 跳转流程
 
-1. 用户登录总控，打开 `/sites`，点有真实 `db_host:db_port` 的站的 **SSO**。
+1. 用户登录总控，顶栏选择具体站点后点 **进入站点**，或打开 `/sites` 点该站的 **SSO**。
 2. `GET /api/sites/{siteCode}/sso`（需登录 cookie）返回：
 
 ```json

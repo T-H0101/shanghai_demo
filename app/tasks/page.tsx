@@ -463,6 +463,14 @@ function TasksPageContent() {
       toast({ title: "当前模式不支持此操作", description: "请切换到实时数据模式", variant: "destructive" })
       return
     }
+    if (isPhysicalRestoreTask(task.type, task.taskMode ?? null)) {
+      toast({
+        title: "暂不支持此操作",
+        description: "物理回迁任务暂不提供暂停/重置，请通过详情查看进度",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       // targetId 必须是站点 tbl_task.id（source_id）
       const targetId = (task as { sourceId?: string }).sourceId ?? task.id
@@ -841,14 +849,14 @@ function TasksPageContent() {
                   <TableCell className="text-right">
                     <div className="flex gap-0.5 justify-end" onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="详情" aria-label="查看任务详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
-                      {isApiMode() && RUNNING_PHASES.includes(t.phase) && (
+                      {isApiMode() && !isPhysicalRestoreTask(t.type, t.taskMode ?? null) && RUNNING_PHASES.includes(t.phase) && (
                         <AppTooltip content="暂停任务">
                           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", e)} aria-label="暂停任务">
                             <Pause className="h-3.5 w-3.5" />
                           </Button>
                         </AppTooltip>
                       )}
-                      {isApiMode() && (t.phase === "failed" || t.phase === "paused" || t.statusLabel === "中止" || t.statusLabel === "警告") && (
+                      {isApiMode() && !isPhysicalRestoreTask(t.type, t.taskMode ?? null) && (t.phase === "failed" || t.phase === "paused" || t.statusLabel === "中止" || t.statusLabel === "警告") && (
                         <AppTooltip content="重置任务状态并继续任务">
                           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-reset" onClick={e => handleControlCommand(t, "task_reset", e)} aria-label="重置任务状态并继续任务">
                             <RotateCcw className="h-3.5 w-3.5" />
@@ -1172,8 +1180,8 @@ function TasksPageContent() {
                 </section>
                 */}
 
-                {/* 5. 任务操作 */}
-                {isApiMode() && (
+                {/* 5. 任务操作（物理回迁 task_type=1+task_mode=2 暂不开放暂停/重置） */}
+                {isApiMode() && selected && !isPhysicalRestoreTask(selected.type, selected.taskMode ?? null) && (
                   <>
                     <Separator className="mt-2 mb-[15px] shrink-0" />
                     <section className="shrink-0">

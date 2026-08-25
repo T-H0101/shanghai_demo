@@ -58,6 +58,15 @@ async function main() {
     siteSelectorSrc.includes("data-testid=\"site-selector-source\""),
     "site-selector.tsx 含 site-selector-source 标识"
   )
+  check(
+    "顶栏进入站点：选具体站可 SSO，全部站点禁用",
+    siteSelectorSrc.includes('data-testid="header-enter-site"') &&
+      siteSelectorSrc.includes("/api/sites/") &&
+      siteSelectorSrc.includes("/sso") &&
+      siteSelectorSrc.includes("isAllSites") &&
+      siteSelectorSrc.includes("全部站点不可进入"),
+    "header-enter-site + SSO API"
+  )
 
   // ──────────────────────────────────────────────────────────
   // 1. 页面能打开

@@ -1,6 +1,7 @@
 /**
  * GET /api/racks/[id]/slots
  * 只读中心库 unified_slots，不直连 source_restore。
+ * 若盘笼 RFID 存在入站移位登记，展示态按原设备同 RFID 盘笼历史盘位覆盖（推送落库不变）。
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -19,6 +20,12 @@ import {
   resolveDeviceTypeLabel,
 } from "@/lib/devices/device-display"
 import { sliceHdMagazineSlots } from "@/lib/devices/hd-tray-slice"
+import {
+  applyHistoricalSlotOverlay,
+  loadSlotHistoryOverlayMaps,
+  lookupHistoryForMagazineRfid,
+  resolveDeviceIpPort,
+} from "@/lib/devices/cage-move-slot-overlay"
 
 export const dynamic = "force-dynamic"
 
@@ -27,6 +34,8 @@ interface DeviceRow {
   source_id: string
   device_id: string | null
   device_type: string | null
+  ip_address: string | null
+  raw_data: Record<string, unknown> | null
 }
 
 interface SlotRow {
@@ -47,6 +56,7 @@ interface SlotRow {
   cage_position: string | null
   mag_raw_order: string | null
   mag_disc_type: string | null
+  mag_rfid: string | null
 }
 
 function numberValue(value: unknown): number | null {
@@ -165,7 +175,7 @@ export async function GET(
     if (siteCode) deviceParams.push(siteCode)
 
     const deviceResult = await query<DeviceRow>(
-      `SELECT source_site_id, source_id, device_id, device_type
+      `SELECT source_site_id, source_id, device_id, device_type, ip_address, raw_data
        FROM unified_devices
        WHERE (id::text = $1 OR device_id = $1 OR source_id = $1)
        ${siteCondition}
@@ -205,7 +215,8 @@ export async function GET(
               s.media_id, s.media_type, s.capacity, s.raw_data,
               m.position AS cage_position,
               m.raw_data->>'mag_order' AS mag_raw_order,
-              m.raw_data->>'disc_type' AS mag_disc_type
+              m.raw_data->>'disc_type' AS mag_disc_type,
+              m.rfid AS mag_rfid
        FROM unified_slots s
        INNER JOIN unified_magazines m
          ON m.source_site_id = s.source_site_id
@@ -220,6 +231,14 @@ export async function GET(
       [device.source_site_id, identifiers]
     )
 
+    const { ip: deviceIp, port: devicePort } = resolveDeviceIpPort(device)
+    const historyOverlays = await loadSlotHistoryOverlayMaps({
+      siteCode: device.source_site_id,
+      deviceIp,
+      devicePort,
+      magazineRfids: slotResult.rows.map((row) => row.mag_rfid),
+    })
+
     type GroupMeta = {
       cageId: string
       cageName: string
@@ -231,12 +250,35 @@ export async function GET(
 
     const groups = new Map<string, GroupMeta>()
     for (const row of slotResult.rows) {
+      const slotOrder =
+        numberValue(row.raw_data?.slot_order) ?? numberValue(row.slot_index)
+      const history = lookupHistoryForMagazineRfid(historyOverlays, row.mag_rfid)
+      const overlaid = applyHistoricalSlotOverlay(
+        {
+          magazineRfid: row.mag_rfid,
+          slotOrder,
+          rawData: row.raw_data,
+          occupied: row.occupied,
+          status: row.status,
+          mediaId: row.media_id,
+          capacity: row.capacity,
+        },
+        history
+      )
+      const displayRow: SlotRow = {
+        ...row,
+        raw_data: overlaid.rawData,
+        occupied: overlaid.occupied,
+        status: overlaid.status,
+        media_id: overlaid.mediaId,
+        capacity: overlaid.capacity,
+      }
       const cageName = resolveMagazineDisplayName(
         deviceTypeLabel,
         row.cage_position,
         row.mag_raw_order
       )
-      const slot = mapSlot(row, cageName)
+      const slot = mapSlot(displayRow, cageName)
       const cageId = slot.cageId ?? "unassigned"
       if (!groups.has(cageId)) {
         const magOrder =
