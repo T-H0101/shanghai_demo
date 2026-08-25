@@ -19,17 +19,19 @@ export function getSafeAuthConfig(): SafeAuthConfig {
   const mode: AuthMode =
     rawMode === "local" || rawMode === "oidc" || rawMode === "ldap" ? rawMode : "disabled"
   const configuredRef =
-    process.env.AUTH_CLIENT_SECRET_REF?.trim() || "AUTH_CLIENT_SECRET"
+    process.env.OIDC_CLIENT_SECRET_KEY_REF?.trim() ||
+    process.env.AUTH_CLIENT_SECRET_REF?.trim() ||
+    "OIDC_CLIENT_SECRET"
   const clientSecretKeyRef = /^[A-Z][A-Z0-9_]{0,127}$/.test(configuredRef)
     ? configuredRef
     : "AUTH_CLIENT_SECRET"
 
   return {
     mode,
-    issuerUrlConfigured: configured("AUTH_ISSUER_URL"),
-    clientIdConfigured: configured("AUTH_CLIENT_ID"),
+    issuerUrlConfigured: configured("OIDC_ISSUER_URL") || configured("AUTH_ISSUER_URL"),
+    clientIdConfigured: configured("OIDC_CLIENT_ID") || configured("AUTH_CLIENT_ID"),
     clientSecretKeyRef,
-    jwksUrlConfigured: configured("AUTH_JWKS_URL"),
+    jwksUrlConfigured: configured("OIDC_JWKS_URL") || configured("AUTH_JWKS_URL"),
     ldapUrlConfigured: configured("AUTH_LDAP_URL"),
     ldapBaseDnConfigured: configured("AUTH_LDAP_BASE_DN"),
   }

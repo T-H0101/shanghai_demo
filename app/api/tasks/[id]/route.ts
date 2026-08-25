@@ -205,9 +205,13 @@ export async function GET(
       }
     }
 
-    // 目标卷 / 源路径 / 备份路径：tbl_task_items + tbl_logical_volume
-    const pathAgg = await loadTaskPathAggregate(row.source_site_id, row.source_id)
+    // 路径：普通任务 unified_task_items；物理回迁(1-2) unified_restore_files
+    const pathAgg = await loadTaskPathAggregate(row.source_site_id, row.source_id, {
+      taskType: row.task_type,
+      taskMode: row.task_mode,
+    })
     if (pathAgg.volumeNames) adaptedTask.volumeId = pathAgg.volumeNames
+    if (pathAgg.pathSource) adaptedTask.pathSource = pathAgg.pathSource
     if (pathAgg.paths.length > 0) {
       adaptedTask.pathPairs = pathAgg.paths
       adaptedTask.sourcePath = pathAgg.sourcePath
@@ -215,6 +219,9 @@ export async function GET(
     } else {
       if (pathAgg.sourcePath) adaptedTask.sourcePath = pathAgg.sourcePath
       if (pathAgg.backupPath) adaptedTask.packagePath = pathAgg.backupPath
+    }
+    if (pathAgg.restoreErrorMessage && !adaptedTask.errorMessage) {
+      adaptedTask.errorMessage = pathAgg.restoreErrorMessage
     }
 
     const response: ApiResponse<TaskDTO> & { source?: string } = {

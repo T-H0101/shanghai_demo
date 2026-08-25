@@ -32,6 +32,11 @@ import {
 } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { formatBeijingTime } from "@/components/shared/time-format"
+import {
+  formatAccessibleSites,
+  SiteMultiSelect,
+  useRegisteredSites,
+} from "@/components/users/site-field"
 
 export interface AuthAccount {
   id: string
@@ -39,6 +44,8 @@ export interface AuthAccount {
   display_name: string | null
   role: string
   department: string | null
+  employee_id: string | null
+  email: string | null
   accessible_sites: string[] | null
   status: string
   failed_attempts: number
@@ -54,18 +61,6 @@ const ROLES = [
   { value: "operator", label: "操作员" },
   { value: "viewer", label: "只读" },
 ] as const
-
-function parseSites(raw: string): string[] {
-  return raw
-    .split(/[,，\s]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
-function sitesToText(sites: string[] | null | undefined): string {
-  if (!sites || sites.length === 0) return ""
-  return sites.join(", ")
-}
 
 /** 客户端生成初始密码（与 reset-password API 字符集一致） */
 function generateInitialPassword(length = 16): string {
@@ -156,8 +151,11 @@ export function AuthAccountsPanel() {
   const [displayName, setDisplayName] = useState("")
   const [role, setRole] = useState("viewer")
   const [department, setDepartment] = useState("")
-  const [accessibleSitesText, setAccessibleSitesText] = useState("*")
+  const [employeeId, setEmployeeId] = useState("")
+  const [email, setEmail] = useState("")
+  const [accessibleSites, setAccessibleSites] = useState<string[]>(["*"])
   const [status, setStatus] = useState("active")
+  const { sites: registeredSites } = useRegisteredSites()
 
   const loadAccounts = useCallback(async () => {
     setLoading(true)
@@ -171,7 +169,7 @@ export function AuthAccountsPanel() {
       setAccounts(json.data?.items ?? [])
     } catch (e) {
       toast({
-        title: "加载 Auth 账号失败",
+        title: "加载账号失败",
         description: e instanceof Error ? e.message : String(e),
         variant: "destructive",
       })
@@ -191,7 +189,9 @@ export function AuthAccountsPanel() {
     setDisplayName("")
     setRole("viewer")
     setDepartment("")
-    setAccessibleSitesText("*")
+    setEmployeeId("")
+    setEmail("")
+    setAccessibleSites(["*"])
     setStatus("active")
     setFormMode("create")
   }
@@ -203,7 +203,15 @@ export function AuthAccountsPanel() {
     setDisplayName(acc.display_name ?? "")
     setRole(acc.role)
     setDepartment(acc.department ?? "")
-    setAccessibleSitesText(sitesToText(acc.accessible_sites) || (acc.role === "group_admin" ? "*" : ""))
+    setEmployeeId(acc.employee_id ?? "")
+    setEmail(acc.email ?? "")
+    setAccessibleSites(
+      acc.accessible_sites && acc.accessible_sites.length > 0
+        ? acc.accessible_sites
+        : acc.role === "group_admin"
+          ? ["*"]
+          : [],
+    )
     setStatus(acc.status === "locked" ? "active" : acc.status)
     setFormMode("edit")
   }
@@ -222,14 +230,16 @@ export function AuthAccountsPanel() {
             displayName: displayName.trim() || undefined,
             role,
             department: department.trim() || undefined,
-            accessibleSites: parseSites(accessibleSitesText),
+            employeeId: employeeId.trim() || undefined,
+            email: email.trim() || undefined,
+            accessibleSites,
             status,
           }),
         })
         const body = await res.json().catch(() => null)
         if (!res.ok) throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`)
         const createdPassword = password
-        toast({ title: "账号已创建", description: `用户 ${username.trim().toLowerCase()} 已写入 auth_accounts` })
+        toast({ title: "账号已创建", description: `用户 ${username.trim().toLowerCase()}` })
         setFormMode(null)
         setGeneratedPassword(createdPassword)
         await loadAccounts()
@@ -242,7 +252,9 @@ export function AuthAccountsPanel() {
             displayName: displayName.trim() || null,
             role,
             department: department.trim() || null,
-            accessibleSites: parseSites(accessibleSitesText),
+            employeeId: employeeId.trim() || null,
+            email: email.trim() || null,
+            accessibleSites,
             status,
           }),
         })
@@ -354,6 +366,8 @@ export function AuthAccountsPanel() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>用户名</TableHead>
                   <TableHead>显示名</TableHead>
+                  <TableHead>员工号</TableHead>
+                  <TableHead>邮箱</TableHead>
                   <TableHead>角色</TableHead>
                   <TableHead>部门</TableHead>
                   <TableHead>可访问站点</TableHead>
@@ -372,6 +386,8 @@ export function AuthAccountsPanel() {
                     <TableRow key={`auth-${acc.id}-${idx}`}>
                       <TableCell className="font-mono text-sm">{acc.username}</TableCell>
                       <TableCell className="text-sm">{acc.display_name ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{acc.employee_id ?? "—"}</TableCell>
+                      <TableCell className="text-xs">{acc.email ?? "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
                           {ROLES.find((r) => r.value === acc.role)?.label ?? acc.role}
@@ -379,7 +395,7 @@ export function AuthAccountsPanel() {
                       </TableCell>
                       <TableCell className="text-sm">{acc.department ?? "—"}</TableCell>
                       <TableCell className="max-w-[140px] truncate font-mono text-xs text-slate-500">
-                        {sitesToText(acc.accessible_sites) || "—"}
+                        {formatAccessibleSites(acc.accessible_sites, registeredSites)}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -534,6 +550,25 @@ export function AuthAccountsPanel() {
               />
             </div>
             <div className="grid gap-1.5">
+              <Label htmlFor="auth-employee-id">员工号</Label>
+              <Input
+                id="auth-employee-id"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                data-testid="auth-employee-id"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="auth-email">邮箱</Label>
+              <Input
+                id="auth-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                data-testid="auth-email"
+              />
+            </div>
+            <div className="grid gap-1.5">
               <Label>角色</Label>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger>
@@ -557,13 +592,8 @@ export function AuthAccountsPanel() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="auth-sites">可访问站点（逗号分隔，* 表示全部）</Label>
-              <Input
-                id="auth-sites"
-                value={accessibleSitesText}
-                onChange={(e) => setAccessibleSitesText(e.target.value)}
-                placeholder="* 或 SH01,BJ02"
-              />
+              <Label>可访问站点</Label>
+              <SiteMultiSelect value={accessibleSites} onChange={setAccessibleSites} />
             </div>
             <div className="grid gap-1.5">
               <Label>状态</Label>

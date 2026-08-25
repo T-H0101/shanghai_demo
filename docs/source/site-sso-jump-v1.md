@@ -80,7 +80,7 @@ openssl rand -hex 32
 
 ## 账号映射（近期）
 
-**总控 `session.username` = 站点 `tbl_user.name`**。  
+跳转 ticket 的 `username` 来自 **站点账号映射**：有映射用站点本地名，无映射用当前登录用户名。  
 站点无此用户时，`user_authToken` 会自动创建（默认 `role_id=4` 普通用户）。  
 创建/鉴权失败则 consume 返回 403，不会默认成管理员。
 

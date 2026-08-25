@@ -106,13 +106,28 @@ async function main() {
     "使用产品化检索阻塞文案"
   )
   check(
-    "结果表含盘笼列与详情按钮；存储卷不在列表展示",
-    searchPage.includes(">盘笼<") &&
+    "结果表含设备位置列与详情按钮；无盘笼列表列",
+    searchPage.includes(">设备位置<") &&
       searchPage.includes("search-row-detail") &&
       searchPage.includes("search-detail-dialog") &&
-      !searchPage.includes(">存储卷</TableHead>") &&
-      !searchPage.includes(">设备</TableHead>"),
-    "列表精简列 + 详情弹窗"
+      !searchPage.includes(">盘笼</TableHead>") &&
+      !searchPage.includes(">存储卷</TableHead>"),
+    "列表设备位置 + 详情弹窗"
+  )
+  check(
+    "筛选为站点+设备，无存储卷下拉",
+    searchPage.includes("search-site-filter") &&
+      searchPage.includes("search-device-filter") &&
+      !searchPage.includes("search-volume-filter") &&
+      !searchPage.includes("全部存储卷") &&
+      !searchPage.includes("归档存储卷"),
+    "设备筛选替代卷"
+  )
+  check(
+    "硬盘卷禁用发起回迁",
+    searchPage.includes("canInitiatePhysicalRestore") &&
+      searchPage.includes("硬盘卷暂不支持"),
+    "volume_type=3 不可回迁"
   )
   check(
     "仅文件检索：类型列与类型筛选已注释",
@@ -127,6 +142,13 @@ async function main() {
     esClient.includes('{ term: { doc_type: "file" } }') &&
       esClient.includes('wildcardContains("folder_path.keyword", keyword)'),
     "doc_type=file + folder_path 关键字"
+  )
+  check(
+    "OpenSearch 支持按 device_ip 筛选（含移位 inbound/outbound）",
+    esClient.includes("deviceOwnershipFilter") &&
+      esClient.includes("{ term: { device_ip: deviceIp } }") &&
+      !esClient.includes("volume_id: params.volumeId"),
+    "设备筛选取代卷筛选"
   )
   check(
     "发起回迁调用 /api/search/restore 且文案为记录已提交",

@@ -4,6 +4,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
+import { publicAbsoluteUrl, type OriginRequest } from "@/lib/http/public-origin"
 
 const DEFAULT_TTL_SECONDS = 120
 
@@ -99,64 +100,9 @@ export function buildSiteJumpUrl(input: {
   return `${scheme}://${input.host}:${input.port}${consumePath}?ticket=${encodeURIComponent(input.ticket)}`
 }
 
-/** 监听地址 0.0.0.0 / :: 不能写入浏览器可打开的 returnUrl */
-function isUnusableHostname(hostname: string): boolean {
-  const h = hostname.trim().toLowerCase().replace(/^\[|\]$/g, "")
-  return h === "0.0.0.0" || h === "::" || h === ""
-}
-
-function sitesUrlFromBase(base: string): string | null {
-  try {
-    const u = new URL(base.includes("://") ? base : `http://${base}`)
-    if (isUnusableHostname(u.hostname)) return null
-    return `${u.protocol}//${u.host}/sites`
-  } catch {
-    return null
-  }
-}
-
-/**
- * 退出回跳总控 /sites 的绝对地址。
- * 优先 PUBLIC_APP_URL；其次浏览器 Host / X-Forwarded-*（勿用 0.0.0.0 监听地址）。
- */
-export function resolveCentralPortalSitesUrl(
-  req?: { url?: string; headers?: Headers | { get(name: string): string | null } },
-): string {
-  const configured =
-    process.env.PUBLIC_APP_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    ""
-  if (configured) {
-    const fromEnv = sitesUrlFromBase(configured.replace(/\/+$/, ""))
-    if (fromEnv) return fromEnv
-  }
-
-  const headers = req?.headers
-  if (headers) {
-    const xfProto = headers.get("x-forwarded-proto")?.split(",")[0]?.trim()
-    const xfHost = headers.get("x-forwarded-host")?.split(",")[0]?.trim()
-    const host = xfHost || headers.get("host")?.trim()
-    if (host && !isUnusableHostname(host.split(":")[0] ?? host)) {
-      const proto =
-        xfProto ||
-        (req.url?.startsWith("https") ? "https" : "http")
-      const fromHeader = sitesUrlFromBase(`${proto}://${host}`)
-      if (fromHeader) return fromHeader
-    }
-  }
-
-  if (req?.url) {
-    try {
-      const u = new URL(req.url)
-      if (!isUnusableHostname(u.hostname)) {
-        return `${u.origin}/sites`
-      }
-    } catch {
-      /* fall through */
-    }
-  }
-
-  return "http://127.0.0.1:3000/sites"
+/** 退出回跳总控 /sites：与登录/OIDC 共用对外 Origin。 */
+export function resolveCentralPortalSitesUrl(req?: OriginRequest): string {
+  return publicAbsoluteUrl("/sites", req)
 }
 
 export function isSiteSsoSecretConfigured(): boolean {

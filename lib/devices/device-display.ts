@@ -64,3 +64,13 @@ export function pickDeviceIp(source: Record<string, unknown> | null | undefined)
   }
   return null
 }
+
+/** 兼容源包键名（tbl_disc_lib.port / device_port / listen_port） */
+export function pickDevicePort(source: Record<string, unknown> | null | undefined): string | null {
+  if (!source) return null
+  for (const key of ["port", "PORT", "device_port", "listen_port"]) {
+    const v = source[key]
+    if (v != null && String(v).trim()) return String(v).trim()
+  }
+  return null
+}

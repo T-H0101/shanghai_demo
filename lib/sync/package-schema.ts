@@ -153,6 +153,7 @@ export const ALLOWED_PACKAGE_TABLES = [
   // 'tbl_task_folder',
   // R.83.8 任务详情 + 槽位管理族
   'tbl_task_items',
+  'tbl_restore_file',
   // 'tbl_task_print',
   // 'tbl_task_certif_status',
   // 'tbl_slot_file_1000000',

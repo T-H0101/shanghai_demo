@@ -70,6 +70,7 @@
     "e2e:search-r85": "tsx scripts/e2e/test-search-r85.ts",
     "e2e:settings": "tsx scripts/e2e/test-settings.ts",
     "e2e:auth": "tsx scripts/e2e/test-auth.ts",
+    "e2e:adfs-oidc": "tsx scripts/e2e/test-adfs-oidc.ts",
     "test:r83.3-e2e": "tsx scripts/sync/real-e2e-test.ts",
     "test:r83.4-e2e": "tsx scripts/sync/real-e2e-multi-site-test.ts",
     "e2e:auth-audit": "tsx scripts/e2e/test-auth-audit.ts",

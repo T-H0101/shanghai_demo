@@ -67,6 +67,8 @@ async function main() {
   )
 
   const apiSource = await readFile("app/api/users/route.ts", "utf8")
+  const authPanel = await readFile("components/users/auth-accounts-panel.tsx", "utf8")
+  const mappingPanel = await readFile("components/users/account-mapping-panel.tsx", "utf8")
   check(
     "用户 API 无 mock fallback",
     !apiSource.includes("@/lib/mock/users") &&
@@ -87,9 +89,18 @@ async function main() {
   )
   check(
     "账号生命周期与 Auth 管理入口已接入",
-    pageSource.includes("Auth 账号管理") &&
-      pageSource.includes("handleUnlock") &&
-      pageSource.includes("/api/auth/accounts")
+    pageSource.includes("AuthAccountsPanel") &&
+      authPanel.includes("handleUnlock") &&
+      authPanel.includes("/api/auth/accounts")
+  )
+  check(
+    "站点账号映射面板已接入（不宣称已同步到站点）",
+    pageSource.includes("AccountMappingPanel") &&
+      mappingPanel.includes("站点账号映射") &&
+      mappingPanel.includes("/api/auth/account-mappings") &&
+      mappingPanel.includes("SiteSelect") &&
+      !mappingPanel.includes("站点代码") &&
+      authPanel.includes("auth-employee-id"),
   )
   check(
     "页面无假创建/同步/封禁/删除成功",
@@ -105,11 +116,10 @@ async function main() {
       pageSource.includes("error")
   )
   check(
-    "R.80: 站点→AD 映射展示受限时不宣称完成",
-    pageSource.includes("未映射") ||
-      pageSource.includes("blocked") ||
-      pageSource.includes("candidate") ||
-      !pageSource.includes("AD")
+    "R.80: 站点账号映射不宣称已同步到站点",
+    !pageSource.includes("映射同步完成") &&
+      !mappingPanel.includes("已同步到站点") &&
+      !mappingPanel.includes("tbl_user.name"),
   )
   check(
     "R.80: 跨站点权限同步未宣称完成",

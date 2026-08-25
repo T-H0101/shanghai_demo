@@ -20,6 +20,7 @@ import {
   enrichSearchHits,
   loadDeviceNameByIp,
   locationMapFromRows,
+  relocationFilterFromDevice,
   relocationFilterFromLocations,
 } from "@/lib/search/hit-enrichment"
 
@@ -87,11 +88,9 @@ export async function GET(req: NextRequest) {
     url.searchParams.get("q") ?? url.searchParams.get("keyword") ?? ""
   const siteCode =
     url.searchParams.get("siteCode") ?? url.searchParams.get("site") ?? undefined
-  const volumeRaw = url.searchParams.get("volumeId")
-  const volumeId =
-    volumeRaw != null && volumeRaw !== "" && Number.isFinite(Number(volumeRaw))
-      ? Number(volumeRaw)
-      : undefined
+  const deviceIpRaw =
+    url.searchParams.get("deviceIp") ?? url.searchParams.get("device_ip") ?? undefined
+  const deviceIp = deviceIpRaw?.trim() || undefined
   const docType = "file" as const
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 10000), 50000)
 
@@ -102,17 +101,22 @@ export async function GET(req: NextRequest) {
     const rfidFilter = selectedSite
       ? relocationFilterFromLocations(locations, [selectedSite])
       : { inboundRfids: [], outboundRfids: [] }
+    const deviceRfidFilter = deviceIp
+      ? relocationFilterFromDevice(locations, deviceIp)
+      : { inboundRfids: [], outboundRfids: [] }
 
     const adapter = createOpenSearchFileSearchAdapter()
     const result = await adapter.searchFiles({
       keyword,
       siteCode: selectedSite,
-      volumeId,
+      deviceIp,
       docType,
       limit,
       searchAfter: null,
       inboundRfids: rfidFilter.inboundRfids,
       outboundRfids: rfidFilter.outboundRfids,
+      deviceInboundRfids: deviceRfidFilter.inboundRfids,
+      deviceOutboundRfids: deviceRfidFilter.outboundRfids,
     })
 
     if (result.source === "blocked_by_external_system") {
@@ -155,7 +159,7 @@ export async function GET(req: NextRequest) {
       siteCode: siteCode ?? null,
       filters: {
         keyword: keyword || null,
-        volumeId: volumeId != null ? String(volumeId) : null,
+        deviceIp: deviceIp ?? null,
         docType: docType ?? null,
       },
       filenamePrefix: "search-export",

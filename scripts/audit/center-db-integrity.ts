@@ -466,6 +466,7 @@ async function main() {
         unified_task_folders: "tbl_task_folder",
         // R.83.8 irregular plural / fixed suffix mappings
         unified_task_items: "tbl_task_items",
+        unified_restore_files: "tbl_restore_file",
         unified_task_prints: "tbl_task_print",
         unified_task_certif_statuses: "tbl_task_certif_status",
         unified_slot_file_1000000: "tbl_slot_file_1000000",

@@ -98,15 +98,13 @@ echo "[start-standalone] listen=http://${HOSTNAME}:${PORT}"
 if [[ "$HOSTNAME" == "localhost" || "$HOSTNAME" == "127.0.0.1" ]]; then
   echo "[start-standalone] 警告: 仅监听本机。站点推送需在 .env.local 设 BIND_HOST=0.0.0.0 或去掉误配的 HOST" >&2
 fi
-if [[ -n "${SITE_SSO_SECRET:-}" ]]; then
-  pub="${PUBLIC_APP_URL:-${NEXT_PUBLIC_APP_URL:-}}"
-  if [[ -z "$pub" ]]; then
-    echo "[start-standalone] 警告: 已配 SITE_SSO_SECRET 但未设 PUBLIC_APP_URL；SSO 退出回跳可能用错 Host。请在 .env.local 设 PUBLIC_APP_URL=http://实际IP:3000" >&2
-  elif [[ "$pub" == *"0.0.0.0"* ]]; then
-    echo "[start-standalone] 警告: PUBLIC_APP_URL 含 0.0.0.0，浏览器无法打开。请改为局域网真实 IP，例如 http://172.168.6.52:3000" >&2
-  else
-    echo "[start-standalone] PUBLIC_APP_URL=$pub (SSO 退出回跳)"
-  fi
+pub="${PUBLIC_APP_URL:-${NEXT_PUBLIC_APP_URL:-}}"
+if [[ -z "$pub" ]]; then
+  echo "[start-standalone] 警告: 未设 PUBLIC_APP_URL。HOSTNAME=0.0.0.0 时登录/OIDC/站点回跳不能用监听地址。请设为浏览器可打开的 https://IP或域名:对外端口" >&2
+elif [[ "$pub" == *"0.0.0.0"* ]]; then
+  echo "[start-standalone] 警告: PUBLIC_APP_URL 含 0.0.0.0，浏览器无法打开。请改为对外真实地址，例如 https://10.186.1.229:30000" >&2
+else
+  echo "[start-standalone] PUBLIC_APP_URL=$pub (对外 Origin)"
 fi
 echo "[start-standalone] SYNC_PACKAGE_SECRET len=${#SYNC_PACKAGE_SECRET}"
 echo "[start-standalone] 提示: 请用本脚本启动；直接 node .next/standalone/server.js 不会加载 .env.local"

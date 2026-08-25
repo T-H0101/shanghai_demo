@@ -35,7 +35,7 @@ pnpm export-and-push BJ02
 pnpm scheduler:sync:once -- --siteCode=SH01
 ```
 
-打开 <http://localhost:3000>，本地默认账号为 `admin / admin`。
+打开 <http://localhost:3000>，本地默认账号为 `admin / admin`。登录页另有「企业 AD 登录」：未配置 ADFS Client 时会回到登录页提示，不会假装登录成功。反代部署须把 `PUBLIC_APP_URL` 设成浏览器地址（禁止 `0.0.0.0`）。
 生产或测试服务器必须更换默认账号策略和所有密钥，不允许沿用本地默认口令。
 
 要求:
@@ -123,7 +123,8 @@ docker build -t unified-disc-platform:latest .
   - §2.3 业务同步 → `complete` (R.83.9 中心库 dispatcher)
   - §5.2 文件索引 → `partial` (R.85 端口 + R.86 增量调度账本, R.87 cron/监控未做)
   - §4.2 任务控制 → `partial` + `blocked_by_site_change` (R.88 契约已落地, 站点代理未接入)
-  - §2.2/§3.x 登录 / RBAC / SSO → `blocked_by_auth`
+  - §2.2 登录 / ADFS：本地 JWT 可用；联邦登录代码已接授权码，**无 Client 前仍 blocked_by_auth**
+  - §3.x RBAC 细粒度 / 映射下发站点 → `blocked_by_auth` / `blocked_by_site_change`
 
 ## 页面清单
 

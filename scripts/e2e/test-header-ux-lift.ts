@@ -122,8 +122,9 @@ async function main() {
   check("Tasks 不再局部重复挂载 FirstRunCoach", !tasksSource.includes("FirstRunCoach"))
   check("AppShell 已关闭 /tasks 首访引导", !appShellSource.includes("FirstRunCoach"))
   check("Tasks 暂停按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-pause[\s\S]*?<\/AppTooltip>/.test(tasksSource))
-  check("Tasks 恢复按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-resume[\s\S]*?<\/AppTooltip>/.test(tasksSource))
+  check("Tasks 重置并继续按钮被 AppTooltip 包裹", /<AppTooltip[^>]*>[\s\S]*?task-row-reset[\s\S]*?<\/AppTooltip>/.test(tasksSource))
   check("Tasks 暂停按钮保留 data-testid=task-row-pause", tasksSource.includes('data-testid="task-row-pause"'))
+  check("Tasks 不再渲染独立恢复按钮", !tasksSource.includes('data-testid="task-row-resume"'))
   // UI-2026-06-C 扩充
   check("Tasks 搜索输入框含 data-testid", tasksSource.includes('data-testid="tasks-search-input"'))
   check("Tasks 类型筛选含 data-testid", tasksSource.includes('data-testid="tasks-type-filter"'))

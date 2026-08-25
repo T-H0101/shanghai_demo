@@ -85,19 +85,17 @@ for (const key of ['DATABASE_URL', 'SYNC_PACKAGE_SECRET']) {
 console.log(`[start-standalone] repo=${repoRoot}`)
 console.log(`[start-standalone] env=${envFile}`)
 console.log(`[start-standalone] listen=http://${process.env.HOSTNAME}:${process.env.PORT}`)
-if (process.env.SITE_SSO_SECRET) {
-  const pub = (process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').trim()
-  if (!pub) {
-    console.warn(
-      '[start-standalone] 警告: 已配 SITE_SSO_SECRET 但未设 PUBLIC_APP_URL；请在 .env.local 设 PUBLIC_APP_URL=http://实际IP:3000',
-    )
-  } else if (pub.includes('0.0.0.0')) {
-    console.warn(
-      '[start-standalone] 警告: PUBLIC_APP_URL 含 0.0.0.0，浏览器无法打开。请改为局域网真实 IP',
-    )
-  } else {
-    console.log(`[start-standalone] PUBLIC_APP_URL=${pub} (SSO 退出回跳)`)
-  }
+const pub = (process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').trim()
+if (!pub) {
+  console.warn(
+    '[start-standalone] 警告: 未设 PUBLIC_APP_URL。HOSTNAME=0.0.0.0 时登录/OIDC/站点回跳不能用监听地址。请设为浏览器可打开的 https://IP或域名:对外端口',
+  )
+} else if (pub.includes('0.0.0.0')) {
+  console.warn(
+    '[start-standalone] 警告: PUBLIC_APP_URL 含 0.0.0.0，浏览器无法打开。请改为对外真实地址',
+  )
+} else {
+  console.log(`[start-standalone] PUBLIC_APP_URL=${pub} (对外 Origin)`)
 }
 console.log(`[start-standalone] SYNC_PACKAGE_SECRET len=${process.env.SYNC_PACKAGE_SECRET.length}`)
 console.log('[start-standalone] 提示: 请用本脚本启动；直接 node .next/standalone/server.js 不会加载 .env.local')

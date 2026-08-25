@@ -47,6 +47,27 @@ export function relocationFilterFromLocations(
   return { inboundRfids, outboundRfids }
 }
 
+/**
+ * 按设备 IP 选站时：已移入该设备的盘笼 RFID 纳入命中；
+ * 已登记且当前不在该设备的盘笼，从「索引仍写旧 device_ip」结果中排除。
+ */
+export function relocationFilterFromDevice(
+  locations: MagazineCurrentLocation[],
+  deviceIp: string
+): { inboundRfids: string[]; outboundRfids: string[] } {
+  const ip = deviceIp.trim()
+  if (!ip) return { inboundRfids: [], outboundRfids: [] }
+  const inboundRfids: string[] = []
+  const outboundRfids: string[] = []
+  for (const loc of locations) {
+    const rfid = loc.magazine_rfid?.trim()
+    if (!rfid) continue
+    if (loc.target_device_ip?.trim() === ip) inboundRfids.push(rfid)
+    else outboundRfids.push(rfid)
+  }
+  return { inboundRfids, outboundRfids }
+}
+
 /** 按本页命中的设备 IP 批量补设备名（可选，失败不影响检索） */
 export async function loadDeviceNameByIp(
   ips: string[]
@@ -115,10 +136,12 @@ export function enrichSearchHits(
       ...hit,
       volumeName: volumeName ?? (hit.volumeId != null ? `卷-${hit.volumeId}` : null),
       volumeCode: hit.volumeCode ?? (hit.volumeId != null ? String(hit.volumeId) : null),
+      volumeType: hit.volumeType ?? null,
       magazineRfid: rfid,
       deviceIp,
       devicePort,
       deviceName,
+      serialNum: hit.serialNum?.trim() || null,
       displaySiteCode,
       siteName: siteNames.get(displaySiteCode) ?? displaySiteCode,
     }

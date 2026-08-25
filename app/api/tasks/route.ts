@@ -19,7 +19,7 @@ import {
   buildTaskStatusFilterSql,
   PHASE_QUERY_TO_STATUS_FILTER,
 } from "@/lib/tasks/task-status-display"
-import { loadTaskPathAggregates } from "@/lib/tasks/task-path-aggregate"
+import { loadTaskPathAggregatesForRows } from "@/lib/tasks/task-path-aggregate"
 import {
   loadUnifiedDiscAggregatesMultiSite,
   mergeDiscAggregateIntoTaskRow,
@@ -319,15 +319,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const pathAggBySite = new Map<string, Awaited<ReturnType<typeof loadTaskPathAggregates>>>()
-    const siteTaskIds = new Map<string, string[]>()
+    const pathAggBySite = new Map<string, Awaited<ReturnType<typeof loadTaskPathAggregatesForRows>>>()
+    const siteTasks = new Map<
+      string,
+      Array<{ sourceId: string; taskType: string; taskMode: number | null }>
+    >()
     for (const row of rows) {
-      const list = siteTaskIds.get(row.source_site_id) ?? []
-      list.push(row.source_id)
-      siteTaskIds.set(row.source_site_id, list)
+      const list = siteTasks.get(row.source_site_id) ?? []
+      list.push({
+        sourceId: row.source_id,
+        taskType: row.task_type,
+        taskMode: row.task_mode,
+      })
+      siteTasks.set(row.source_site_id, list)
     }
-    for (const [site, taskIds] of siteTaskIds) {
-      pathAggBySite.set(site, await loadTaskPathAggregates(site, taskIds))
+    for (const [site, tasks] of siteTasks) {
+      pathAggBySite.set(site, await loadTaskPathAggregatesForRows(site, tasks))
     }
 
     // 列表缺封包统计时，按页批量从 unified_disc_media 补全
@@ -352,6 +359,7 @@ export async function GET(request: NextRequest) {
         : undefined
       const pathAgg = pathAggBySite.get(row.source_site_id)?.get(String(row.source_id))
       if (pathAgg?.volumeNames) dto.volumeId = pathAgg.volumeNames
+      if (pathAgg?.pathSource) dto.pathSource = pathAgg.pathSource
       if (pathAgg?.paths?.length) {
         dto.pathPairs = pathAgg.paths
         dto.sourcePath = pathAgg.sourcePath
@@ -359,6 +367,9 @@ export async function GET(request: NextRequest) {
       } else {
         if (pathAgg?.sourcePath) dto.sourcePath = pathAgg.sourcePath
         if (pathAgg?.backupPath) dto.packagePath = pathAgg.backupPath
+      }
+      if (pathAgg?.restoreErrorMessage && !dto.errorMessage) {
+        dto.errorMessage = pathAgg.restoreErrorMessage
       }
       return dto
     })

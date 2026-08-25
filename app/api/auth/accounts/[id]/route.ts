@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const result = await query(
-      `SELECT id::text, username, display_name, role, department, accessible_sites,
+      `SELECT id::text, username, display_name, role, department, employee_id, email, accessible_sites,
               status, failed_attempts, locked_until::text, last_login_at::text, created_at::text
        FROM auth_accounts WHERE id = $1::uuid LIMIT 1`,
       [id],
@@ -68,11 +68,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "invalid json" }, { status: 400 })
   }
 
-  const { status, displayName, role, department, accessibleSites } = body
+  const { status, displayName, role, department, accessibleSites, employeeId, email } = body
 
   try {
     const before = await query(
-      `SELECT id::text, username, display_name, role, department, accessible_sites, status
+      `SELECT id::text, username, display_name, role, department, employee_id, email, accessible_sites, status
        FROM auth_accounts WHERE id = $1::uuid LIMIT 1`,
       [id],
     )
@@ -87,6 +87,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       display_name: string | null
       role: string
       department: string | null
+      employee_id: string | null
+      email: string | null
       accessible_sites: string[] | null
       status: string
     }
@@ -147,6 +149,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       values.push(accessibleSites.map(String))
       idx++
     }
+    if (employeeId !== undefined) {
+      updates.push(`employee_id = $${idx}`)
+      values.push(typeof employeeId === "string" && employeeId.trim() ? employeeId.trim() : null)
+      idx++
+    }
+    if (email !== undefined) {
+      updates.push(`email = $${idx}`)
+      values.push(typeof email === "string" && email.trim() ? email.trim() : null)
+      idx++
+    }
 
     if (updates.length === 0) {
       return NextResponse.json({ error: "no fields to update" }, { status: 400 })
@@ -179,10 +191,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({ ok: true, message: "account updated" })
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
-      { status: 500 },
-    )
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes("unique") || msg.includes("duplicate")) {
+      return NextResponse.json({ error: "employee_id or email already exists" }, { status: 409 })
+    }
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 

@@ -60,7 +60,7 @@ const ALLOWED_PACKAGE_TABLES = [
   "tbl_monitor_path", "tbl_platform_monitor", "tbl_site_monitor",
   "tbl_project_monitor_files", "tbl_task_folder",
   // R.83.8 任务详情 + 槽位管理族 15 张
-  "tbl_task_items", "tbl_task_print", "tbl_task_certif_status",
+  "tbl_task_items", "tbl_restore_file", "tbl_task_print", "tbl_task_certif_status",
   "tbl_slot_file_1000000", "tbl_slot_file_12", "tbl_slot_file_13",
   "tbl_slot_file_15", "tbl_slot_file_30", "tbl_slot_file_31",
   "tbl_slot_folder_1000000", "tbl_slot_folder_12", "tbl_slot_folder_13",
@@ -176,6 +176,7 @@ function srcToUnified(src: string): string {
   if (src === "tbl_task_folder") u = "unified_task_folders"
   // R.83.8 任务详情 + 槽位管理族 15 张
   if (src === "tbl_task_items") u = "unified_task_items"
+  if (src === "tbl_restore_file") u = "unified_restore_files"
   if (src === "tbl_task_print") u = "unified_task_prints"
   if (src === "tbl_task_certif_status") u = "unified_task_certif_statuses"
   if (src === "tbl_slot_file_1000000") u = "unified_slot_file_1000000"

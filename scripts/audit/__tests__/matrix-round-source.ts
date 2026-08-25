@@ -164,6 +164,7 @@ const R83_7_SOURCES = [
 // R.83.8 source tables (task detail + slot file/folder family)
 const R83_8_SOURCES = [
   "tbl_task_items",
+  "tbl_restore_file",
   "tbl_task_print",
   "tbl_task_certif_status",
   "tbl_slot_file_1000000",

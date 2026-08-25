@@ -79,7 +79,11 @@ export function Header({ onMenuClick }: HeaderProps) {
   }, [])
 
   const handleLogout = async () => {
-    await clearSession()
+    const adfsLogoutUrl = await clearSession()
+    if (adfsLogoutUrl) {
+      window.location.assign(adfsLogoutUrl)
+      return
+    }
     router.replace("/login")
   }
 

@@ -9,7 +9,9 @@ export interface AuthSession {
   accessibleSites: string[]
   siteCode: string
   permissions: string[]
-  provider: "local"
+  provider: "local" | "adfs" | "oidc"
+  employeeId?: string | null
+  email?: string | null
 }
 
 export interface MockUser {

@@ -97,7 +97,7 @@ pnpm start
 
 部署后编辑 `app/.env.local`：
 
-- `PUBLIC_APP_URL=http://<服务器IP>:3000`
+- `PUBLIC_APP_URL=https://<服务器IP或域名>:<对外端口>`（浏览器地址，禁止 `0.0.0.0`；前面有 Nginx 时写对外 HTTPS 端口）
 - `DATABASE_URL` / `POSTGRES_PASSWORD` / `DB_PASSWORD` 三者密码一致
 - `AUTH_SESSION_SECRET` / `SYNC_PACKAGE_SECRET` / `SITE_SSO_SECRET`
 

@@ -10,6 +10,8 @@ export type EsIndexDocument = {
   source_table?: string
   source_record_id?: string
   volume_id?: number | null
+  /** 逻辑卷类型：1光盘 2NAS 3硬盘 5磁带库 7磁带机 */
+  volume_type?: number | null
   doc_type?: string
   file_name?: string | null
   file_size?: number | null
@@ -27,6 +29,8 @@ export type EsIndexDocument = {
   magazine_rfid?: string | null
   device_ip?: string | null
   device_port?: string | null
+  /** 硬盘序列号（volume_type=3） */
+  serial_num?: string | null
   content_type?: string | null
   extension?: string | null
   folder_name?: string | null
@@ -87,22 +91,27 @@ export interface EsSiteRfidFilter {
 export interface EsSearchParams {
   q: string
   siteCodes: string[]
-  volumeId?: number
+  /** 按索引/当前设备 IP 筛选（含盘笼移位 inbound/outbound） */
+  deviceIp?: string
   docType?: "file" | "folder"
   limit: number
   /** 上一页最后一条文档 _id；首页不传 */
   searchAfter?: string | null
   inboundRfids?: string[]
   outboundRfids?: string[]
+  deviceInboundRfids?: string[]
+  deviceOutboundRfids?: string[]
 }
 
 export type EsCountParams = {
   q: string
   siteCodes: string[]
-  volumeId?: number
+  deviceIp?: string
   docType?: "file" | "folder"
   inboundRfids?: string[]
   outboundRfids?: string[]
+  deviceInboundRfids?: string[]
+  deviceOutboundRfids?: string[]
 }
 
 export type EsSearchHit = EsIndexDocument & { _id: string }
@@ -149,21 +158,48 @@ function siteOwnershipFilter(params: {
   return { bool: { should, minimum_should_match: 1 } }
 }
 
+function deviceOwnershipFilter(params: {
+  deviceIp: string
+  inboundRfids?: string[]
+  outboundRfids?: string[]
+}): object | null {
+  const deviceIp = params.deviceIp.trim()
+  if (!deviceIp) return null
+  const inbound = (params.inboundRfids ?? []).filter(Boolean)
+  const outbound = (params.outboundRfids ?? []).filter(Boolean)
+  const nativeMust: object[] = [{ term: { device_ip: deviceIp } }]
+  if (outbound.length) {
+    nativeMust.push({ bool: { must_not: [{ terms: { magazine_rfid: outbound } }] } })
+  }
+  const should: object[] = [{ bool: { must: nativeMust } }]
+  if (inbound.length) {
+    should.push({ terms: { magazine_rfid: inbound } })
+  }
+  return { bool: { should, minimum_should_match: 1 } }
+}
+
 function buildSearchQuery(params: {
   q: string
   siteCodes: string[]
-  volumeId?: number
+  deviceIp?: string
   docType?: "file" | "folder"
   inboundRfids?: string[]
   outboundRfids?: string[]
+  deviceInboundRfids?: string[]
+  deviceOutboundRfids?: string[]
 }): object {
   const filters: object[] = []
   const ownership = siteOwnershipFilter(params)
   if (ownership) {
     filters.push(ownership)
   }
-  if (params.volumeId != null && Number.isFinite(params.volumeId)) {
-    filters.push({ term: { volume_id: params.volumeId } })
+  const deviceOwnership = deviceOwnershipFilter({
+    deviceIp: params.deviceIp ?? "",
+    inboundRfids: params.deviceInboundRfids,
+    outboundRfids: params.deviceOutboundRfids,
+  })
+  if (deviceOwnership) {
+    filters.push(deviceOwnership)
   }
   // 仅排除 doc_type=folder 的目录文档；文件仍可用路径关键字命中（folder_path）
   filters.push({ term: { doc_type: "file" } })

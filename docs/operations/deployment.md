@@ -73,6 +73,7 @@ pnpm scheduler:sync:once -- --siteCode=SH01
 ```
 
 本地默认账号为 `admin / admin`。该账号只用于开发验收；测试服务器和生产环境必须通过运维流程更换默认口令、密钥和账号策略。
+企业 ADFS 登录需另配 `OIDC_ISSUER_URL`、`OIDC_CLIENT_ID`、`OIDC_CLIENT_SECRET`，回调须与 ADFS 登记地址完全一致（如 `OIDC_REDIRECT_URI=https://10.186.1.229:30000/api/auth/sso/callback`）。`PUBLIC_APP_URL` 必须写成员工浏览器地址（Nginx 对外 HTTPS 主机和端口），禁止 `0.0.0.0` 或仅写 Node 监听端口；登录/OIDC/站点回跳都用该 Origin。未配置时「企业 AD 登录」会 302 到 `{PUBLIC_APP_URL}/login?sso=not_configured`，不签发会话。
 `pnpm smoke:sync` 只验证同步通道并自清理 `TEST_SMOKE`; 页面业务数据由 `export-and-push` 写入中心库。`pnpm export-and-push` 需要总控 HTTP 服务已启动。
 
 验证:

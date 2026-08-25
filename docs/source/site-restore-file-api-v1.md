@@ -2,6 +2,7 @@
 
 > **不另开端口。** 走站点业务 Web（`sync_sites.db_host:db_port`），与 `unified-sso/consume`、`unified-sync/trigger`、`unified-task-control` 一致。  
 > **本阶段范围：** 站点只登记待执行：`tbl_task`（`task_type=1` + `task_mode=2`）+ `tbl_restore_file`；**不**写 `tbl_task_items`，**不**触发物理回迁执行。总控文案只能写「待回迁记录已提交」。  
+> **展示链路：** 站点需将 `tbl_restore_file` 纳入小表推送；总控接收至 `unified_restore_files`，任务管理对 `task_type=1` + `task_mode=2` 从该表展示路径 / 回迁状态 / `restore_comment`。  
 > 站点 Nw 配置键：`unifiedDisc`（含 `sso` / `restore.path`）；`restore_root_path` 由 Nw 本地配置注入 TCP，总控不传。
 
 ## 调用链
@@ -98,6 +99,12 @@ Body（snake_case）：
 3. **不要**在本接口内启动机械臂/光驱回迁；执行由站点后续消费表数据完成。
 4. `restore_root_path` 取自本站 `unifiedDisc.restore.path`。
 5. 已有库需 `ALTER TABLE tbl_restore_file ADD COLUMN disc_side INT DEFAULT 0;`（若缺列）。
+6. **落库前校验盘笼/设备（Central `createRestoreFile`）**：
+   - 按 `mag_rfid` **大写**后，用正序 + **hex 字节对倒序**（例 `E00401D003AFE0A5` ↔ `A5E0AF03D00104E0`）查 `tbl_magzines` ⋈ `tbl_disc_lib`（库内 `RFID` 已为大写，直接等值匹配）；
+   - 查无 → 报错「盘笼 RFID 不存在」；
+   - 多命中优先 `mag_order` 非空（在线），在线仍多个取第一条；`mag_order` 空 → 报错「盘笼离线」；
+   - 命中库的 `IP`/`port` 须与总控传入的 `device_ip`/`device_port` 一致，否则报错；
+   - `tbl_restore_file.mag_rfid` 仍写总控传入值（不改成库内另一方向字符串）。
 
 ## 总控验收口径
 

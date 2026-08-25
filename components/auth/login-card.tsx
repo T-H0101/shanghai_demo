@@ -40,6 +40,17 @@ export function LoginCard() {
   const sitesRequestId = useRef(0)
   const lastQueriedUsername = useRef("")
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const sso = params.get("sso")
+    if (sso === "not_configured") {
+      setError("企业身份源尚未配置。ADFS Client ID/Secret 申请通过后再试，本地账号仍可登录。")
+    } else if (sso === "error") {
+      const reason = params.get("reason") || "unknown"
+      setError(`企业 AD 登录未完成（${reason}），未建立总控会话。`)
+    }
+  }, [])
+
   // 列表到位后若当前未选或选中项不在列表中，自动落到第一项并显示
   useEffect(() => {
     if (availableSites.length === 0) return
@@ -365,14 +376,25 @@ export function LoginCard() {
             "登录"
           )}
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="login-adfs-start"
+          className="h-11 w-full"
+          onClick={() => {
+            window.location.assign("/api/auth/sso/start")
+          }}
+        >
+          企业 AD 登录
+        </Button>
       </form>
 
       <p className="relative z-10 mt-6 text-center text-xs leading-relaxed text-slate-500 dark:text-slate-500">
         当前认证：本地账号体系
         <br />
-        企业身份源：待配置 ADFS / LDAP
+        企业 AD 登录：未配置 Client 时会回到本页提示，不会假装登录成功
         <br />
-        站点单点登录：待配置站点信任关系
+        站点单点登录：ticket 免登；用户名优先用映射表
       </p>
 
       <div

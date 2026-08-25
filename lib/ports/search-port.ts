@@ -8,11 +8,14 @@ import type { FileIndexDocument } from "@/lib/domain/search/file-index-document"
 export type FileSearchQuery = {
   keyword: string
   siteCode?: string
-  volumeId?: number
+  /** 设备 IP（索引 device_ip / 移位后当前设备） */
+  deviceIp?: string
   docType?: "file" | "folder"
   departmentIds?: string[]
   inboundRfids?: string[]
   outboundRfids?: string[]
+  deviceInboundRfids?: string[]
+  deviceOutboundRfids?: string[]
   limit: number
   /** @deprecated 已改为 search_after；保留兼容，忽略 */
   offset?: number
@@ -37,6 +40,8 @@ export type FileSearchHit = {
   volumeId: number | null
   volumeCode: string | null
   volumeName: string | null
+  /** 逻辑卷类型：1光盘 3硬盘 … */
+  volumeType: number | null
   slotId: number | null
   /** 片匣内盘位号（推送 slot_order，从 0 起）；跨站回迁寻址用，非 slot_id */
   slotOrder: number | null
@@ -49,6 +54,8 @@ export type FileSearchHit = {
   devicePort: string | null
   /** 设备展示名（可选，来自中心库补全） */
   deviceName: string | null
+  /** 硬盘序列号（volume_type=3） */
+  serialNum: string | null
   /**
    * 列表展示用站点编码：有移位登记时为最新目标站，否则为归档 sourceSiteId。
    * sourceSiteId 仍保留 ES 归档站，供存储卷名解析。

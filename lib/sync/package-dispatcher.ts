@@ -2222,6 +2222,32 @@ async function dispatchTaskItems(input: DispatchInput): Promise<DispatchResult> 
   })
 }
 
+// tbl_restore_file (id) → unified_restore_files
+// 物理位置回迁明细（task_type=1 + task_mode=2），不写 tbl_task_items
+async function dispatchRestoreFile(input: DispatchInput): Promise<DispatchResult> {
+  return inlineUpsert(input, 'unified_restore_files', {
+    sourceIdField: 'id',
+    columns: [
+      { source: 'id', target: 'src_restore_file_id' },
+      { source: 'task_id', target: 'task_id' },
+      { source: 'lib_ip', target: 'lib_ip' },
+      { source: 'lib_port', target: 'lib_port' },
+      { source: 'mag_rfid', target: 'mag_rfid' },
+      { source: 'slot_order', target: 'slot_order' },
+      { source: 'disc_side', target: 'disc_side' },
+      { source: 'file_full_path', target: 'file_full_path' },
+      { source: 'hash', target: 'hash' },
+      { source: 'size', target: 'size' },
+      { source: 'restore_root_path', target: 'restore_root_path' },
+      { source: 'restore_status', target: 'restore_status' },
+      { source: 'restore_comment', target: 'restore_comment' },
+      { source: 'create_dt', target: 'create_dt' },
+      { source: 'cmt', target: 'cmt' },
+    ],
+    sourceIdColumn: 'source_record_id',
+  })
+}
+
 // tbl_task_print (id) → unified_task_prints
 async function dispatchTaskPrint(input: DispatchInput): Promise<DispatchResult> {
   return inlineUpsert(input, 'unified_task_prints', {
@@ -3039,6 +3065,7 @@ const REGISTRY: Record<string, (input: DispatchInput) => Promise<DispatchResult>
   tbl_task_folder: dispatchTaskFolder,
   // R.83.8 任务详情 + 槽位管理族 15 张
   tbl_task_items: dispatchTaskItems,
+  tbl_restore_file: dispatchRestoreFile,
   tbl_task_print: dispatchTaskPrint,
   tbl_task_certif_status: dispatchTaskCertifStatus,
   tbl_slot_file_1000000: dispatchSlotFile1000000,

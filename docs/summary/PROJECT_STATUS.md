@@ -1,7 +1,24 @@
 # Project Status
 
-> **截至**: 2026-08-21
-> **当前主线**: 检索按物理位置登记待回迁（总控 → 站点 tbl_task + tbl_restore_file，仅落库）
+> **截至**: 2026-08-24
+> **当前主线**: Sprint R.99 ADFS/OIDC 总控单边能力（药明 Client 申请中，不宣称联邦登录完成）
+
+## Sprint R.99 — ADFS OIDC 单边能力 (partial)
+
+**目标**: 在药明尚未发放 Client ID/Secret 时，补齐总控侧授权码链路、登录入口、AD↔站点映射与审计 provider。
+
+**对应**: `requirements.md` §2.2 / §2.1.2。REQ-2.2.1 仍为 `partial`。
+
+**交付**:
+- ADFS 端点 `{issuer}/oauth2/authorize|token`；callback 真换 token + JWKS 验签；未配置 302 回 `{PUBLIC_APP_URL}/login?sso=not_configured`，不发会话；对外 Origin 统一 `lib/http/public-origin.ts`，不使用监听地址 `0.0.0.0`
+- 登录页「企业 AD 登录」；退出可带 ADFS logoutUrl
+- 表 `auth_site_user_mappings` + `/api/auth/account-mappings` CRUD + `/users`「站点账号映射」（按当前账号，不区分 AD/密码）
+- 站点 SSO ticket 用户名优先映射表；无映射则总控用户名
+- `pnpm e2e:adfs-oidc`；审查 `docs/database-analysis/sprint-r99-adfs-oidc-requirements-review.md`
+
+**非宣称**: 真域账号登录成功、Claim 字段已与药明对齐、映射已同步到站点。
+
+---
 
 ## 跨站回迁登记（物理位置，register_only）
 
@@ -16,6 +33,7 @@
 - 字段映射：`device_ip→lib_ip`，`magazine_rfid→mag_rfid`，`file_path→file_full_path`，`file_hash→hash`，`disc_side→disc_side`，`size→size`，配置路径→`restore_root_path`
 - Toast：「回迁记录已提交…」，禁止「回迁成功」
 - 契约：`docs/source/site-restore-file-api-v1.md`
+- **R.100 展示链路**：站点推送 `tbl_restore_file` → 总控 `unified_restore_files`；任务详情对 `task_type=1`+`task_mode=2` 展示回迁文件路径 / 目标路径 / 状态 / `restore_comment`
 
 **非宣称**: 站点已执行回迁、光盘已取出、需求 complete。
 

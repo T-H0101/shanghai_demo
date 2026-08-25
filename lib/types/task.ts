@@ -164,7 +164,11 @@ export interface TaskItem {
     fromPath: string
     backupPath: string
     volumeName?: string
+    restoreStatus?: number | null
+    restoreComment?: string | null
   }>
+  /** 路径来源：普通 task_items / 物理回迁 restore_file */
+  pathSource?: "task_items" | "restore_file"
 
   // 封包配置
   backupScope: BackupScope

@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
 import type { RackDTO } from "@/lib/api/dto"
-import { DEVICE_TYPE_LABELS, pickDeviceIp } from "@/lib/devices/device-display"
+import { DEVICE_TYPE_LABELS, pickDeviceIp, pickDevicePort } from "@/lib/devices/device-display"
 import {
   isDeletedDeviceStatus,
   mapUnifiedStatusToDeviceRuntime,
@@ -77,6 +77,7 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
     (row.ip_address && row.ip_address.trim()) ||
     pickDeviceIp(row.raw_data) ||
     undefined
+  const port = pickDevicePort(row.raw_data) ?? undefined
 
   return {
     id: row.device_id,
@@ -96,6 +97,7 @@ function mapDeviceToRackDTO(row: DeviceRow): RackDTO {
     floor: undefined,
     room: undefined,
     ip,
+    port,
     serialNo:
       (row.serial_no && row.serial_no.trim()) ||
       (typeof row.raw_data?.sn === "string" && row.raw_data.sn.trim()) ||

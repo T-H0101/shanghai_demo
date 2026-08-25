@@ -62,6 +62,10 @@ function esDocToHit(doc: EsIndexDocument & { _id?: string }): FileSearchHit {
     volumeId,
     volumeCode: volumeId != null ? String(volumeId) : null,
     volumeName: null,
+    volumeType:
+      doc.volume_type != null && Number.isFinite(Number(doc.volume_type))
+        ? Number(doc.volume_type)
+        : null,
     slotId:
       doc.slot_id != null && Number.isFinite(Number(doc.slot_id))
         ? Number(doc.slot_id)
@@ -78,6 +82,7 @@ function esDocToHit(doc: EsIndexDocument & { _id?: string }): FileSearchHit {
     deviceIp: doc.device_ip?.trim() || null,
     devicePort: doc.device_port?.trim() || null,
     deviceName: null,
+    serialNum: doc.serial_num?.trim() || null,
     hash: doc.hash ?? doc.hash1 ?? null,
     taskId: doc.task_id ?? null,
     status: doc.status != null && Number.isFinite(Number(doc.status)) ? Number(doc.status) : null,
@@ -104,12 +109,14 @@ export function createOpenSearchFileSearchAdapter(): SearchPort {
         const result = await searchFilesInEs({
           q: query.keyword,
           siteCodes: query.siteCode ? [query.siteCode] : [],
-          volumeId: query.volumeId,
+          deviceIp: query.deviceIp,
           docType: "file",
           limit: Math.min(Math.max(query.limit, 1), 500),
           searchAfter: query.searchAfter,
           inboundRfids: query.inboundRfids,
           outboundRfids: query.outboundRfids,
+          deviceInboundRfids: query.deviceInboundRfids,
+          deviceOutboundRfids: query.deviceOutboundRfids,
         })
         return {
           hits: result.items.map(esDocToHit),

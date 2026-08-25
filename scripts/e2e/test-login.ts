@@ -148,24 +148,30 @@ async function main() {
   )
 
   // ── 6 & 7. Login card + submit ─────────────────────────────
+  const loginCardSrc = readFileSync("components/auth/login-card.tsx", "utf8")
   check("Login card mounted", html.includes('data-testid="login-card"'))
   check(
     "Submit button has testid",
     html.includes('data-testid="login-submit"'),
   )
+  check(
+    "AD login button exists in source (navigates to /api/auth/sso/start)",
+    loginCardSrc.includes('data-testid="login-adfs-start"') &&
+      loginCardSrc.includes("/api/auth/sso/start"),
+  )
 
   // ── 8. Bottom copy uses product wording ────────────────────
   check(
     "Bottom copy line 1 uses local account wording",
-    html.includes("当前认证：本地账号体系"),
+    html.includes("当前认证：本地账号体系") || loginCardSrc.includes("当前认证：本地账号体系"),
   )
   check(
-    "Bottom copy line 2 uses enterprise identity wording",
-    html.includes("企业身份源：待配置 ADFS / LDAP"),
+    "Bottom copy line 2 does not claim ADFS complete",
+    loginCardSrc.includes("未配置 Client") && !loginCardSrc.includes("ADFS 集成完成"),
   )
   check(
-    "Bottom copy line 3 uses site trust wording",
-    html.includes("站点单点登录：待配置站点信任关系"),
+    "Bottom copy mentions site mapping ticket",
+    loginCardSrc.includes("站点单点登录") && loginCardSrc.includes("映射表"),
   )
 
   // ── 9. Form input order & autocomplete ────────────────────

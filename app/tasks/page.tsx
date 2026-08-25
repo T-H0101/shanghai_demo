@@ -37,6 +37,10 @@ import {
   normalizePhaseForProgressFlow,
 } from "@/lib/tasks/task-status-display"
 import { TASK_TYPE_FILTER_OPTIONS } from "@/lib/tasks/task-type-display"
+import {
+  formatRestoreFileStatus,
+  isPhysicalRestoreTask,
+} from "@/lib/tasks/restore-file-display"
 import { useSite } from "@/lib/site/site-context"
 import {
   Activity, Pause, Play, RotateCcw, RefreshCw, AlertTriangle, ClipboardList,
@@ -766,7 +770,7 @@ function TasksPageContent() {
               <TabsList className="h-8">
                 <TabsTrigger value="all" className="text-xs">全部</TabsTrigger>
                 <TabsTrigger value="0,7" className="text-xs">备份</TabsTrigger>
-                <TabsTrigger value="1-0,1-1" className="text-xs">恢复</TabsTrigger>
+                <TabsTrigger value="1-0,1-1,1-2" className="text-xs">恢复</TabsTrigger>
                 <TabsTrigger value="1-12" className="text-xs">巡检</TabsTrigger>
                 <TabsTrigger value="4" className="text-xs">扫描</TabsTrigger>
               </TabsList>
@@ -841,13 +845,6 @@ function TasksPageContent() {
                         <AppTooltip content="暂停任务">
                           <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-pause" onClick={e => handleControlCommand(t, "task_pause", e)} aria-label="暂停任务">
                             <Pause className="h-3.5 w-3.5" />
-                          </Button>
-                        </AppTooltip>
-                      )}
-                      {isApiMode() && t.phase === "paused" && (
-                        <AppTooltip content="重置任务状态并继续任务">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" data-testid="task-row-resume" onClick={e => handleControlCommand(t, "task_resume", e)} aria-label="重置任务状态并继续任务">
-                            <Play className="h-3.5 w-3.5" />
                           </Button>
                         </AppTooltip>
                       )}
@@ -1034,52 +1031,95 @@ function TasksPageContent() {
                   <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2 shrink-0"><HardDrive className="h-4 w-4 text-slate-400" />路径信息</h4>
                   {/* 约 2 组单行路径高度；略大于 8rem，避免两组刚好顶满时出现滚动抖动 */}
                   <div className="text-sm max-h-[140px] overflow-y-auto pr-1">
-                    {(selected.pathPairs && selected.pathPairs.length > 0) ? (
-                      selected.pathPairs.map((pair, idx) => (
-                        <div
-                          key={`${pair.fromPath}|${pair.backupPath}|${idx}`}
-                          className={cn(
-                            idx > 0 && "pt-2 border-t border-slate-100 dark:border-slate-800"
-                          )}
-                        >
+                    {(() => {
+                      const physical =
+                        selected.pathSource === "restore_file" ||
+                        isPhysicalRestoreTask("restore", selected.taskMode ?? null)
+                      const fromLabel = physical
+                        ? "回迁文件路径"
+                        : selected.type === "restore"
+                          ? "回迁路径"
+                          : "源数据路径"
+                      const toLabel = physical
+                        ? "回迁目标路径"
+                        : selected.type === "restore"
+                          ? "介质源路径"
+                          : "备份路径"
+                      return (selected.pathPairs && selected.pathPairs.length > 0) ? (
+                        selected.pathPairs.map((pair, idx) => (
+                          <div
+                            key={`${pair.fromPath}|${pair.backupPath}|${idx}`}
+                            className={cn(
+                              idx > 0 && "pt-2 border-t border-slate-100 dark:border-slate-800"
+                            )}
+                          >
+                            <DetailRow
+                              label={fromLabel}
+                              value={
+                                pair.fromPath
+                                  ? <span className="font-mono text-xs break-all">{pair.fromPath}</span>
+                                  : "—"
+                              }
+                            />
+                            <DetailRow
+                              label={toLabel}
+                              value={
+                                pair.backupPath
+                                  ? <span className="font-mono text-xs break-all">{pair.backupPath}</span>
+                                  : "—"
+                              }
+                            />
+                            {physical && (
+                              <>
+                                <DetailRow
+                                  label="回迁状态"
+                                  value={formatRestoreFileStatus(pair.restoreStatus)}
+                                />
+                                {pair.restoreComment ? (
+                                  <DetailRow
+                                    label="回迁说明"
+                                    value={
+                                      <span className="text-xs break-all text-red-600 dark:text-red-400">
+                                        {pair.restoreComment}
+                                      </span>
+                                    }
+                                  />
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div>
                           <DetailRow
-                            label={selected.type === "restore" ? "回迁路径" : "源数据路径"}
+                            label={fromLabel}
                             value={
-                              pair.fromPath
-                                ? <span className="font-mono text-xs break-all">{pair.fromPath}</span>
-                                : "—"
+                              isApiMode() && (!selected.sourcePath || selected.sourcePath === "")
+                                ? "—"
+                                : <span className="font-mono text-xs break-all">{selected.sourcePath || "—"}</span>
                             }
                           />
                           <DetailRow
-                            label={selected.type === "restore" ? "介质源路径" : "备份路径"}
+                            label={toLabel}
                             value={
-                              pair.backupPath
-                                ? <span className="font-mono text-xs break-all">{pair.backupPath}</span>
-                                : "—"
+                              isApiMode() && (!selected.packagePath || selected.packagePath === "")
+                                ? "—"
+                                : <span className="font-mono text-xs break-all">{selected.packagePath || "—"}</span>
                             }
                           />
+                          {physical && selected.errorMessage ? (
+                            <DetailRow
+                              label="回迁说明"
+                              value={
+                                <span className="text-xs break-all text-red-600 dark:text-red-400">
+                                  {selected.errorMessage}
+                                </span>
+                              }
+                            />
+                          ) : null}
                         </div>
-                      ))
-                    ) : (
-                      <div>
-                        <DetailRow
-                          label={selected.type === "restore" ? "回迁路径" : "源数据路径"}
-                          value={
-                            isApiMode() && (!selected.sourcePath || selected.sourcePath === "")
-                              ? "—"
-                              : <span className="font-mono text-xs break-all">{selected.sourcePath || "—"}</span>
-                          }
-                        />
-                        <DetailRow
-                          label={selected.type === "restore" ? "介质源路径" : "备份路径"}
-                          value={
-                            isApiMode() && (!selected.packagePath || selected.packagePath === "")
-                              ? "—"
-                              : <span className="font-mono text-xs break-all">{selected.packagePath || "—"}</span>
-                          }
-                        />
-                      </div>
-                    )}
+                      )
+                    })()}
                   </div>
                 </section>
 
@@ -1144,14 +1184,9 @@ function TasksPageContent() {
                             <Pause className="h-3.5 w-3.5 mr-1" />暂停任务
                           </Button>
                         )}
-                        {selected.phase === "paused" && (
-                          <Button size="sm" variant="outline" className="text-emerald-600 hover:text-emerald-700" data-testid="task-detail-resume" title="重置任务状态并继续任务" onClick={() => handleControlCommand(selected, "task_resume")}>
-                            <Play className="h-3.5 w-3.5 mr-1" />重置并继续
-                          </Button>
-                        )}
                         {(selected.phase === "failed" || selected.phase === "paused" || selected.statusLabel === "中止" || selected.statusLabel === "警告") && (
                           <Button size="sm" variant="outline" className="text-slate-600" data-testid="task-detail-reset" title="重置任务状态并继续任务" onClick={() => handleControlCommand(selected, "task_reset")}>
-                            <RotateCcw className="h-3.5 w-3.5 mr-1" />重置并继续
+                            <RotateCcw className="h-3.5 w-3.5 mr-1" />重置任务状态并继续任务
                           </Button>
                         )}
                       </div>

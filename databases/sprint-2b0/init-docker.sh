@@ -266,6 +266,8 @@ MIGRATION_FILES=(
   "databases/sprint-r96/01-task-create-end-at.sql"
   "databases/sprint-r97/01-push-session-status-note.sql"
   "databases/sprint-r98/01-cage-move-register.sql"
+  "databases/sprint-r99/01-auth-adfs-mapping.sql"
+  "databases/sprint-r100/01-restore-files.sql"
 )
 
 log_step "执行当前版本 DDL patch..."

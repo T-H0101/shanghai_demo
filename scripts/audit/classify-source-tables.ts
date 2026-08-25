@@ -69,7 +69,7 @@ const PG_UNIFIED: Classification[] = [
   "tbl_export_info", "tbl_error_rate", "tbl_escape", "tbl_remote_backup",
   "tbl_monitor_path", "tbl_platform_monitor", "tbl_site_monitor",
   "tbl_project_monitor_files", "tbl_task_folder",
-  "tbl_task_items", "tbl_task_print", "tbl_task_certif_status",
+  "tbl_task_items", "tbl_restore_file", "tbl_task_print", "tbl_task_certif_status",
   "tbl_slot_file_1000000", "tbl_slot_file_12", "tbl_slot_file_13",
   "tbl_slot_file_15", "tbl_slot_file_30", "tbl_slot_file_31",
   "tbl_slot_folder_1000000", "tbl_slot_folder_12", "tbl_slot_folder_13",

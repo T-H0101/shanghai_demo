@@ -101,6 +101,7 @@ export function adaptTask(task: TaskItem): TaskDTO {
     packagePath: task.packagePath ?? "",
     volumeId: task.volumeId,
     pathPairs: task.pathPairs,
+    pathSource: task.pathSource,
 
     // 配置
     backupScope: task.backupScope ?? "full",

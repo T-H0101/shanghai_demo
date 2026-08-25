@@ -1,9 +1,22 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-08-18
+> 截至: 2026-08-24
 
 快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
+## R.99 ADFS/OIDC 单边能力 (2026-08-24)
+
+- [x] ADFS `/oauth2/authorize|token` 端点 + code 兑换 + JWKS 验签（env 未配不发会话）。
+- [x] `/login` 企业 AD 登录按钮；`sso=not_configured|error` 提示。
+- [x] 对外 Origin 单一来源（`PUBLIC_APP_URL`，禁止 `0.0.0.0` Location）。
+- [x] `auth_site_user_mappings` + 用户页「站点账号映射」（按当前账号）。
+- [x] 站点 SSO ticket 使用映射用户名。
+- [x] `e2e:adfs-oidc` + sprint-r99 requirements review。
+- [ ] 药明 Test Client ID/Secret 联调（申请中）。
+- [ ] 映射定时同步到站点（`blocked_by_site_change`）。
+
+R.99 不宣称 ADFS 集成完成。
 
 ## R.98 跨站点盘笼移位登记 (2026-08-18)
 

@@ -5,7 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { loadSiteRfidRelocationFilter } from "@/lib/control/cage-move-register"
+import { listCurrentMagazineLocations } from "@/lib/control/cage-move-register"
+import {
+  relocationFilterFromDevice,
+  relocationFilterFromLocations,
+} from "@/lib/search/hit-enrichment"
 import { countFilesInEs, isEsConfigured } from "@/lib/search/es-client"
 
 export async function GET(request: NextRequest) {
@@ -33,24 +37,30 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("siteCode") ??
       request.nextUrl.searchParams.get("site") ??
       undefined
-    const volumeRaw = request.nextUrl.searchParams.get("volumeId")
-    const volumeId =
-      volumeRaw != null && volumeRaw !== "" && Number.isFinite(Number(volumeRaw))
-        ? Number(volumeRaw)
-        : undefined
+    const deviceIpRaw =
+      request.nextUrl.searchParams.get("deviceIp") ??
+      request.nextUrl.searchParams.get("device_ip") ??
+      undefined
+    const deviceIp = deviceIpRaw?.trim() || undefined
     const docType = "file" as const
 
+    const locations = await listCurrentMagazineLocations()
     const rfidFilter = siteCode
-      ? await loadSiteRfidRelocationFilter([siteCode])
+      ? relocationFilterFromLocations(locations, [siteCode])
+      : { inboundRfids: [], outboundRfids: [] }
+    const deviceRfidFilter = deviceIp
+      ? relocationFilterFromDevice(locations, deviceIp)
       : { inboundRfids: [], outboundRfids: [] }
 
     const total = await countFilesInEs({
       q: keyword,
       siteCodes: siteCode ? [siteCode] : [],
-      volumeId,
+      deviceIp,
       docType,
       inboundRfids: rfidFilter.inboundRfids,
       outboundRfids: rfidFilter.outboundRfids,
+      deviceInboundRfids: deviceRfidFilter.inboundRfids,
+      deviceOutboundRfids: deviceRfidFilter.outboundRfids,
     })
 
     return NextResponse.json({

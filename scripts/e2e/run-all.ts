@@ -23,6 +23,7 @@ const scripts = [
   "e2e:search",
   "e2e:settings",
   "e2e:auth",
+  "e2e:adfs-oidc",
   "e2e:users",
   "e2e:racks",
   "e2e:cage-move",

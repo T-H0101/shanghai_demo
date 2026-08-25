@@ -10,10 +10,10 @@
 | status | count |
 |---|---:|
 | complete | 29 |
-| partial | 6 |
+| partial | 7 |
 | blocked_by_source_schema | 3 |
 | blocked_by_site_change | 1 |
-| blocked_by_auth | 5 |
+| blocked_by_auth | 4 |
 | blocked_by_external_system | 1 |
 | **total** | **45** |
 
@@ -29,7 +29,7 @@
 | REQ-2.1.2 | blocked_by_auth | — | 站点切换 (SSO 免登) |
 | REQ-2.1.3 | complete | lib/api/alert-adapter.ts + app/sync/page.tsx | 站点监控 (实时 + 告警, 采集 ≤5 分钟) |
 | REQ-2.2.1 | partial | app/api/auth/* + lib/auth/* | ADFS 3.0+ / LDAP 集成登录 |
-| REQ-2.2.2 | blocked_by_auth | — | 集团 AD ↔ 站点本地账号映射 |
+| REQ-2.2.2 | partial | app/api/auth/account-mappings + auth_site_user_mappings | 集团 AD ↔ 站点本地账号映射 |
 | REQ-2.2.3 | complete | store/login-audit (前端 localStorage) | 登录审计 (≥1 年) + 失败 ≥5 次锁定 |
 | REQ-2.3.1 | complete | lib/sync/package-dispatcher.ts | 同步范围 (设备/文件/权限/任务 4 类) |
 | REQ-2.3.2 | complete | lib/sync/sync-engine.ts | 同步策略 (实时/定时/手动) |
@@ -80,7 +80,7 @@
 | 5 | REQ-5.1.1 | partial | 向站点团队确认原生日志表/API 后接入 | 决策/部署 |
 | 6 | REQ-5.2.1 | partial | 等源端补 | 决策/部署 |
 | 7 | REQ-2.1.2 | blocked_by_auth | 等 REQ-2.2.1 解锁 | Auth/IdP |
-| 8 | REQ-2.2.2 | blocked_by_auth | 解锁 CLAUDE.md | Auth/IdP |
+| 8 | REQ-2.2.2 | partial | 映射表已落地；站点同步仍缺 | Auth/IdP |
 | 9 | REQ-3.2.1 | blocked_by_auth | 解锁 CLAUDE.md + 5.x Sprint | Auth/IdP |
 | 10 | REQ-3.2.2 | blocked_by_auth | 等 REQ-3.2.1 | Auth/IdP |
 

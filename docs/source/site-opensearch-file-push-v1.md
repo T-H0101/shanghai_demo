@@ -96,7 +96,7 @@ OpenSearch 索引 disc_file_index
 ```sql
 SELECT f.id, f.file_size, f.file_name, f.folder_id, f.hash, f.hash1,
        f.task_id, f.items_id, f.create_date, f.status, f.slot_id, f.content_type,
-       fo.folder_path AS folder_path
+       COALESCE(NULLIF(fo.folder_path, ''), fo.name) AS folder_path
 FROM `{tbl_file_N_a}` f
 LEFT JOIN `{tbl_folder_N}` fo ON fo.id = f.folder_id
 WHERE f.id > ?
@@ -106,6 +106,7 @@ LIMIT 1000;
 
 绑定参数：`?` = 该表进度中的 `lastId`（新表为 `0`）。
 
+> **根目录陈年数据**：建卷时根目录常为 `name='/'`、`folder_path=''`。推送时若 `folder_path` 为空则回退用 `name`（根下文件会推成 `folder_path: "/"`）。  
 > 已推送过、文档中无 `folder_path` 的历史文件：将该表水位 `lastId` 置 `0`（或删水位条目）后重推；`_id` 覆盖写回。
 
 ### 5.2 目录表 `tbl_folder_{N}`
@@ -121,7 +122,15 @@ LIMIT 1000;
 
 ### 5.3 盘位/设备映射（每轮一次，不 JOIN file 大表）
 
-推送开始时一次 JOIN 小表，建成 `slot_id → { slot_order, disc_side, magazine_rfid, device_ip, device_port }`，文件行按 `tbl_file.slot_id` O(1) 填入。无 `slot_id` 或映射未命中时位置字段写 `null`（`disc_side` 命中行默认 0=A 面）。
+按逻辑卷 `tbl_logical_volume.type` 分支：
+
+| type | 含义 | 位置解析 |
+|------|------|----------|
+| 1 | 光盘卷 | `file.slot_id` → `tbl_slots` → mag → disc_lib（RFID / slot_order / disc_side / device_ip） |
+| 3 | 硬盘卷 | `file.slot_id` → `tbl_hd_info`；`serial_num` → slots → mag → disc_lib 取 device_ip；推送 `serial_num`，**不推** magazine_rfid / disc_side / slot_order |
+| 2/5/7 | NAS/磁带等 | 本轮不填物理位置 |
+
+光盘：
 
 ```sql
 SELECT s.slot_id, s.slot_order, s.disc_side, m.RFID AS magazine_rfid, d.IP AS device_ip, d.port AS device_port
@@ -130,6 +139,18 @@ LEFT JOIN tbl_magzines m ON m.mag_id = s.mag_id
 LEFT JOIN tbl_disc_lib d ON d.lib_id = m.lib_id
 ```
 
+硬盘：
+
+```sql
+SELECT h.slot_id AS hd_id, h.serial_num, d.IP AS device_ip, d.port AS device_port
+FROM tbl_hd_info h
+LEFT JOIN tbl_slots s ON s.serial_num = h.serial_num
+LEFT JOIN tbl_magzines m ON m.mag_id = s.mag_id
+LEFT JOIN tbl_disc_lib d ON d.lib_id = m.lib_id
+WHERE h.serial_num IS NOT NULL AND h.serial_num <> ''
+```
+
+文档字段额外：`volume_type`（逻辑卷 type）、`serial_num`（硬盘 SN）。
 ## 6. 进度文件
 
 路径：`<syncDB_data_root>/es-push-progress.json`  
@@ -189,6 +210,7 @@ LEFT JOIN tbl_disc_lib d ON d.lib_id = m.lib_id
 | `source_table` | keyword | 物理表名 |
 | `source_record_id` | keyword | 源表 `id` 转 string |
 | `volume_id` | long | 从表名解析 |
+| `volume_type` | integer | `tbl_logical_volume.type`（1光盘 / 3硬盘 …） |
 | `doc_type` | keyword | `file` 或 `folder` |
 | `indexed_at` | date | **推送时刻**（运维用；勿写入 `create_date`） |
 | `deleted` | boolean | 一期固定 `false`（预留删改；本期不做） |
@@ -200,7 +222,7 @@ LEFT JOIN tbl_disc_lib d ON d.lib_id = m.lib_id
 | `file_name` | text + keyword | 表 |
 | `file_size` | long | 表 |
 | `folder_id` | long | 表 |
-| `folder_path` | text + keyword | **推送时** `LEFT JOIN tbl_folder_{volumeId}`（`fo.id = f.folder_id`）带出；无目录则为空串 |
+| `folder_path` | text + keyword | **推送时** `LEFT JOIN tbl_folder_{volumeId}`；`COALESCE(NULLIF(folder_path,''), name)`（空路径回退 name，兼容根目录 `name='/'`） |
 | `hash` | keyword | 表 |
 | `hash1` | keyword | 表 |
 | `task_id` | keyword | 表（数值转 string；null 可省略或写空） |
@@ -208,11 +230,12 @@ LEFT JOIN tbl_disc_lib d ON d.lib_id = m.lib_id
 | `create_date` | date | 表 datetime → ISO-8601（**源表时间**） |
 | `status` | integer | 表 |
 | `slot_id` | integer | 表（关联键） |
-| `slot_order` | integer | **推送时** `slot_id` Map ← `tbl_slots.slot_order`（片匣内盘位号，从 0 起）；未命中为 null |
-| `disc_side` | integer | **推送时** Map ← `tbl_slots.disc_side`（0=A 面，1=B 面；命中行缺省 0） |
-| `magazine_rfid` | keyword | **推送时** Map ← `tbl_magzines.RFID` |
-| `device_ip` | keyword | **推送时** Map ← `tbl_disc_lib.IP`（节点设备 IP，不是站点 `site_host`） |
-| `device_port` | keyword | **推送时** Map ← `tbl_disc_lib.port` |
+| `slot_order` | integer | **推送时** 仅光盘卷：`slot_id` Map ← `tbl_slots.slot_order`；硬盘为 null |
+| `disc_side` | integer | **推送时** 仅光盘卷：Map ← `tbl_slots.disc_side`（0=A，1=B）；硬盘为 null |
+| `magazine_rfid` | keyword | **推送时** 仅光盘卷：Map ← `tbl_magzines.RFID`；硬盘为 null（不推假托盘 RFID） |
+| `device_ip` | keyword | **推送时** 光盘经 slots Map；硬盘经 hd_info→serial→slots→lib |
+| `device_port` | keyword | 同上 |
+| `serial_num` | keyword | **推送时** 仅硬盘卷：`tbl_hd_info.serial_num` |
 | `content_type` | keyword | 表 |
 | `extension` | keyword | 从 `file_name` 推导（无后缀则为 null） |
 
@@ -221,7 +244,7 @@ LEFT JOIN tbl_disc_lib d ON d.lib_id = m.lib_id
 | ES 字段 | 类型建议 | 来源 |
 |---------|----------|------|
 | `folder_name` | text + keyword | 表字段 `name` |
-| `folder_path` | text + keyword | 表 |
+| `folder_path` | text + keyword | 表；空则回退 `name`（与文件推送一致） |
 | `disc_path` | text | 表 |
 | `s_level` | integer | 表 |
 | `parent` | long | 表 |

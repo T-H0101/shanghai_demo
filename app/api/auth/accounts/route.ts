@@ -20,12 +20,27 @@ interface AccountRow {
   display_name: string | null
   role: string
   department: string | null
+  employee_id: string | null
+  email: string | null
   accessible_sites: string[] | null
   status: string
   failed_attempts: number
   locked_until: string | null
   last_login_at: string | null
   created_at: string
+}
+
+function optionalText(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const t = value.trim()
+  return t ? t : null
+}
+
+function uniqueConflictMessage(msg: string): string {
+  if (msg.includes("idx_auth_accounts_employee_id")) return "employee_id already exists"
+  if (msg.includes("idx_auth_accounts_email")) return "email already exists"
+  if (msg.includes("username") || msg.includes("auth_accounts_username")) return "username already exists"
+  return "username, employee_id or email already exists"
 }
 
 export async function GET(req: NextRequest) {
@@ -51,7 +66,9 @@ export async function GET(req: NextRequest) {
   let idx = 1
 
   if (keyword) {
-    conditions.push(`(username ILIKE $${idx} OR display_name ILIKE $${idx})`)
+    conditions.push(
+      `(username ILIKE $${idx} OR display_name ILIKE $${idx} OR employee_id ILIKE $${idx} OR email ILIKE $${idx})`,
+    )
     params.push(`%${keyword}%`)
     idx++
   }
@@ -72,7 +89,7 @@ export async function GET(req: NextRequest) {
     const [countResult, dataResult] = await Promise.all([
       query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM auth_accounts ${where}`, params),
       query<AccountRow>(
-        `SELECT id::text, username, display_name, role, department, accessible_sites,
+        `SELECT id::text, username, display_name, role, department, employee_id, email, accessible_sites,
                 status, failed_attempts, locked_until::text, last_login_at::text, created_at::text
          FROM auth_accounts
          ${where}
@@ -153,9 +170,14 @@ export async function POST(req: NextRequest) {
   try {
     const passwordHash = await hashPassword(password)
     const uname = username.trim().toLowerCase()
+    const employeeId = optionalText(body.employeeId)
+    const email = optionalText(body.email)
     const result = await query(
-      `INSERT INTO auth_accounts (username, display_name, password_hash, role, department, accessible_sites, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO auth_accounts (
+         username, display_name, password_hash, role, department, accessible_sites, status,
+         employee_id, email
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id::text`,
       [
         uname,
@@ -165,6 +187,8 @@ export async function POST(req: NextRequest) {
         typeof department === "string" ? department : null,
         sites,
         resolvedStatus,
+        employeeId,
+        email,
       ],
     )
 
@@ -172,7 +196,14 @@ export async function POST(req: NextRequest) {
       action: "create_account",
       targetTable: "auth_accounts",
       targetId: result.rows[0]?.id,
-      after: { username: uname, role: resolvedRole, status: resolvedStatus, accessible_sites: sites },
+      after: {
+        username: uname,
+        role: resolvedRole,
+        status: resolvedStatus,
+        accessible_sites: sites,
+        employee_id: employeeId,
+        email,
+      },
       actor: session.username,
       result: "success",
     })
@@ -185,6 +216,8 @@ export async function POST(req: NextRequest) {
           username: uname,
           status: resolvedStatus,
           role: resolvedRole,
+          employeeId,
+          email,
         },
       },
       { status: 201 },
@@ -192,7 +225,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes("unique") || msg.includes("duplicate")) {
-      return NextResponse.json({ error: "username already exists" }, { status: 409 })
+      return NextResponse.json({ error: uniqueConflictMessage(msg) }, { status: 409 })
     }
     return NextResponse.json({ error: msg }, { status: 500 })
   }

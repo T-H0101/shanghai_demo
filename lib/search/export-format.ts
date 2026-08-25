@@ -1,9 +1,9 @@
 /**
  * 统一检索导出列 — 与检索结果表对齐（不含「操作」）
- * 设备 / 存储卷改到详情展示，导出不再带这两列。
  */
 
 import { formatBeijingTime } from "@/lib/time/beijing"
+import { formatDeviceLocationLabel } from "@/lib/search/location-display"
 
 export const SEARCH_EXPORT_COLUMNS = [
   "name",
@@ -11,7 +11,7 @@ export const SEARCH_EXPORT_COLUMNS = [
   "path",
   "size",
   "site",
-  "magazineRfid",
+  "location",
   "extension",
   "checksum",
   "createdAt",
@@ -25,7 +25,7 @@ export const SEARCH_EXPORT_LABELS: string[] = [
   "路径",
   "大小",
   "站点",
-  "盘笼",
+  "设备位置",
   "扩展名",
   "校验码",
   "创建时间",
@@ -72,12 +72,30 @@ export function toSearchExportRowFromUi(file: {
   sizeBytes?: number | null
   siteName?: string | null
   siteCode?: string | null
+  locationLabel?: string | null
   magazineRfid?: string | null
   volume?: string | null
+  volumeType?: number | null
+  deviceName?: string | null
+  deviceIp?: string | null
+  devicePort?: string | null
+  slotOrder?: number | null
+  serialNum?: string | null
   fileType?: string | null
   checksum?: string | null
   createdAt?: string | null
 }): SearchExportRow {
+  const location =
+    dashToEmpty(file.locationLabel) ||
+    formatDeviceLocationLabel({
+      volumeType: file.volumeType,
+      deviceName: file.deviceName,
+      deviceIp: file.deviceIp,
+      devicePort: file.devicePort,
+      magazineRfid: file.magazineRfid,
+      slotOrder: file.slotOrder,
+      serialNum: file.serialNum,
+    })
   return {
     name: dashToEmpty(file.fileName),
     path: dashToEmpty(file.path),
@@ -86,7 +104,7 @@ export function toSearchExportRowFromUi(file: {
         ? ""
         : dashToEmpty(file.size) || formatSearchSize(file.sizeBytes, file.docType),
     site: formatSearchSiteLabel(file.siteName, file.siteCode),
-    magazineRfid: dashToEmpty(file.magazineRfid),
+    location: location === "—" ? "" : location,
     extension: file.docType === "folder" ? "目录" : dashToEmpty(file.fileType),
     checksum: dashToEmpty(file.checksum),
     createdAt: formatBeijingTime(file.createdAt) || "",
@@ -107,6 +125,12 @@ export function toSearchExportRowFromHit(hit: {
   magazineRfid?: string | null
   volumeName?: string | null
   volumeId?: number | null
+  volumeType?: number | null
+  deviceName?: string | null
+  deviceIp?: string | null
+  devicePort?: string | null
+  slotOrder?: number | null
+  serialNum?: string | null
   extension?: string | null
   hash?: string | null
   createDate?: string | null
@@ -118,14 +142,23 @@ export function toSearchExportRowFromHit(hit: {
     hit.fileName ||
     (docType === "folder" ? "(未命名目录)" : "(未命名文件)")
   const siteCode = hit.displaySiteCode || hit.sourceSiteId
+  const location = formatDeviceLocationLabel({
+    volumeType: hit.volumeType,
+    deviceName: hit.deviceName,
+    deviceIp: hit.deviceIp,
+    devicePort: hit.devicePort,
+    magazineRfid: hit.magazineRfid,
+    slotOrder: hit.slotOrder,
+    serialNum: hit.serialNum,
+  })
   return {
     name,
-    path: dashToEmpty(hit.folderPath || hit.filePath),
+    path: hit.folderPath || hit.filePath || "",
     size: formatSearchSize(hit.sizeBytes, docType),
     site: formatSearchSiteLabel(hit.siteName, siteCode),
-    magazineRfid: dashToEmpty(hit.magazineRfid),
-    extension: docType === "folder" ? "目录" : dashToEmpty(hit.extension),
-    checksum: dashToEmpty(hit.hash),
-    createdAt: formatBeijingTime(hit.createDate ?? hit.updatedAt) || "",
+    location: location === "—" ? "" : location,
+    extension: docType === "folder" ? "目录" : hit.extension || "",
+    checksum: hit.hash || "",
+    createdAt: formatBeijingTime(hit.createDate || hit.updatedAt) || "",
   }
 }

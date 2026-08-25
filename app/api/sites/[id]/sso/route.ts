@@ -17,6 +17,8 @@ import {
   isSiteSsoSecretConfigured,
   resolveCentralPortalSitesUrl,
 } from "@/lib/site/sso-ticket"
+import { resolveSiteLocalUsername } from "@/lib/auth/account-mapping"
+import { ensureAuthSchema } from "@/lib/auth/server"
 
 interface SyncSiteRow {
   id: string
@@ -117,7 +119,14 @@ export async function GET(
   }
 
   const returnUrl = resolveCentralPortalSitesUrl(req)
-  const username = session.username
+  await ensureAuthSchema()
+  const username = await resolveSiteLocalUsername({
+    accountId: session.id,
+    employeeId: session.employeeId,
+    email: session.email,
+    fallbackUsername: session.username,
+    siteCode: site.site_code,
+  })
   let ticket: string
   try {
     ticket = encryptSiteSsoTicket({
@@ -165,6 +174,7 @@ export async function GET(
     status: "ready",
     siteCode: site.site_code,
     siteName: site.site_name,
+    siteLocalUsername: username,
     jumpUrl,
     returnUrl,
     expiresInSeconds: 120,

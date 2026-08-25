@@ -43,6 +43,7 @@ const TYPE_MODE_LABELS: Record<string, string> = {
   "0-10": "接收校验",
   "1-0": "恢复任务",
   "1-1": "恢复任务",
+  "1-2": "恢复任务",
   "1-11": "光盘复制到硬盘",
   "1-12": "巡检任务",
   "1-13": "在线巡检",
@@ -64,7 +65,7 @@ const TYPE_MODE_LABELS: Record<string, string> = {
  */
 export const TASK_TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "0,7", label: "备份任务" },
-  { value: "1-0,1-1", label: "恢复任务" },
+  { value: "1-0,1-1,1-2", label: "恢复任务" },
   { value: "1-12", label: "巡检任务" },
   { value: "4", label: "扫描任务" },
   { value: "10", label: "加电任务" },
@@ -97,7 +98,7 @@ export function parseTaskTypeFilter(value: string): {
     return { groups: [{ unifiedTypes: ["backup", "s3"] }] }
   }
   if (value === "restore") {
-    return { groups: [{ unifiedTypes: ["restore"], modes: [0, 1] }] }
+    return { groups: [{ unifiedTypes: ["restore"], modes: [0, 1, 2] }] }
   }
   if (value === "package") {
     return { groups: [{ unifiedTypes: ["package"], excludeModes: [10] }] }

@@ -2,6 +2,7 @@
 
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
+import { AccountMappingPanel } from "@/components/users/account-mapping-panel"
 import { AuthAccountsPanel } from "@/components/users/auth-accounts-panel"
 // 站点同步 RBAC / 字典 / 日志视图：总控无需查看，暂注释
 // import { RolePermissionsTab } from "@/components/rbac/role-permissions-tab"
@@ -14,8 +15,7 @@ export default function Page() {
     <AppShell>
       <PageHeader
         title="用户与权限"
-        description="维护总控 Auth 账号（登录与角色）"
-        badge="Auth"
+        description="管理登录账号，并设置进入各站点时使用的用户名。"
       />
 
       {/*
@@ -37,6 +37,7 @@ export default function Page() {
       */}
 
       <AuthAccountsPanel />
+      <AccountMappingPanel />
     </AppShell>
   )
 }

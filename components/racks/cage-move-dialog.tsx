@@ -14,7 +14,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
-import { isOpticalDeviceTypeLabel } from "@/lib/devices/device-display"
+import {
+  isOpticalDeviceTypeLabel,
+  pickDevicePort,
+} from "@/lib/devices/device-display"
 import { ArrowLeftRight, Loader2 } from "lucide-react"
 
 type SiteOption = { code: string; name: string }
@@ -52,16 +55,6 @@ const OPTICAL_CODES = new Set([
   "gen4_library",
 ])
 
-function pickPort(raw: unknown): string | null {
-  if (!raw || typeof raw !== "object") return null
-  const o = raw as Record<string, unknown>
-  for (const key of ["port", "PORT", "device_port", "listen_port"]) {
-    const v = o[key]
-    if (v != null && String(v).trim()) return String(v).trim()
-  }
-  return null
-}
-
 function isOpticalDevice(d: DeviceOption): boolean {
   if (isOpticalDeviceTypeLabel(d.deviceType)) return true
   return OPTICAL_CODES.has((d.deviceType ?? "").toLowerCase())
@@ -86,6 +79,7 @@ async function fetchDevicesForSite(siteCode: string): Promise<DeviceOption[]> {
         siteCode?: string
         rackName?: string
         ip?: string
+        port?: string
         deviceType?: string
         rawData?: unknown
       }) => mapRackToCageMoveDevice({
@@ -93,6 +87,7 @@ async function fetchDevicesForSite(siteCode: string): Promise<DeviceOption[]> {
         siteCode: r.siteCode ?? siteCode,
         rackName: r.rackName ?? r.ip ?? "",
         ip: r.ip,
+        port: r.port,
         deviceType: r.deviceType,
         rawData: r.rawData,
       }))
@@ -523,17 +518,25 @@ export function mapRackToCageMoveDevice(r: {
   siteCode: string
   rackName: string
   ip?: string
+  port?: string
   deviceType?: string
   rawData?: unknown
 }): DeviceOption | null {
   const ip = (r.ip ?? "").trim()
   if (!r.id || !ip) return null
+  const port =
+    (r.port ?? "").trim() ||
+    pickDevicePort(
+      r.rawData && typeof r.rawData === "object"
+        ? (r.rawData as Record<string, unknown>)
+        : null
+    )
   return {
     id: r.id,
     siteCode: r.siteCode,
     name: r.rackName,
     ip,
-    port: pickPort(r.rawData),
+    port,
     deviceType: r.deviceType,
   }
 }

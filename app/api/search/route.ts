@@ -11,6 +11,7 @@ import {
   enrichSearchHits,
   loadDeviceNameByIp,
   locationMapFromRows,
+  relocationFilterFromDevice,
   relocationFilterFromLocations,
 } from "@/lib/search/hit-enrichment"
 
@@ -28,6 +29,12 @@ type VolumeRow = {
 type SiteRow = {
   site_code: string
   site_name: string | null
+}
+
+type DeviceRow = {
+  source_site_id: string
+  device_ip: string
+  device_name: string | null
 }
 
 function volumeKey(siteId: string, volumeId: string | number) {
@@ -83,11 +90,11 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("siteCode") ??
       request.nextUrl.searchParams.get("site") ??
       undefined
-    const volumeRaw = request.nextUrl.searchParams.get("volumeId")
-    const volumeId =
-      volumeRaw != null && volumeRaw !== "" && Number.isFinite(Number(volumeRaw))
-        ? Number(volumeRaw)
-        : undefined
+    const deviceIpRaw =
+      request.nextUrl.searchParams.get("deviceIp") ??
+      request.nextUrl.searchParams.get("device_ip") ??
+      undefined
+    const deviceIp = deviceIpRaw?.trim() || undefined
     // 统一检索仅文件；忽略客户端 docType=folder
     const docType = "file" as const
 
@@ -99,23 +106,28 @@ export async function GET(request: NextRequest) {
     const searchAfter =
       searchAfterRaw != null && searchAfterRaw.trim() !== "" ? searchAfterRaw.trim() : null
 
-    // 移位登记表通常很小：一次加载同时用于选站过滤 + 结果展示覆盖
+    // 移位登记表通常很小：一次加载同时用于选站/设备过滤 + 结果展示覆盖
     const locations = await listCurrentMagazineLocations()
     const locationMap = locationMapFromRows(locations)
     const rfidFilter = siteCode
       ? relocationFilterFromLocations(locations, [siteCode])
+      : { inboundRfids: [], outboundRfids: [] }
+    const deviceRfidFilter = deviceIp
+      ? relocationFilterFromDevice(locations, deviceIp)
       : { inboundRfids: [], outboundRfids: [] }
 
     const adapter = createOpenSearchFileSearchAdapter()
     const result = await adapter.searchFiles({
       keyword,
       siteCode,
-      volumeId,
+      deviceIp,
       docType,
       limit: pageSize,
       searchAfter,
       inboundRfids: rfidFilter.inboundRfids,
       outboundRfids: rfidFilter.outboundRfids,
+      deviceInboundRfids: deviceRfidFilter.inboundRfids,
+      deviceOutboundRfids: deviceRfidFilter.outboundRfids,
     })
 
     if (result.source === "blocked_by_external_system") {
@@ -159,8 +171,8 @@ export async function GET(request: NextRequest) {
 
     let facets: {
       sites: Array<{ code: string; name: string }>
-      volumes: Array<{ siteCode: string; volumeId: string; name: string }>
-    } = { sites: [], volumes: [] }
+      devices: Array<{ siteCode: string; deviceIp: string; name: string }>
+    } = { sites: [], devices: [] }
     try {
       const siteRows = await query<SiteRow>(
         `SELECT site_code, site_name FROM sync_sites WHERE enabled IS DISTINCT FROM FALSE ORDER BY site_code`
@@ -169,26 +181,29 @@ export async function GET(request: NextRequest) {
         code: r.site_code,
         name: r.site_name?.trim() || r.site_code,
       }))
-      const volParams: unknown[] = []
-      let volSql = `SELECT source_site_id, volume_id::text AS volume_id, source_id::text AS source_id, volume_name
-                    FROM unified_volumes`
+      const deviceParams: unknown[] = []
+      let deviceSql = `SELECT source_site_id,
+              NULLIF(TRIM(ip_address), '') AS device_ip,
+              NULLIF(TRIM(device_name), '') AS device_name
+       FROM unified_devices
+       WHERE NULLIF(TRIM(ip_address), '') IS NOT NULL`
       if (siteCode) {
-        volSql += ` WHERE source_site_id = $1`
-        volParams.push(siteCode)
+        deviceSql += ` AND source_site_id = $1`
+        deviceParams.push(siteCode)
       }
-      volSql += ` ORDER BY source_site_id, volume_id NULLS LAST`
-      const volRows = await query<VolumeRow>(volSql, volParams)
+      deviceSql += ` ORDER BY source_site_id, device_name NULLS LAST, device_ip`
+      const deviceRows = await query<DeviceRow>(deviceSql, deviceParams)
       const seen = new Set<string>()
-      for (const row of volRows.rows) {
-        const vid = row.volume_id || row.source_id
-        if (!vid) continue
-        const key = `${row.source_site_id}::${vid}`
+      for (const row of deviceRows.rows) {
+        const ip = row.device_ip?.trim()
+        if (!ip) continue
+        const key = `${row.source_site_id}::${ip}`
         if (seen.has(key)) continue
         seen.add(key)
-        facets.volumes.push({
+        facets.devices.push({
           siteCode: row.source_site_id,
-          volumeId: String(vid),
-          name: row.volume_name?.trim() || `卷-${vid}`,
+          deviceIp: ip,
+          name: row.device_name?.trim() || ip,
         })
       }
     } catch {

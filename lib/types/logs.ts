@@ -90,6 +90,8 @@ export const LOG_OPERATION_LABELS: Record<string, string> = {
   sync_incremental_triggered: "触发增量同步",
   cage_move_register: "盘笼移位",
   cage_move_registered: "盘笼移位",
+  cage_move_cancelled: "撤销盘笼移位",
+  restore_file_register: "发起回迁",
   permission_sync: "权限同步",
   permission_sync_queued: "权限同步",
   // 账号

@@ -1,13 +1,15 @@
 import type { NextRequest, NextResponse } from "next/server"
+import { randomBytes } from "node:crypto"
 import { query, transaction } from "@/lib/db/postgres"
 import { createJwt, getSessionTtlSeconds, verifyJwt, type AuthJwtPayload } from "./jwt"
-import { verifyPassword } from "./password"
+import { hashPassword, verifyPassword } from "./password"
+import type { MappedAccount } from "./account-mapping"
 
 export const AUTH_COOKIE = "odp_session"
 export let LOCK_THRESHOLD = 5
 export let LOCK_MINUTES = 30
 
-function resolveAuthCookieSecure(request?: NextRequest): boolean {
+export function resolveAuthCookieSecure(request?: NextRequest): boolean {
   const raw = process.env.AUTH_COOKIE_SECURE?.trim().toLowerCase()
   if (raw === "false" || raw === "0" || raw === "no") return false
   if (raw === "true" || raw === "1" || raw === "yes") return true
@@ -45,6 +47,7 @@ async function loadLockConfig(): Promise<void> {
 }
 
 export type AuthRole = "group_admin" | "site_admin" | "auditor" | "operator" | "viewer"
+export type AuthProvider = "local" | "adfs" | "oidc"
 
 export interface AuthUser {
   id: string
@@ -55,7 +58,9 @@ export interface AuthUser {
   accessibleSites: string[]
   siteCode: string
   permissions: string[]
-  provider: "local"
+  provider: AuthProvider
+  employeeId?: string | null
+  email?: string | null
 }
 
 interface AccountRow {
@@ -68,6 +73,9 @@ interface AccountRow {
   accessible_sites: string[] | null
   status: string
   locked_until: string | null
+  employee_id?: string | null
+  email?: string | null
+  auth_provider?: string | null
 }
 
 const SCHEMA_SQL = `
@@ -159,6 +167,43 @@ ON CONFLICT (key) DO NOTHING;
 INSERT INTO auth_system_config(key, value, description)
 VALUES ('login.lock_minutes', '30', '锁定持续时间（分钟）')
 ON CONFLICT (key) DO NOTHING;
+ALTER TABLE auth_accounts ADD COLUMN IF NOT EXISTS employee_id VARCHAR(100);
+ALTER TABLE auth_accounts ADD COLUMN IF NOT EXISTS email VARCHAR(200);
+ALTER TABLE auth_accounts ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(30) NOT NULL DEFAULT 'local';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_accounts_employee_id_unique
+  ON auth_accounts (employee_id)
+  WHERE employee_id IS NOT NULL AND employee_id <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_accounts_email_unique
+  ON auth_accounts (lower(email))
+  WHERE email IS NOT NULL AND email <> '';
+CREATE TABLE IF NOT EXISTS auth_site_user_mappings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id VARCHAR(100),
+  email VARCHAR(200),
+  auth_account_id UUID REFERENCES auth_accounts(id) ON DELETE SET NULL,
+  site_code VARCHAR(50) NOT NULL,
+  site_local_username VARCHAR(200) NOT NULL,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_site_map_site_local
+  ON auth_site_user_mappings (site_code, lower(site_local_username));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_site_map_employee_site
+  ON auth_site_user_mappings (employee_id, site_code)
+  WHERE employee_id IS NOT NULL AND employee_id <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_site_map_email_site
+  ON auth_site_user_mappings (lower(email), site_code)
+  WHERE email IS NOT NULL AND email <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_site_map_account_site
+  ON auth_site_user_mappings (auth_account_id, site_code)
+  WHERE auth_account_id IS NOT NULL;
+CREATE TABLE IF NOT EXISTS auth_oidc_id_tokens (
+  account_id UUID PRIMARY KEY REFERENCES auth_accounts(id) ON DELETE CASCADE,
+  id_token TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
 
 let schemaReady: Promise<void> | null = null
@@ -189,11 +234,12 @@ async function recordLoginAudit(input: {
   request: NextRequest
   result: "success" | "failed" | "locked" | "logout"
   failureReason?: string | null
+  provider?: AuthProvider
 }) {
   await query(
     `INSERT INTO auth_login_audit (
        username, account_id, site_code, ip_address, user_agent, result, failure_reason, provider
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'local')`,
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       normalizeUsername(input.username),
       input.accountId ?? null,
@@ -202,6 +248,7 @@ async function recordLoginAudit(input: {
       input.request.headers.get("user-agent"),
       input.result,
       input.failureReason ?? null,
+      input.provider ?? "local",
     ],
   )
 }
@@ -229,7 +276,7 @@ async function permissionsFor(role: AuthRole): Promise<string[]> {
 async function accountFor(username: string): Promise<AccountRow | null> {
   const result = await query<AccountRow>(
     `SELECT id::text, username, display_name, password_hash, role, department,
-            accessible_sites, status, locked_until::text
+            accessible_sites, status, locked_until::text, employee_id, email, auth_provider
      FROM auth_accounts
      WHERE username = $1
      LIMIT 1`,
@@ -354,16 +401,39 @@ export async function loginWithPassword(input: {
     siteCode,
     permissions,
     provider: "local",
+    employeeId: account.employee_id ?? null,
+    email: account.email ?? null,
   }
   const token = createJwt({ sub: account.id, username: account.username, role: account.role, siteCode })
   return { ok: true, user, token }
+}
+
+function toAuthProvider(value: string | null | undefined): AuthProvider {
+  if (value === "adfs" || value === "oidc") return value
+  return "local"
+}
+
+function toAuthUser(account: AccountRow, siteCode: string, permissions: string[]): AuthUser {
+  return {
+    id: account.id,
+    username: account.username,
+    displayName: account.display_name,
+    role: account.role,
+    department: account.department,
+    accessibleSites: account.accessible_sites ?? [],
+    siteCode,
+    permissions,
+    provider: toAuthProvider(account.auth_provider),
+    employeeId: account.employee_id ?? null,
+    email: account.email ?? null,
+  }
 }
 
 export async function sessionFromPayload(payload: AuthJwtPayload): Promise<AuthUser | null> {
   await ensureAuthSchema()
   const result = await query<AccountRow>(
     `SELECT id::text, username, display_name, password_hash, role, department,
-            accessible_sites, status, locked_until::text
+            accessible_sites, status, locked_until::text, employee_id, email, auth_provider
      FROM auth_accounts
      WHERE id = $1
      LIMIT 1`,
@@ -372,17 +442,7 @@ export async function sessionFromPayload(payload: AuthJwtPayload): Promise<AuthU
   const account = result.rows[0]
   if (!account || account.status !== "active" || accountLocked(account)) return null
   const permissions = await permissionsFor(account.role)
-  return {
-    id: account.id,
-    username: account.username,
-    displayName: account.display_name,
-    role: account.role,
-    department: account.department,
-    accessibleSites: account.accessible_sites ?? [],
-    siteCode: payload.siteCode,
-    permissions,
-    provider: "local",
-  }
+  return toAuthUser(account, payload.siteCode, permissions)
 }
 
 export async function sessionFromRequest(request: NextRequest): Promise<AuthUser | null> {
@@ -393,9 +453,171 @@ export async function sessionFromRequest(request: NextRequest): Promise<AuthUser
   return sessionFromPayload(payload)
 }
 
-export async function recordLogout(request: NextRequest, username = "unknown") {
+export async function recordLogout(
+  request: NextRequest,
+  username = "unknown",
+  provider: AuthProvider = "local",
+) {
   await ensureAuthSchema()
-  await recordLoginAudit({ username, request, result: "logout" })
+  await recordLoginAudit({ username, request, result: "logout", provider })
+}
+
+async function findAccountForAdIdentity(mapped: MappedAccount): Promise<AccountRow | null> {
+  if (mapped.employeeId) {
+    const byEmp = await query<AccountRow>(
+      `SELECT id::text, username, display_name, password_hash, role, department,
+              accessible_sites, status, locked_until::text, employee_id, email, auth_provider
+       FROM auth_accounts WHERE employee_id = $1 LIMIT 1`,
+      [mapped.employeeId],
+    )
+    if (byEmp.rows[0]) return byEmp.rows[0]
+  }
+  if (mapped.email) {
+    const byEmail = await query<AccountRow>(
+      `SELECT id::text, username, display_name, password_hash, role, department,
+              accessible_sites, status, locked_until::text, employee_id, email, auth_provider
+       FROM auth_accounts WHERE lower(email) = lower($1) LIMIT 1`,
+      [mapped.email],
+    )
+    if (byEmail.rows[0]) return byEmail.rows[0]
+  }
+  return accountFor(mapped.username)
+}
+
+export async function completeAdfsLogin(input: {
+  mapped: MappedAccount
+  request: NextRequest
+  idToken: string
+  siteCode?: string
+}): Promise<
+  | { ok: true; user: AuthUser; token: string }
+  | { ok: false; status: number; code: string; message: string }
+> {
+  await ensureAuthSchema()
+  const siteCode = (input.siteCode ?? "").trim()
+  const mapped = input.mapped
+
+  let account = await findAccountForAdIdentity(mapped)
+  if (account && (account.status !== "active" || accountLocked(account))) {
+    await recordLoginAudit({
+      username: account.username,
+      accountId: account.id,
+      siteCode,
+      request: input.request,
+      result: "locked",
+      failureReason: "account disabled or locked",
+      provider: "adfs",
+    })
+    return { ok: false, status: 423, code: "AUTH_LOCKED", message: "account is temporarily locked" }
+  }
+
+  if (!account) {
+    const unusableHash = await hashPassword(randomBytes(32).toString("hex"))
+    const inserted = await query<AccountRow>(
+      `INSERT INTO auth_accounts (
+         username, display_name, password_hash, role, department, accessible_sites, status,
+         employee_id, email, auth_provider
+       ) VALUES ($1, $2, $3, 'viewer', $4, ARRAY[]::TEXT[], 'active', $5, $6, 'adfs')
+       RETURNING id::text, username, display_name, password_hash, role, department,
+                 accessible_sites, status, locked_until::text, employee_id, email, auth_provider`,
+      [
+        mapped.username,
+        mapped.displayName,
+        unusableHash,
+        mapped.department,
+        mapped.employeeId,
+        mapped.email,
+      ],
+    )
+    account = inserted.rows[0]
+  } else {
+    await query(
+      `UPDATE auth_accounts
+       SET display_name = COALESCE($2, display_name),
+           department = COALESCE($3, department),
+           employee_id = COALESCE($4, employee_id),
+           email = COALESCE($5, email),
+           auth_provider = CASE WHEN auth_provider = 'local' THEN auth_provider ELSE 'adfs' END,
+           failed_attempts = 0,
+           locked_until = NULL,
+           last_login_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [account.id, mapped.displayName, mapped.department, mapped.employeeId, mapped.email],
+    )
+    const refreshed = await query<AccountRow>(
+      `SELECT id::text, username, display_name, password_hash, role, department,
+              accessible_sites, status, locked_until::text, employee_id, email, auth_provider
+       FROM auth_accounts WHERE id = $1 LIMIT 1`,
+      [account.id],
+    )
+    account = refreshed.rows[0] ?? account
+  }
+
+  if (!account) {
+    await recordLoginAudit({
+      username: mapped.username,
+      siteCode,
+      request: input.request,
+      result: "failed",
+      failureReason: "jit_account_failed",
+      provider: "adfs",
+    })
+    return { ok: false, status: 500, code: "AUTH_JIT_FAILED", message: "failed to provision account" }
+  }
+
+  await query(
+    `UPDATE auth_accounts SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [account.id],
+  )
+  await query(
+    `INSERT INTO auth_oidc_id_tokens (account_id, id_token, expires_at, updated_at)
+     VALUES ($1, $2, NOW() + ($3 || ' seconds')::interval, NOW())
+     ON CONFLICT (account_id) DO UPDATE SET
+       id_token = EXCLUDED.id_token,
+       expires_at = EXCLUDED.expires_at,
+       updated_at = NOW()`,
+    [account.id, input.idToken, String(getSessionTtlSeconds())],
+  )
+  await recordLoginAudit({
+    username: account.username,
+    accountId: account.id,
+    siteCode,
+    request: input.request,
+    result: "success",
+    provider: "adfs",
+  })
+
+  const permissions = await permissionsFor(account.role)
+  const user = toAuthUser(account, siteCode, permissions)
+  const token = createJwt({ sub: account.id, username: account.username, role: account.role, siteCode })
+  return { ok: true, user, token }
+}
+
+export async function takeOidcIdToken(accountId: string): Promise<string | null> {
+  await ensureAuthSchema()
+  const result = await query<{ id_token: string }>(
+    `DELETE FROM auth_oidc_id_tokens
+     WHERE account_id = $1::uuid AND expires_at > NOW()
+     RETURNING id_token`,
+    [accountId],
+  )
+  return result.rows[0]?.id_token ?? null
+}
+
+export async function recordAdfsLoginFailure(input: {
+  request: NextRequest
+  username?: string
+  reason: string
+}) {
+  await ensureAuthSchema()
+  await recordLoginAudit({
+    username: input.username || "unknown",
+    request: input.request,
+    result: "failed",
+    failureReason: input.reason,
+    provider: "adfs",
+  })
 }
 
 export function setSessionCookie(response: NextResponse, token: string, request?: NextRequest) {
