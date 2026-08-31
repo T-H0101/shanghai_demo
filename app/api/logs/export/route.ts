@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { requirePermission, requireSession } from "@/lib/auth/middleware"
 import { buildExport } from "@/lib/export"
 import { toNextResponse } from "@/lib/export/next-response"
 import { recordExport, resolveExportActor } from "@/lib/export/audit"
@@ -219,6 +220,8 @@ function toDisplayRows(rows: Array<UnifiedLogRow & { occurred_at: string }>): Lo
 export async function GET(request: NextRequest) {
   const traceId = `api-${Date.now()}`
   try {
+    const session = await requireSession(request)
+    requirePermission(session, "audit:read")
     const actor = await resolveExportActor(request)
     const sp = request.nextUrl.searchParams
     const typeParam = sp.get("type") ?? "all"
@@ -314,6 +317,7 @@ export async function GET(request: NextRequest) {
     await recordExport(csvResult.manifest, { actor })
     return toNextResponse(csvResult)
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error("[API Error] /api/logs/export:", error)
     return NextResponse.json(
       {

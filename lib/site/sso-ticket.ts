@@ -36,9 +36,34 @@ export interface SiteSsoTicketPayload {
   username: string
   siteCode: string
   returnUrl: string
+  /** 站点落地路径（相对路径，如 /early-warning-list 或 /#/early-warning-list） */
   redirect?: string
   iat: number
   jti?: string
+}
+
+/**
+ * 规范化 SSO 落地路径，拒绝外链 / 协议相对 URL。
+ * 站点 UI 多为 hash 路由：纯路径 /foo 会规范为 /#/foo，便于 NW consume 拼 ?token=。
+ */
+export function normalizeSiteSsoRedirect(raw: string | null | undefined): string | undefined {
+  if (raw == null) return undefined
+  let path = String(raw).trim()
+  if (!path) return undefined
+  try {
+    path = decodeURIComponent(path)
+  } catch {
+    return undefined
+  }
+  path = path.trim()
+  if (!path.startsWith("/") || path.startsWith("//")) return undefined
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(path)) return undefined
+  if (path.length > 200) return undefined
+  if (!/^\/[#/?A-Za-z0-9_\-.%=&]*$/.test(path)) return undefined
+  if (path === "/" || path === "/#/" || path === "/#") return undefined
+  if (path.startsWith("/#/")) return path
+  if (path.startsWith("/#")) return `/#/${path.slice(2)}`
+  return `/#${path}`
 }
 
 export function encryptSiteSsoTicket(

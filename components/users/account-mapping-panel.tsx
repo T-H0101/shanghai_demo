@@ -56,6 +56,16 @@ const emptyForm = {
   note: "",
 }
 
+const MAPPING_FETCH_INIT: RequestInit = { credentials: "include" }
+
+function apiErrorMessage(json: unknown, status: number): string {
+  if (json && typeof json === "object" && "message" in json) {
+    const message = (json as { message?: unknown }).message
+    if (typeof message === "string" && message.trim()) return message
+  }
+  return `HTTP ${status}`
+}
+
 export function AccountMappingPanel() {
   const [items, setItems] = useState<MappingRow[]>([])
   const [accounts, setAccounts] = useState<AccountOption[]>([])
@@ -70,8 +80,8 @@ export function AccountMappingPanel() {
     setLoading(true)
     try {
       const [mappingRes, accountRes] = await Promise.all([
-        fetch("/api/auth/account-mappings?limit=200", { cache: "no-store" }),
-        fetch("/api/auth/accounts?limit=200", { cache: "no-store" }),
+        fetch("/api/auth/account-mappings?limit=200", { cache: "no-store", ...MAPPING_FETCH_INIT }),
+        fetch("/api/auth/accounts?limit=200", { cache: "no-store", ...MAPPING_FETCH_INIT }),
       ])
       const mappingJson = await mappingRes.json().catch(() => null)
       const accountJson = await accountRes.json().catch(() => null)
@@ -128,13 +138,14 @@ export function AccountMappingPanel() {
           method: editingId ? "PATCH" : "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(payload),
+          ...MAPPING_FETCH_INIT,
         },
       )
       const json = await res.json().catch(() => null)
       if (!res.ok) {
         toast({
           title: "映射未保存",
-          description: json?.message ?? `HTTP ${res.status}`,
+          description: apiErrorMessage(json, res.status),
           variant: "destructive",
         })
         return
@@ -150,9 +161,17 @@ export function AccountMappingPanel() {
   const remove = async (id: string) => {
     setBusy(true)
     try {
-      const res = await fetch(`/api/auth/account-mappings/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/auth/account-mappings/${id}`, {
+        method: "DELETE",
+        ...MAPPING_FETCH_INIT,
+      })
+      const json = await res.json().catch(() => null)
       if (!res.ok) {
-        toast({ title: "删除失败", variant: "destructive" })
+        toast({
+          title: "删除失败",
+          description: apiErrorMessage(json, res.status),
+          variant: "destructive",
+        })
         return
       }
       toast({ title: "映射已删除" })

@@ -91,6 +91,8 @@ export interface ControlCommandRow {
 
 export interface ListControlCommandFilter {
   sourceSiteId?: string
+  /** 未指定单站时，限制在可访问站点列表内 */
+  sourceSiteIds?: string[]
   commandType?: CommandType
   status?: CommandStatus
   limit?: number
@@ -216,6 +218,11 @@ export async function listControlCommands(
   if (filter.sourceSiteId) {
     conds.push(`source_site_id = $${i++}`)
     params.push(filter.sourceSiteId)
+  } else if (filter.sourceSiteIds && filter.sourceSiteIds.length > 0) {
+    conds.push(`source_site_id = ANY($${i++})`)
+    params.push(filter.sourceSiteIds)
+  } else if (filter.sourceSiteIds && filter.sourceSiteIds.length === 0) {
+    conds.push(`FALSE`)
   }
   if (filter.commandType) {
     conds.push(`command_type = $${i++}`)

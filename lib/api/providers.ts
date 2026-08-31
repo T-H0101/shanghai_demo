@@ -85,8 +85,10 @@ export interface TaskFilters {
   statusFilter?: string
   siteCode?: string
   keyword?: string
-  /** 关联设备筛选：device_id 或设备名 */
+  /** @deprecated 旧链接 device=名称/ID；请用 deviceId + siteCode */
   device?: string
+  /** 关联设备筛选：unified_tasks.device_id（需配合 siteCode） */
+  deviceId?: string
   phase?: TaskPhase | "all"
   /** 页码，从 1 起 */
   page?: number

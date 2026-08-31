@@ -27,17 +27,19 @@ openssl rand -hex 32
 ## 跳转流程
 
 1. 用户登录总控，顶栏选择具体站点后点 **进入站点**，或打开 `/sites` 点该站的 **SSO**。
-2. `GET /api/sites/{siteCode}/sso`（需登录 cookie）返回：
+2. `GET /api/sites/{siteCode}/sso`（需登录 cookie；可选 `?redirect=/early-warning-list` 落地页）返回：
 
 ```json
 {
   "code": 0,
   "status": "ready",
   "jumpUrl": "http://172.168.6.52:13000/unified-sso/consume?ticket=...",
-  "returnUrl": "http://172.168.6.52:3000/sites"
+  "returnUrl": "http://172.168.6.52:3000/sites",
+  "redirect": "/#/early-warning-list"
 }
 ```
 
+`redirect` 写入 ticket；站点 consume 已支持 `payload.redirect`（相对路径）。纯路径会规范为 hash 形式 `/#/...`（适配站点 Vue hash 路由）。
 3. 浏览器打开 `jumpUrl`。
 4. NW 解密 ticket（AES-256-GCM，与 `crypto-util` 相同），校验可选 `unifiedDisc.siteCode`。
 5. TCP 调 Central `user_authToken`（`username` = 总控当前用户名）：
@@ -53,11 +55,13 @@ openssl rand -hex 32
   "username": "admin",
   "siteCode": "CD01",
   "returnUrl": "http://总控:3000/sites",
+  "redirect": "/#/early-warning-list",
   "jti": "...",
   "iat": 1710000000000
 }
 ```
 
+`redirect` 可选；缺省则站点落到 UI 首页（`/{uiVersion}/`）。
 有效期默认 120 秒（NW：`unifiedDisc.sso.ticketTtlSeconds`）。
 
 ## 站点配置示例（MultimediumNw）

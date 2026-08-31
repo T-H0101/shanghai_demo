@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db/postgres"
 import { ensureAuthSchema } from "@/lib/auth/server"
+import { requirePermission, requireSession } from "@/lib/auth/middleware"
 import { createHash } from "crypto"
 import { buildExport } from "@/lib/export"
 import { buildManifest } from "@/lib/export/manifest"
@@ -76,6 +77,14 @@ function toDisplayRows(rows: AuditRow[]): DisplayRow[] {
 }
 
 export async function GET(req: NextRequest) {
+  try {
+    const session = await requireSession(req)
+    requirePermission(session, "audit:read")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+    throw e
+  }
+
   await ensureAuthSchema()
   const actor = await resolveExportActor(req)
 

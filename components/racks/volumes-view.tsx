@@ -1,28 +1,35 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback, useRef, type MutableRefObject } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StatCard } from "@/components/platform/stat-card"
-import { Spinner } from "@/components/ui/spinner"
+import { DetailPanel } from "@/components/platform/detail-panel"
 import {
-  Database, HardDrive, Layers, Server, Activity, Search, RefreshCw,
-  ChevronRight, Disc, CircleDashed, AlertTriangle, Sparkles, Box, CassetteTape,
+  Database, HardDrive, Layers, Server, Search, RefreshCw,
+  Disc, AlertTriangle, Sparkles, Box, CassetteTape,
+  ExternalLink, Loader2,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
 import { fetchVolumes } from "@/lib/api/api-providers"
-import { isApiMode } from "@/lib/api"
-import type { VolumeDTO } from "@/lib/api/dto"
+import type { VolumeDTO, VolumeMediaGroupDTO } from "@/lib/api/dto"
 import { VOLUME_TYPE_DTO_LABELS } from "@/lib/devices/volume-type"
+import {
+  OPTICAL_DISC_TYPE_COLORS,
+  OPTICAL_DISC_TYPE_LABELS,
+  normalizeOpticalDiscType,
+  type OpticalDiscType,
+} from "@/lib/devices/disc-slot-display"
 import { cn } from "@/lib/utils"
-import { formatBeijingTime } from "@/components/shared/time-format"
+import { toast } from "@/hooks/use-toast"
+
+/** 站点业务系统存储卷管理页（SSO redirect，hash 路由由服务端规范化） */
+const SITE_VOLUME_MANAGEMENT_PATH = "/volume-management"
 
 const typeBadge: Record<string, { label: string; color: string; icon: typeof Disc }> = {
   optical: {
@@ -47,14 +54,6 @@ const typeBadge: Record<string, { label: string; color: string; icon: typeof Dis
   },
 }
 
-const statusBadge: Record<string, { label: string; color: string }> = {
-  online: { label: "在线", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
-  offline: { label: "离线", color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
-  archiving: { label: "归档中", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
-  error: { label: "异常", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
-  warning: { label: "告警", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
-}
-
 function parseBytes(s: string | undefined): number | null {
   if (!s) return null
   const m = /^([0-9.]+)\s*(B|KB|MB|GB|TB|PB)$/i.exec(s.trim())
@@ -77,15 +76,51 @@ function formatBytesAuto(bytes: number | null | undefined): string {
     n /= 1024
     i++
   }
-  return `${n.toFixed(1)} ${units[i]}`
+  return `${n.toFixed(2)} ${units[i]}`
 }
 
-function formatVolumeSyncTime(info: string): string {
-  const raw = info.includes("同步") ? info.split("同步")[1]?.trim().split("·")[0] : ""
-  return formatBeijingTime(raw) || raw || "—"
+/** 展示：站点名称（编号）；无名称时仅编号 */
+function formatVolumeSiteDisplay(siteCode?: string, siteName?: string): string {
+  const code = (siteCode ?? "").trim()
+  if (!code) return "—"
+  const name = (siteName ?? "").trim()
+  if (!name || name === code) return code
+  // 注册表 label 可能是「SH01 上海站」，去掉前缀编号再展示
+  const bare = name.startsWith(`${code} `) ? name.slice(code.length + 1).trim() : name
+  if (!bare || bare === code) return code
+  return `${bare}（${code}）`
 }
 
-export function VolumesView() {
+function volumeKey(v: Pick<VolumeDTO, "id" | "siteCode">): string {
+  return `${v.siteCode ?? ""}::${v.id}`
+}
+
+async function jumpToSiteVolumeManagement(siteCode: string): Promise<string> {
+  const qs = new URLSearchParams({ redirect: SITE_VOLUME_MANAGEMENT_PATH })
+  const res = await fetch(
+    `/api/sites/${encodeURIComponent(siteCode)}/sso?${qs.toString()}`,
+    { cache: "no-store", credentials: "include" },
+  )
+  const json = await res.json().catch(() => ({}))
+  if (res.status === 401) {
+    throw new Error("请先登录后再跳转站点")
+  }
+  if (!res.ok) {
+    throw new Error(json.message || `HTTP ${res.status}`)
+  }
+  if (json.status !== "ready" || !json.jumpUrl) {
+    throw new Error(json.message || json.blocker || "无法签发站点跳转")
+  }
+  return String(json.jumpUrl)
+}
+
+export interface VolumesViewProps {
+  className?: string
+  refreshRef?: MutableRefObject<(() => Promise<void>) | null>
+  onLoadingChange?: (loading: boolean) => void
+}
+
+export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesViewProps) {
   const { siteCode, isReady: siteReady } = useSite()
   const [volumes, setVolumes] = useState<VolumeDTO[]>([])
   const [loading, setLoading] = useState(false)
@@ -93,32 +128,79 @@ export function VolumesView() {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [selected, setSelected] = useState<VolumeDTO | null>(null)
-  const [source, setSource] = useState<"database" | "fallback" | "unknown">("unknown")
+  const [mediaGroups, setMediaGroups] = useState<VolumeMediaGroupDTO[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [ssoJumping, setSsoJumping] = useState(false)
+  const selectedRef = useRef<VolumeDTO | null>(null)
+  selectedRef.current = selected
+
+  const openVolume = useCallback(async (v: VolumeDTO) => {
+    setSelected(v)
+    setMediaGroups(v.mediaGroups ?? [])
+    setDetailLoading(true)
+    try {
+      const qs = new URLSearchParams()
+      if (v.siteCode) qs.set("siteCode", v.siteCode)
+      const res = await fetch(
+        `/api/volumes/${encodeURIComponent(v.id)}${qs.toString() ? `?${qs}` : ""}`,
+        { cache: "no-store", credentials: "include" },
+      )
+      const json = await res.json().catch(() => ({}))
+      if (res.ok && json.code === 0 && json.data) {
+        const detail = json.data as VolumeDTO
+        const sameSite = !v.siteCode || !detail.siteCode || v.siteCode === detail.siteCode
+        if (sameSite && detail.id === v.id) {
+          setSelected((prev) =>
+            prev && prev.id === v.id
+              ? {
+                  ...prev,
+                  ...detail,
+                  id: v.id,
+                  siteCode: detail.siteCode ?? prev.siteCode,
+                  siteName: detail.siteName ?? prev.siteName,
+                }
+              : prev,
+          )
+          setMediaGroups(detail.mediaGroups ?? [])
+        }
+      }
+    } catch {
+      /* 列表数据仍可展示；明细分组保持空 */
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
+    onLoadingChange?.(true)
     setError(null)
     try {
       const result = await fetchVolumes(siteCode ?? undefined)
       if (Array.isArray(result)) {
         setVolumes(result)
-        setSource("fallback")
       } else if (result && typeof result === "object" && "data" in result) {
         setVolumes(((result as any).data ?? []) as VolumeDTO[])
-        setSource(((result as any).source as any) ?? "database")
       } else {
         setVolumes([])
-        setSource("unknown")
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "unknown")
     } finally {
       setLoading(false)
+      onLoadingChange?.(false)
     }
-  }, [siteCode])
+  }, [siteCode, onLoadingChange])
 
   useEffect(() => {
-    if (siteReady) load()
+    if (refreshRef) refreshRef.current = load
+    return () => {
+      if (refreshRef) refreshRef.current = null
+    }
+  }, [load, refreshRef])
+
+  useEffect(() => {
+    if (siteReady) void load()
   }, [load, siteReady])
 
   const stats = useMemo(() => {
@@ -157,10 +239,12 @@ export function VolumesView() {
       if (typeFilter !== "all" && v.type !== typeFilter) return false
       if (search) {
         const s = search.toLowerCase()
+        const siteDisplay = formatVolumeSiteDisplay(v.siteCode, v.siteName).toLowerCase()
         if (
           !(v.name || "").toLowerCase().includes(s) &&
-          !(v.id || "").toLowerCase().includes(s) &&
-          !(v.info || "").toLowerCase().includes(s)
+          !(v.siteCode || "").toLowerCase().includes(s) &&
+          !(v.siteName || "").toLowerCase().includes(s) &&
+          !siteDisplay.includes(s)
         ) {
           return false
         }
@@ -169,54 +253,58 @@ export function VolumesView() {
     })
   }, [volumes, search, typeFilter])
 
-  // ── Loading state ──
-  if (loading && volumes.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-        <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> 加载中...
-      </div>
-    )
-  }
+  // 有数据时默认选中第一条；筛选后若当前项不在结果中则改选第一条
+  useEffect(() => {
+    if (filtered.length === 0) {
+      if (selectedRef.current) {
+        setSelected(null)
+        setMediaGroups([])
+        setDetailLoading(false)
+      }
+      return
+    }
+    const prev = selectedRef.current
+    const stillValid = prev && filtered.some((v) => volumeKey(v) === volumeKey(prev))
+    if (!stillValid) {
+      void openVolume(filtered[0])
+    }
+  }, [filtered, openVolume])
 
-  // ── Error state ──
-  if (error && volumes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <AlertTriangle className="h-10 w-10 text-amber-500 mb-3" />
-        <p className="text-sm text-slate-600 dark:text-slate-300">存储卷数据加载失败</p>
-        <p className="text-xs text-slate-400 mt-1">{error}</p>
-        <button
-          onClick={load}
-          className="mt-4 text-sm text-blue-600 hover:text-blue-700 underline underline-offset-2"
-        >
-          重试
-        </button>
-      </div>
-    )
+  const handleGoSiteEdit = async () => {
+    const targetSite = selected?.siteCode?.trim()
+    if (!targetSite) {
+      toast({
+        title: "无法跳转",
+        description: "当前卷缺少所属站点信息",
+        variant: "destructive",
+      })
+      return
+    }
+    setSsoJumping(true)
+    try {
+      const jumpUrl = await jumpToSiteVolumeManagement(targetSite)
+      toast({
+        title: "正在打开站点",
+        description: `前往 ${formatVolumeSiteDisplay(selected?.siteCode, selected?.siteName)} 存储卷管理`,
+      })
+      window.open(jumpUrl, "_blank", "noopener,noreferrer")
+    } catch (e) {
+      toast({
+        title: "跳转失败",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      })
+    } finally {
+      setSsoJumping(false)
+    }
   }
 
   return (
-    <div className="space-y-4" data-testid="volumes-view">
-      {/* 数据源徽章 */}
-      {isApiMode() && (
-        <div className="flex items-center gap-2">
-          <Badge variant={source === "database" ? "default" : "secondary"}>
-            <Database className="mr-1 h-3 w-3" />
-            {source === "database" ? "实时" : source === "fallback" ? "备用" : "..."}
-          </Badge>
-          <button
-            onClick={load}
-            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-            disabled={loading}
-          >
-            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
-            刷新
-          </button>
-        </div>
-      )}
-
-      {/* 统计 tile：左图标右两行，主值 + 次级指标同排 */}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+    <div
+      className={cn("flex min-h-0 flex-col gap-3 overflow-hidden lg:gap-4", className)}
+      data-testid="volumes-view"
+    >
+      <div className="grid shrink-0 gap-3 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           horizontal
           horizontalText="stack"
@@ -242,7 +330,7 @@ export function VolumesView() {
         <StatCard
           horizontal
           horizontalText="stack"
-          title="盘位聚合"
+          title="已分配盘位"
           value={stats.totalSlots}
           unit="个"
           secondary={`${stats.onlineSlots}在线 / ${stats.totalSlots - stats.onlineSlots}离线`}
@@ -253,24 +341,22 @@ export function VolumesView() {
         <StatCard
           horizontal
           horizontalText="stack"
-          title="聚合覆盖"
+          title="盘位分配"
           value={`${stats.withAggregate}/${stats.total}`}
-          secondary="已完成盘位聚合的卷"
+          secondary="已完成盘位分配的卷"
           icon={Sparkles}
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
         />
       </div>
 
-      {/* 列表 + 筛选 */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold">卷列表</CardTitle>
-          <div className="flex items-center gap-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-3">
+        <Card className="flex min-h-0 flex-col gap-0 overflow-hidden py-0 xl:col-span-2">
+          <CardHeader className="flex shrink-0 flex-row flex-wrap items-center gap-2 space-y-0 border-b border-slate-100 px-5 !py-3 dark:border-slate-700">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="搜索卷..."
+                placeholder="搜索卷 / 站点..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8 h-8 w-44"
@@ -285,204 +371,263 @@ export function VolumesView() {
                 <TabsTrigger value="composite">组合卷</TabsTrigger>
               </TabsList>
             </Tabs>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filtered.length === 0 && !loading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Box className="h-8 w-8 mb-2" />
-              <p className="text-sm">暂无存储卷数据</p>
-              {volumes.length === 0 && !loading && (
-                <p className="text-xs mt-1">
-                  {siteCode ? `站点 ${siteCode} 没有存储卷记录` : "请选择站点"}
-                </p>
-              )}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>类型</TableHead>
-                  <TableHead>容量</TableHead>
-                  <TableHead>盘位聚合</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>同步时间</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((v, idx) => {
-                  const tb = typeBadge[v.type] ?? typeBadge.composite
-                  const TbIcon = tb.icon
-                  const totalBytes = parseBytes(v.totalCapacity)
-                  const usedBytes = totalBytes != null && parseBytes(v.remainingCapacity) != null
-                    ? totalBytes - parseBytes(v.remainingCapacity)!
-                    : null
-                  const usedPct = totalBytes && totalBytes > 0 && usedBytes != null
-                    ? Math.round((usedBytes / totalBytes) * 100)
-                    : null
-                  return (
-                    <TableRow key={`volume-${v.id ?? "unknown"}-${idx}`} className="cursor-pointer hover:bg-muted/50 dark:hover:bg-slate-800/50" onClick={() => setSelected(v)}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Server className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div>{v.name}</div>
-                            <div className="text-xs text-muted-foreground">{v.id}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={cn("font-normal", tb.color)}>
-                          <TbIcon className="mr-1 h-3 w-3" />
-                          {v.typeLabel ?? tb.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1 min-w-32">
-                          <div className="text-xs">
-                            {v.totalCapacity || "—"} {usedBytes != null ? `/ ${formatBytesAuto(usedBytes)} 用` : ""}
-                          </div>
-                          {usedPct != null && (
-                            <Progress value={usedPct} className="h-1.5" />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {v.aggregate?.slot_count != null ? (
-                          <div className="text-xs space-y-0.5">
-                            <div className="font-medium">
-                              {v.aggregate.slot_count} 盘位
-                            </div>
-                            <div className="text-muted-foreground">
-                              {v.aggregate.online_slot_count ?? 0} 在线 · {v.aggregate.offline_slot_count ?? 0} 离线
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              共 {filtered.length} 条
+              {loading ? " · 加载中" : ""}
+              {error ? " · 加载失败" : ""}
+            </span>
+          </CardHeader>
+
+          <CardContent className="min-h-0 flex-1 overflow-auto p-0">
+            {loading && volumes.length === 0 ? (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> 加载中...
+              </div>
+            ) : error && volumes.length === 0 ? (
+              <div className="flex h-40 flex-col items-center justify-center text-center px-4">
+                <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">存储卷数据加载失败</p>
+                <p className="text-xs text-slate-400 mt-1">{error}</p>
+                <button
+                  onClick={() => void load()}
+                  className="mt-3 text-sm text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                >
+                  重试
+                </button>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex h-40 flex-col items-center justify-center text-muted-foreground">
+                <Box className="h-8 w-8 mb-2" />
+                <p className="text-sm">暂无存储卷数据</p>
+                {volumes.length === 0 && (
+                  <p className="text-xs mt-1">
+                    {siteCode ? `站点 ${siteCode} 没有存储卷记录` : "当前权限范围内暂无卷记录"}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
+                  <TableRow>
+                    <TableHead className="w-[28%]">名称</TableHead>
+                    <TableHead className="w-[22%]">站点</TableHead>
+                    <TableHead className="w-[18%]">类型</TableHead>
+                    <TableHead>容量</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((v, idx) => {
+                    const tb = typeBadge[v.type] ?? typeBadge.composite
+                    const TbIcon = tb.icon
+                    const totalBytes = parseBytes(v.totalCapacity)
+                    const usedBytes = totalBytes != null && parseBytes(v.remainingCapacity) != null
+                      ? totalBytes - parseBytes(v.remainingCapacity)!
+                      : null
+                    const usedPct = totalBytes && totalBytes > 0 && usedBytes != null
+                      ? Math.round((usedBytes / totalBytes) * 100)
+                      : null
+                    const isActive = selected != null && volumeKey(v) === volumeKey(selected)
+                    const siteLabel = formatVolumeSiteDisplay(v.siteCode, v.siteName)
+                    return (
+                      <TableRow
+                        key={`volume-${v.siteCode ?? ""}-${v.id ?? "unknown"}-${idx}`}
+                        className={cn(
+                          "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50",
+                          isActive && "bg-blue-50 dark:bg-blue-900/20",
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-normal">
-                          {v.info.split("·").pop()?.trim() || "—"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatVolumeSyncTime(v.info)}
-                      </TableCell>
-                      <TableCell>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 详情 drawer */}
-      <Drawer open={!!selected} onOpenChange={(open) => !open && setSelected(null)} direction="right">
-        <DrawerContent className="h-full w-full sm:max-w-xl">
-          {selected && (
-            <>
-              <DrawerHeader>
-                <DrawerTitle className="flex items-center gap-2">
-                  <Server className="h-5 w-5" />
-                  {selected.name}
-                </DrawerTitle>
-                <DrawerDescription>
-                  {selected.id} · {selected.typeLabel ?? typeBadge[selected.type]?.label ?? selected.type}
-                </DrawerDescription>
-              </DrawerHeader>
-              <ScrollArea className="flex-1 px-6 pb-6">
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">容量</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <div className="text-muted-foreground text-xs">总容量</div>
-                          <div className="font-medium">{selected.totalCapacity || "—"}</div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground text-xs">剩余容量</div>
-                          <div className="font-medium">{selected.remainingCapacity || "—"}</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                        盘位聚合 (按设备容量 / 已用 / 剩余)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {selected.aggregate ? (
-                        <div className="space-y-2 text-sm">
-                          <div className="grid grid-cols-3 gap-3">
-                            <div>
-                              <div className="text-muted-foreground text-xs">盘位总数</div>
-                              <div className="font-mono font-medium">
-                                {selected.aggregate.slot_count ?? "—"}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground text-xs">在线</div>
-                              <div className="font-mono font-medium text-emerald-600 dark:text-emerald-300">
-                                {selected.aggregate.online_slot_count ?? "—"}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground text-xs">离线</div>
-                              <div className="font-mono font-medium text-slate-500 dark:text-slate-400">
-                                {selected.aggregate.offline_slot_count ?? "—"}
-                              </div>
-                            </div>
+                        onClick={() => void openVolume(v)}
+                      >
+                        <TableCell className="max-w-0 font-medium">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Server className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <span className="truncate" title={v.name}>{v.name}</span>
                           </div>
-                          <Separator />
-                          <div className="text-xs text-muted-foreground">
-                            {selected.aggregate.aggregated_at && (
-                              <div>聚合时间: <span className="font-mono">{formatBeijingTime(selected.aggregate.aggregated_at) || "—"}</span></div>
+                        </TableCell>
+                        <TableCell className="max-w-0 text-sm text-slate-600 dark:text-slate-300">
+                          <span className="block truncate" title={siteLabel}>{siteLabel}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn("font-normal", tb.color)}>
+                            <TbIcon className="mr-1 h-3 w-3" />
+                            {v.typeLabel ?? tb.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-0 space-y-1">
+                            <div className="truncate text-xs" title={
+                              usedBytes != null
+                                ? `${v.totalCapacity || "—"} / ${formatBytesAuto(usedBytes)} 用`
+                                : (v.totalCapacity || "—")
+                            }>
+                              {v.totalCapacity || "—"}
+                              {usedBytes != null ? ` / ${formatBytesAuto(usedBytes)} 用` : ""}
+                            </div>
+                            {usedPct != null && (
+                              <Progress value={usedPct} className="h-1.5" />
                             )}
                           </div>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-muted-foreground">
-                          该卷暂无盘位聚合信息
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">元信息</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        {selected.info.split("·").map((part, i) => (
-                          <div key={i} className="flex items-center gap-1.5">
-                            <CircleDashed className="h-3 w-3" />
-                            <span className="font-mono">{part.trim()}</span>
-                          </div>
-                        ))}
+        <DetailPanel
+          className="min-h-0 overflow-hidden xl:col-span-1"
+          title={selected ? selected.name : "卷详情"}
+          empty={!selected}
+          emptyText="点击左侧存储卷查看详情"
+          actions={
+            selected ? (
+              <Button
+                size="sm"
+                className="h-8 shrink-0 gap-1 text-xs"
+                disabled={ssoJumping || !selected.siteCode}
+                onClick={() => void handleGoSiteEdit()}
+                data-testid="volumes-go-site-edit"
+              >
+                {ssoJumping ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-3.5 w-3.5" />
+                )}
+                去站点管理
+              </Button>
+            ) : undefined
+          }
+        >
+          {selected && (
+            <div className="space-y-3">
+              <Card className="gap-2 py-4 shadow-sm">
+                <CardHeader className="px-4 pb-0">
+                  <CardTitle className="text-sm">基本信息</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+                    <div>
+                      <div className="text-muted-foreground text-xs">站点</div>
+                      <div className="font-medium">
+                        {formatVolumeSiteDisplay(selected.siteCode, selected.siteName)}
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </ScrollArea>
-            </>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-xs">类型</div>
+                      <div className="font-medium">
+                        {selected.typeLabel ?? typeBadge[selected.type]?.label ?? selected.type}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-xs">总容量</div>
+                      <div className="font-medium">{selected.totalCapacity || "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-xs">剩余容量</div>
+                      <div className="font-medium">{selected.remainingCapacity || "—"}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="gap-2 py-4 shadow-sm">
+                <CardHeader className="px-4 pb-0">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    盘位分配
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 px-4">
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <div className="text-muted-foreground text-xs">总数</div>
+                      <div className="font-mono font-medium">
+                        {selected.aggregate?.slot_count ?? "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-xs">在线</div>
+                      <div className="font-mono font-medium text-emerald-600 dark:text-emerald-300">
+                        {selected.aggregate?.online_slot_count ?? "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground text-xs">离线</div>
+                      <div className="font-mono font-medium text-slate-500 dark:text-slate-400">
+                        {selected.aggregate?.offline_slot_count ?? "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {detailLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      加载分配明细…
+                    </div>
+                  ) : mediaGroups.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      {selected.aggregate
+                        ? "暂无各设备盘位明细（需站点已同步卷-盘位关系）"
+                        : "该卷暂无盘位分配信息"}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                        {(Object.keys(OPTICAL_DISC_TYPE_LABELS) as unknown as OpticalDiscType[]).map((k) => {
+                          const t = Number(k) as OpticalDiscType
+                          const c = OPTICAL_DISC_TYPE_COLORS[t]
+                          return (
+                            <span key={t} className="inline-flex items-center gap-1">
+                              <span className={cn("inline-block h-2.5 w-2.5 rounded-sm", c.swatch)} />
+                              {OPTICAL_DISC_TYPE_LABELS[t]}
+                            </span>
+                          )
+                        })}
+                      </div>
+                      {mediaGroups.map((g) => (
+                        <details key={g.key} open className="rounded-md border border-border/60 bg-muted/20">
+                          <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                            <span className="text-muted-foreground mr-1">▾</span>
+                            {g.title}
+                          </summary>
+                          <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+                            {g.cells.map((cell) => {
+                              const dt = normalizeOpticalDiscType(cell.discType)
+                              const colors = dt != null
+                                ? OPTICAL_DISC_TYPE_COLORS[dt]
+                                : OPTICAL_DISC_TYPE_COLORS[0]
+                              return (
+                                <div
+                                  key={`${g.key}-${cell.slotId}`}
+                                  title={dt != null ? OPTICAL_DISC_TYPE_LABELS[dt] : undefined}
+                                  className={cn(
+                                    "flex h-9 min-w-10 items-center justify-center rounded-md border px-1.5 text-xs font-medium tabular-nums",
+                                    colors.bg,
+                                    colors.text,
+                                    colors.border,
+                                  )}
+                                >
+                                  {cell.displayNo}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </details>
+                      ))}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              <p className="text-xs text-muted-foreground">
+                编辑请到对应站点完成；点击「去站点管理」将打开该站存储卷管理页。
+              </p>
+            </div>
           )}
-        </DrawerContent>
-      </Drawer>
+        </DetailPanel>
+      </div>
     </div>
   )
 }

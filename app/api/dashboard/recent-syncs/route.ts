@@ -3,13 +3,15 @@
  * Sprint 2G.2 - Dashboard 最近同步记录
  *
  * 来自 sync_package_log, 按 finished_at DESC 返回最近 N 条
- * 支持 ?siteCode=... (单站点), 不传 = 全部站点
+ * 支持 ?siteCode=... (单站点), 不传 = 当前用户可访问的全部站点
  *
  * 默认 limit=10, 上限 50
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db/postgres'
+import { requirePermission, requireSession } from '@/lib/auth/middleware'
+import { resolveSiteScope, sqlColumnInSiteScope } from '@/lib/auth/site-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,46 +48,46 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(parseInt(limitRaw ?? '10', 10) || 10, 1), 50)
 
   try {
-    const r = siteCode
-      ? await query<{
-          site_code: string
-          batch_id: string
-          status: string
-          total_record_count: number
-          success_table_count: number
-          failed_table_count: number
-          table_count: number
-          started_at: string | null
-          finished_at: string | null
-        }>(
-          `SELECT site_code, batch_id, status,
-                  total_record_count, success_table_count, failed_table_count, table_count,
-                  started_at, finished_at
-           FROM sync_package_log
-           WHERE site_code = $1
-           ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST
-           LIMIT $2`,
-          [siteCode, limit]
-        )
-      : await query<{
-          site_code: string
-          batch_id: string
-          status: string
-          total_record_count: number
-          success_table_count: number
-          failed_table_count: number
-          table_count: number
-          started_at: string | null
-          finished_at: string | null
-        }>(
-          `SELECT site_code, batch_id, status,
-                  total_record_count, success_table_count, failed_table_count, table_count,
-                  started_at, finished_at
-           FROM sync_package_log
-           ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST
-           LIMIT $1`,
-          [limit]
-        )
+    const session = await requireSession(request)
+    requirePermission(session, 'platform:read')
+    const scope = resolveSiteScope(session, siteCode)
+
+    if (scope.kind === 'listed' && scope.siteCodes.length === 0) {
+      const response: ApiResponse<RecentSyncItem[]> = {
+        code: 0,
+        message: 'ok',
+        source: 'database',
+        data: [],
+        siteCode: null,
+        count: 0,
+        generatedAt: new Date().toISOString(),
+      }
+      return NextResponse.json(response)
+    }
+
+    const siteClause = sqlColumnInSiteScope('site_code', scope, 1)
+    const params = [...siteClause.params, limit]
+
+    const r = await query<{
+      site_code: string
+      batch_id: string
+      status: string
+      total_record_count: number
+      success_table_count: number
+      failed_table_count: number
+      table_count: number
+      started_at: string | null
+      finished_at: string | null
+    }>(
+      `SELECT site_code, batch_id, status,
+              total_record_count, success_table_count, failed_table_count, table_count,
+              started_at, finished_at
+       FROM sync_package_log
+       WHERE ${siteClause.sql}
+       ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST
+       LIMIT $${siteClause.nextParam}`,
+      params,
+    )
 
     const items: RecentSyncItem[] = r.rows.map((row) => {
       const started = row.started_at ? new Date(row.started_at).getTime() : null
@@ -104,24 +106,26 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const responseSiteCode = scope.kind === 'single' ? scope.siteCode : null
     const response: ApiResponse<RecentSyncItem[]> = {
       code: 0,
       message: 'ok',
       source: 'database',
       data: items,
-      siteCode,
+      siteCode: responseSiteCode,
       count: items.length,
       generatedAt: new Date().toISOString(),
     }
     return NextResponse.json(response)
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error('[API] /api/dashboard/recent-syncs error:', error)
     const response: ApiResponse<RecentSyncItem[]> = {
       code: 500,
       message: 'failed to query recent syncs',
       source: 'database',
       data: [],
-      siteCode,
+      siteCode: siteCode,
       count: 0,
       generatedAt: new Date().toISOString(),
     }

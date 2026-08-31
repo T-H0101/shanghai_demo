@@ -14,10 +14,19 @@ import {
   relocationFilterFromDevice,
   relocationFilterFromLocations,
 } from "@/lib/search/hit-enrichment"
+import {
+  esSiteCodesFromScope,
+  filterSearchHitsByScope,
+  loadAccessibleDeviceFacets,
+  loadAccessibleSiteFacets,
+  requireSearchSession,
+  resolveSearchSiteScope,
+  searchScopeIsEmpty,
+} from "@/lib/search/search-site-scope"
 
 const DEFAULT_LIMIT = 50
 const SEARCH_REQUIREMENTS = ["REQ-4.1.1", "REQ-4.1.2", "REQ-5.2.1"]
-const SEARCH_MISSING_DIMENSIONS = ["permission_filter_hardening", "production_es_runbook"]
+const SEARCH_MISSING_DIMENSIONS = ["dept_permission_filter", "production_es_runbook"]
 
 type VolumeRow = {
   source_site_id: string
@@ -29,12 +38,6 @@ type VolumeRow = {
 type SiteRow = {
   site_code: string
   site_name: string | null
-}
-
-type DeviceRow = {
-  source_site_id: string
-  device_ip: string
-  device_name: string | null
 }
 
 function volumeKey(siteId: string, volumeId: string | number) {
@@ -82,14 +85,40 @@ async function loadSiteNameMap(): Promise<Map<string, string>> {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireSearchSession(request)
     const keyword =
       request.nextUrl.searchParams.get("q") ??
       request.nextUrl.searchParams.get("keyword") ??
       ""
-    const siteCode =
+    const siteCodeParam =
       request.nextUrl.searchParams.get("siteCode") ??
       request.nextUrl.searchParams.get("site") ??
       undefined
+    const scope = resolveSearchSiteScope(session, siteCodeParam)
+    if (searchScopeIsEmpty(scope)) {
+      const [sites, devices] = await Promise.all([
+        loadAccessibleSiteFacets(session),
+        loadAccessibleDeviceFacets(session),
+      ])
+      return NextResponse.json({
+        code: 0,
+        data: {
+          items: [],
+          total: 0,
+          nextSearchAfter: null,
+          hasMore: false,
+          source: "opensearch",
+          pageSize: DEFAULT_LIMIT,
+          searchAfter: null,
+          facets: { sites, devices },
+          requirements: SEARCH_REQUIREMENTS,
+          missingDimensions: SEARCH_MISSING_DIMENSIONS,
+        },
+        message: "当前账号无可访问站点",
+      })
+    }
+
+    const esSiteCodes = await esSiteCodesFromScope(scope)
     const deviceIpRaw =
       request.nextUrl.searchParams.get("deviceIp") ??
       request.nextUrl.searchParams.get("device_ip") ??
@@ -109,8 +138,8 @@ export async function GET(request: NextRequest) {
     // 移位登记表通常很小：一次加载同时用于选站/设备过滤 + 结果展示覆盖
     const locations = await listCurrentMagazineLocations()
     const locationMap = locationMapFromRows(locations)
-    const rfidFilter = siteCode
-      ? relocationFilterFromLocations(locations, [siteCode])
+    const rfidFilter = esSiteCodes.length
+      ? relocationFilterFromLocations(locations, esSiteCodes)
       : { inboundRfids: [], outboundRfids: [] }
     const deviceRfidFilter = deviceIp
       ? relocationFilterFromDevice(locations, deviceIp)
@@ -119,7 +148,7 @@ export async function GET(request: NextRequest) {
     const adapter = createOpenSearchFileSearchAdapter()
     const result = await adapter.searchFiles({
       keyword,
-      siteCode,
+      siteCodes: esSiteCodes,
       deviceIp,
       docType,
       limit: pageSize,
@@ -162,50 +191,26 @@ export async function GET(request: NextRequest) {
       loadSiteNameMap(),
       loadDeviceNameByIp(previewIps),
     ])
-    const items = enrichSearchHits(result.hits, {
-      volumeNames,
-      siteNames,
-      locationMap,
-      deviceNames,
-    })
+    const items = filterSearchHitsByScope(
+      enrichSearchHits(result.hits, {
+        volumeNames,
+        siteNames,
+        locationMap,
+        deviceNames,
+      }),
+      scope,
+    )
 
     let facets: {
       sites: Array<{ code: string; name: string }>
       devices: Array<{ siteCode: string; deviceIp: string; name: string }>
     } = { sites: [], devices: [] }
     try {
-      const siteRows = await query<SiteRow>(
-        `SELECT site_code, site_name FROM sync_sites WHERE enabled IS DISTINCT FROM FALSE ORDER BY site_code`
-      )
-      facets.sites = siteRows.rows.map((r) => ({
-        code: r.site_code,
-        name: r.site_name?.trim() || r.site_code,
-      }))
-      const deviceParams: unknown[] = []
-      let deviceSql = `SELECT source_site_id,
-              NULLIF(TRIM(ip_address), '') AS device_ip,
-              NULLIF(TRIM(device_name), '') AS device_name
-       FROM unified_devices
-       WHERE NULLIF(TRIM(ip_address), '') IS NOT NULL`
-      if (siteCode) {
-        deviceSql += ` AND source_site_id = $1`
-        deviceParams.push(siteCode)
-      }
-      deviceSql += ` ORDER BY source_site_id, device_name NULLS LAST, device_ip`
-      const deviceRows = await query<DeviceRow>(deviceSql, deviceParams)
-      const seen = new Set<string>()
-      for (const row of deviceRows.rows) {
-        const ip = row.device_ip?.trim()
-        if (!ip) continue
-        const key = `${row.source_site_id}::${ip}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        facets.devices.push({
-          siteCode: row.source_site_id,
-          deviceIp: ip,
-          name: row.device_name?.trim() || ip,
-        })
-      }
+      const [sites, devices] = await Promise.all([
+        loadAccessibleSiteFacets(session),
+        loadAccessibleDeviceFacets(session),
+      ])
+      facets = { sites, devices }
     } catch {
       // facets optional
     }
@@ -227,6 +232,7 @@ export async function GET(request: NextRequest) {
       message: "数据源: OpenSearch/ES disc_file_index（_id search_after 分页）",
     })
   } catch (error) {
+    if (error instanceof NextResponse) return error
     return NextResponse.json(
       {
         code: 1,

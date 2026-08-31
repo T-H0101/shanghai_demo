@@ -21,6 +21,7 @@ interface VolumeRow {
   used_capacity: number | string | null
   file_count: number | null
   site_code: string | null
+  site_name: string | null
   device_id: string | null
   status: string | null
   health_status: string | null
@@ -40,7 +41,7 @@ function formatBytes(value: number | string | null | undefined): string {
     size /= 1024
     index++
   }
-  return `${size.toFixed(1)} ${units[index]}`
+  return `${size.toFixed(2)} ${units[index]}`
 }
 
 function toNumber(value: number | string | null | undefined): number | undefined {
@@ -57,21 +58,26 @@ function mapVolumeToDTO(row: VolumeRow): VolumeDTO {
     : undefined
 
   const syncedAt = typeof row.synced_at === "string" ? row.synced_at : row.synced_at.toISOString()
+  const siteCode = row.site_code ?? row.source_site_id
+  const siteName = row.site_name?.trim() || null
   const statusParts = [
-    `站点 ${row.site_code ?? row.source_site_id}`,
+    siteName ? `站点 ${siteName}（${siteCode}）` : `站点 ${siteCode}`,
     row.status ? `状态 ${row.status}` : null,
     row.health_status ? `健康 ${row.health_status}` : null,
     `同步 ${syncedAt}`,
   ].filter(Boolean)
 
   return {
-    id: row.volume_id ?? row.source_id,
+    // 站点作用域 id，避免跨站 volume_id 重复导致详情串行
+    id: `${siteCode}::${row.volume_id ?? row.source_id}`,
     name: row.volume_name ?? `卷-${row.source_id}`,
     type: mapVolumeTypeToDto(row.volume_type),
     typeLabel: mapVolumeTypeLabel(row.volume_type),
     totalCapacity: formatBytes(row.capacity),
     remainingCapacity: remainingCapacity == null ? "" : formatBytes(remainingCapacity),
     info: statusParts.join(" · "),
+    siteCode,
+    siteName: siteName ?? undefined,
     discCount: row.file_count ?? undefined,
     aggregate: row.raw_data?._aggregate,
   }
@@ -93,26 +99,28 @@ export async function GET(request: NextRequest) {
     let paramIndex = 1
 
     if (siteCode) {
-      conditions.push(`source_site_id = $${paramIndex++}`)
+      conditions.push(`v.source_site_id = $${paramIndex++}`)
       params.push(siteCode)
     } else if (visibleSites) {
-      conditions.push(`source_site_id = ANY($${paramIndex++})`)
+      conditions.push(`v.source_site_id = ANY($${paramIndex++})`)
       params.push(visibleSites)
     }
     if (type && type !== "all") {
-      conditions.push(`volume_type = ANY($${paramIndex++})`)
+      conditions.push(`v.volume_type = ANY($${paramIndex++})`)
       params.push(volumeTypeFilterValues(type))
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
     const sql = `
-      SELECT id, source_site_id, source_id, synced_at,
-             volume_id, volume_name, volume_type,
-             capacity, used_capacity, file_count,
-             site_code, device_id, status, health_status,
-             raw_data
-      FROM unified_volumes ${whereClause}
-      ORDER BY source_site_id, volume_id NULLS LAST, source_id
+      SELECT v.id, v.source_site_id, v.source_id, v.synced_at,
+             v.volume_id, v.volume_name, v.volume_type,
+             v.capacity, v.used_capacity, v.file_count,
+             v.site_code, ss.site_name, v.device_id, v.status, v.health_status,
+             v.raw_data
+      FROM unified_volumes v
+      LEFT JOIN sync_sites ss ON ss.site_code = v.source_site_id
+      ${whereClause}
+      ORDER BY v.source_site_id, v.volume_id NULLS LAST, v.source_id
     `
     const { rows } = await query<VolumeRow>(sql, params)
     const adaptedVolumes = rows.map(mapVolumeToDTO)

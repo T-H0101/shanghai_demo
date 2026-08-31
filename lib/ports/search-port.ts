@@ -7,7 +7,10 @@ import type { FileIndexDocument } from "@/lib/domain/search/file-index-document"
 
 export type FileSearchQuery = {
   keyword: string
+  /** @deprecated 优先使用 siteCodes */
   siteCode?: string
+  /** ES source_site_id terms 过滤；空数组表示不过滤（仅 group_admin 全站 scope 使用） */
+  siteCodes?: string[]
   /** 设备 IP（索引 device_ip / 移位后当前设备） */
   deviceIp?: string
   docType?: "file" | "folder"

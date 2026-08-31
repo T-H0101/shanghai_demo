@@ -93,7 +93,7 @@ async function main() {
   )
 
   // ── 6. SSR HTTP 200 ─────────────────────────────────────
-  const pages = ["/sites", "/users", "/racks", "/tasks", "/racks?view=volumes"]
+  const pages = ["/sites", "/users", "/racks", "/tasks", "/volumes"]
   for (const p of pages) {
     const res = await fetch(`${BASE}${p}`)
     check(`SSR ${p} HTTP 200`, res.status === 200, `HTTP ${res.status}`)

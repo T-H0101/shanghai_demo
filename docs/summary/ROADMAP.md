@@ -1,9 +1,18 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-08-24
+> 截至: 2026-08-26
 
 快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
+## R.101 站点预警跨站只读 (2026-08-26)
+
+- [x] 修复 `tbl_early_warning` / feedback dispatcher 字段映射。
+- [x] DDL：`status` / `lib_id` / feedback `user_name`；注册 `init-docker.sh`。
+- [x] `GET /api/early-warning` 筛选 + 反馈只读；页面 `/early-warning`。
+- [x] 与控制台「调度告警」命名分离。
+- [ ] 预警处理写回站点 / 通知责任人（未做，不宣称）。
+- [ ] 历史脏投影列：依赖站点重新推包。
 
 ## R.99 ADFS/OIDC 单边能力 (2026-08-24)
 

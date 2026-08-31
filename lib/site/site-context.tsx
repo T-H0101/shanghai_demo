@@ -77,6 +77,25 @@ interface SyncConfigSitesResponse {
   }
 }
 
+interface AuthMeResponse {
+  code?: number | string
+  data?: {
+    user?: {
+      accessibleSites?: string[]
+    }
+  }
+}
+
+function filterSitesForSession(
+  registered: SiteOption[],
+  accessible: string[] | null | undefined,
+): SiteOption[] {
+  if (accessible == null) return registered
+  if (accessible.includes("*")) return registered
+  const allowed = new Set(accessible.map(String))
+  return registered.filter((s) => allowed.has(s.code))
+}
+
 function readStoredSiteCode(): string | null {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -107,6 +126,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   const [sitesLoading, setSitesLoading] = useState<boolean>(true)
   const [sitesError, setSitesError] = useState<string | null>(null)
   const [sitesSource, setSitesSource] = useState<SiteSource>("sync_sites")
+  const [accessibleSites, setAccessibleSites] = useState<string[] | null>(null)
 
   // 依赖具体 query 字符串，避免 searchParams 对象引用不变导致不刷新
   const urlSiteParam = searchParams?.get("siteCode") ?? null
@@ -141,11 +161,17 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       setSitesLoading(true)
       setSitesError(null)
       try {
-        const res = await fetch("/api/sync/config", { cache: "no-store" })
-        if (!res.ok) {
-          throw new Error(`/api/sync/config HTTP ${res.status}`)
+        const [configRes, meRes] = await Promise.all([
+          fetch("/api/sync/config", { cache: "no-store", credentials: "include" }),
+          fetch("/api/auth/me", { cache: "no-store", credentials: "include" }),
+        ])
+        if (!configRes.ok) {
+          throw new Error(`/api/sync/config HTTP ${configRes.status}`)
         }
-        const json = (await res.json()) as SyncConfigSitesResponse
+        const json = (await configRes.json()) as SyncConfigSitesResponse
+        const meJson = meRes.ok ? ((await meRes.json()) as AuthMeResponse) : null
+        const accessible = meJson?.data?.user?.accessibleSites ?? null
+
         const rows = json?.data?.sites ?? []
         const enabledRows = rows.filter((r) => r && r.enabled !== false)
         const mapped: SiteOption[] = enabledRows
@@ -156,14 +182,17 @@ export function SiteProvider({ children }: { children: ReactNode }) {
             return { code, label }
           })
           .filter((v): v is SiteOption => v !== null)
+        const filtered = filterSitesForSession(mapped, accessible)
         if (cancelled) return
-        setSites(mapped)
+        setAccessibleSites(accessible)
+        setSites(filtered)
         setSitesSource("sync_sites")
         setSitesError(null)
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : String(err)
         setSites(FALLBACK_SITES)
+        setAccessibleSites(null)
         setSitesSource("error")
         setSitesError(message)
       } finally {
@@ -180,6 +209,33 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     setSiteCodeState(code)
     writeStoredSiteCode(code)
   }, [])
+
+  // 当前选中站点不在权限列表时，回退到「全部站点」（= 可访问站点并集）
+  useEffect(() => {
+    if (!isReady || sitesLoading || accessibleSites == null) return
+    if (accessibleSites.includes("*")) return
+    if (siteCode == null) return
+    const allowed = new Set(accessibleSites.map(String))
+    if (!allowed.has(siteCode)) {
+      syncSiteCode(null)
+      if (isLoginPath) return
+      const params = new URLSearchParams(searchParams?.toString() ?? "")
+      params.set("siteCode", ALL_SITES)
+      const qs = params.toString()
+      const basePath = pathname ?? "/"
+      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+    }
+  }, [
+    isReady,
+    sitesLoading,
+    accessibleSites,
+    siteCode,
+    syncSiteCode,
+    isLoginPath,
+    pathname,
+    router,
+    searchParams,
+  ])
 
   const setSiteCode = useCallback(
     (code: string | null) => {

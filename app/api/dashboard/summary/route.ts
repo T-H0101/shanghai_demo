@@ -11,18 +11,21 @@
  *   - sync_sites         (registered siteCount and all-site scope)
  *
  * 参数:
- *   - siteCode: 可选, 不传 = 全部站点
- *   - 注: siteCount 仅在 "全部站点" 时返回, 单站点返回 null
+ *   - siteCode: 可选, 不传 = 当前用户可访问的全部站点
+ *   - 注: siteCount 仅在聚合多站时返回, 单站点返回 null
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db/postgres'
+import { requirePermission, requireSession } from '@/lib/auth/middleware'
+import { resolveSiteScope, sqlColumnInSiteScope, type SiteScope } from '@/lib/auth/site-scope'
+import { TASK_ALERT_STATUS_SQL } from '@/lib/tasks/task-status-display'
 
 export const dynamic = 'force-dynamic'
 
 /** 与 buildTaskStatusFilterSql 对齐 */
 const TASK_COMPLETED = `(status IN ('burn_success','download_success','success','no_file_changed','read_from_disc_done') OR status ~ '^unknown_[0-9]+_0$')`
-const TASK_FAILED = `(status IN ('burn_failed','read_failed','read_from_disc_failed','restore_warning','warning') OR status ~ '^unknown_[0-9]+_(10|11)$')`
+const TASK_FAILED = TASK_ALERT_STATUS_SQL
 const TASK_RUNNING = `(status NOT IN (
   'burn_success','download_success','success','no_file_changed','read_from_disc_done',
   'burn_failed','read_failed','read_from_disc_failed','restore_warning','warning'
@@ -132,47 +135,51 @@ function mapRow(row: SummaryRow, siteCount: number | null): DashboardSummaryData
   }
 }
 
-function buildScopedSql(mode: 'single' | 'all'): string {
-  const taskSite = mode === 'single'
-    ? 't.source_site_id = $1'
-    : 't.source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)'
-  const deviceSite = mode === 'single'
-    ? 'd.source_site_id = $1'
-    : 'd.source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)'
-  const volumeSite = mode === 'single'
-    ? 'v.source_site_id = $1'
-    : 'v.source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)'
-  const userSite = mode === 'single'
-    ? 'source_site_id = $1'
-    : 'source_site_id IN (SELECT site_code FROM sync_sites WHERE enabled = true)'
-  const pkgSite = mode === 'single'
-    ? 'site_code = $1'
-    : 'site_code IN (SELECT site_code FROM sync_sites WHERE enabled = true)'
+function siteCountSql(scope: SiteScope): string {
+  if (scope.kind === 'single') return ''
+  if (scope.kind === 'all_registered') {
+    return ', (SELECT COUNT(*)::int FROM sync_sites WHERE enabled = true) AS site_count'
+  }
+  if (scope.siteCodes.length === 0) {
+    return ', 0::int AS site_count'
+  }
+  return ', (SELECT COUNT(*)::int FROM sync_sites WHERE enabled = true AND site_code = ANY($1)) AS site_count'
+}
 
-  return `SELECT
-    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite}) AS task_count,
-    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite} AND ${TASK_COMPLETED}) AS task_completed,
-    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite} AND ${TASK_RUNNING}) AS task_running,
-    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite} AND ${TASK_FAILED}) AS task_failed,
-    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite} AND (d.status IS NULL OR d.status <> 'deleted')) AS device_count,
-    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite} AND d.status = 'online') AS device_online,
-    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite} AND (d.status IS NULL OR d.status <> 'deleted') AND (d.status IS NULL OR d.status NOT IN ('online','warning','error'))) AS device_offline,
-    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite} AND d.status IN ('warning','error')) AS device_abnormal,
-    (SELECT COUNT(*)::int FROM unified_volumes v WHERE ${volumeSite}) AS volume_count,
+function buildScopedSql(scope: SiteScope): { sql: string; params: unknown[] } {
+  const taskSite = sqlColumnInSiteScope('t.source_site_id', scope, 1)
+  const deviceSite = sqlColumnInSiteScope('d.source_site_id', scope, 1)
+  const volumeSite = sqlColumnInSiteScope('v.source_site_id', scope, 1)
+  const userSite = sqlColumnInSiteScope('source_site_id', scope, 1)
+  const pkgSite = sqlColumnInSiteScope('site_code', scope, 1)
+  const params = taskSite.params
+
+  const sql = `SELECT
+    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite.sql}) AS task_count,
+    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite.sql} AND ${TASK_COMPLETED}) AS task_completed,
+    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite.sql} AND ${TASK_RUNNING}) AS task_running,
+    (SELECT COUNT(*)::int FROM unified_tasks t WHERE ${taskSite.sql} AND ${TASK_FAILED}) AS task_failed,
+    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite.sql} AND (d.status IS NULL OR d.status <> 'deleted')) AS device_count,
+    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite.sql} AND d.status = 'online') AS device_online,
+    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite.sql} AND (d.status IS NULL OR d.status <> 'deleted') AND (d.status IS NULL OR d.status NOT IN ('online','warning','error'))) AS device_offline,
+    (SELECT COUNT(*)::int FROM unified_devices d WHERE ${deviceSite.sql} AND d.status IN ('warning','error')) AS device_abnormal,
+    (SELECT COUNT(*)::int FROM unified_volumes v WHERE ${volumeSite.sql}) AS volume_count,
     (SELECT COALESCE(SUM(
       CASE
         WHEN NULLIF(TRIM(v.capacity::text), '') ~ '^[0-9]+(\\.[0-9]+)?$'
           THEN TRUNC(NULLIF(TRIM(v.capacity::text), '')::numeric)::bigint
         ELSE 0
       END
-    ), 0) FROM unified_volumes v WHERE ${volumeSite}) AS volume_total_bytes,
-    (SELECT COALESCE(SUM(COALESCE(v.used_capacity, 0)), 0) FROM unified_volumes v WHERE ${volumeSite}) AS volume_used_bytes,
-    (SELECT COUNT(*)::int FROM unified_users WHERE ${userSite}) AS user_count,
-    (SELECT COUNT(*)::int FROM sync_package_log WHERE ${pkgSite}) AS package_count,
-    (SELECT COUNT(*)::int FROM sync_package_log WHERE ${pkgSite} AND status = 'failed') AS failed_count,
-    (SELECT MAX(finished_at) FROM sync_package_log WHERE ${pkgSite}) AS last_sync,
-    (SELECT COUNT(*)::int FROM sync_package_log WHERE ${pkgSite} AND status = 'success') AS success_count
-    ${mode === 'all' ? ', (SELECT COUNT(*)::int FROM sync_sites WHERE enabled = true) AS site_count' : ''}`
+    ), 0) FROM unified_volumes v WHERE ${volumeSite.sql}) AS volume_total_bytes,
+    (SELECT COALESCE(SUM(COALESCE(v.used_capacity, 0)), 0) FROM unified_volumes v WHERE ${volumeSite.sql}) AS volume_used_bytes,
+    (SELECT COUNT(*)::int FROM unified_users WHERE ${userSite.sql}) AS user_count,
+    (SELECT COUNT(*)::int FROM sync_package_log WHERE ${pkgSite.sql}) AS package_count,
+    (SELECT COUNT(*)::int FROM sync_package_log WHERE ${pkgSite.sql} AND status = 'failed') AS failed_count,
+    (SELECT MAX(finished_at) FROM sync_package_log WHERE ${pkgSite.sql}) AS last_sync,
+    (SELECT COUNT(*)::int FROM sync_package_log WHERE ${pkgSite.sql} AND status = 'success') AS success_count
+    ${siteCountSql(scope)}`
+
+  return { sql, params }
 }
 
 export async function GET(request: NextRequest) {
@@ -182,44 +189,40 @@ export async function GET(request: NextRequest) {
     : null
 
   try {
-    if (siteCode) {
-      const r = await query<SummaryRow>(buildScopedSql('single'), [siteCode])
-      const row = r.rows[0]
-      const data = row ? mapRow(row, null) : emptySummary(siteCode)
-      const response: ApiResponse<DashboardSummaryData> = {
-        code: 0,
-        message: 'ok',
-        source: 'database',
-        data,
-        siteCode,
-        generatedAt: new Date().toISOString(),
-      }
-      return NextResponse.json(response)
-    }
+    const session = await requireSession(request)
+    requirePermission(session, 'platform:read')
+    const scope = resolveSiteScope(session, siteCode)
 
-    const r = await query<SummaryRow>(buildScopedSql('all'))
-    const row = r.rows[0]
-    if (!row) {
+    if (scope.kind === 'listed' && scope.siteCodes.length === 0) {
       const response: ApiResponse<DashboardSummaryData> = {
         code: 0,
         message: 'ok',
         source: 'database',
-        data: emptySummary(null),
+        data: { ...emptySummary(siteCode), siteCount: 0 },
         siteCode: null,
         generatedAt: new Date().toISOString(),
       }
       return NextResponse.json(response)
     }
+
+    const { sql, params } = buildScopedSql(scope)
+    const r = await query<SummaryRow>(sql, params)
+    const row = r.rows[0]
+    const responseSiteCode = scope.kind === 'single' ? scope.siteCode : null
+    const siteCount =
+      scope.kind === 'single' ? null : (row?.site_count ?? (scope.kind === 'listed' ? scope.siteCodes.length : 0))
+
     const response: ApiResponse<DashboardSummaryData> = {
       code: 0,
       message: 'ok',
       source: 'database',
-      data: mapRow(row, row.site_count ?? 0),
-      siteCode: null,
+      data: row ? mapRow(row, siteCount) : emptySummary(responseSiteCode),
+      siteCode: responseSiteCode,
       generatedAt: new Date().toISOString(),
     }
     return NextResponse.json(response)
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error('[API] /api/dashboard/summary error:', error)
     const response: ApiResponse<DashboardSummaryData> = {
       code: 500,

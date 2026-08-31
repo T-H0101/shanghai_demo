@@ -89,6 +89,7 @@ export async function fetchDashboardSummary(
   try {
     const res = await fetch(buildUrl("/api/dashboard/summary", { siteCode }), {
       cache: "no-store",
+      credentials: "include",
     })
     if (!res.ok) {
       return { data: null, source: "unavailable", error: `HTTP ${res.status}` }
@@ -116,7 +117,7 @@ export async function fetchRecentSyncs(
         siteCode,
         limit: String(limit),
       }),
-      { cache: "no-store" },
+      { cache: "no-store", credentials: "include" },
     )
     if (!res.ok) {
       return { data: null, source: "unavailable", error: `HTTP ${res.status}` }

@@ -21,6 +21,7 @@ import {
   isDirectSiteTaskControlType,
 } from "@/lib/control/dispatch-site-task-control"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { resolveSiteScope } from "@/lib/auth/site-scope"
 
 export async function POST(req: NextRequest) {
   let session
@@ -138,15 +139,17 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  let session
   try {
-    const session = await requireSession(req)
+    session = await requireSession(req)
     requirePermission(session, "control:submit")
   } catch (e) {
     if (e instanceof NextResponse) return e
   }
 
   const url = new URL(req.url)
-  const sourceSiteId = url.searchParams.get("siteCode") ?? undefined
+  const siteCodeParam = url.searchParams.get("siteCode") ?? undefined
+  const scope = resolveSiteScope(session!, siteCodeParam ?? null)
   const commandType = (url.searchParams.get("commandType") as CommandType | null) ?? undefined
   const status = (url.searchParams.get("status") as any) ?? undefined
   const limit = Number(url.searchParams.get("limit") ?? 100)
@@ -154,7 +157,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await listControlCommands({
-      sourceSiteId,
+      sourceSiteId: scope.kind === "single" ? scope.siteCode : undefined,
+      sourceSiteIds: scope.kind === "listed" ? scope.siteCodes : undefined,
       commandType,
       status,
       limit,

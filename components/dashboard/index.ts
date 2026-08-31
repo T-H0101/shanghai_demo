@@ -3,4 +3,4 @@ export { Header } from "./header"
 export { StatsCards } from "./stats-cards"
 export { SyncTrendChart } from "./sync-trend-chart"
 export { SiteHealthHeatmap } from "./site-health-heatmap"
-// TaskTable 和 AlertCenter 已删除，如需要可恢复
+// EarlyWarningPreview / AlertCenter 见独立组件文件

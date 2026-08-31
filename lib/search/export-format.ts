@@ -80,6 +80,7 @@ export function toSearchExportRowFromUi(file: {
   deviceIp?: string | null
   devicePort?: string | null
   slotOrder?: number | null
+  discSide?: number | null
   serialNum?: string | null
   fileType?: string | null
   checksum?: string | null
@@ -94,6 +95,7 @@ export function toSearchExportRowFromUi(file: {
       devicePort: file.devicePort,
       magazineRfid: file.magazineRfid,
       slotOrder: file.slotOrder,
+      discSide: file.discSide,
       serialNum: file.serialNum,
     })
   return {
@@ -130,6 +132,7 @@ export function toSearchExportRowFromHit(hit: {
   deviceIp?: string | null
   devicePort?: string | null
   slotOrder?: number | null
+  discSide?: number | null
   serialNum?: string | null
   extension?: string | null
   hash?: string | null
@@ -149,6 +152,7 @@ export function toSearchExportRowFromHit(hit: {
     devicePort: hit.devicePort,
     magazineRfid: hit.magazineRfid,
     slotOrder: hit.slotOrder,
+    discSide: hit.discSide,
     serialNum: hit.serialNum,
   })
   return {
@@ -162,3 +166,4 @@ export function toSearchExportRowFromHit(hit: {
     createdAt: formatBeijingTime(hit.createDate || hit.updatedAt) || "",
   }
 }
+

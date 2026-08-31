@@ -490,7 +490,7 @@ export function AuthAccountsPanel() {
                 : "修改账号属性与状态。用户名不可更改。"}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 py-2">
+          <div className="grid min-w-0 gap-3 py-2">
             <div className="grid gap-1.5">
               <Label htmlFor="auth-username">用户名</Label>
               <Input
@@ -591,7 +591,7 @@ export function AuthAccountsPanel() {
                 onChange={(e) => setDepartment(e.target.value)}
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid min-w-0 gap-1.5">
               <Label>可访问站点</Label>
               <SiteMultiSelect value={accessibleSites} onChange={setAccessibleSites} />
             </div>

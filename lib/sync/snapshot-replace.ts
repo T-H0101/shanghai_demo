@@ -9,7 +9,7 @@ import type { TableSyncMode } from './package-schema'
 /** 聚合表: 不做 1:1 镜像, 跳过先删后增 */
 export const AGGREGATE_SYNC_TABLES = new Set([
   'tbl_lib_task',
-  'tbl_volume_slot',
+  // tbl_volume_slot: R.102 起落 unified_volume_slots 明细 + 仍写 _aggregate；由 dispatchVolumeSlot 自管替换
   'tbl_user_task',
 ])
 

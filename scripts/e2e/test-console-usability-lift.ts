@@ -212,8 +212,8 @@ async function main() {
     statsSource.includes('href="/racks"'),
   )
   check(
-    "存储使用率卡片 → /racks?view=volumes",
-    statsSource.includes('href="/racks?view=volumes"'),
+    "存储使用率卡片 → /volumes",
+    statsSource.includes('href="/volumes"'),
   )
   check(
     "4 张卡片都有 cursor-pointer 样式",

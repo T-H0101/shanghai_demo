@@ -384,6 +384,10 @@ export interface VolumeDTO {
   totalCapacity: string
   remainingCapacity: string
   info: string
+  /** 所属站点编码（用于 SSO 跳转） */
+  siteCode?: string
+  /** 所属站点名称（展示用） */
+  siteName?: string
   discCount?: number
   usedCount?: number
   newCount?: number
@@ -400,6 +404,33 @@ export interface VolumeDTO {
     source_table?: string
     aggregated_at?: string
   }
+  /**
+   * R.102: 卷下分配介质（按设备分组）
+   * 光库：设备名 · 盘笼 RFID；其他：设备名 · IP:port
+   */
+  mediaGroups?: VolumeMediaGroupDTO[]
+}
+
+export interface VolumeMediaCellDTO {
+  slotId: string
+  displayNo: number
+  /** 0–4 对齐业务 disc_type；无则 null */
+  discType: number | null
+  onLine: number | null
+}
+
+export interface VolumeMediaGroupDTO {
+  key: string
+  deviceId?: string | null
+  deviceName: string
+  deviceTypeLabel?: string | null
+  cageRfid?: string | null
+  endpoint?: string | null
+  isOptical: boolean
+  mediaKind: "disc" | "disk" | "tape" | "media"
+  mediaCount: number
+  title: string
+  cells: VolumeMediaCellDTO[]
 }
 
 // ─────────────────────────────────────────────────────────────

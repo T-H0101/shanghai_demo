@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useState, useEffect } from "react"
+import { useCallback, useState, useEffect, type MutableRefObject } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { formatBeijingTime } from "@/components/shared/time-format"
 import { toast } from "@/hooks/use-toast"
-import { Loader2, RefreshCw, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Loader2, Trash2 } from "lucide-react"
 
 export type CageMoveHistoryRow = {
   id: string
@@ -70,9 +72,17 @@ function LocationCell({
 type Props = {
   /** 登记成功后递增，触发刷新 */
   refreshToken?: number
+  className?: string
+  refreshRef?: MutableRefObject<(() => Promise<void>) | null>
+  onLoadingChange?: (loading: boolean) => void
 }
 
-export function CageMoveHistoryView({ refreshToken = 0 }: Props) {
+export function CageMoveHistoryView({
+  refreshToken = 0,
+  className,
+  refreshRef,
+  onLoadingChange,
+}: Props) {
   const [items, setItems] = useState<CageMoveHistoryRow[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -81,6 +91,7 @@ export function CageMoveHistoryView({ refreshToken = 0 }: Props) {
 
   const loadHistory = useCallback(async () => {
     setLoading(true)
+    onLoadingChange?.(true)
     try {
       const res = await fetch("/api/racks/cage-moves?limit=50", { cache: "no-store" })
       const json = await res.json().catch(() => null)
@@ -93,8 +104,16 @@ export function CageMoveHistoryView({ refreshToken = 0 }: Props) {
       setTotal(Number(json.data?.total ?? 0))
     } finally {
       setLoading(false)
+      onLoadingChange?.(false)
     }
-  }, [])
+  }, [onLoadingChange])
+
+  useEffect(() => {
+    if (refreshRef) refreshRef.current = loadHistory
+    return () => {
+      if (refreshRef) refreshRef.current = null
+    }
+  }, [loadHistory, refreshRef])
 
   useEffect(() => {
     void loadHistory()
@@ -132,35 +151,26 @@ export function CageMoveHistoryView({ refreshToken = 0 }: Props) {
   }
 
   return (
-    <div className="space-y-3" data-testid="racks-cage-move-content">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          登记历史（总控）。登记请用页面顶部「盘笼移位」；本列表不代表站点已执行移位。
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs shrink-0"
-          onClick={() => void loadHistory()}
-          disabled={loading}
-          data-testid="cage-move-history-refresh"
-        >
-          {loading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
-          刷新
-        </Button>
-      </div>
+    <Card
+      className={cn(
+        "flex min-h-0 flex-col gap-0 overflow-hidden py-0",
+        "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700",
+        className,
+      )}
+      data-testid="racks-cage-move-content"
+    >
+      <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-slate-100 px-5 !py-3 dark:border-slate-700">
+        <CardTitle className="flex min-h-9 items-center gap-2 text-base font-medium">
+          登记记录
+          <span className="text-sm font-normal text-muted-foreground">
+            {loading ? "加载中" : `共 ${total} 条`}
+          </span>
+        </CardTitle>
+      </CardHeader>
 
-      <div
-        className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4"
-        data-testid="cage-move-history"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium">登记历史</h4>
-          <span className="text-xs text-slate-400">{loading ? "加载中" : `共 ${total} 条`}</span>
-        </div>
+      <CardContent className="min-h-0 flex-1 overflow-auto p-0" data-testid="cage-move-history">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
             <TableRow>
               <TableHead className="text-xs">登记时间</TableHead>
               <TableHead className="text-xs">盘笼RFID</TableHead>
@@ -174,7 +184,7 @@ export function CageMoveHistoryView({ refreshToken = 0 }: Props) {
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-xs text-slate-400 text-center">
+                <TableCell colSpan={7} className="h-24 text-center text-xs text-slate-400">
                   {loading ? "加载登记记录…" : "暂无登记"}
                 </TableCell>
               </TableRow>
@@ -227,7 +237,7 @@ export function CageMoveHistoryView({ refreshToken = 0 }: Props) {
             )}
           </TableBody>
         </Table>
-      </div>
+      </CardContent>
 
       <Dialog open={pending != null} onOpenChange={(v) => { if (!v && !cancelling) setPending(null) }}>
         <DialogContent className="sm:max-w-md" data-testid="cage-move-cancel-dialog">
@@ -266,6 +276,6 @@ export function CageMoveHistoryView({ refreshToken = 0 }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   )
 }

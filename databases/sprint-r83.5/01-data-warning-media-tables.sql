@@ -94,6 +94,8 @@ CREATE TABLE IF NOT EXISTS unified_early_warnings (
   message TEXT,
   triggered_at TIMESTAMPTZ,
   resolved_at TIMESTAMPTZ,
+  status SMALLINT,
+  lib_id BIGINT,
   raw_data JSONB DEFAULT '{}',
   CONSTRAINT unified_early_warnings_site_record_uniq UNIQUE (source_site_id, source_record_id)
 );
@@ -113,6 +115,7 @@ CREATE TABLE IF NOT EXISTS unified_early_warning_feedbacks (
   feedback_type VARCHAR(50),
   feedback_text TEXT,
   feedback_at TIMESTAMPTZ,
+  user_name TEXT,
   raw_data JSONB DEFAULT '{}',
   CONSTRAINT unified_early_warning_feedbacks_site_record_uniq UNIQUE (source_site_id, source_record_id)
 );

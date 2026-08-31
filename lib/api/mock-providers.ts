@@ -108,6 +108,14 @@ export const mockTaskProvider: TaskProvider = {
       if (filters.siteCode) {
         result = result.filter(t => t.siteCode === filters.siteCode)
       }
+      if (filters.deviceId) {
+        result = result.filter(
+          (t) => t.deviceId === filters.deviceId || t.rackId === filters.deviceId,
+        )
+        if (filters.siteCode) {
+          result = result.filter((t) => t.siteCode === filters.siteCode)
+        }
+      }
       if (filters.keyword) {
         result = result.filter(t =>
           t.name.includes(filters.keyword!) ||

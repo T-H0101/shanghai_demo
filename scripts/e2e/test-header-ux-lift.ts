@@ -391,10 +391,10 @@ async function main() {
     "Alert Center skeleton key 含 alert-skeleton 前缀",
     alertCenterSource.includes("key={`alert-skeleton-"),
   )
-  const taskTableSource = readFileSync("components/dashboard/task-table.tsx", "utf8")
+  const earlyWarningSource = readFileSync("components/dashboard/early-warning-preview.tsx", "utf8")
   check(
-    "Task Table skeleton key 含 task-skeleton 前缀",
-    taskTableSource.includes("key={`task-skeleton-"),
+    "Early Warning Preview skeleton key 含 ew-skeleton 前缀",
+    earlyWarningSource.includes("key={`ew-skeleton-"),
   )
 
   // 搜索页 hover 增强

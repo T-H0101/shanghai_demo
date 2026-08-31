@@ -12,9 +12,12 @@ import {
   RefreshCw,
   Users,
   FileText,
+  Database,
   // Settings, // 系统设置菜单已隐藏
   Disc,
   X,
+  AlertTriangle,
+  ArrowLeftRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PRODUCT_NAME_LINE1, PRODUCT_NAME_LINE2 } from "@/lib/branding"
@@ -27,6 +30,9 @@ const menuItems = [
   { icon: RefreshCw, label: "同步中心", href: "/sync" },
   { icon: ClipboardList, label: "任务管理", href: "/tasks" },
   { icon: HardDrive, label: "设备管理", href: "/racks" },
+  { icon: Database, label: "存储卷管理", href: "/volumes" },
+  { icon: ArrowLeftRight, label: "盘笼移位", href: "/cage-moves" },
+  { icon: AlertTriangle, label: "站点预警", href: "/early-warning" },
   { icon: Users, label: "用户与权限", href: "/users" },
   { icon: FileText, label: "审计日志", href: "/logs" },
   // 当前设置页无可用配置入口，暂隐藏菜单（路由 /settings 仍保留）

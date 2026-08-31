@@ -23,6 +23,8 @@ import { query } from "@/lib/db/postgres"
 import { adaptAlertList } from "@/lib/api/adapters"
 import type { ApiResponse, PaginatedResponse, AlertDTO } from "@/lib/api/dto"
 import type { MockAlert } from "@/lib/api/adapters/alert-adapter"
+import { requirePermission, requireSession } from "@/lib/auth/middleware"
+import { rawAlertInScope, resolveSiteScope } from "@/lib/auth/site-scope"
 
 interface RawAlert {
   id: string
@@ -124,12 +126,16 @@ async function fetchFailedControlCommands(): Promise<RawAlert[]> {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireSession(request)
+    requirePermission(session, "platform:read")
+
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get("page") ?? "1")
     const pageSize = parseInt(searchParams.get("pageSize") ?? "20")
     const level = searchParams.get("level")
     const status = searchParams.get("status")
-    const siteCode = searchParams.get("siteCode")
+    const siteCodeParam = searchParams.get("siteCode")
+    const scope = resolveSiteScope(session, siteCodeParam)
 
     // 1. 并行查 3 个真实源
     const [syncPkgs, syncTables, ctrlCmds] = await Promise.all([
@@ -138,10 +144,12 @@ export async function GET(request: NextRequest) {
       fetchFailedControlCommands(),
     ])
 
-    // 2. 合并 + 按时间倒序
-    let merged: RawAlert[] = [...syncPkgs, ...syncTables, ...ctrlCmds].sort(
-      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
-    )
+    // 2. 合并 + 按权限范围 + 按时间倒序
+    let merged: RawAlert[] = [...syncPkgs, ...syncTables, ...ctrlCmds]
+      .filter((a) => rawAlertInScope(a.site_code, scope))
+      .sort(
+        (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
+      )
 
     // 3. 过滤
     if (level && level !== "all") {
@@ -149,9 +157,6 @@ export async function GET(request: NextRequest) {
     }
     if (status && status !== "all") {
       merged = merged.filter((a) => a.status === status)
-    }
-    if (siteCode) {
-      merged = merged.filter((a) => a.site_code === siteCode)
     }
 
     // 4. 分页
@@ -185,6 +190,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(response)
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error("[API Error] /api/alerts:", error)
     return NextResponse.json(
       {

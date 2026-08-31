@@ -9,6 +9,8 @@ interface DetailPanelProps {
   subtitle?: string
   children: ReactNode
   className?: string
+  /** 覆盖标题区样式（如与左侧列表筛选栏对齐） */
+  headerClassName?: string
   actions?: ReactNode
   empty?: boolean
   emptyText?: string
@@ -19,6 +21,7 @@ export function DetailPanel({
   subtitle,
   children,
   className,
+  headerClassName,
   actions,
   empty,
   emptyText = "请选择列表项查看详情",
@@ -26,19 +29,24 @@ export function DetailPanel({
   return (
     <Card
       className={cn(
-        "gap-0 h-full flex flex-col overflow-hidden",
+        "gap-0 h-full flex flex-col overflow-hidden py-0",
         "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700",
         className,
       )}
     >
-      <CardHeader className="pb-3 shrink-0 px-5 pt-5 border-b border-slate-100 dark:border-slate-700">
-        <div className="flex items-start justify-between gap-2">
+      <CardHeader
+        className={cn(
+          "shrink-0 space-y-0 border-b border-slate-100 px-5 !py-3 dark:border-slate-700",
+          headerClassName,
+        )}
+      >
+        <div className="flex min-h-9 items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50">
+            <CardTitle className="truncate text-base font-semibold leading-9 text-slate-900 dark:text-slate-50">
               {title}
             </CardTitle>
             {subtitle && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+              <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
                 {subtitle}
               </p>
             )}

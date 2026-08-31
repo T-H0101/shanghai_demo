@@ -3,9 +3,8 @@
 import { AppShell } from "@/components/layout/app-shell"
 import { CommandCenterPanel } from "@/components/dashboard/command-center-panel"
 import { SyncTrendChart } from "@/components/dashboard/sync-trend-chart"
-import { TaskTable } from "@/components/dashboard/task-table"
+import { EarlyWarningPreview } from "@/components/dashboard/early-warning-preview"
 import { AlertCenter } from "@/components/dashboard/alert-center"
-import { DashboardRecentSyncs } from "@/components/dashboard/dashboard-recent-syncs"
 
 export default function Page() {
   return (
@@ -18,17 +17,10 @@ export default function Page() {
       </div>
       */}
       <CommandCenterPanel />
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6 items-stretch">
-        <div className="xl:col-span-2">
-          <SyncTrendChart className="h-full" />
-        </div>
-        <div>
-          <DashboardRecentSyncs />
-        </div>
-      </div>
+      <SyncTrendChart />
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
         <div className="xl:col-span-2">
-          <TaskTable />
+          <EarlyWarningPreview />
         </div>
         <div className="relative">
           <AlertCenter />

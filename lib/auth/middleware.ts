@@ -15,6 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { formatPermissionLabel } from "./permission-labels"
 import { sessionFromRequest, type AuthUser } from "./server"
 
 export class AuthError extends NextResponse {
@@ -42,7 +43,11 @@ export async function requireSession(request: NextRequest): Promise<AuthUser> {
  */
 export function requirePermission(session: AuthUser, permission: string): void {
   if (!session.permissions.includes(permission)) {
-    throw new AuthError(403, "AUTH_FORBIDDEN", `缺少权限: ${permission}`)
+    throw new AuthError(
+      403,
+      "AUTH_FORBIDDEN",
+      `缺少权限: ${formatPermissionLabel(permission)}`,
+    )
   }
 }
 

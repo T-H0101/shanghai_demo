@@ -16,6 +16,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { listPackageLogs, countPackageLogs, type PackageLogStatus } from '@/lib/sync/package-log'
+import { requirePermission, requireSession } from '@/lib/auth/middleware'
+import { resolveSiteScope } from '@/lib/auth/site-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,29 +73,40 @@ function toItem(row: import('@/lib/sync/package-log').SyncPackageLog): PackageLi
 }
 
 export async function GET(request: NextRequest) {
-  const sp = request.nextUrl.searchParams
-  const page = Math.max(1, parseInt(sp.get('page') ?? '1', 10) || 1)
-  const pageSize = Math.min(
-    MAX_PAGE_SIZE,
-    Math.max(1, parseInt(sp.get('pageSize') ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
-  )
-  const siteCode = sp.get('siteCode') ?? undefined
-  const status = sp.get('status') as PackageLogStatus | null
-  const batchId = sp.get('batchId') ?? undefined
-  const dateFrom = sp.get('dateFrom') ?? undefined
-  const dateTo = sp.get('dateTo') ?? undefined
-
-  const filters = {
-    siteCode,
-    status: status ?? undefined,
-    batchId,
-    dateFrom,
-    dateTo,
-    limit: pageSize,
-    offset: (page - 1) * pageSize,
-  }
-
   try {
+    const session = await requireSession(request)
+    requirePermission(session, 'platform:read')
+
+    const sp = request.nextUrl.searchParams
+    const page = Math.max(1, parseInt(sp.get('page') ?? '1', 10) || 1)
+    const pageSize = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, parseInt(sp.get('pageSize') ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
+    )
+    const siteCodeParam = sp.get('siteCode') ?? undefined
+    const scope = resolveSiteScope(session, siteCodeParam ?? null)
+    const status = sp.get('status') as PackageLogStatus | null
+    const batchId = sp.get('batchId') ?? undefined
+    const dateFrom = sp.get('dateFrom') ?? undefined
+    const dateTo = sp.get('dateTo') ?? undefined
+
+    const siteCode = scope.kind === 'single' ? scope.siteCode : undefined
+    const siteCodes =
+      scope.kind === 'listed'
+        ? scope.siteCodes
+        : undefined
+
+    const filters = {
+      siteCode,
+      siteCodes,
+      status: status ?? undefined,
+      batchId,
+      dateFrom,
+      dateTo,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    }
+
     const [rows, total] = await Promise.all([
       listPackageLogs(filters),
       countPackageLogs(filters),
@@ -112,6 +125,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(response)
   } catch (err) {
+    if (err instanceof NextResponse) return err
     const errorMessage = err instanceof Error ? err.message : 'Unknown error'
     console.error(`[API/sync/packages] Error: ${errorMessage}`)
     return NextResponse.json(
@@ -119,7 +133,7 @@ export async function GET(request: NextRequest) {
         code: 500,
         message: 'Internal server error',
         source: 'database',
-        data: { items: [], total: 0, page, pageSize },
+        data: { items: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE },
       },
       { status: 500 }
     )

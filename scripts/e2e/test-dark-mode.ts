@@ -228,7 +228,7 @@ async function main() {
     "components/dashboard/dashboard-recent-syncs.tsx",
     "components/dashboard/site-health-heatmap.tsx",
     "components/dashboard/alert-center.tsx",
-    "components/dashboard/task-table.tsx",
+    "components/dashboard/early-warning-preview.tsx",
     "components/platform/capsule-tabs.tsx",
     "components/platform/permission-tree.tsx",
     "components/platform/status-badges.tsx",

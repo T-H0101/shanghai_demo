@@ -177,7 +177,9 @@ export async function GET(request: NextRequest) {
     const phaseGroup = searchParams.get("phaseGroup")
     const statusFilter = searchParams.get("statusFilter")
     const keyword = searchParams.get("keyword")
+    const deviceId = searchParams.get("deviceId")?.trim() || null
     const device = searchParams.get("device")?.trim() || null
+    const orderBy = searchParams.get("orderBy")
 
     const conditions: string[] = []
     const params: unknown[] = []
@@ -248,8 +250,12 @@ export async function GET(request: NextRequest) {
       paramIndex++
     }
 
-    // 关联设备筛选：匹配 device_id，或 unified_devices.device_name
-    if (device) {
+    // 关联设备筛选：siteCode + deviceId 精确匹配（与列表 deviceName 解析一致）
+    if (deviceId) {
+      conditions.push(`device_id = $${paramIndex++}`)
+      params.push(deviceId)
+    } else if (device) {
+      // 旧链接兼容：device=名称或 ID
       conditions.push(`(
         device_id = $${paramIndex}
         OR EXISTS (
@@ -275,6 +281,14 @@ export async function GET(request: NextRequest) {
     // 分页数据
     const offset = (page - 1) * pageSize
     const dataParams = [...params, pageSize, offset]
+    const orderClause =
+      orderBy === "recent"
+        ? `ORDER BY COALESCE(task_end_at, updated_at, synced_at) DESC NULLS LAST`
+        : `-- source_id 对应 tbl_task.id（数字），按数值降序，避免字符串排序 99 > 100
+      ORDER BY
+        CASE WHEN source_id ~ '^[0-9]+$' THEN source_id::bigint ELSE NULL END DESC NULLS LAST,
+        source_id DESC`
+
     const dataSql = `
       SELECT id, source_id, source_site_id, task_no, task_name, task_type, status,
              phase, priority, operator, department, archive_name,
@@ -284,10 +298,7 @@ export async function GET(request: NextRequest) {
              task_mode, error_message, runtime_seconds,
              package_count, success_count, error_count, progress, current_phase
       FROM unified_tasks ${whereClause}
-      -- source_id 对应 tbl_task.id（数字），按数值降序，避免字符串排序 99 > 100
-      ORDER BY
-        CASE WHEN source_id ~ '^[0-9]+$' THEN source_id::bigint ELSE NULL END DESC NULLS LAST,
-        source_id DESC
+      ${orderClause}
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}
     `
     const { rows } = await query<TaskRow>(dataSql, dataParams)

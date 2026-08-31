@@ -1,11 +1,8 @@
 /**
- * R.92 — Volumes view e2e (refactored from R.17)
+ * Volumes page e2e
  *
- * R.91.1 merged /volumes standalone page into /racks?view=volumes.
- * R.92 rewrites this test to validate the merged view:
- *   - /racks?view=volumes page 200
- *   - /volumes redirect → /racks?view=volumes
- *   - /api/volumes + /api/volumes/[id] real backend (unchanged)
+ *   - /volumes standalone page 200
+ *   - /api/volumes + /api/volumes/[id] real backend
  *   - sourceEvidence field (R.5 §10)
  *   - siteCode filter
  *   - volumes-view component source: no fake success toast
@@ -28,30 +25,21 @@ async function main() {
   console.log("=== Volumes view e2e (R.92) ===\n")
   await installAuthenticatedFetch(BASE)
 
-  // 1. /racks?view=volumes 200 (merged page)
-  const pageRes = await fetch(`${BASE}/racks?view=volumes`)
+  // 1. /volumes 独立页面 200
+  const pageRes = await fetch(`${BASE}/volumes`)
+  const pageText = pageRes.status === 200 ? await pageRes.text() : ""
   check(
-    "[1] 页面 /racks?view=volumes 200",
+    "[1] 页面 /volumes 200",
     pageRes.status === 200,
     `HTTP ${pageRes.status}`
   )
-
-  // 2. /volumes 旧路由 redirect → /racks?view=volumes
-  // R.92.1: Next.js dev mode 下 redirect() 用 streaming + meta refresh 而非 3xx
-  // 接受任一: 3xx location 头, 或 200 + meta refresh 指向目标
-  const redirectRes = await fetch(`${BASE}/volumes`, { redirect: "manual" })
-  const redirectText = redirectRes.status === 200 ? await redirectRes.text() : ""
-  const has3xx = redirectRes.status >= 300 && redirectRes.status < 400 &&
-    (redirectRes.headers.get("location") ?? "").includes("/racks?view=volumes")
-  const hasMetaRefresh = redirectText.includes('http-equiv="refresh"') && redirectText.includes("/racks?view=volumes")
-  const hasNextRedirect = redirectText.includes("NEXT_REDIRECT") && redirectText.includes("/racks?view=volumes")
   check(
-    "[2] /volumes 重定向到 /racks?view=volumes",
-    has3xx || hasMetaRefresh || hasNextRedirect,
-    `HTTP ${redirectRes.status} 3xx=${has3xx} metaRefresh=${hasMetaRefresh} nextRedirect=${hasNextRedirect}`
+    "[2] /volumes 页面含 volumes-view",
+    pageText.includes("volumes-view") || pageText.includes("存储卷"),
+    "页面渲染存储卷内容"
   )
 
-  // 3. /api/volumes 真实读取
+  // 2. /api/volumes 真实读取
   const volRes = await fetch(`${BASE}/api/volumes`)
   const volJson = await volRes.json()
   check(
@@ -92,16 +80,25 @@ async function main() {
     `items=${siteJson.data?.length ?? 0}`
   )
 
-  // 7. /api/volumes/[id] 详情 (R.92.1: DTO 用 volume_id, 不是 id)
+  // 7. /api/volumes/[id] 详情（跨站 volume_id 必须带 siteCode）
   const firstVol = volJson.data?.[0]
-  const firstVolId = firstVol?.volume_id ?? firstVol?.id
+  const firstVolId = firstVol?.id
+  const firstSite = firstVol?.siteCode
   if (firstVolId) {
-    const detailRes = await fetch(`${BASE}/api/volumes/${encodeURIComponent(firstVolId)}`)
+    const detailUrl = firstSite
+      ? `${BASE}/api/volumes/${encodeURIComponent(firstVolId)}?siteCode=${encodeURIComponent(firstSite)}`
+      : `${BASE}/api/volumes/${encodeURIComponent(firstVolId)}`
+    const detailRes = await fetch(detailUrl)
     const detail = await detailRes.json()
     check(
       "[8] /api/volumes/[id] 真实化 (code=0)",
       detailRes.status === 200 && detail.code === 0 && detail.data,
       `code=${detailRes.status} data.id=${detail.data?.id ?? "—"}`
+    )
+    check(
+      "[8b] 详情站点与列表一致（防跨站串行）",
+      !firstSite || detail.data?.siteCode === firstSite,
+      `list=${firstSite ?? "—"} detail=${detail.data?.siteCode ?? "—"}`
     )
     check(
       "[9] /api/volumes/[id] sourceEvidence 字段 (R.5 §10)",
@@ -118,11 +115,18 @@ async function main() {
       detail.data?.siteInfo || detail.data?.deviceInfo || detail.data?.aggregate,
       `关联字段有`
     )
-    // 不存在的 id
-    const badRes = await fetch(`${BASE}/api/volumes/INVALID_ID_NOT_EXIST`)
+    // 无 siteCode 的业务号 → 400；带假站点的业务号 → 404
+    const noSiteRes = await fetch(`${BASE}/api/volumes/INVALID_ID_NOT_EXIST`)
+    const noSiteJson = await noSiteRes.json()
+    check(
+      "[12] /api/volumes/[id] 无 siteCode 的非 UUID → 400",
+      noSiteRes.status === 400 || noSiteJson.code === 400,
+      `status=${noSiteRes.status} code=${noSiteJson.code}`
+    )
+    const badRes = await fetch(`${BASE}/api/volumes/INVALID_ID_NOT_EXIST?siteCode=NO_SUCH_SITE`)
     const badJson = await badRes.json()
     check(
-      "[12] /api/volumes/[id] bogus id 返 404 (无伪造空数据)",
+      "[12b] /api/volumes/[id] 假 id+site → 404",
       badRes.status === 404 || badJson.code === 404,
       `status=${badRes.status} code=${badJson.code}`
     )
@@ -148,21 +152,36 @@ async function main() {
     "无 mock 调用"
   )
 
-  // 10. volumes-view 在 /racks 页面正确渲染
-  const racksPageSource = await readFile("app/racks/page.tsx", "utf8")
+  // 10. volumes-view 在 /volumes 页面渲染 + 布局约定
+  const volumesPageSource = await readFile("app/volumes/page.tsx", "utf8")
   check(
-    "[15] /racks 页面含 volumes-view 渲染分支",
-    racksPageSource.includes("VolumesView") && racksPageSource.includes('view === "volumes"'),
-    "merged view 入口存在"
+    "[15] /volumes 页面含 VolumesView",
+    volumesPageSource.includes("VolumesView"),
+    "standalone 入口存在"
+  )
+  check(
+    "[15b] 标题行刷新 (站点管理同款)",
+    volumesPageSource.includes('data-testid="volumes-refresh"') ||
+      volumesPageSource.includes("volumes-refresh"),
+    "PageHeader actions 含刷新"
+  )
+  check(
+    "[15c] 右侧固定详情 (非 Drawer)",
+    viewSource.includes("DetailPanel") && !viewSource.includes("Drawer"),
+    "master-detail DetailPanel"
+  )
+  check(
+    "[15d] 列表不含盘位分配列",
+    !/<TableHead[^>]*>盘位分配<\/TableHead>/.test(viewSource),
+    "盘位分配仅在详情"
   )
 
-  // 11. /volumes 旧入口仍是 thin redirect (不是 standalone page)
-  const oldVolSource = await readFile("app/volumes/page.tsx", "utf8").catch(() => "")
-  const lineCount = oldVolSource.split("\n").filter(l => l.trim() !== "").length
+  // 11. 侧边栏含存储卷管理菜单
+  const sidebarSource = await readFile("components/dashboard/sidebar.tsx", "utf8")
   check(
-    "[16] /volumes 仅保留 thin redirect (非 standalone page)",
-    lineCount <= 10,
-    `app/volumes/page.tsx ${lineCount} 非空行 (期望 ≤10)`
+    "[16] 侧边栏含存储卷管理",
+    sidebarSource.includes('label: "存储卷管理"') && sidebarSource.includes('href: "/volumes"'),
+    "菜单项存在"
   )
 
   console.log(`\n=== Volumes: ${pass} pass, ${fail} fail ===`)

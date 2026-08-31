@@ -125,6 +125,21 @@ function localDateTimeToIso(local: string): string {
   return d.toISOString()
 }
 
+const LOGS_FETCH_INIT: RequestInit = { cache: "no-store", credentials: "include" }
+
+function apiErrorMessage(json: unknown, status: number): string {
+  if (json && typeof json === "object" && "message" in json) {
+    const message = (json as { message?: unknown }).message
+    if (typeof message === "string" && message.trim()) return message
+  }
+  return `HTTP ${status}`
+}
+
+async function readApiErrorMessage(res: Response): Promise<string> {
+  const json = await res.json().catch(() => null)
+  return apiErrorMessage(json, res.status)
+}
+
 export default function Page() {
   // Tab: 默认 sync_package
   const [activeType, setActiveType] = useState<LogType | "all">("sync_package")
@@ -203,8 +218,8 @@ export default function Page() {
         if (siteCode) sp.set("siteCode", siteCode)
         if (dateFrom) sp.set("from", localDateTimeToIso(dateFrom))
         if (dateTo) sp.set("to", localDateTimeToIso(dateTo))
-        const res = await fetch(`/api/auth/audit?${sp.toString()}`, { cache: "no-store" })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const res = await fetch(`/api/auth/audit?${sp.toString()}`, LOGS_FETCH_INIT)
+        if (!res.ok) throw new Error(await readApiErrorMessage(res))
         const json = await res.json()
         setDataSource(json.dataSource ?? "database")
         setSources(["auth_login_audit"])
@@ -229,10 +244,9 @@ export default function Page() {
         return
       }
 
-      const res = await fetch(`/api/logs?${queryString}`, { cache: "no-store" })
+      const res = await fetch(`/api/logs?${queryString}`, LOGS_FETCH_INIT)
       if (!res.ok) {
-        const txt = await res.text().catch(() => "")
-        throw new Error(`HTTP ${res.status}${txt ? `: ${txt.slice(0, 100)}` : ""}`)
+        throw new Error(await readApiErrorMessage(res))
       }
       const json = (await res.json()) as ApiEnvelope
       setDataSource(json.dataSource)
@@ -297,8 +311,8 @@ export default function Page() {
         if (siteCode) sp.set("siteCode", siteCode)
         if (dateFrom) sp.set("from", localDateTimeToIso(dateFrom))
         if (dateTo) sp.set("to", localDateTimeToIso(dateTo))
-        const res = await fetch(`/api/auth/audit/export?${sp.toString()}`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const res = await fetch(`/api/auth/audit/export?${sp.toString()}`, LOGS_FETCH_INIT)
+        if (!res.ok) throw new Error(await readApiErrorMessage(res))
         const blob = await res.blob()
         const recordCount = res.headers.get("x-record-count") ?? "?"
         const sha256 = res.headers.get("x-sha256") ?? ""
@@ -328,16 +342,15 @@ export default function Page() {
       if (taskType) sp.set("taskType", taskType)
       if (dateFrom) sp.set("dateFrom", localDateTimeToIso(dateFrom))
       if (dateTo) sp.set("dateTo", localDateTimeToIso(dateTo))
-      const res = await fetch(`/api/logs/export?${sp.toString()}`)
+      const res = await fetch(`/api/logs/export?${sp.toString()}`, LOGS_FETCH_INIT)
       if (res.status === 501) {
         const body = await res.json().catch(() => null)
-        const msg = body?.message ?? "Excel 暂未接入, 请选择 CSV 或 JSON"
-        toast({ title: "导出格式暂未接入", description: msg, variant: "destructive" })
+        const msg = apiErrorMessage(body, res.status)
+        toast({ title: "导出格式暂未接入", description: msg === `HTTP ${res.status}` ? "Excel 暂未接入, 请选择 CSV 或 JSON" : msg, variant: "destructive" })
         return
       }
       if (!res.ok) {
-        const txt = await res.text().catch(() => "")
-        throw new Error(`HTTP ${res.status}${txt ? `: ${txt.slice(0, 100)}` : ""}`)
+        throw new Error(await readApiErrorMessage(res))
       }
       const blob = await res.blob()
       const recordCount = res.headers.get("x-record-count") ?? "?"

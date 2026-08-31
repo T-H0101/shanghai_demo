@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import type { AuthUser } from "@/lib/auth/server"
 import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
 import { listCurrentMagazineLocations } from "@/lib/control/cage-move-register"
 import { query } from "@/lib/db"
@@ -23,6 +23,13 @@ import {
   relocationFilterFromDevice,
   relocationFilterFromLocations,
 } from "@/lib/search/hit-enrichment"
+import {
+  esSiteCodesFromScope,
+  filterSearchHitsByScope,
+  requireSearchSession,
+  resolveSearchSiteScope,
+  searchScopeIsEmpty,
+} from "@/lib/search/search-site-scope"
 
 type VolumeRow = {
   source_site_id: string
@@ -74,11 +81,12 @@ async function loadSiteNameMap(): Promise<Map<string, string>> {
 }
 
 export async function GET(req: NextRequest) {
+  let session: AuthUser
   try {
-    const session = await requireSession(req)
-    requirePermission(session, "platform:read")
+    session = await requireSearchSession(req)
   } catch (e) {
     if (e instanceof NextResponse) return e
+    return NextResponse.json({ error: "AUTH_ERROR" }, { status: 500 })
   }
 
   const url = new URL(req.url)
@@ -86,7 +94,7 @@ export async function GET(req: NextRequest) {
   const format = formatRaw === "json" ? "json" : "csv"
   const keyword =
     url.searchParams.get("q") ?? url.searchParams.get("keyword") ?? ""
-  const siteCode =
+  const siteCodeParam =
     url.searchParams.get("siteCode") ?? url.searchParams.get("site") ?? undefined
   const deviceIpRaw =
     url.searchParams.get("deviceIp") ?? url.searchParams.get("device_ip") ?? undefined
@@ -95,11 +103,31 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 10000), 50000)
 
   try {
-    const selectedSite = siteCode || undefined
+    const scope = resolveSearchSiteScope(session, siteCodeParam)
+    if (searchScopeIsEmpty(scope)) {
+      const exportResult = buildExport({
+        exportType: "search",
+        dataSource: "opensearch:disc_file_index",
+        format,
+        columns: [...SEARCH_EXPORT_COLUMNS],
+        columnLabels: SEARCH_EXPORT_LABELS,
+        rows: [],
+        siteCode: siteCodeParam ?? null,
+        filters: {
+          keyword: keyword || null,
+          deviceIp: deviceIp ?? null,
+          docType: docType ?? null,
+        },
+        filenamePrefix: "search-export",
+      })
+      return toNextResponse(exportResult)
+    }
+
+    const esSiteCodes = await esSiteCodesFromScope(scope)
     const locations = await listCurrentMagazineLocations()
     const locationMap = locationMapFromRows(locations)
-    const rfidFilter = selectedSite
-      ? relocationFilterFromLocations(locations, [selectedSite])
+    const rfidFilter = esSiteCodes.length
+      ? relocationFilterFromLocations(locations, esSiteCodes)
       : { inboundRfids: [], outboundRfids: [] }
     const deviceRfidFilter = deviceIp
       ? relocationFilterFromDevice(locations, deviceIp)
@@ -108,7 +136,7 @@ export async function GET(req: NextRequest) {
     const adapter = createOpenSearchFileSearchAdapter()
     const result = await adapter.searchFiles({
       keyword,
-      siteCode: selectedSite,
+      siteCodes: esSiteCodes,
       deviceIp,
       docType,
       limit,
@@ -141,12 +169,15 @@ export async function GET(req: NextRequest) {
       loadSiteNameMap(),
       loadDeviceNameByIp(previewIps),
     ])
-    const enriched = enrichSearchHits(result.hits, {
-      volumeNames: volumeMap,
-      siteNames: siteMap,
-      locationMap,
-      deviceNames,
-    })
+    const enriched = filterSearchHitsByScope(
+      enrichSearchHits(result.hits, {
+        volumeNames: volumeMap,
+        siteNames: siteMap,
+        locationMap,
+        deviceNames,
+      }),
+      scope,
+    )
     const rows: SearchExportRow[] = enriched.map((hit) => toSearchExportRowFromHit(hit))
 
     const exportResult = buildExport({
@@ -156,7 +187,7 @@ export async function GET(req: NextRequest) {
       columns: [...SEARCH_EXPORT_COLUMNS],
       columnLabels: SEARCH_EXPORT_LABELS,
       rows,
-      siteCode: siteCode ?? null,
+      siteCode: siteCodeParam ?? null,
       filters: {
         keyword: keyword || null,
         deviceIp: deviceIp ?? null,
@@ -167,6 +198,7 @@ export async function GET(req: NextRequest) {
 
     return toNextResponse(exportResult)
   } catch (e) {
+    if (e instanceof NextResponse) return e
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
       { status: 500 },

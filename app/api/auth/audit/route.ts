@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db/postgres"
 import { ensureAuthSchema } from "@/lib/auth/server"
+import { requirePermission, requireSession } from "@/lib/auth/middleware"
 
 interface AuditRow {
   id: string
@@ -24,6 +25,14 @@ interface AuditRow {
 }
 
 export async function GET(req: NextRequest) {
+  try {
+    const session = await requireSession(req)
+    requirePermission(session, "audit:read")
+  } catch (e) {
+    if (e instanceof NextResponse) return e
+    throw e
+  }
+
   await ensureAuthSchema()
 
   const url = new URL(req.url)

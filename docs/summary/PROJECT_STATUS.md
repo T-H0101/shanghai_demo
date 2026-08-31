@@ -1,7 +1,23 @@
 # Project Status
 
-> **截至**: 2026-08-24
-> **当前主线**: Sprint R.99 ADFS/OIDC 总控单边能力（药明 Client 申请中，不宣称联邦登录完成）
+> **截至**: 2026-08-26
+> **当前主线**: Sprint R.101 站点预警跨站只读 + 同步字段修复
+
+## Sprint R.101 — 站点预警同步与只读列表 (partial)
+
+**目标**: 修复 `tbl_early_warning` / feedback 推包字段映射，提供跨站「站点预警」只读列表；与控制台「调度告警」分离。
+
+**对应**: `requirements.md` §2.1 站点监控相关。状态：`partial`（只读可见；处理/通知未做）。
+
+**交付**:
+- Dispatcher：`type/s_level/title/create_date/status/lib_id` 与 feedback `early_warning_id/content/user_name` 对齐
+- DDL：`unified_early_warnings.status/lib_id`、`unified_early_warning_feedbacks.user_name`
+- `GET /api/early-warning` 筛选 + 反馈只读；页面 `/early-warning`
+- 审查：`docs/database-analysis/sprint-r101-site-early-warning-requirements-review.md`
+
+**非宣称**: 总控可处理预警、已通知责任人、历史脏数据无需重推即可完整。
+
+---
 
 ## Sprint R.99 — ADFS OIDC 单边能力 (partial)
 

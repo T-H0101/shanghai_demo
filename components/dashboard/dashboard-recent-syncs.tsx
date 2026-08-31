@@ -8,12 +8,13 @@
  * 失败: 显示空态
  */
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, RefreshCw, Package } from "lucide-react"
-import { useSite } from "@/lib/site/site-context"
+import { useSite, useSiteSites } from "@/lib/site/site-context"
 import { TimeDisplay } from "@/components/shared/time-format"
+import { formatSiteLabel } from "@/components/users/site-field"
 import { isApiMode } from "@/lib/api"
 import {
   fetchRecentSyncs,
@@ -35,8 +36,19 @@ function formatDuration(ms: number | null): string {
   return `${Math.floor(ms / 60_000)}m${Math.floor((ms % 60_000) / 1000)}s`
 }
 
+function shortenBatchId(batchId: string): string {
+  const id = batchId.trim()
+  if (id.length <= 16) return id
+  return `${id.slice(0, 12)}…`
+}
+
 export function DashboardRecentSyncs() {
   const { siteCode, isReady } = useSite()
+  const { sites } = useSiteSites()
+  const siteLabelByCode = useMemo(
+    () => new Map(sites.map((s) => [s.code, s.label])),
+    [sites],
+  )
   const [items, setItems] = useState<RecentSyncItem[]>([])
   const [source, setSource] = useState<DashboardSource>("unavailable")
   const [error, setError] = useState<string | null>(null)
@@ -121,28 +133,37 @@ export function DashboardRecentSyncs() {
                 label: it.status,
                 color: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
               }
+              const siteLabel = formatSiteLabel(
+                it.siteCode,
+                siteLabelByCode.get(it.siteCode),
+              )
               return (
                 <div
                   key={`${it.siteCode}-${it.batchId}`}
-                  className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="flex items-start justify-between gap-2.5 py-1.5 px-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
-                        {it.siteCode}
-                      </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                        {it.batchId}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                  <div className="min-w-0 flex-1 pr-1">
+                    <p
+                      className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate"
+                      title={siteLabel}
+                    >
+                      {siteLabel}
+                    </p>
+                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
                       <TimeDisplay value={it.finishedAt} mode="datetime" />
-                      <span>·</span>
-                      <span>耗时 {formatDuration(it.durationMs)}</span>
+                      <span className="shrink-0">·</span>
+                      <span className="shrink-0">耗时 {formatDuration(it.durationMs)}</span>
+                      <span className="shrink-0">·</span>
+                      <span
+                        className="min-w-0 truncate font-mono text-slate-400/90 dark:text-slate-500"
+                        title={it.batchId}
+                      >
+                        {shortenBatchId(it.batchId)}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {it.successTableCount}/{it.tableCount} 表
                     </span>
                     <Badge className={`text-[10px] ${badge.color}`}>{badge.label}</Badge>

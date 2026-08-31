@@ -20,9 +20,14 @@ import { ALL_SITES, useSiteSites } from "@/lib/site/site-context"
 import { cn } from "@/lib/utils"
 
 export function formatSiteLabel(code: string, label?: string | null): string {
-  const name = (label ?? "").trim()
-  if (!name || name === code) return code
-  return `${name}（${code}）`
+  const c = (code ?? "").trim()
+  if (!c) return "—"
+  let name = (label ?? "").trim()
+  if (!name || name === c) return c
+  // site-context 的 label 常为「CODE 名称」，去掉前缀后再拼「名称（编号）」
+  if (name.startsWith(`${c} `)) name = name.slice(c.length + 1).trim()
+  if (!name || name === c) return c
+  return `${name}（${c}）`
 }
 
 export function useRegisteredSites() {
@@ -86,12 +91,14 @@ export function SiteMultiSelect({
     ? "全部站点"
     : selected.length === 0
       ? "请选择站点"
-      : selected
-          .map((code) => {
-            const site = sites.find((item) => item.code === code)
-            return formatSiteLabel(code, site?.label)
-          })
-          .join("、")
+      : selected.length > 2
+        ? `已选 ${selected.length} 个站点`
+        : selected
+            .map((code) => {
+              const site = sites.find((item) => item.code === code)
+              return formatSiteLabel(code, site?.label)
+            })
+            .join("、")
 
   return (
     <DropdownMenu modal={false}>
@@ -100,12 +107,12 @@ export function SiteMultiSelect({
           type="button"
           variant="outline"
           disabled={disabled || loading}
-          className="h-9 w-full justify-between px-3 font-normal"
+          className="h-9 w-full min-w-0 max-w-full justify-between gap-2 overflow-hidden px-3 font-normal"
           data-testid={testId}
         >
           <span
             className={cn(
-              "truncate",
+              "min-w-0 flex-1 truncate text-left",
               !allSelected && selected.length === 0 && "text-muted-foreground",
             )}
           >

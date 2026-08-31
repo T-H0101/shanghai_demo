@@ -118,7 +118,8 @@ export async function fetchTasksPage(filters?: TaskFilters): Promise<TaskListPag
   if (filters?.status) params.set("status", filters.status)
   if (filters?.siteCode) params.set("siteCode", filters.siteCode)
   if (filters?.keyword) params.set("keyword", filters.keyword)
-  if (filters?.device) params.set("device", filters.device)
+  if (filters?.deviceId) params.set("deviceId", filters.deviceId)
+  else if (filters?.device) params.set("device", filters.device)
   if (filters?.statusFilter && filters.statusFilter !== "all") {
     params.set("statusFilter", filters.statusFilter)
   } else if (filters?.phase && filters.phase !== "all") {
@@ -127,7 +128,10 @@ export async function fetchTasksPage(filters?: TaskFilters): Promise<TaskListPag
   params.set("page", String(page))
   params.set("pageSize", String(pageSize))
 
-  const response = await fetch(`${API_BASE}/api/tasks?${params.toString()}`, { cache: "no-store" })
+  const response = await fetch(`${API_BASE}/api/tasks?${params.toString()}`, {
+    cache: "no-store",
+    credentials: "include",
+  })
   if (!response.ok) throw new Error(httpStatusMessage(response.status))
   const json = await response.json()
   if (json.code !== 0) throw new Error(json.message ?? "tasks request failed")
@@ -296,7 +300,7 @@ export const apiRackProvider: RackProvider = {
       : `${API_BASE}/api/racks`
 
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, { cache: "no-store", credentials: "include" })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const json = await response.json()
       if (json.code !== 0) throw new Error(json.message)

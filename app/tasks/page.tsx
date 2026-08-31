@@ -42,6 +42,7 @@ import {
   isPhysicalRestoreTask,
 } from "@/lib/tasks/restore-file-display"
 import { useSite } from "@/lib/site/site-context"
+import { buildTaskDeviceFilterHref, parseTaskDeviceFilter } from "@/lib/tasks/task-device-filter"
 import {
   Activity, Pause, Play, RotateCcw, RefreshCw, AlertTriangle, ClipboardList,
   Search, Download, X, Clock, CheckCircle2, AlertCircle,
@@ -208,7 +209,9 @@ export default function Page() {
 function TasksPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const deviceFilter = searchParams?.get("device") ?? null
+  const { deviceId: deviceIdFilter, deviceName: deviceNameFilter, siteCode: deviceFilterSiteCode } =
+    parseTaskDeviceFilter(searchParams)
+  const legacyDeviceFilter = searchParams?.get("device") ?? null
   const phaseQuery = searchParams?.get("phase") ?? null
   const phaseGroupQuery = searchParams?.get("phaseGroup") ?? null
   const initialStatusFilter =
@@ -242,12 +245,19 @@ function TasksPageContent() {
   const loadTasks = useCallback(async () => {
     setListLoading(true)
     try {
+      const listSiteCode =
+        deviceIdFilter && deviceFilterSiteCode && deviceFilterSiteCode !== "__all__"
+          ? deviceFilterSiteCode
+          : !isAllSites && siteCode
+            ? siteCode
+            : undefined
       const filters = {
-        siteCode: !isAllSites && siteCode ? siteCode : undefined,
+        siteCode: listSiteCode,
         keyword: keyword.trim() || undefined,
         type: resolvedType as any,
         statusFilter: statusFilter !== "all" ? statusFilter : undefined,
-        device: deviceFilter || undefined,
+        deviceId: deviceIdFilter || undefined,
+        device: !deviceIdFilter && legacyDeviceFilter ? legacyDeviceFilter : undefined,
         page,
         pageSize,
       }
@@ -260,7 +270,8 @@ function TasksPageContent() {
           if (filters.siteCode) qs.set("siteCode", filters.siteCode)
           if (filters.keyword) qs.set("keyword", filters.keyword)
           if (filters.type) qs.set("type", String(filters.type))
-          if (filters.device) qs.set("device", filters.device)
+          if (filters.deviceId) qs.set("deviceId", filters.deviceId)
+          else if (filters.device) qs.set("device", filters.device)
           qs.set("phaseGroup", "running")
           qs.set("page", String(page))
           qs.set("pageSize", String(pageSize))
@@ -289,15 +300,22 @@ function TasksPageContent() {
           siteCode: filters.siteCode,
           keyword: filters.keyword,
           type: filters.type,
+          deviceId: filters.deviceId,
           device: filters.device,
         })
         let result = list
-        if (filters.device) {
+        if (filters.deviceId) {
+          result = result.filter(
+            (t) =>
+              (t.deviceId ?? "") === filters.deviceId &&
+              (!filters.siteCode || t.siteCode === filters.siteCode),
+          )
+        } else if (filters.device) {
           const q = filters.device.toLowerCase()
           result = result.filter(
             (t) =>
               (t.deviceId ?? "").toLowerCase() === q ||
-              (t.deviceName ?? "").toLowerCase().includes(q)
+              (t.deviceName ?? "").toLowerCase().includes(q),
           )
         }
         if (phaseGroupQuery === "running") {
@@ -313,6 +331,11 @@ function TasksPageContent() {
             result = result.filter((t) => {
               const label = t.statusLabel ?? TASK_PHASE_LABELS[t.phase]
               return !["成功", "警告", "中止", "暂停"].includes(label)
+            })
+          } else if (statusFilter === "alert") {
+            result = result.filter((t) => {
+              const label = t.statusLabel ?? TASK_PHASE_LABELS[t.phase]
+              return label === "警告" || label === "中止"
             })
           } else {
             const opt = TASK_STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter)
@@ -349,7 +372,9 @@ function TasksPageContent() {
     keyword,
     resolvedType,
     statusFilter,
-    deviceFilter,
+    deviceIdFilter,
+    legacyDeviceFilter,
+    deviceFilterSiteCode,
     phaseGroupQuery,
     scopeFilter,
     page,
@@ -359,7 +384,7 @@ function TasksPageContent() {
   // 筛选变更时回到第 1 页
   useEffect(() => {
     setPage(1)
-  }, [keyword, typeFilter, statusFilter, scopeFilter, tab, phaseGroupQuery, deviceFilter, isAllSites, siteCode])
+  }, [keyword, typeFilter, statusFilter, scopeFilter, tab, phaseGroupQuery, deviceIdFilter, legacyDeviceFilter, deviceFilterSiteCode, isAllSites, siteCode])
 
   // 初始加载 + 条件变化重新加载
   useEffect(() => {
@@ -548,11 +573,26 @@ function TasksPageContent() {
     const params = new URLSearchParams(searchParams?.toString() ?? "")
     params.delete("phase")
     params.delete("phaseGroup")
+    params.delete("deviceId")
+    params.delete("deviceName")
+    params.delete("device")
     const qs = params.toString()
     router.replace(`/tasks${qs ? `?${qs}` : ""}`)
   }
 
-  const hasFilters = keyword || typeFilter !== "all" || statusFilter !== "all" || phaseGroupQuery === "running" || scopeFilter !== "all" || tab !== "all"
+  const hasDeviceFilter = Boolean(deviceIdFilter || legacyDeviceFilter)
+  const deviceFilterLabel = deviceNameFilter || legacyDeviceFilter || deviceIdFilter
+
+  const handleClearDeviceFilter = () => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "")
+    params.delete("deviceId")
+    params.delete("deviceName")
+    params.delete("device")
+    const qs = params.toString()
+    router.push(`/tasks${qs ? `?${qs}` : ""}`)
+  }
+
+  const hasFilters = keyword || typeFilter !== "all" || statusFilter !== "all" || phaseGroupQuery === "running" || scopeFilter !== "all" || tab !== "all" || hasDeviceFilter
 
   const nowTime = () => formatBeijingTimeOnly(new Date())
 
@@ -754,12 +794,15 @@ function TasksPageContent() {
               </Button>
             </AppTooltip>
           </div>
-          {deviceFilter && (
+          {hasDeviceFilter && deviceFilterLabel && (
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
-                设备筛选: {deviceFilter}
+                设备筛选: {deviceFilterLabel}
+                {deviceIdFilter && deviceFilterSiteCode && deviceFilterSiteCode !== "__all__" ? (
+                  <span className="ml-1 text-[10px] font-normal opacity-80">({deviceFilterSiteCode})</span>
+                ) : null}
               </Badge>
-              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => router.push("/tasks")}>
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={handleClearDeviceFilter}>
                 清除
               </Button>
             </div>
@@ -839,8 +882,8 @@ function TasksPageContent() {
                   <TableCell className="text-xs tabular-nums">{t.fileCount?.toLocaleString() ?? "—"}</TableCell>
                   <TableCell className="text-xs">{formatTotalSize(t.totalSize)}</TableCell>
                   <TableCell>
-                    {t.deviceName ? (
-                      <Button variant="link" size="sm" className="h-auto p-0 text-xs text-blue-600" onClick={e => { e.stopPropagation(); router.push(`/tasks?device=${t.deviceName}`) }}>
+                    {t.deviceName && t.deviceId && t.siteCode ? (
+                      <Button variant="link" size="sm" className="h-auto p-0 text-xs text-blue-600" onClick={e => { e.stopPropagation(); router.push(buildTaskDeviceFilterHref({ siteCode: t.siteCode, deviceId: t.deviceId!, deviceName: t.deviceName })) }}>
                         {t.deviceName} <Link2 className="h-3 w-3 ml-0.5" />
                       </Button>
                     ) : <span className="text-xs text-slate-300">—</span>}

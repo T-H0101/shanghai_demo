@@ -1,7 +1,7 @@
 /**
  * scripts/audit/page-scope.ts
  * R.91.1 — verify page scope: sidebar entries match actual pages, no orphan routes,
- *           command palette consistency, /check and /volumes are redirects.
+ *           command palette consistency, /check is redirect.
  *
  * Exit codes:
  *   0 - page scope consistent
@@ -29,18 +29,20 @@ const PAGES: ExpectedPage[] = [
   { route: "/sync", label: "同步中心", file: "app/sync/page.tsx" },
   { route: "/tasks", label: "任务管理", file: "app/tasks/page.tsx" },
   { route: "/racks", label: "设备管理", file: "app/racks/page.tsx" },
+  { route: "/volumes", label: "存储卷管理", file: "app/volumes/page.tsx" },
+  { route: "/cage-moves", label: "盘笼移位", file: "app/cage-moves/page.tsx" },
+  { route: "/early-warning", label: "站点预警", file: "app/early-warning/page.tsx" },
   { route: "/users", label: "用户与权限", file: "app/users/page.tsx" },
   { route: "/logs", label: "审计日志", file: "app/logs/page.tsx" },
   { route: "/settings", label: "系统设置", file: "app/settings/page.tsx" },
   // 以下路由保留但不在一级导航 (已合并为 redirect)
   { route: "/check", file: "app/check/page.tsx", note: "redirect to /racks?view=inspection" },
-  { route: "/volumes", file: "app/volumes/page.tsx", note: "redirect to /racks?view=volumes" },
   { route: "/control", file: "app/control/page.tsx", note: "redirect to /tasks?view=commands" },
   { route: "/login", file: "app/login/page.tsx" },
 ]
 
 /** Routes considered non-primary (redirects, auth-only) */
-const NON_PRIMARY_ROUTES = new Set(["/check", "/volumes", "/control", "/login"])
+const NON_PRIMARY_ROUTES = new Set(["/check", "/control", "/login"])
 
 /** All sidebar href values */
 function getSidebarRoutes(): string[] {
@@ -122,15 +124,14 @@ function checkCheckPageIsRedirect(): number {
 }
 
 /**
- * Check if /volumes/page.tsx is a simple redirect.
- * Returns the file's line count.
+ * Check /volumes/page.tsx is a standalone page (not redirect).
  */
-function checkVolumesPageIsRedirect(): number {
+function volumesPageIsStandalone(): boolean {
   try {
     const content = readFileSync("app/volumes/page.tsx", "utf8")
-    return content.split("\n").length
+    return content.includes("VolumesView") && !content.includes('redirect("/racks?view=volumes")')
   } catch {
-    return 0 // file doesn't exist
+    return false
   }
 }
 
@@ -218,14 +219,13 @@ function main(): number {
     globalPassMessages.push(`/check/page.tsx is a redirect (${checkTabCount} tab triggers, threshold >3)`)
   }
 
-  // ── Check 6: /volumes standalone fail gate ──
-  console.log("\n=== Check 6: /volumes page redirect gate ===")
-  const volumesLineCount = checkVolumesPageIsRedirect()
-  if (volumesLineCount > 10) {
-    console.log(`  [FAIL] /volumes/page.tsx has ${volumesLineCount} lines — may not be a simple redirect`)
+  // ── Check 6: /volumes standalone page gate ──
+  console.log("\n=== Check 6: /volumes standalone page gate ===")
+  if (!volumesPageIsStandalone()) {
+    console.log("  [FAIL] /volumes/page.tsx should render VolumesView (not redirect to /racks)")
     failed++
   } else {
-    globalPassMessages.push(`/volumes/page.tsx is a redirect (${volumesLineCount} lines, threshold >10)`)
+    globalPassMessages.push("/volumes/page.tsx is standalone with VolumesView")
   }
 
   // ── Summary ──

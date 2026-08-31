@@ -106,9 +106,15 @@ export function createOpenSearchFileSearchAdapter(): SearchPort {
         }
       }
       try {
+        const siteCodes =
+          query.siteCodes?.length
+            ? query.siteCodes
+            : query.siteCode
+              ? [query.siteCode]
+              : []
         const result = await searchFilesInEs({
           q: query.keyword,
-          siteCodes: query.siteCode ? [query.siteCode] : [],
+          siteCodes,
           deviceIp: query.deviceIp,
           docType: "file",
           limit: Math.min(Math.max(query.limit, 1), 500),

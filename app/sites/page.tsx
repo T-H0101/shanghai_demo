@@ -150,7 +150,7 @@ export default function Page() {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = await fetch("/api/sites", { cache: "no-store" })
+      const res = await fetch("/api/sites", { cache: "no-store", credentials: "include" })
       if (!res.ok) {
         const txt = await res.text().catch(() => "")
         throw new Error(`HTTP ${res.status}${txt ? `: ${txt.slice(0, 100)}` : ""}`)
@@ -162,8 +162,6 @@ export default function Page() {
       const list = Array.isArray(json.data) ? json.data : []
       const mapped = list.map(toSite)
       setSites(mapped)
-      // 默认选中第一项 (如果有)
-      setSelected(mapped[0] ?? null)
     } catch (e) {
       setDataSource("error")
       setLoadError(e instanceof Error ? e.message : String(e))
@@ -178,7 +176,6 @@ export default function Page() {
     loadSites()
   }, [])
 
-  // 统计来自 sync_sites 注册站点, 不再用业务表派生 siteCode 充当站点
   const stats = useMemo(() => {
     const onlineCount = sites.filter((s) => s.status === "online").length
     const offlineCount = sites.filter((s) => s.status === "offline").length
@@ -193,14 +190,24 @@ export default function Page() {
     }
   }, [sites])
 
-  const filtered = sites.filter((s) => {
+  const filtered = useMemo(() => sites.filter((s) => {
     const matchKeyword = !keyword ||
       s.name.includes(keyword) ||
       s.code.toLowerCase().includes(keyword.toLowerCase()) ||
       (s.ip !== "—" && s.ip.includes(keyword))
     const matchStatus = statusFilter === "all" || s.status === statusFilter
     return matchKeyword && matchStatus
-  })
+  }), [sites, keyword, statusFilter])
+
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setSelected(null)
+      return
+    }
+    if (!selected || !filtered.some((s) => s.id === selected.id)) {
+      setSelected(filtered[0])
+    }
+  }, [filtered, selected])
 
   // 写操作 — 注册入口已隐藏
   // const handleUnsupported = (feature: string) => {
@@ -315,54 +322,35 @@ export default function Page() {
   // })()
 
   return (
-    <AppShell>
-      <PageHeader
-        title="站点管理"
-        description="统一管理各数据中心光盘库站点；在线状态依据管理 IP:端口 TCP 探测"
-        badge="SITE MGMT"
-        actions={
-          <div className="flex items-center gap-2">
-            <AppTooltip content="重新拉取站点列表, 检查最新状态">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                onClick={loadSites}
-                disabled={loading}
-                data-testid="sites-refresh"
-              >
-                {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-                刷新
-              </Button>
-            </AppTooltip>
-            {/* 注册新站点暂未启用，先隐藏入口
-            <AppTooltip content="站点登记功能未启用">
-              <Button
-                size="sm"
-                className="h-8 cursor-pointer transition-colors"
-                onClick={() => handleUnsupported("注册新站点")}
-                data-testid="sites-register"
-              >
-                注册新站点
-              </Button>
-            </AppTooltip>
-            */}
-          </div>
-        }
-      />
+    <AppShell mainClassName="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
+        <div className="shrink-0">
+          <PageHeader
+            title="站点管理"
+            description="统一管理各数据中心光盘库站点；在线状态依据管理 IP:端口 TCP 探测"
+            badge="SITE MGMT"
+            actions={
+              <div className="flex items-center gap-2">
+                <AppTooltip content="重新拉取站点列表, 检查最新状态">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    onClick={loadSites}
+                    disabled={loading}
+                    data-testid="sites-refresh"
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                    刷新
+                  </Button>
+                </AppTooltip>
+              </div>
+            }
+          />
+        </div>
 
-      {/* 数据源/需求状态行暂不展示（列表即 sync_sites；「已注册」无业务意义）
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
-        {dataSourceBadge}
-        {meta?.requirement && (
-          <span className="text-xs text-slate-400">
-            {meta.requirement.text}
-          </span>
-        )}
-      </div>
-      */}
       {meta?.orphanSiteCodes && meta.orphanSiteCodes.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
+        <div className="flex shrink-0 flex-col sm:flex-row sm:items-center gap-2 px-1">
           <span className="text-xs text-slate-500">
             检测到 {meta.orphanSiteCodes.length} 个未注册历史 siteCode，未计入站点总数
           </span>
@@ -378,7 +366,7 @@ export default function Page() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           horizontal
           title="站点总数"
@@ -415,15 +403,22 @@ export default function Page() {
         />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
-        <Card className="xl:col-span-2 gap-0">
-          <CardHeader className="pb-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-3">
+        <Card className="flex min-h-0 flex-col gap-0 overflow-hidden xl:col-span-2">
+          <CardHeader className="shrink-0 border-b border-slate-100 pb-3 dark:border-slate-700">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <CardTitle className="text-base font-semibold">站点列表
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <Server className="h-4 w-4 text-slate-500" />
+                站点列表
+                <span className="text-sm font-normal text-muted-foreground">
+                  共 {filtered.length} 个
+                  {dataSource === "empty" ? " · 暂无数据" : ""}
+                  {dataSource === "error" ? " · 加载失败" : ""}
+                </span>
               </CardTitle>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as SiteStatusFilter)}>
-                  <SelectTrigger className="h-9 w-32">
+                  <SelectTrigger className="h-8 w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -434,12 +429,12 @@ export default function Page() {
                 </Select>
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input placeholder="搜索站点、编码、IP..." className="pl-9 h-9" value={keyword} onChange={(e) => setKeyword(e.target.value)} aria-label="搜索站点" />
+                  <Input placeholder="搜索站点、编码、IP..." className="pl-9 h-8" value={keyword} onChange={(e) => setKeyword(e.target.value)} aria-label="搜索站点" />
                 </div>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-0 overflow-x-auto">
+          <CardContent className="min-h-0 flex-1 overflow-auto p-0">
             {loadError && dataSource === "error" ? (
               <div className="text-center py-8 text-red-600">
                 <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
@@ -461,7 +456,7 @@ export default function Page() {
               </div>
             ) : (
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="text-xs text-slate-500">站点</TableHead>
                     <TableHead className="text-xs text-slate-500">状态</TableHead>
@@ -532,7 +527,13 @@ export default function Page() {
           </CardContent>
         </Card>
 
-        <DetailPanel title="站点详情" subtitle={selected?.code} empty={!selected}>
+        <DetailPanel
+          className="min-h-0 overflow-hidden xl:col-span-1"
+          title="站点详情"
+          subtitle={selected?.code}
+          empty={!selected}
+          emptyText="点击左侧站点查看详情"
+        >
           {selected && (
             <div className="space-y-4">
               <DetailRow label="站点名称" value={selected.name} />
@@ -608,6 +609,7 @@ export default function Page() {
             </div>
           )}
         </DetailPanel>
+      </div>
       </div>
 
       {/*

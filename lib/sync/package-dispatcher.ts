@@ -367,23 +367,80 @@ async function dispatchLogicalVolume(input: DispatchInput): Promise<DispatchResu
 }
 
 async function dispatchVolumeSlot(input: DispatchInput): Promise<DispatchResult> {
-  // 用推包 records 聚合 slot → unified_volumes.raw_data._aggregate（不连 SOURCE_DATABASE_URL）
+  // R.102: 1) 落 unified_volume_slots 明细 2) 聚合写 unified_volumes.raw_data._aggregate
+  // 不连 SOURCE_DATABASE_URL
   try {
+    let deleted = 0
+    let detail: DispatchResult | null = null
+
+    // 有推包行时按站点替换明细；空包且 full 时清空明细
+    if (input.records.length > 0 || input.syncMode === 'full') {
+      const del = await query(
+        `DELETE FROM unified_volume_slots
+         WHERE source_site_id = $1 AND source_table = 'tbl_volume_slot'`,
+        [input.siteCode],
+      )
+      deleted = del.rowCount ?? 0
+    }
+
+    if (input.records.length > 0) {
+      const normalized = input.records.map((record) => ({
+        ...record,
+        volume_id: record.volume_id ?? record.volumeId,
+        slot_id: record.slot_id ?? record.slotId,
+        on_line: record.on_line ?? record.onLine,
+        slot_num: record.slot_num ?? record.slotNum,
+        slot_code: record.slot_code ?? record.slotCode,
+      }))
+      detail = await inlineUpsert(
+        { ...input, records: normalized, syncMode: 'incremental' },
+        'unified_volume_slots',
+        {
+          sourceIdField: '__composite__',
+          sourceIdTransform: (raw) => {
+            const record = raw as Record<string, unknown>
+            const vol = record.volume_id ?? record.volumeId
+            const slot = record.slot_id ?? record.slotId
+            if (vol == null || vol === '' || slot == null || slot === '') return ''
+            return `${vol}:${slot}`
+          },
+          columns: [
+            { source: 'volume_id', target: 'volume_id' },
+            { source: 'slot_id', target: 'slot_id' },
+            { source: 'on_line', target: 'on_line' },
+            { source: 'slot_num', target: 'slot_num' },
+            { source: 'slot_code', target: 'slot_code' },
+          ],
+          sourceIdColumn: 'source_id',
+        },
+      )
+    }
+
     const agg = await aggregateVolumeSlots(input.siteCode, input.records)
+    const detailUpserted = detail?.upserted ?? 0
+    const detailFailed = detail?.failed ?? 0
+    const ok = detailUpserted > 0 || agg.unifiedRowsUpdated > 0 || (input.records.length === 0 && input.syncMode === 'full')
+
     return {
       tableName: input.tableName,
       received: input.records.length,
-      upserted: agg.unifiedRowsUpdated,
-      inserted: 0,
-      updated: agg.unifiedRowsUpdated,
-      deleted: 0,
-      skipped: agg.unifiedRowsUpdated > 0 ? 0 : input.records.length,
-      failed: 0,
-      status: agg.unifiedRowsUpdated > 0 ? 'success' : 'skipped',
+      upserted: detailUpserted + agg.unifiedRowsUpdated,
+      inserted: detail?.inserted ?? 0,
+      updated: (detail?.updated ?? 0) + agg.unifiedRowsUpdated,
+      deleted,
+      skipped: ok ? 0 : input.records.length,
+      failed: detailFailed,
+      status: detailFailed > 0 && detailUpserted === 0
+        ? 'failed'
+        : ok
+          ? detailFailed > 0
+            ? 'partial'
+            : 'success'
+          : 'skipped',
       errorMessage:
-        agg.unifiedRowsUpdated > 0
-          ? undefined
-          : `volume-slot aggregate wrote 0 rows (read=${agg.readCount}, volumes=${agg.distinctVolumes}); ensure tbl_logical_volume already synced for site ${input.siteCode}`,
+        ok
+          ? detail?.errorMessage
+          : `volume-slot wrote 0 detail/aggregate (detail=${detailUpserted}, agg=${agg.unifiedRowsUpdated}, volumes=${agg.distinctVolumes}); ensure tbl_logical_volume already synced for site ${input.siteCode}`,
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown'
@@ -397,7 +454,7 @@ async function dispatchVolumeSlot(input: DispatchInput): Promise<DispatchResult>
       skipped: 0,
       failed: input.records.length,
       status: 'failed',
-      errorMessage: `aggregateVolumeSlots failed: ${msg.slice(0, 200)}`,
+      errorMessage: `dispatchVolumeSlot failed: ${msg.slice(0, 200)}`,
     }
   }
 }
@@ -1547,29 +1604,33 @@ async function dispatchDataClassification(input: DispatchInput): Promise<Dispatc
 }
 
 async function dispatchEarlyWarning(input: DispatchInput): Promise<DispatchResult> {
+  // 站点 tbl_early_warning 真实列: id/title/type/status/s_level/create_date/lib_id/user_id
+  // 中心列 warning_type/warning_level/message/triggered_at 为展示投影; 完整行在 raw_data
   return inlineUpsert(input, 'unified_early_warnings', {
     sourceIdField: 'id',
     columns: [
       { source: 'id', target: 'src_warning_id' },
-      { source: 'warning_type', target: 'warning_type' },
-      { source: 'warning_level', target: 'warning_level' },
-      { source: 'message', target: 'message' },
-      { source: 'triggered_at', target: 'triggered_at' },
-      { source: 'resolved_at', target: 'resolved_at' },
+      { source: 'type', target: 'warning_type' },
+      { source: 's_level', target: 'warning_level' },
+      { source: 'title', target: 'message' },
+      { source: 'create_date', target: 'triggered_at' },
+      { source: 'status', target: 'status' },
+      { source: 'lib_id', target: 'lib_id' },
     ],
     sourceIdColumn: 'source_record_id',
   })
 }
 
 async function dispatchEarlyWarningFeedback(input: DispatchInput): Promise<DispatchResult> {
+  // 站点 tbl_early_warning_feedback: id/content/user_name/create_date/early_warning_id
   return inlineUpsert(input, 'unified_early_warning_feedbacks', {
     sourceIdField: 'id',
     columns: [
       { source: 'id', target: 'src_feedback_id' },
-      { source: 'warning_id', target: 'warning_id' },
-      { source: 'feedback_type', target: 'feedback_type' },
-      { source: 'feedback_text', target: 'feedback_text' },
-      { source: 'feedback_at', target: 'feedback_at' },
+      { source: 'early_warning_id', target: 'warning_id' },
+      { source: 'content', target: 'feedback_text' },
+      { source: 'create_date', target: 'feedback_at' },
+      { source: 'user_name', target: 'user_name' },
     ],
     sourceIdColumn: 'source_record_id',
   })

@@ -36,6 +36,7 @@ interface SearchBlkInfo {
 const SEARCH_BLOCKER_REASON = "全文检索服务尚未接入或不可达，请检查 SEARCH_ES_URL / SEARCH_ES_INDEX。"
 const SEARCH_BLOCKER_NEXT_STEP = "配置 OpenSearch 并确认 disc_file_index 有数据后重试。"
 const PAGE_SIZE_OPTIONS = [100, 200, 500] as const
+const SEARCH_FETCH_INIT: RequestInit = { credentials: "include" }
 type SearchDataSource = "opensearch" | "blocked" | "empty"
 
 type SearchApiHit = {
@@ -111,6 +112,10 @@ function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
     hit.slotOrder != null && Number.isFinite(Number(hit.slotOrder))
       ? Number(hit.slotOrder)
       : null
+  const discSide =
+    hit.discSide != null && Number.isFinite(Number(hit.discSide))
+      ? Number(hit.discSide)
+      : null
   const deviceIp = hit.deviceIp?.trim() || null
   const devicePort = hit.devicePort?.trim() || null
   const deviceName = hit.deviceName?.trim() || null
@@ -136,10 +141,7 @@ function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
         ? Number(hit.slotId)
         : null,
     slotOrder,
-    discSide:
-      hit.discSide != null && Number.isFinite(Number(hit.discSide))
-        ? Number(hit.discSide)
-        : null,
+    discSide,
     locationLabel: formatDeviceLocationLabel({
       volumeType,
       deviceName,
@@ -147,6 +149,7 @@ function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
       devicePort,
       magazineRfid,
       slotOrder,
+      discSide,
       serialNum,
     }),
     fileType: hit.extension ?? (docType === "folder" ? "目录" : "—"),
@@ -253,7 +256,10 @@ export default function Page() {
     }
     const sp = new URLSearchParams({ q: keyword })
     appendFilterParams(sp)
-    const res = await fetch(`/api/search/count?${sp.toString()}`)
+    const res = await fetch(`/api/search/count?${sp.toString()}`, SEARCH_FETCH_INIT)
+    if (res.status === 401 || res.status === 403) {
+      return null
+    }
     const body = await res.json()
     const source = body?.data?.source ?? body?.source
     if (source === "blocked_by_external_system" || !res.ok) {
@@ -267,13 +273,17 @@ export default function Page() {
   }
 
   const applyFacets = (facets: { sites?: FacetSite[]; devices?: FacetDevice[] } | undefined) => {
-    if (facets?.sites?.length) setSites(facets.sites)
-    if (facets?.devices) setDevices(facets.devices)
+    if (facets?.sites?.length) {
+      setSites((prev) => (facets.sites!.length >= prev.length ? facets.sites! : prev))
+    }
+    if (facets?.devices?.length) {
+      setDevices((prev) => (facets.devices!.length >= prev.length ? facets.devices! : prev))
+    }
   }
 
   const detectEs = useCallback(async () => {
     try {
-      const res = await fetch("/api/search?q=detect&pageSize=1")
+      const res = await fetch("/api/search?q=detect&pageSize=1", SEARCH_FETCH_INIT)
       const data = await res.json()
       const source = data?.data?.source ?? data?.source
       applyFacets(data?.data?.facets)
@@ -358,7 +368,23 @@ export default function Page() {
       appendFilterParams(sp)
       if (searchAfter) sp.set("searchAfter", searchAfter)
 
-      const res = await fetch(`/api/search?${sp.toString()}`)
+      const res = await fetch(`/api/search?${sp.toString()}`, SEARCH_FETCH_INIT)
+      if (res.status === 401) {
+        toast({
+          title: "请先登录总控",
+          description: "统一检索需要登录会话",
+          variant: "destructive",
+        })
+        return
+      }
+      if (res.status === 403) {
+        toast({
+          title: "无权检索该站点",
+          description: "请切换为有权限的站点筛选条件",
+          variant: "destructive",
+        })
+        return
+      }
       const body = await res.json()
       const source = body?.data?.source ?? body?.source
       applyFacets(body?.data?.facets)

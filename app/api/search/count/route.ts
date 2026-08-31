@@ -11,9 +11,16 @@ import {
   relocationFilterFromLocations,
 } from "@/lib/search/hit-enrichment"
 import { countFilesInEs, isEsConfigured } from "@/lib/search/es-client"
+import {
+  esSiteCodesFromScope,
+  requireSearchSession,
+  resolveSearchSiteScope,
+  searchScopeIsEmpty,
+} from "@/lib/search/search-site-scope"
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireSearchSession(request)
     if (!isEsConfigured()) {
       return NextResponse.json(
         {
@@ -33,10 +40,20 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("q") ??
       request.nextUrl.searchParams.get("keyword") ??
       ""
-    const siteCode =
+    const siteCodeParam =
       request.nextUrl.searchParams.get("siteCode") ??
       request.nextUrl.searchParams.get("site") ??
       undefined
+    const scope = resolveSearchSiteScope(session, siteCodeParam)
+    if (searchScopeIsEmpty(scope)) {
+      return NextResponse.json({
+        code: 0,
+        data: { total: 0, source: "opensearch" },
+        message: "当前账号无可访问站点",
+      })
+    }
+
+    const esSiteCodes = await esSiteCodesFromScope(scope)
     const deviceIpRaw =
       request.nextUrl.searchParams.get("deviceIp") ??
       request.nextUrl.searchParams.get("device_ip") ??
@@ -45,8 +62,8 @@ export async function GET(request: NextRequest) {
     const docType = "file" as const
 
     const locations = await listCurrentMagazineLocations()
-    const rfidFilter = siteCode
-      ? relocationFilterFromLocations(locations, [siteCode])
+    const rfidFilter = esSiteCodes.length
+      ? relocationFilterFromLocations(locations, esSiteCodes)
       : { inboundRfids: [], outboundRfids: [] }
     const deviceRfidFilter = deviceIp
       ? relocationFilterFromDevice(locations, deviceIp)
@@ -54,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     const total = await countFilesInEs({
       q: keyword,
-      siteCodes: siteCode ? [siteCode] : [],
+      siteCodes: esSiteCodes,
       deviceIp,
       docType,
       inboundRfids: rfidFilter.inboundRfids,
@@ -72,6 +89,7 @@ export async function GET(request: NextRequest) {
       message: "OpenSearch /_count",
     })
   } catch (error) {
+    if (error instanceof NextResponse) return error
     return NextResponse.json(
       {
         code: 1,

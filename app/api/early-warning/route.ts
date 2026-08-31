@@ -1,47 +1,112 @@
 /**
  * GET/POST/PUT/DELETE /api/early-warning
  *
- * Sprint R.83.5 Task 5 — early warning family CRUD over center DB
- * unified_early_warnings (primary table; lists 2 unified_early_warning_*
- * tables in sourceTables).
+ * Sprint R.83.5 CRUD over unified_early_warnings
+ * Sprint R.101: 跨站只读列表 — 对齐站点 tbl_early_warning 字段投影 + 筛选 + 反馈只读
  *
  * Auth: requires platform session; writes require platform:operate.
- * Source: center DB only (lib/db → DATABASE_URL). NO restore DB.
+ * Source: center DB only. NO restore DB.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { query, transaction } from "@/lib/db"
+import { requirePermission, requireSession } from "@/lib/auth/middleware"
+import { resolveSiteScope, sqlColumnInSiteScope, type SiteScope } from "@/lib/auth/site-scope"
 import { guardR83Api } from "@/lib/auth/r83-api-guard"
-
+import {
+  mapEarlyWarningFeedbackRow,
+  mapEarlyWarningRow,
+} from "@/lib/early-warning/display"
 const TARGET_TABLE = "unified_early_warnings"
+const FEEDBACK_TABLE = "unified_early_warning_feedbacks"
 const SOURCE_TABLES = [
   "unified_early_warnings",
   "unified_early_warning_feedbacks",
 ]
 
-async function list(siteCode: string | null, limit: number, offset: number) {
+interface ListFilters {
+  scope: SiteScope
+  type: string | null
+  status: string | null
+  /** open = 未处理(0) + 处理中(1)，排除已完成(2) */
+  statusGroup: string | null
+  level: string | null
+  keyword: string | null
+  limit: number
+  offset: number
+}
+
+async function list(filters: ListFilters) {
   const params: unknown[] = []
-  let where = ""
-  if (siteCode) {
-    params.push(siteCode)
-    where = `WHERE source_site_id = $${params.length}`
+  const where: string[] = []
+
+  const scopeFilter = sqlColumnInSiteScope("source_site_id", filters.scope, 1)
+  where.push(scopeFilter.sql)
+  params.push(...scopeFilter.params)
+  let paramIndex = scopeFilter.nextParam
+
+  if (filters.type != null && filters.type !== "") {
+    params.push(String(filters.type))
+    where.push(`COALESCE(warning_type, raw_data->>'type') = $${paramIndex++}`)
   }
-  params.push(limit, offset)
+  if (filters.statusGroup === "open") {
+    where.push(
+      `COALESCE(status, NULLIF(raw_data->>'status', '')::smallint) IN (0, 1)`,
+    )
+  } else if (filters.status != null && filters.status !== "") {
+    params.push(Number(filters.status))
+    where.push(
+      `COALESCE(status, NULLIF(raw_data->>'status', '')::smallint) = $${paramIndex++}`,
+    )
+  }
+  if (filters.level != null && filters.level !== "") {
+    params.push(String(filters.level))
+    where.push(`COALESCE(warning_level, raw_data->>'s_level') = $${paramIndex++}`)
+  }
+  if (filters.keyword) {
+    params.push(`%${filters.keyword}%`)
+    where.push(
+      `(COALESCE(message, raw_data->>'title', '') ILIKE $${paramIndex++})`,
+    )
+  }
+
+  const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""
+  params.push(filters.limit, filters.offset)
+
   const itemsRes = await query<Record<string, unknown>>(
-    `SELECT source_site_id, source_record_id, source_table, synced_at, raw_data
-     FROM ${TARGET_TABLE} ${where}
-     ORDER BY synced_at DESC
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    `SELECT source_site_id, source_record_id, source_table, synced_at,
+            src_warning_id, warning_type, warning_level, message,
+            triggered_at, resolved_at, status, lib_id, raw_data
+     FROM ${TARGET_TABLE}
+     ${whereSql}
+     ORDER BY COALESCE(triggered_at, synced_at) DESC NULLS LAST
+     LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
     params,
   )
+
+  const countParams = params.slice(0, -2)
   const totalRes = await query<{ count: string }>(
-    `SELECT COUNT(*)::text AS count FROM ${TARGET_TABLE} ${where}`,
-    siteCode ? [siteCode] : [],
+    `SELECT COUNT(*)::text AS count FROM ${TARGET_TABLE} ${whereSql}`,
+    countParams,
   )
+
   return {
-    items: itemsRes.rows,
+    items: itemsRes.rows.map(mapEarlyWarningRow),
     total: Number(totalRes.rows[0]?.count ?? 0),
   }
+}
+async function listFeedbacks(siteCode: string, warningId: number) {
+  const res = await query<Record<string, unknown>>(
+    `SELECT source_site_id, source_record_id, synced_at,
+            src_feedback_id, warning_id, feedback_type, feedback_text,
+            feedback_at, user_name, raw_data
+     FROM ${FEEDBACK_TABLE}
+     WHERE source_site_id = $1
+       AND COALESCE(warning_id, NULLIF(raw_data->>'early_warning_id', '')::bigint) = $2
+     ORDER BY COALESCE(feedback_at, synced_at) ASC NULLS LAST`,
+    [siteCode, warningId],
+  )
+  return res.rows.map(mapEarlyWarningFeedbackRow)
 }
 
 async function upsert(body: Record<string, unknown>) {
@@ -98,22 +163,73 @@ async function remove(siteCode: string, recordId: string) {
 export async function GET(req: NextRequest) {
   const traceId = `rbac-early-warning-${Date.now()}`
   try {
+    const session = await requireSession(req)
+    requirePermission(session, "platform:read")
+
     const url = new URL(req.url)
-    const siteCode = url.searchParams.get("siteCode")
-    const auth = await guardR83Api(req, "read", siteCode)
-    if (auth) return auth
+    const siteCodeParam = url.searchParams.get("siteCode")
+    const scope = resolveSiteScope(session, siteCodeParam)
+
+    if (scope.kind === "listed" && scope.siteCodes.length === 0) {
+      return NextResponse.json({
+        code: 0,
+        data: {
+          items: [],
+          total: 0,
+          sourceTables: SOURCE_TABLES,
+          readOnly: true,
+        },
+        dataSource: "empty",
+        meta: {
+          note: "站点预警列表为只读汇总；处理在站点侧完成。",
+        },
+        traceId,
+      })
+    }
+
     const limit = Math.min(
       Math.max(Number(url.searchParams.get("limit") ?? 100), 1),
       500,
     )
     const offset = Math.max(Number(url.searchParams.get("offset") ?? 0), 0)
-    const data = await list(siteCode, limit, offset)
+    const statusGroupParam = url.searchParams.get("statusGroup")
+    const data = await list({
+      scope,
+      type: url.searchParams.get("type"),
+      status: statusGroupParam === "open" ? null : url.searchParams.get("status"),
+      statusGroup: statusGroupParam === "open" ? "open" : null,
+      level: url.searchParams.get("level"),
+      keyword: url.searchParams.get("keyword")?.trim() || null,
+      limit,
+      offset,
+    })
+
+    const siteCode = siteCodeParam?.trim() || null
+    const warningIdRaw = url.searchParams.get("warningId")
+    let feedbacks: ReturnType<typeof mapEarlyWarningFeedbackRow>[] | undefined
+    if (warningIdRaw != null && warningIdRaw !== "" && siteCode) {
+      const warningId = Number(warningIdRaw)
+      if (Number.isFinite(warningId)) {
+        feedbacks = await listFeedbacks(siteCode, warningId)
+      }
+    }
+
     return NextResponse.json({
       code: 0,
-      data: { ...data, sourceTables: SOURCE_TABLES },
+      data: {
+        ...data,
+        feedbacks,
+        sourceTables: SOURCE_TABLES,
+        readOnly: true,
+      },
+      dataSource: data.total > 0 ? "database" : "empty",
+      meta: {
+        note: "站点预警列表为只读汇总；处理在站点侧完成。",
+      },
       traceId,
     })
   } catch (err) {
+    if (err instanceof NextResponse) return err
     return NextResponse.json(
       {
         code: 500,
@@ -124,7 +240,6 @@ export async function GET(req: NextRequest) {
     )
   }
 }
-
 export async function POST(req: NextRequest) {
   const traceId = `rbac-early-warning-${Date.now()}`
   try {

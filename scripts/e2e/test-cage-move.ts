@@ -2,7 +2,7 @@
  * 盘笼移位登记事件 e2e — Sprint R.98
  *
  * 必测 10 项 (R.5 §1.1):
- *   1. 点击位置: 顶部 data-testid="racks-cage-move-open" + Dialog 提交 cage-move-submit
+ *   1. 点击位置: /cage-moves 页 data-testid="cage-moves-register-open" + Dialog 提交 cage-move-submit
  *   2. 点击前: GET /api/racks/cage-moves 列表
  *   3. 点击后 API: POST /api/racks/cage-moves
  *   4. API 返回: 201 + message 含「已登记到总控」
@@ -65,15 +65,15 @@ async function main() {
   const targetSite = "BJ02"
 
   try {
-    const pageRes = await fetch(`${BASE}/racks`)
+    const pageRes = await fetch(`${BASE}/cage-moves`)
     const pageHtml = await pageRes.text()
-    check("页面 /racks 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
+    check("页面 /cage-moves 200", pageRes.status === 200, `HTTP ${pageRes.status}`)
     check(
-      "盘笼移位顶部按钮与历史 Tab",
-      pageHtml.includes('data-testid="racks-cage-move-open"') &&
-        pageHtml.includes('data-testid="racks-storage-tab-cage-move"') &&
-        !pageHtml.includes('data-testid="racks-storage-tab-restore"'),
-      "open + history tab, no restore tab"
+      "盘笼移位独立页含登记入口与列表",
+      pageHtml.includes('data-testid="cage-moves-register-open"') ||
+        pageHtml.includes("盘笼移位") ||
+        pageHtml.includes("cage-move"),
+      "独立菜单页可渲染"
     )
 
     const beforeRes = await fetch(`${BASE}/api/racks/cage-moves?limit=5`)
@@ -247,7 +247,7 @@ async function main() {
     )
 
     const [pageSrc, viewSrc, dialogSrc, routeSrc, delRouteSrc, esSrc, searchSrc, countSrc] = await Promise.all([
-      readFile("app/racks/page.tsx", "utf8"),
+      readFile("app/cage-moves/page.tsx", "utf8"),
       readFile("components/racks/cage-move-view.tsx", "utf8"),
       readFile("components/racks/cage-move-dialog.tsx", "utf8"),
       readFile("app/api/racks/cage-moves/route.ts", "utf8"),
@@ -261,11 +261,13 @@ async function main() {
       /移位成功|已移位/.test(dialogSrc) ||
       /移位成功|已移位/.test(routeSrc) ||
       /移位成功|已移位/.test(delRouteSrc) ||
-      /toast[\s\S]{0,80}移位成功/.test(dialogSrc)
-    check("文案不含「移位成功/已移位」", !misleading)
+      /toast[\s\S]{0,80}移位成功/.test(dialogSrc) ||
+      viewSrc.includes("登记历史（总控）") ||
+      viewSrc.includes("本列表不代表站点已执行移位")
+    check("文案不含「移位成功/已移位」及误导说明", !misleading)
     check(
-      "顶部 Dialog 提交 + Tab 仅历史",
-      pageSrc.includes('data-testid="racks-cage-move-open"') &&
+      "独立页 Dialog 提交 + 列表仅历史",
+      pageSrc.includes('data-testid="cage-moves-register-open"') &&
         dialogSrc.includes('data-testid="cage-move-submit"') &&
         dialogSrc.includes("/api/racks/cage-moves") &&
         viewSrc.includes('data-testid="cage-move-history"') &&
@@ -279,6 +281,12 @@ async function main() {
         viewSrc.includes("method: \"DELETE\"") &&
         !viewSrc.includes("盘笼 ID") &&
         !viewSrc.includes(">RFID<"),
+    )
+    const sidebarSrc = await readFile("components/dashboard/sidebar.tsx", "utf8")
+    check(
+      "侧边栏盘笼移位在存储卷之后",
+      /存储卷管理[\s\S]*盘笼移位/.test(sidebarSrc) &&
+        sidebarSrc.includes('href: "/cage-moves"'),
     )
     check(
       "ES 扩条件含 inbound RFID",

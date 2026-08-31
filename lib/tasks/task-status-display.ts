@@ -15,10 +15,14 @@ export const TASK_STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "running", label: "正在运行中" },
   { value: "finished", label: "已经结束" },
   { value: "success", label: "成功" },
+  { value: "alert", label: "任务告警" },
   { value: "warning", label: "警告" },
   { value: "aborted", label: "中止" },
   { value: "paused", label: "暂停" },
 ]
+
+/** 任务告警 = 中止 + 警告（与 dashboard summary TASK_FAILED 一致） */
+export const TASK_ALERT_STATUS_SQL = `(status IN ('burn_failed','read_failed','read_from_disc_failed','restore_warning','warning') OR status ~ '^unknown_[0-9]+_(10|11)$')`
 
 /** URL ?phase= 旧值 → 新状态筛选 value */
 export const PHASE_QUERY_TO_STATUS_FILTER: Record<string, string> = {
@@ -38,6 +42,7 @@ export const PHASE_QUERY_TO_STATUS_FILTER: Record<string, string> = {
   success: "success",
   warning: "warning",
   aborted: "aborted",
+  alert: "alert",
 }
 
 /** 中心库 status 字符串 → 源 status 数字（按 task_type 反查） */
@@ -343,6 +348,8 @@ export function buildTaskStatusFilterSql(
       return result(
         `(status IN ('restore_warning','warning') OR status ~ '^unknown_[0-9]+_11$')`,
       )
+    case "alert":
+      return result(TASK_ALERT_STATUS_SQL)
     case "paused":
     case "pause":
       return result(

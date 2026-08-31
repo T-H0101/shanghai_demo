@@ -82,21 +82,14 @@ interface ControlItem {
   requested_at?: string
 }
 
-interface AlertItem {
-  id: string
-  title: string
-  severity?: string
-  status?: string
-  time?: string
-}
-
 interface CommandCenterState {
   summary: SummaryData | null
-  /** 与站点管理一致：TCP 探测在线状态（/api/sites） */
+  /** 与站点管理一致：TCP 探测在线状态（/api/sites，已按权限过滤） */
   sites: RegistrySite[]
   packages: PackageItem[]
   commands: ControlItem[]
-  alerts: AlertItem[]
+  /** 站点预警 open 总数（与 EarlyWarningPreview 同源 API） */
+  earlyWarningOpenTotal: number
   loading: boolean
   error: string | null
   updatedAt: string | null
@@ -242,7 +235,7 @@ export function CommandCenterPanel() {
     sites: [],
     packages: [],
     commands: [],
-    alerts: [],
+    earlyWarningOpenTotal: 0,
     loading: true,
     error: null,
     updatedAt: null,
@@ -264,29 +257,29 @@ export function CommandCenterPanel() {
         const commandsUrl = activeSite
           ? `/api/control/commands?limit=6&siteCode=${encodeURIComponent(activeSite)}`
           : "/api/control/commands?limit=6"
-        const alertsUrl = activeSite
-          ? `/api/alerts?pageSize=6&siteCode=${encodeURIComponent(activeSite)}`
-          : "/api/alerts?pageSize=6"
+        const earlyWarningUrl = activeSite
+          ? `/api/early-warning?statusGroup=open&limit=1&offset=0&siteCode=${encodeURIComponent(activeSite)}`
+          : "/api/early-warning?statusGroup=open&limit=1&offset=0"
 
-        // 站点在线与站点管理同源：/api/sites（管理 IP:端口 TCP 探测），不用 Site Agent 心跳
-        const [summaryRes, sitesRes, packagesRes, commandsRes, alertsRes] = await Promise.all([
-          fetch(summaryUrl, { cache: "no-store" }),
-          fetch("/api/sites", { cache: "no-store" }),
-          fetch(packagesUrl, { cache: "no-store" }),
-          fetch(commandsUrl, { cache: "no-store" }),
-          fetch(alertsUrl, { cache: "no-store" }),
+        // 站点在线与站点管理同源：/api/sites（管理 IP:端口 TCP 探测），已按用户可访问站点过滤
+        const [summaryRes, sitesRes, packagesRes, commandsRes, earlyWarningRes] = await Promise.all([
+          fetch(summaryUrl, { cache: "no-store", credentials: "include" }),
+          fetch("/api/sites", { cache: "no-store", credentials: "include" }),
+          fetch(packagesUrl, { cache: "no-store", credentials: "include" }),
+          fetch(commandsUrl, { cache: "no-store", credentials: "include" }),
+          fetch(earlyWarningUrl, { cache: "no-store", credentials: "include" }),
         ])
 
-        if (!summaryRes.ok || !sitesRes.ok || !packagesRes.ok || !commandsRes.ok || !alertsRes.ok) {
+        if (!summaryRes.ok || !sitesRes.ok || !packagesRes.ok || !commandsRes.ok || !earlyWarningRes.ok) {
           throw new Error("Command Center source API failed")
         }
 
-        const [summaryJson, sitesJson, packagesJson, commandsJson, alertsJson] = await Promise.all([
+        const [summaryJson, sitesJson, packagesJson, commandsJson, earlyWarningJson] = await Promise.all([
           summaryRes.json(),
           sitesRes.json(),
           packagesRes.json(),
           commandsRes.json(),
-          alertsRes.json(),
+          earlyWarningRes.json(),
         ])
 
         if (cancelled) return
@@ -310,7 +303,7 @@ export function CommandCenterPanel() {
           sites: registrySites.filter((s) => s.code),
           packages: packagesJson.data?.items ?? [],
           commands: commandsJson.rows ?? commandsJson.items ?? commandsJson.data?.items ?? [],
-          alerts: alertsJson.data?.items ?? [],
+          earlyWarningOpenTotal: Number(earlyWarningJson.data?.total ?? 0),
           loading: false,
           error: null,
           updatedAt: new Date().toISOString(),
@@ -335,19 +328,25 @@ export function CommandCenterPanel() {
   }, [activeSite])
 
   const summary = state.summary ?? emptySummary
-  const siteStats = useMemo(() => {
-    const total = state.sites.length
-    const online = state.sites.filter((s) => s.status === "online").length
-    const offline = state.sites.filter((s) => s.status !== "online").length
-    return { total, online, offline }
-  }, [state.sites])
 
-  const controlStats = useMemo(() => {
-    const pending = state.commands.filter((c) => ["pending", "running"].includes(c.status)).length
-    const success = state.commands.filter((c) => ["success", "dry_run_success", "completed"].includes(c.status)).length
-    const failed = state.commands.filter((c) => ["failed", "cancelled", "unsupported"].includes(c.status)).length
-    return { pending, success, failed }
-  }, [state.commands])
+  const scopedSites = useMemo(() => {
+    if (activeSite) return state.sites.filter((s) => s.code === activeSite)
+    return state.sites
+  }, [state.sites, activeSite])
+
+  const siteStats = useMemo(() => {
+    const total = scopedSites.length
+    const online = scopedSites.filter((s) => s.status === "online").length
+    const offline = scopedSites.filter((s) => s.status !== "online").length
+    return { total, online, offline }
+  }, [scopedSites])
+
+  const siteNameByCode = useMemo(
+    () => new Map(state.sites.map((s) => [s.code, s.name?.trim() || s.code])),
+    [state.sites],
+  )
+
+  const taskAlertCount = summary.taskFailedCount
 
   const syncRisk = summary.packageCount > 0
     ? Math.max(0, Math.round(((summary.packageCount - summary.failedPackageCount) / summary.packageCount) * 100))
@@ -379,16 +378,15 @@ export function CommandCenterPanel() {
               统一管控台
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              同步、控制队列、站点可达、日志风险集中呈现；站点在线与站点管理一致（管理端口 TCP），同步成功率来自站点推送入库记录。
+              同步、控制队列、站点可达与预警集中呈现；KPI 与下方卡片同源，计数均限定在当前权限内可访问站点（随顶部站点筛选变化）。
             </p>
           </div>
 
-          <div className="grid min-w-[260px] grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40">
-            {/* 站点维：始终全站 TCP，不随业务站点筛选变化 */}
+          <div className="grid min-w-0 grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:min-w-[480px] sm:grid-cols-4 dark:border-slate-700 dark:bg-slate-900/40">
             <StatusTile label="站点在线" value={`${siteStats.online}/${siteStats.total || 0}`} tone={siteStats.offline > 0 ? "warn" : "good"} />
             <StatusTile label="同步成功率" value={summary.packageCount > 0 ? `${syncRisk}%` : "暂无"} tone={summary.failedPackageCount > 0 ? "warn" : "good"} />
-            <StatusTile label="控制待处理" value={controlStats.pending} tone={controlStats.pending > 0 ? "warn" : "good"} />
-            <StatusTile label="活跃告警" value={state.alerts.length} tone={state.alerts.length > 0 ? "bad" : "good"} />
+            <StatusTile label="站点预警" value={state.earlyWarningOpenTotal} tone={state.earlyWarningOpenTotal > 0 ? "bad" : "good"} />
+            <StatusTile label="任务告警" value={taskAlertCount} tone={taskAlertCount > 0 ? "bad" : "good"} />
           </div>
         </div>
 
@@ -421,7 +419,7 @@ export function CommandCenterPanel() {
             icon={Database}
             label="存储卷"
             value={summary.volumeCount}
-            href="/racks?view=volumes"
+            href="/volumes"
             testid="command-center-metric-volumes"
             stats={[
               { label: "总容量", value: formatCapacityBytes(summary.volumeTotalCapacityBytes), tone: "idle" },
@@ -492,16 +490,21 @@ export function CommandCenterPanel() {
             testid="command-center-sync-health"
           >
             <div className="space-y-2">
-              {state.packages.slice(0, 4).map((pkg) => (
-                <StreamRow
-                  key={pkg.id}
-                  left={pkg.siteCode}
-                  title={pkg.batchId}
-                  detail={`${pkg.tableCount} 张表 · ${pkg.totalRecordCount.toLocaleString("zh-CN")} 行 · ${packageStatusLabel(pkg.status)}`}
-                  status={pkg.status}
-                  time={pkg.finishedAt ?? pkg.createdAt}
-                />
-              ))}
+              {state.packages.slice(0, 4).map((pkg) => {
+                const siteLabel = siteNameByCode.get(pkg.siteCode) ?? pkg.siteCode
+                return (
+                  <StreamRow
+                    key={pkg.id}
+                    left={siteLabel}
+                    leftTitle={siteLabel}
+                    leftVariant="name"
+                    title={pkg.batchId}
+                    detail={`${pkg.tableCount} 张表 · ${pkg.totalRecordCount.toLocaleString("zh-CN")} 行 · ${packageStatusLabel(pkg.status)}`}
+                    status={pkg.status}
+                    time={pkg.finishedAt ?? pkg.createdAt}
+                  />
+                )
+              })}
               {state.packages.length === 0 && <EmptyLine text="暂无同步包记录" />}
             </div>
           </OperationalCard>
@@ -568,7 +571,7 @@ export function CommandCenterPanel() {
             icon={Search}
             title="检索"
             href="/search"
-            evidence="全文索引 / 接入中"
+            evidence="全文索引"
             testid="command-center-lane-search"
           />
           <LaneCard
@@ -692,11 +695,37 @@ function OperationalCard({ title, icon: Icon, description, testid, children }: {
   )
 }
 
-function StreamRow({ left, title, detail, status, time }: { left: string; title: string; detail: string; status: string; time?: string | null }) {
+function StreamRow({
+  left,
+  leftTitle,
+  leftVariant = "code",
+  title,
+  detail,
+  status,
+  time,
+}: {
+  left: string
+  leftTitle?: string
+  /** code = 站点编号（窄列）；name = 站点名称（宽 70px，约 7 个汉字） */
+  leftVariant?: "code" | "name"
+  title: string
+  detail: string
+  status: string
+  time?: string | null
+}) {
   const tone = statusTone(status)
   return (
     <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800/80">
-      <div className={cn("min-w-14 rounded-lg border px-2 py-1 text-center font-mono text-[10px]", toneClasses(tone))}>
+      <div
+        className={cn(
+          "shrink-0 rounded-lg border px-2 py-1 text-center text-[10px]",
+          leftVariant === "name"
+            ? "min-w-[70px] max-w-[70px] truncate font-medium"
+            : "min-w-14 font-mono",
+          toneClasses(tone),
+        )}
+        title={leftTitle ?? left}
+      >
         {left}
       </div>
       <div className="min-w-0 flex-1">

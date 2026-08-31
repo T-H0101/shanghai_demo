@@ -96,6 +96,8 @@ export interface TableSummary {
 
 export interface PackageLogFilters {
   siteCode?: string
+  /** 未指定单站时，限制在可访问站点列表内 */
+  siteCodes?: string[]
   status?: PackageLogStatus
   batchId?: string
   dateFrom?: string
@@ -372,6 +374,11 @@ export async function listPackageLogs(filters: PackageLogFilters = {}): Promise<
   if (filters.siteCode) {
     conditions.push(`site_code = $${paramIndex++}`)
     params.push(filters.siteCode)
+  } else if (filters.siteCodes && filters.siteCodes.length > 0) {
+    conditions.push(`site_code = ANY($${paramIndex++})`)
+    params.push(filters.siteCodes)
+  } else if (filters.siteCodes && filters.siteCodes.length === 0) {
+    conditions.push(`FALSE`)
   }
   if (filters.status) {
     conditions.push(`status = $${paramIndex++}`)
@@ -423,6 +430,11 @@ export async function countPackageLogs(
   if (filters.siteCode) {
     conditions.push(`site_code = $${paramIndex++}`)
     params.push(filters.siteCode)
+  } else if (filters.siteCodes && filters.siteCodes.length > 0) {
+    conditions.push(`site_code = ANY($${paramIndex++})`)
+    params.push(filters.siteCodes)
+  } else if (filters.siteCodes && filters.siteCodes.length === 0) {
+    conditions.push(`FALSE`)
   }
   if (filters.status) {
     conditions.push(`status = $${paramIndex++}`)

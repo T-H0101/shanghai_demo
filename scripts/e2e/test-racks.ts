@@ -115,41 +115,25 @@ async function main() {
       !pageSource.includes("设备数据导出功能开发中")
   )
   check(
-    "设备总览 Tab 有真实概览内容",
-    pageSource.includes('data-testid="racks-storage-overview-content"') &&
-      pageSource.includes("设备在线概况") &&
-      pageSource.includes("盘位汇总") &&
-      pageSource.includes("当前概况")
+    "设备页已迁出盘笼移位（独立 /cage-moves）",
+    !pageSource.includes('data-testid="racks-cage-move-open"') &&
+      !pageSource.includes("CageMoveHistoryView") &&
+      !pageSource.includes("SHOW_STORAGE_BROWSE_TAB")
   )
   check(
-    "设备总览/盘笼移位 Tab 用 TabsContent 包结构 (切换能正确 mount)",
-    pageSource.includes("TabsContent") &&
-      pageSource.includes('value="overview"') &&
-      pageSource.includes('value="cage-move"') &&
-      pageSource.includes("SHOW_STORAGE_BROWSE_TAB") &&
-      !pageSource.includes('data-testid="racks-storage-tab-restore"'),
+    "设备页定高布局（KPI 无总览标题，列表内搜索+滚动）",
+    pageSource.includes('h-[calc(100dvh-4rem)]') &&
+      pageSource.includes('data-testid="racks-device-list"') &&
+      pageSource.includes('data-testid="racks-hero-glass-panel"') &&
+      !pageSource.includes('title="设备总览"') &&
+      !pageSource.includes("存储设备数量、容量、盘位使用率及健康状态实时汇总") &&
+      !pageSource.includes(">设备列表<")
   )
   check(
-    "存储浏览 Tab 已隐藏（SRS 无此需求）",
-    pageSource.includes("SHOW_STORAGE_BROWSE_TAB = false") &&
-      pageSource.includes('data-testid="racks-storage-tab-cage-move"') &&
-      pageSource.includes('data-testid="racks-cage-move-open"') &&
-      !pageSource.includes("handleSync")
-  )
-  check(
-    "存储浏览实现保留但入口关闭",
-    pageSource.includes('data-testid="racks-storage-tab-browse"') &&
-      pageSource.includes('testid="racks-storage-browse-blocked"') &&
-      pageSource.includes("完整目录浏览需要接入站点文件索引服务")
-  )
-  check(
-    "EmptyState blocked 状态用 severity 参数驱动 (R.UI-CmdCenter)",
-    pageSource.includes("severity=\"blocked\""),
-  )
-  check(
-    "设备总览含设备列表预览 (修复 Tab 信息展示)",
-    pageSource.includes('data-testid="racks-storage-overview-list"') &&
-      pageSource.includes("设备列表预览"),
+    "设备详情抽屉含去站点管理 (SSO → /device-management)",
+    pageSource.includes('data-testid="racks-go-site-manage"') &&
+      pageSource.includes('"/device-management"') &&
+      pageSource.includes("去站点管理"),
   )
 
   console.log("\n--- R.17 盘位明细 (Racks/Slots closure) ---")

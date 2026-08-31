@@ -15,6 +15,8 @@ import type { ApiResponse, SiteDTO, SyncStatus } from "@/lib/api/dto"
 import { deriveSiteReachability } from "@/lib/site/reachability"
 import { isProbeableEndpoint, probeTcpHost } from "@/lib/site/probe-tcp"
 import { aggregateSitesStorage, toSiteStorageDisplay } from "@/lib/site/site-storage"
+import { requirePermission, requireSession } from "@/lib/auth/middleware"
+import { filterRegistrySiteCodes } from "@/lib/auth/site-scope"
 
 interface SiteRegistryRow {
   id: string
@@ -85,6 +87,9 @@ export async function GET(_request: NextRequest) {
   const traceId = `api-${Date.now()}`
 
   try {
+    const session = await requireSession(_request)
+    requirePermission(session, "platform:read")
+
     const registryResult = await query<SiteRegistryRow>(
       `WITH task_counts AS (
          SELECT source_site_id AS site_code, COUNT(*)::int AS cnt
@@ -208,6 +213,13 @@ export async function GET(_request: NextRequest) {
        ORDER BY ss.site_code`
     )
 
+    const allowedCodes = filterRegistrySiteCodes(
+      registryResult.rows.map((r) => r.site_code),
+      session.accessibleSites,
+    )
+    const allowedSet = new Set(allowedCodes)
+    const visibleRows = registryResult.rows.filter((r) => allowedSet.has(r.site_code))
+
     const orphanResult = await query<OrphanSiteRow>(
       `WITH observed AS (
          SELECT source_site_id AS site_code, COUNT(*)::int AS task_count, 0::int AS device_count, 0::int AS volume_count, 0::int AS package_count
@@ -240,14 +252,14 @@ export async function GET(_request: NextRequest) {
     )
 
     const storageBySite = await aggregateSitesStorage(
-      registryResult.rows.map((r) => r.site_code),
+      visibleRows.map((r) => r.site_code),
     ).catch((err) => {
       console.warn("[GET /api/sites] storage aggregate failed:", err instanceof Error ? err.message : err)
       return new Map() as Map<string, import("@/lib/site/site-storage").SiteStorageBytes>
     })
 
     const data: SiteDTO[] = await Promise.all(
-      registryResult.rows.map(async (row) => {
+      visibleRows.map(async (row) => {
         const endpoint = formatRegistryEndpoint(row.db_host, row.db_port)
         const canProbe = isProbeableEndpoint(row.db_host, row.db_port)
         const probe = canProbe
@@ -325,6 +337,7 @@ export async function GET(_request: NextRequest) {
       meta: Record<string, unknown>
     })
   } catch (error) {
+    if (error instanceof NextResponse) return error
     console.error("[API Error] /api/sites:", error)
     return NextResponse.json(
       {

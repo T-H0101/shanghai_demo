@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   AlertCircle,
+  ArrowLeftRight,
 } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
@@ -48,7 +49,9 @@ const NAV_ITEMS = [
   { label: "平台概览", path: "/", icon: Home, category: "首页" },
   { label: "站点管理", path: "/sites", icon: Globe, category: "管理" },
   { label: "设备管理", path: "/racks", icon: Server, category: "管理" },
+  { label: "盘笼移位", path: "/cage-moves", icon: ArrowLeftRight, category: "管理" },
   { label: "任务管理", path: "/tasks", icon: ListTodo, category: "管理" },
+  { label: "站点预警", path: "/early-warning", icon: Bell, category: "管理" },
   { label: "用户权限", path: "/users", icon: Users, category: "系统" },
   { label: "审计日志", path: "/logs", icon: FileText, category: "系统" },
   { label: "统一检索", path: "/search", icon: Search, category: "功能" },

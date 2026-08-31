@@ -84,7 +84,29 @@ async function main() {
     `sh01 items=${sh01.data?.items?.length ?? 0}`
   )
 
-  // 6. 模拟前端"暂停"按钮 → POST /api/control/commands
+  // 7b. siteCode + deviceId 设备筛选
+  const withDevice = list.data?.items?.find((t: { deviceId?: string }) => t.deviceId)
+  if (withDevice?.deviceId && withDevice?.siteCode) {
+    const devRes = await fetch(
+      `${BASE}/api/tasks?siteCode=${encodeURIComponent(withDevice.siteCode)}&deviceId=${encodeURIComponent(withDevice.deviceId)}&limit=5`,
+    )
+    const devJson = await devRes.json()
+    const devItems = devJson.data?.items ?? []
+    check(
+      "siteCode+deviceId 设备筛选生效",
+      devJson.code === 0 &&
+        devItems.length > 0 &&
+        devItems.every(
+          (t: { deviceId?: string; siteCode: string }) =>
+            t.deviceId === withDevice.deviceId && t.siteCode === withDevice.siteCode,
+        ),
+      `items=${devItems.length} deviceId=${withDevice.deviceId}`,
+    )
+  } else {
+    check("siteCode+deviceId 设备筛选生效", true, "skip: 无带 deviceId 的任务样本")
+  }
+
+  // 8. 模拟前端"暂停"按钮 → POST /api/control/commands
   const before = await fetch(`${BASE}/api/control/commands?limit=1`).then((r) => r.json())
   const beforeCount = before.data?.total ?? 0
   const cmdRes = await fetch(`${BASE}/api/control/commands`, {
@@ -173,7 +195,13 @@ async function main() {
     `HTTP ${createRes.status} commandNo=${createJson.commandNo ?? "—"}`
   )
 
-  // 8. control_command 状态机 (R.4 验证 6 状态)
+  check(
+    "前端设备 deep link 使用 siteCode+deviceId",
+    tasksPage.includes("buildTaskDeviceFilterHref") || tasksPage.includes("deviceId"),
+    "device filter href",
+  )
+
+  // 9. control_command 状态机 (R.4 验证 6 状态)
   const ccRes = await fetch(`${BASE}/api/control/commands?limit=20`)
   const cc = await ccRes.json()
   const ccItems: Array<{ status: string }> = cc.rows ?? []

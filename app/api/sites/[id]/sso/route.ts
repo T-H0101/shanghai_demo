@@ -15,6 +15,7 @@ import {
   buildSiteJumpUrl,
   encryptSiteSsoTicket,
   isSiteSsoSecretConfigured,
+  normalizeSiteSsoRedirect,
   resolveCentralPortalSitesUrl,
 } from "@/lib/site/sso-ticket"
 import { resolveSiteLocalUsername } from "@/lib/auth/account-mapping"
@@ -119,6 +120,7 @@ export async function GET(
   }
 
   const returnUrl = resolveCentralPortalSitesUrl(req)
+  const redirect = normalizeSiteSsoRedirect(req.nextUrl.searchParams.get("redirect"))
   await ensureAuthSchema()
   const username = await resolveSiteLocalUsername({
     accountId: session.id,
@@ -133,6 +135,7 @@ export async function GET(
       username,
       siteCode: site.site_code,
       returnUrl,
+      ...(redirect ? { redirect } : {}),
     })
   } catch (e) {
     return NextResponse.json(
@@ -164,6 +167,7 @@ export async function GET(
       jumpHost: site.db_host,
       jumpPort: site.db_port,
       returnUrl,
+      redirect: redirect ?? null,
     },
     actor: username,
     result: "success",
@@ -177,6 +181,7 @@ export async function GET(
     siteLocalUsername: username,
     jumpUrl,
     returnUrl,
+    redirect: redirect ?? null,
     expiresInSeconds: 120,
     message: "跳转票据已签发；请打开 jumpUrl。站点须实现 /unified-sso/consume",
   })
