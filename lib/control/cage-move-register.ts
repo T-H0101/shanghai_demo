@@ -5,6 +5,11 @@
 
 import { query } from "@/lib/db/postgres"
 import { writeAudit } from "@/lib/control/audit"
+import {
+  bothSiteCodesInScope,
+  sqlBothSiteCodesInScope,
+  type SiteScope,
+} from "@/lib/auth/site-scope"
 
 export class CageMoveRegisterError extends Error {
   status: number
@@ -96,6 +101,8 @@ export type CageMoveRegisterInput = {
   operatorAccountId: string
   actor?: string
   actorIp?: string
+  /** 站点权限：源站与目标站均须在范围内 */
+  siteScope?: SiteScope
 }
 
 export type MagazineCurrentLocation = {
@@ -140,6 +147,9 @@ export async function createCageMoveRegister(
   }
   if (sourceDeviceIp === targetDeviceIp) {
     throw new CageMoveRegisterError("原设备 IP 与目标设备 IP 不能相同")
+  }
+  if (input.siteScope && !bothSiteCodesInScope(sourceSiteCode, targetSiteCode, input.siteScope)) {
+    throw new CageMoveRegisterError("无权登记：源站与目标站须均在可访问站点范围内", 403)
   }
 
   const ins = await query<CageMoveRegisterRow>(
@@ -197,6 +207,8 @@ export async function cancelCageMoveRegister(input: {
   operatorAccountId: string
   actor?: string
   actorIp?: string
+  /** 站点权限范围；两端都必须在范围内才允许撤销 */
+  siteScope: SiteScope
 }): Promise<CageMoveRegisterRow> {
   const id = requireText(input.id, "登记 ID")
   if (!UUID_RE.test(id)) throw new CageMoveRegisterError("登记 ID 无效")
@@ -217,6 +229,9 @@ export async function cancelCageMoveRegister(input: {
   if (!row) throw new CageMoveRegisterError("登记不存在", 404)
   if (row.status !== "registered") {
     throw new CageMoveRegisterError("该登记已不在映射中", 409)
+  }
+  if (!bothSiteCodesInScope(row.source_site_code, row.target_site_code, input.siteScope)) {
+    throw new CageMoveRegisterError("无权撤销：源站与目标站须均在可访问站点范围内", 403)
   }
 
   const upd = await query<CageMoveRegisterRow>(
@@ -261,22 +276,38 @@ export async function cancelCageMoveRegister(input: {
 export async function listCageMoveRegisters(opts?: {
   limit?: number
   offset?: number
+  /** 站点权限：源站与目标站均在范围内才可见 */
+  siteScope?: SiteScope
 }): Promise<{ items: CageMoveRegisterListItem[]; total: number }> {
   const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200)
   const offset = Math.max(opts?.offset ?? 0, 0)
+  const scope = opts?.siteScope ?? { kind: "all_registered" as const }
+  const scopeFilter = sqlBothSiteCodesInScope(
+    "r.source_site_code",
+    "r.target_site_code",
+    scope,
+    1,
+  )
+  const whereSql = `r.status = 'registered' AND (${scopeFilter.sql})`
+  const countParams = [...scopeFilter.params]
+  const dataParams = [...scopeFilter.params, limit, offset]
+  const limitIdx = scopeFilter.nextParam
+  const offsetIdx = scopeFilter.nextParam + 1
+
   try {
     const [countRes, dataRes] = await Promise.all([
       query<{ count: string }>(
         `SELECT COUNT(*)::text AS count
-         FROM unified_cage_move_register
-         WHERE status = 'registered'`
+         FROM unified_cage_move_register r
+         WHERE ${whereSql}`,
+        countParams,
       ),
       query<CageMoveRegisterListItem>(
         `${LIST_SELECT}
-         WHERE r.status = 'registered'
+         WHERE ${whereSql}
          ORDER BY r.created_at DESC
-         LIMIT $1 OFFSET $2`,
-        [limit, offset]
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        dataParams,
       ),
     ])
     return {

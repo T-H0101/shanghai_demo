@@ -274,6 +274,13 @@ async function main() {
         !viewSrc.includes('data-testid="cage-move-submit"'),
     )
     check(
+      "列表/登记/撤销按站点权限（源站与目标站均须可访问）",
+      routeSrc.includes("resolveSiteScope") &&
+        routeSrc.includes("siteScope") &&
+        delRouteSrc.includes("resolveSiteScope") &&
+        delRouteSrc.includes("siteScope"),
+    )
+    check(
       "列表列：盘笼RFID、位置名称+IP、撤销登记",
       viewSrc.includes("盘笼RFID") &&
         viewSrc.includes("撤销登记") &&

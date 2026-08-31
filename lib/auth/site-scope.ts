@@ -102,3 +102,44 @@ export function rawAlertInScope(
   if (scope.kind === "all_registered") return true
   return scope.siteCodes.includes(siteCode)
 }
+
+/** 生成「两列站点码均在范围内」的 SQL（盘笼移位：源站与目标站都可见才返回） */
+export function sqlBothSiteCodesInScope(
+  sourceColumn: string,
+  targetColumn: string,
+  scope: SiteScope,
+  paramIndex = 1,
+): { sql: string; params: unknown[]; nextParam: number } {
+  if (scope.kind === "single") {
+    return {
+      sql: `${sourceColumn} = $${paramIndex} AND ${targetColumn} = $${paramIndex}`,
+      params: [scope.siteCode],
+      nextParam: paramIndex + 1,
+    }
+  }
+  if (scope.kind === "all_registered") {
+    return {
+      sql: `${sourceColumn} IN (SELECT site_code FROM sync_sites WHERE enabled = true)
+        AND ${targetColumn} IN (SELECT site_code FROM sync_sites WHERE enabled = true)`,
+      params: [],
+      nextParam: paramIndex,
+    }
+  }
+  if (scope.siteCodes.length === 0) {
+    return { sql: "FALSE", params: [], nextParam: paramIndex }
+  }
+  return {
+    sql: `${sourceColumn} = ANY($${paramIndex}) AND ${targetColumn} = ANY($${paramIndex})`,
+    params: [scope.siteCodes],
+    nextParam: paramIndex + 1,
+  }
+}
+
+/** 源站与目标站是否都在站点权限范围内 */
+export function bothSiteCodesInScope(
+  sourceSiteCode: string,
+  targetSiteCode: string,
+  scope: SiteScope,
+): boolean {
+  return rawAlertInScope(sourceSiteCode, scope) && rawAlertInScope(targetSiteCode, scope)
+}

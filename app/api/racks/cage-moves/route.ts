@@ -4,10 +4,12 @@
  *
  * POST 只写入中心库 unified_cage_move_register，不向站点下发移位执行。
  * GET 仅返回 status=registered；错误登记走 DELETE /api/racks/cage-moves/[id]。
+ * 站点权限：源站与目标站均在账号可访问范围内才可见/可写。
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { resolveSiteScope } from "@/lib/auth/site-scope"
 import {
   CageMoveRegisterError,
   createCageMoveRegister,
@@ -25,7 +27,8 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams
     const limit = Number(sp.get("limit") ?? 50)
     const offset = Number(sp.get("offset") ?? 0)
-    const result = await listCageMoveRegisters({ limit, offset })
+    const siteScope = resolveSiteScope(session, null)
+    const result = await listCageMoveRegisters({ limit, offset, siteScope })
     return NextResponse.json({
       code: 0,
       data: result,
@@ -72,6 +75,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const siteScope = resolveSiteScope(session, null)
     const row = await createCageMoveRegister({
       cageId: body.cageId,
       magazineRfid: body.magazineRfid ?? "",
@@ -86,6 +90,7 @@ export async function POST(req: NextRequest) {
       operatorAccountId: session.id,
       actor: session.username,
       actorIp: clientIp(req),
+      siteScope,
     })
     return NextResponse.json(
       {
