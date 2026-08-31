@@ -15,7 +15,6 @@ export const TASK_STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "running", label: "正在运行中" },
   { value: "finished", label: "已经结束" },
   { value: "success", label: "成功" },
-  { value: "alert", label: "任务告警" },
   { value: "warning", label: "警告" },
   { value: "aborted", label: "中止" },
   { value: "paused", label: "暂停" },

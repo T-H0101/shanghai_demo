@@ -409,10 +409,10 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
                   <TableRow>
-                    <TableHead className="w-[28%]">名称</TableHead>
-                    <TableHead className="w-[22%]">站点</TableHead>
-                    <TableHead className="w-[18%]">类型</TableHead>
-                    <TableHead>容量</TableHead>
+                    <TableHead className="w-[28%] text-sm text-slate-500">名称</TableHead>
+                    <TableHead className="w-[22%] text-sm text-slate-500">站点</TableHead>
+                    <TableHead className="w-[18%] text-sm text-slate-500">类型</TableHead>
+                    <TableHead className="text-sm text-slate-500">容量</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

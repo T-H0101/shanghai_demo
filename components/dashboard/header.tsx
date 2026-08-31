@@ -4,23 +4,23 @@ import { Suspense, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   Search,
-  Bell,
+  // Bell, // 通知铃铛暂隐藏（接口未接入，避免误导）
   Menu,
   LogOut,
   Command,
   Activity,
   ChevronDown,
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle2,
-  Info,
+  // AlertCircle,
+  // AlertTriangle,
+  // CheckCircle2,
+  // Info,
   KeyRound,
 } from "lucide-react"
 import { clearSession, getSession } from "@/lib/auth/session"
 import type { AuthSession } from "@/lib/types/auth"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+// import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,11 +29,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useNotificationStore } from "@/store/notification"
-import { toast } from "@/hooks/use-toast"
+// import { ScrollArea } from "@/components/ui/scroll-area"
+// import { useNotificationStore } from "@/store/notification"
+// import { toast } from "@/hooks/use-toast"
 import { SiteSelector } from "@/components/site/site-selector"
-import { isApiMode } from "@/lib/api"
+// import { isApiMode } from "@/lib/api"
 import { AppTooltip } from "@/components/shared/tooltip"
 import { TimeDisplay } from "@/components/shared/time-format"
 import { cn } from "@/lib/utils"
@@ -45,8 +45,9 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter()
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore()
-  const [panelOpen, setPanelOpen] = useState(false)
+  // 通知铃铛暂隐藏
+  // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore()
+  // const [panelOpen, setPanelOpen] = useState(false)
   const [session, setSession] = useState<AuthSession | null>(null)
   const [systemStatus, setSystemStatus] = useState<"loading" | "healthy" | "degraded">("loading")
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
@@ -87,29 +88,10 @@ export function Header({ onMenuClick }: HeaderProps) {
     router.replace("/login")
   }
 
-  const handleNotificationClick = (id: string) => {
-    markAsRead(id)
-    const notif = notifications.find(n => n.id === id)
-    if (notif) {
-      toast({
-        title: notif.title,
-        description: notif.message,
-        variant: notif.type === 'error' ? 'destructive' : 'default',
-      })
-    }
-  }
-
-  const handleMarkAllRead = () => {
-    markAllAsRead()
-    toast({ title: "已全部已读", description: "所有通知已标记为已读状态" })
-  }
-
-  const typeColors = {
-    info: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-    warning: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    error: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-    success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  }
+  // 通知铃铛暂隐藏
+  // const handleNotificationClick = (id: string) => { ... }
+  // const handleMarkAllRead = () => { ... }
+  // const typeColors = { ... }
 
   // 三合一健康徽章文案
   const healthBadgeLabel =
@@ -226,7 +208,8 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
         </AppTooltip>
 
-        {/* 通知 */}
+        {/* 通知铃铛暂隐藏：接口未接入，避免「未启用」空按钮误导；恢复时取消注释并接真实聚合 */}
+        {/*
         {isApiMode() ? (
           <AppTooltip content="通知接口未启用">
             <button
@@ -240,76 +223,11 @@ export function Header({ onMenuClick }: HeaderProps) {
         ) : (
           <AppTooltip content="查看系统通知">
             <DropdownMenu open={panelOpen} onOpenChange={setPanelOpen}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  aria-label="通知"
-                >
-                  <Bell className="h-5 w-5 text-slate-600 dark:text-slate-300" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-96 p-0">
-                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                  <h3 className="font-semibold text-slate-900 dark:text-slate-50">通知中心</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
-                    onClick={handleMarkAllRead}
-                  >
-                    全部已读
-                  </Button>
-                </div>
-                <ScrollArea className="h-80">
-                  <div className="p-2">
-                    {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-slate-500 dark:text-slate-400 text-sm">暂无通知</div>
-                    ) : (
-                      notifications.map((notif) => (
-                        <button
-                          key={notif.id}
-                          className={`w-full text-left p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
-                            !notif.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
-                          }`}
-                          onClick={() => handleNotificationClick(notif.id)}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`mt-0.5 p-1.5 rounded-full ${typeColors[notif.type]}`}>
-                              {notif.type === 'error' ? (
-                                <AlertCircle className="h-3.5 w-3.5 text-red-600" />
-                              ) : notif.type === 'warning' ? (
-                                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                              ) : notif.type === 'success' ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                              ) : (
-                                <Info className="h-3.5 w-3.5 text-blue-600" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{notif.title}</p>
-                                {!notif.read && (
-                                  <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{notif.message}</p>
-                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{notif.time}</p>
-                            </div>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </DropdownMenuContent>
+              ...
             </DropdownMenu>
           </AppTooltip>
         )}
+        */}
 
         {/* 用户菜单 (头像 → 下拉) */}
         <AppTooltip content={session?.displayName ?? session?.username ?? "账号"}>

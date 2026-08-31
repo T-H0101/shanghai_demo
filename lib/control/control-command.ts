@@ -95,6 +95,8 @@ export interface ListControlCommandFilter {
   sourceSiteIds?: string[]
   commandType?: CommandType
   status?: CommandStatus
+  /** 命令编号 / 目标 ID / 站点 */
+  keyword?: string
   limit?: number
   offset?: number
 }
@@ -232,6 +234,13 @@ export async function listControlCommands(
     conds.push(`status = $${i++}`)
     params.push(filter.status)
   }
+  if (filter.keyword?.trim()) {
+    conds.push(
+      `(command_no ILIKE $${i} OR target_id ILIKE $${i} OR source_site_id ILIKE $${i})`,
+    )
+    params.push(`%${filter.keyword.trim()}%`)
+    i++
+  }
   const where = conds.length ? `WHERE ${conds.join(" AND ")}` : ""
   const limit = Math.min(filter.limit ?? 100, 500)
   const offset = filter.offset ?? 0
@@ -250,6 +259,44 @@ export async function listControlCommands(
     rows: rowsRes.rows.map(rowToCommand),
     total: parseInt(countRes.rows[0]?.count ?? "0", 10),
   }
+}
+
+function siteScopeConds(filter: Pick<ListControlCommandFilter, "sourceSiteId" | "sourceSiteIds">): {
+  where: string
+  params: unknown[]
+} {
+  const conds: string[] = []
+  const params: unknown[] = []
+  let i = 1
+  if (filter.sourceSiteId) {
+    conds.push(`source_site_id = $${i++}`)
+    params.push(filter.sourceSiteId)
+  } else if (filter.sourceSiteIds && filter.sourceSiteIds.length > 0) {
+    conds.push(`source_site_id = ANY($${i++})`)
+    params.push(filter.sourceSiteIds)
+  } else if (filter.sourceSiteIds && filter.sourceSiteIds.length === 0) {
+    conds.push(`FALSE`)
+  }
+  return {
+    where: conds.length ? `WHERE ${conds.join(" AND ")}` : "",
+    params,
+  }
+}
+
+/** 站点范围内按 status 聚合（KPI，不受列表 status/keyword 筛选影响） */
+export async function countControlCommandsByStatus(
+  filter: Pick<ListControlCommandFilter, "sourceSiteId" | "sourceSiteIds"> = {},
+): Promise<Record<string, number>> {
+  const { where, params } = siteScopeConds(filter)
+  const res = await query<{ status: string; count: string }>(
+    `SELECT status, COUNT(*)::text AS count FROM control_command ${where} GROUP BY status`,
+    params,
+  )
+  const out: Record<string, number> = {}
+  for (const row of res.rows) {
+    out[row.status] = parseInt(row.count, 10)
+  }
+  return out
 }
 
 /**

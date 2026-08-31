@@ -95,7 +95,7 @@ export function AlertCenter() {
           </CardTitle>
           <button
             type="button"
-            onClick={() => router.push("/tasks?phase=alert")}
+            onClick={() => router.push("/tasks")}
             className="text-xs text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 flex items-center gap-1"
           >
             查看全部 <ChevronRight className="h-3 w-3" />
@@ -123,7 +123,7 @@ export function AlertCenter() {
               <div
                 key={task.id}
                 className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-                onClick={() => router.push("/tasks?phase=alert")}
+                onClick={() => router.push("/tasks")}
               >
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
                 <div className="flex-1 min-w-0">

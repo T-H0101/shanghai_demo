@@ -60,21 +60,14 @@ const TYPE_MODE_LABELS: Record<string, string> = {
 }
 
 /**
- * 列表「任务类型」筛选 —— 对齐磁光电 OPTIONS_CGD_BLACK
- * value 格式同业务 chooseType（如 0,7 / 1-0,1-1 / 4-10）
+ * 列表「任务类型」筛选：备份 / 恢复 / 巡检 / 扫描
+ * value 格式同业务 chooseType（如 0,7 / 1-0,1-1 / 1-12 / 4）
  */
 export const TASK_TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
-  { value: "0,7", label: "备份任务" },
-  { value: "1-0,1-1,1-2", label: "恢复任务" },
-  { value: "1-12", label: "巡检任务" },
-  { value: "4", label: "扫描任务" },
-  { value: "10", label: "加电任务" },
-  { value: "5,6", label: "硬盘复制" },
-  { value: "1-11", label: "光盘复制到硬盘" },
-  { value: "4-10", label: "接收任务" },
-  // { value: "9-0", label: "存证任务" },
-  // { value: "9-1", label: "验证任务" },
-  // { value: "0-6", label: "硬盘克隆" },
+  { value: "0,7", label: "备份" },
+  { value: "1-0,1-1,1-2", label: "恢复" },
+  { value: "1-12", label: "巡检" },
+  { value: "4", label: "扫描" },
 ]
 
 export type TaskTypeFilterGroup = {

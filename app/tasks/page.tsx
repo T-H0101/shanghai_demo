@@ -4,18 +4,16 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GlassPanel } from "@/components/platform/glass-panel"
 // 暂时隐藏：文件索引
 // import { TaskFileIndexPanel } from "@/components/tasks/task-file-index-panel"
@@ -41,7 +39,8 @@ import {
   formatRestoreFileStatus,
   isPhysicalRestoreTask,
 } from "@/lib/tasks/restore-file-display"
-import { useSite } from "@/lib/site/site-context"
+import { useSite, useSiteSites } from "@/lib/site/site-context"
+import { formatSiteLabel } from "@/components/users/site-field"
 import { buildTaskDeviceFilterHref, parseTaskDeviceFilter } from "@/lib/tasks/task-device-filter"
 import {
   Activity, Pause, Play, RotateCcw, RefreshCw, AlertTriangle, ClipboardList,
@@ -226,7 +225,6 @@ function TasksPageContent() {
   const [scopeFilter, setScopeFilter] = useState<string>("all")
   const [selected, setSelected] = useState<TaskItem | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [tab, setTab] = useState<string>("all")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
@@ -238,8 +236,13 @@ function TasksPageContent() {
 
   // Sprint 2F.4: 全局 siteCode
   const { siteCode, isAllSites, isReady: siteReady } = useSite()
+  const { sites } = useSiteSites()
+  const siteLabelByCode = useMemo(
+    () => new Map(sites.map((s) => [s.code, s.label])),
+    [sites],
+  )
 
-  const resolvedType = typeFilter !== "all" ? typeFilter : tab !== "all" ? tab : undefined
+  const resolvedType = typeFilter !== "all" ? typeFilter : undefined
 
   // 加载数据（服务端分页）
   const loadTasks = useCallback(async () => {
@@ -384,7 +387,7 @@ function TasksPageContent() {
   // 筛选变更时回到第 1 页
   useEffect(() => {
     setPage(1)
-  }, [keyword, typeFilter, statusFilter, scopeFilter, tab, phaseGroupQuery, deviceIdFilter, legacyDeviceFilter, deviceFilterSiteCode, isAllSites, siteCode])
+  }, [keyword, typeFilter, statusFilter, scopeFilter, phaseGroupQuery, deviceIdFilter, legacyDeviceFilter, deviceFilterSiteCode, isAllSites, siteCode])
 
   // 初始加载 + 条件变化重新加载
   useEffect(() => {
@@ -568,7 +571,7 @@ function TasksPageContent() {
   }
 
   const handleResetFilters = () => {
-    setKeyword(""); setTypeFilter("all"); setStatusFilter("all"); setScopeFilter("all"); setTab("all")
+    setKeyword(""); setTypeFilter("all"); setStatusFilter("all"); setScopeFilter("all")
     setPage(1)
     const params = new URLSearchParams(searchParams?.toString() ?? "")
     params.delete("phase")
@@ -592,7 +595,7 @@ function TasksPageContent() {
     router.push(`/tasks${qs ? `?${qs}` : ""}`)
   }
 
-  const hasFilters = keyword || typeFilter !== "all" || statusFilter !== "all" || phaseGroupQuery === "running" || scopeFilter !== "all" || tab !== "all" || hasDeviceFilter
+  const hasFilters = keyword || typeFilter !== "all" || statusFilter !== "all" || phaseGroupQuery === "running" || scopeFilter !== "all" || hasDeviceFilter
 
   const nowTime = () => formatBeijingTimeOnly(new Date())
 
@@ -664,74 +667,76 @@ function TasksPageContent() {
 
   if (view === "commands") {
     return (
-      <AppShell>
-        <PageHeader
-          title="任务管理"
-          description="集中查看任务状态、提交控制并跟踪站点代理执行结果"
-          badge="TASK CENTER"
-          actions={viewSwitcher}
-        />
-        <ControlCommandPanel />
+      <AppShell mainClassName="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
+          <div className="shrink-0">
+            <PageHeader
+              title="任务管理"
+              description="查看控制命令执行记录；暂停/继续/重置由总控直调站点并留痕"
+              badge="TASK CENTER"
+              actions={viewSwitcher}
+            />
+          </div>
+          <ControlCommandPanel />
+        </div>
       </AppShell>
     )
   }
 
   return (
-    <AppShell>
-      <PageHeader
-        title="任务管理"
-        description="档案数据封包、备份、恢复、扫描任务统一调度与监控"
-        badge="TASK CENTER"
-        actions={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {viewSwitcher}
-            <DataSourceBadge />
-            <Button
-              size="sm"
-              data-testid="task-create-open"
-              disabled={!siteReady || isAllSites}
-              title={
-                isAllSites
-                  ? "请先选择站点"
-                  : "跳转到站点业务系统创建任务"
-              }
-              onClick={handleOpenCreateTask}
-            >
-              <ClipboardList className="h-4 w-4 mr-1" />
-              新建任务
-            </Button>
-          </div>
-        }
-      />
-
-      {/* ── 统计卡片 ─────────────────────────────────────────── */}
-      <GlassPanel
-        testId="tasks-hero-glass-panel"
-        title="任务概览"
-        description="当前过滤条件下的任务运行态分布, 实时更新"
-      >
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <StatCard horizontal title="任务总数" value={allStats.total} unit="个" icon={Activity} />
-          <StatCard horizontal title="待处理" value={allStats.pending} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
-          <StatCard horizontal title="进行中" value={allStats.running} icon={Play} iconBg="bg-blue-50" iconColor="text-blue-600" />
-          <StatCard horizontal title="已完成" value={allStats.completed} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-          <StatCard horizontal title="已失败" value={allStats.failed} icon={AlertCircle} iconBg="bg-red-50" iconColor="text-red-600" />
-          <StatCard horizontal title="暂停命令已提交" value={allStats.paused} icon={Pause} iconBg="bg-amber-50" iconColor="text-amber-600" />
+    <AppShell mainClassName="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
+        <div className="shrink-0">
+          <PageHeader
+            title="任务管理"
+            description="档案数据封包、备份、恢复、扫描任务统一调度与监控"
+            badge="TASK CENTER"
+            actions={
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {viewSwitcher}
+                <DataSourceBadge />
+                <Button
+                  size="sm"
+                  className="h-8"
+                  data-testid="task-create-open"
+                  disabled={!siteReady || isAllSites}
+                  title={
+                    isAllSites
+                      ? "请先选择站点"
+                      : "跳转到站点业务系统创建任务"
+                  }
+                  onClick={handleOpenCreateTask}
+                >
+                  <ClipboardList className="h-4 w-4 mr-1" />
+                  新建任务
+                </Button>
+              </div>
+            }
+          />
         </div>
-      </GlassPanel>
 
-      {/* ── 筛选区 ───────────────────────────────────────────── */}
-      <Card className="gap-0 py-0">
-        <CardContent className="px-4 py-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5 flex-1 min-w-[200px]">
-              <Label className="text-xs text-slate-500">关键词搜索</Label>
-              <AppTooltip content="按任务名称 / 编号模糊搜索, 实时过滤">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        {/* ── KPI（无标题文案，定高页内不滚动） ───────────────── */}
+        <GlassPanel testId="tasks-hero-glass-panel" className="shrink-0">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6 lg:gap-4">
+            <StatCard horizontal title="任务总数" value={allStats.total} unit="个" icon={Activity} />
+            <StatCard horizontal title="待处理" value={allStats.pending} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
+            <StatCard horizontal title="进行中" value={allStats.running} icon={Play} iconBg="bg-blue-50" iconColor="text-blue-600" />
+            <StatCard horizontal title="已完成" value={allStats.completed} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+            <StatCard horizontal title="已失败" value={allStats.failed} icon={AlertCircle} iconBg="bg-red-50" iconColor="text-red-600" />
+            <StatCard horizontal title="暂停命令已提交" value={allStats.paused} icon={Pause} iconBg="bg-amber-50" iconColor="text-amber-600" />
+          </div>
+        </GlassPanel>
+
+        {/* ── 列表：工具栏 + 表体滚动 ─────────────────────────── */}
+        <Card className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden py-0" data-testid="tasks-list-card">
+          <CardHeader className="flex shrink-0 flex-col gap-2 space-y-0 border-b border-slate-100 px-4 !py-3 dark:border-slate-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <AppTooltip content="按任务名称 / 编号模糊搜索">
+                <div className="relative min-w-[12rem] flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     placeholder="任务名称 / 编号"
-                    className="pl-9 h-9"
+                    className="h-8 pl-9"
                     value={keyword}
                     onChange={e => setKeyword(e.target.value)}
                     data-testid="tasks-search-input"
@@ -739,12 +744,19 @@ function TasksPageContent() {
                   />
                 </div>
               </AppTooltip>
-            </div>
-            <div className="space-y-1.5 w-40">
-              <Label className="text-xs text-slate-500">任务类型</Label>
-              <AppTooltip content="按业务任务类型筛选 (磁光电)">
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="h-9" data-testid="tasks-type-filter"><SelectValue /></SelectTrigger>
+              <AppTooltip content="按业务任务类型筛选：备份 / 恢复 / 巡检 / 扫描">
+                <Select
+                  value={
+                    typeFilter === "all" ||
+                    TASK_TYPE_FILTER_OPTIONS.some((o) => o.value === typeFilter)
+                      ? typeFilter
+                      : "all"
+                  }
+                  onValueChange={setTypeFilter}
+                >
+                  <SelectTrigger className="h-8 w-[9.5rem]" data-testid="tasks-type-filter">
+                    <SelectValue placeholder="任务类型" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部类型</SelectItem>
                     {TASK_TYPE_FILTER_OPTIONS.map((o) => (
@@ -753,12 +765,19 @@ function TasksPageContent() {
                   </SelectContent>
                 </Select>
               </AppTooltip>
-            </div>
-            <div className="space-y-1.5 w-40">
-              <Label className="text-xs text-slate-500">状态</Label>
               <AppTooltip content="全部 / 正在运行中 / 已经结束 / 成功 / 警告 / 中止 / 暂停">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-9" data-testid="tasks-phase-filter"><SelectValue /></SelectTrigger>
+                <Select
+                  value={
+                    statusFilter === "all" ||
+                    TASK_STATUS_FILTER_OPTIONS.some((o) => o.value === statusFilter)
+                      ? statusFilter
+                      : "all"
+                  }
+                  onValueChange={setStatusFilter}
+                >
+                  <SelectTrigger className="h-8 w-[8.5rem]" data-testid="tasks-phase-filter">
+                    <SelectValue placeholder="状态" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">全部状态</SelectItem>
                     {TASK_STATUS_FILTER_OPTIONS.map((o) => (
@@ -767,128 +786,115 @@ function TasksPageContent() {
                   </SelectContent>
                 </Select>
               </AppTooltip>
-            </div>
-            <div className="space-y-1.5 w-28">
-              <Label className="text-xs text-slate-500">备份范围</Label>
               <AppTooltip content="全量 / 增量封包范围">
                 <Select value={scopeFilter} onValueChange={setScopeFilter}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-[7rem]" aria-label="备份范围">
+                    <SelectValue placeholder="范围" />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="all">全部范围</SelectItem>
                     <SelectItem value="full">全量</SelectItem>
                     <SelectItem value="incremental">增量</SelectItem>
                   </SelectContent>
                 </Select>
               </AppTooltip>
+              <AppTooltip content="清除所有筛选条件">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 cursor-pointer"
+                  onClick={handleResetFilters}
+                  disabled={!hasFilters}
+                  data-testid="tasks-reset-filters"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" />重置
+                </Button>
+              </AppTooltip>
+              <span className="ml-auto text-xs text-slate-400 shrink-0">
+                {listLoading ? "加载中…" : `本页 ${filtered.length} 条 · 共 ${total} 条`}
+              </span>
             </div>
-            <AppTooltip content="清除所有筛选条件, 显示全部任务">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                onClick={handleResetFilters}
-                disabled={!hasFilters}
-                data-testid="tasks-reset-filters"
-              >
-                <RefreshCw className="h-3.5 w-3.5 mr-1" />重置
-              </Button>
-            </AppTooltip>
-          </div>
-          {hasDeviceFilter && deviceFilterLabel && (
-            <div className="mt-2 flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
-                设备筛选: {deviceFilterLabel}
-                {deviceIdFilter && deviceFilterSiteCode && deviceFilterSiteCode !== "__all__" ? (
-                  <span className="ml-1 text-[10px] font-normal opacity-80">({deviceFilterSiteCode})</span>
-                ) : null}
-              </Badge>
-              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={handleClearDeviceFilter}>
-                清除
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Sprint 2F.3: 实时运行状态提示 — 当前速度/剩余时间已隐藏 */}
-      {/* <RuntimeDataNotice /> */}
-
-      {/* ── 任务表格 ─────────────────────────────────────────── */}
-      <Card className="gap-0">
-        <CardHeader className="pb-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="h-8">
-                <TabsTrigger value="all" className="text-xs">全部</TabsTrigger>
-                <TabsTrigger value="0,7" className="text-xs">备份</TabsTrigger>
-                <TabsTrigger value="1-0,1-1,1-2" className="text-xs">恢复</TabsTrigger>
-                <TabsTrigger value="1-12" className="text-xs">巡检</TabsTrigger>
-                <TabsTrigger value="4" className="text-xs">扫描</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <span className="text-xs text-slate-400 shrink-0">
-              {listLoading ? "加载中…" : `本页 ${filtered.length} 条 · 共 ${total} 条`}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-3 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">任务编号</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">任务名称</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">类型</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">范围</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap min-w-[140px]">进度</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">运行耗时</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">文件数</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">总大小</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">关联设备</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap">状态</TableHead>
-                <TableHead className="text-xs text-slate-500 whitespace-nowrap text-right">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={11} className="text-center py-10 text-slate-400">未找到匹配的任务</TableCell></TableRow>
-              ) : filtered.map(t => (
-                <TableRow key={`${t.siteCode}-${t.taskNo}-${t.id}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" onClick={() => openDetail(t)}>
-                  <TableCell className="font-mono text-xs text-slate-500">{t.taskNo}</TableCell>
+            {hasDeviceFilter && deviceFilterLabel && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                  设备筛选: {deviceFilterLabel}
+                  {deviceIdFilter && deviceFilterSiteCode && deviceFilterSiteCode !== "__all__" ? (
+                    <span className="ml-1 text-[10px] font-normal opacity-80">({deviceFilterSiteCode})</span>
+                  ) : null}
+                </Badge>
+                <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={handleClearDeviceFilter}>
+                  清除
+                </Button>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 overflow-auto p-0">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">站点</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">任务编号</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">任务名称</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">类型</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">范围</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap min-w-[140px]">进度</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">运行耗时</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">文件数</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">总大小</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">关联设备</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap">状态</TableHead>
+                  <TableHead className="text-sm text-slate-500 whitespace-nowrap text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow><TableCell colSpan={12} className="text-center py-10 text-slate-400">未找到匹配的任务</TableCell></TableRow>
+                ) : filtered.map(t => (
+                  <TableRow key={`${t.siteCode}-${t.taskNo}-${t.id}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" onClick={() => openDetail(t)}>
+                    <TableCell
+                      className="max-w-[10rem] text-sm"
+                      title={formatSiteLabel(t.siteCode, siteLabelByCode.get(t.siteCode))}
+                    >
+                      <span className="block truncate">
+                        {formatSiteLabel(t.siteCode, siteLabelByCode.get(t.siteCode))}
+                      </span>
+                    </TableCell>
+                  <TableCell className="font-mono text-sm text-slate-500">{t.taskNo}</TableCell>
                   <TableCell>
                     <p className="font-medium text-sm truncate max-w-[180px]" title={t.name}>{t.name}</p>
                   </TableCell>
-                  <TableCell><Badge variant="outline" className={cn("text-[10px]", typeColors[t.type])}>{taskTypeDisplay(t)}</Badge></TableCell>
-                  <TableCell className="text-xs">{t.backupScope === "full" ? "全量" : t.backupScope === "incremental" ? "增量" : "—"}</TableCell>
+                  <TableCell><Badge variant="outline" className={cn("font-normal", typeColors[t.type])}>{taskTypeDisplay(t)}</Badge></TableCell>
+                  <TableCell className="text-sm">{t.backupScope === "full" ? "全量" : t.backupScope === "incremental" ? "增量" : "—"}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {t.progress != null && t.progress > 0 ? (
                         <>
                           <Progress value={t.progress} className="h-1.5 flex-1" />
-                          <span className={cn("text-xs font-medium min-w-[32px] text-right", t.phase === "failed" ? "text-red-500" : "")}>{t.progress}%</span>
+                          <span className={cn("text-sm font-medium min-w-[32px] text-right", t.phase === "failed" ? "text-red-500" : "")}>{t.progress}%</span>
                         </>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-sm text-slate-400">—</span>
                       )}
                     </div>
-                    {t.speed && <p className="text-[10px] text-slate-400 mt-0.5">{t.speed}</p>}
+                    {t.speed && <p className="text-xs text-slate-400 mt-0.5">{t.speed}</p>}
                   </TableCell>
-                  <TableCell className="text-xs tabular-nums">
+                  <TableCell className="text-sm tabular-nums">
                     {t.runtime != null ? (
                       <span className="text-slate-700 font-medium">{formatRuntime(t.runtime)}</span>
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs tabular-nums">{t.fileCount?.toLocaleString() ?? "—"}</TableCell>
-                  <TableCell className="text-xs">{formatTotalSize(t.totalSize)}</TableCell>
+                  <TableCell className="text-sm tabular-nums">{t.fileCount?.toLocaleString() ?? "—"}</TableCell>
+                  <TableCell className="text-sm">{formatTotalSize(t.totalSize)}</TableCell>
                   <TableCell>
                     {t.deviceName && t.deviceId && t.siteCode ? (
-                      <Button variant="link" size="sm" className="h-auto p-0 text-xs text-blue-600" onClick={e => { e.stopPropagation(); router.push(buildTaskDeviceFilterHref({ siteCode: t.siteCode, deviceId: t.deviceId!, deviceName: t.deviceName })) }}>
+                      <Button variant="link" size="sm" className="h-auto p-0 text-sm text-blue-600" onClick={e => { e.stopPropagation(); router.push(buildTaskDeviceFilterHref({ siteCode: t.siteCode, deviceId: t.deviceId!, deviceName: t.deviceName })) }}>
                         {t.deviceName} <Link2 className="h-3 w-3 ml-0.5" />
                       </Button>
-                    ) : <span className="text-xs text-slate-300">—</span>}
+                    ) : <span className="text-sm text-slate-300">—</span>}
                   </TableCell>
-                  <TableCell><Badge className={cn("text-[10px]", taskStatusBadgeClass(t))}>{taskStatusDisplay(t)}</Badge></TableCell>
+                  <TableCell><Badge className={cn("font-normal", taskStatusBadgeClass(t))}>{taskStatusDisplay(t)}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-0.5 justify-end" onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="详情" aria-label="查看任务详情" onClick={() => openDetail(t)}><Eye className="h-3.5 w-3.5" /></Button>
@@ -912,54 +918,53 @@ function TasksPageContent() {
               ))}
             </TableBody>
           </Table>
+          </CardContent>
           {total > 0 && (
-            <div className="flex flex-col items-center justify-center gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 mt-3">
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  disabled={page <= 1 || listLoading}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+            <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={page <= 1 || listLoading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                上一页
+              </Button>
+              <span className="text-xs text-slate-500 tabular-nums">
+                第 {page} / {totalPages} 页 · 共 {total} 条
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={page >= totalPages || listLoading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                下一页
+              </Button>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400">每页</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => {
+                    setPageSize(Number(v))
+                    setPage(1)
+                  }}
                 >
-                  上一页
-                </Button>
-                <span className="text-xs text-slate-500 tabular-nums">
-                  第 {page} / {totalPages} 页 · 共 {total} 条
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  disabled={page >= totalPages || listLoading}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  下一页
-                </Button>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-slate-400">每页</span>
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={(v) => {
-                      setPageSize(Number(v))
-                      setPage(1)
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-[88px]" aria-label="每页条数">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAGE_SIZE_OPTIONS.map((n) => (
-                        <SelectItem key={n} value={String(n)}>{n} 条</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <SelectTrigger className="h-8 w-[88px]" aria-label="每页条数">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n} 条</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
 
       {/* ── 任务详情抽屉 ─────────────────────────────────────── */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
@@ -1180,6 +1185,10 @@ function TasksPageContent() {
                 <section className="shrink-0">
                   <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-slate-400" />基本信息</h4>
                   <div className="grid grid-cols-3 gap-2.5">
+                    <DetailField
+                      label="所属站点"
+                      value={formatSiteLabel(selected.siteCode, siteLabelByCode.get(selected.siteCode))}
+                    />
                     <DetailField label="任务编号" value={selected.taskNo} />
                     <DetailField label="任务类型" value={<Badge variant="outline" className={cn("text-[10px]", typeColors[selected.type])}>{taskTypeDisplay(selected)}</Badge>} />
                     <DetailField label="备份范围" value={selected.backupScope === "full" ? "全量" : selected.backupScope === "incremental" ? "增量" : "—"} />

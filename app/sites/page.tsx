@@ -458,12 +458,12 @@ export default function Page() {
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-xs text-slate-500">站点</TableHead>
-                    <TableHead className="text-xs text-slate-500">状态</TableHead>
-                    <TableHead className="text-xs text-slate-500">IP:端口</TableHead>
-                    <TableHead className="text-xs text-slate-500">设备</TableHead>
-                    <TableHead className="text-xs text-slate-500">同步</TableHead>
-                    <TableHead className="text-xs text-slate-500">操作</TableHead>
+                    <TableHead className="text-sm text-slate-500">站点</TableHead>
+                    <TableHead className="text-sm text-slate-500">状态</TableHead>
+                    <TableHead className="text-sm text-slate-500">IP:端口</TableHead>
+                    <TableHead className="text-sm text-slate-500">设备</TableHead>
+                    <TableHead className="text-sm text-slate-500">同步</TableHead>
+                    <TableHead className="text-sm text-slate-500">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

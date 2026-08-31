@@ -62,7 +62,7 @@ function LocationCell({
   const nameLine = `${siteName?.trim() || siteCode} / ${deviceName?.trim() || "—"}`
   const ipLine = `${siteIp?.trim() || siteCode} / ${formatEndpoint(deviceIp, devicePort)}`
   return (
-    <div className="text-xs leading-5">
+    <div className="text-sm leading-5">
       <div>{nameLine}</div>
       <div className="font-mono text-slate-500 dark:text-slate-400">{ipLine}</div>
     </div>
@@ -172,29 +172,29 @@ export function CageMoveHistoryView({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
             <TableRow>
-              <TableHead className="text-xs">登记时间</TableHead>
-              <TableHead className="text-xs">盘笼RFID</TableHead>
-              <TableHead className="text-xs">原位置</TableHead>
-              <TableHead className="text-xs">目标位置</TableHead>
-              <TableHead className="text-xs">登记人</TableHead>
-              <TableHead className="text-xs">状态</TableHead>
-              <TableHead className="text-xs text-right">操作</TableHead>
+              <TableHead className="text-sm text-slate-500">登记时间</TableHead>
+              <TableHead className="text-sm text-slate-500">盘笼RFID</TableHead>
+              <TableHead className="text-sm text-slate-500">原位置</TableHead>
+              <TableHead className="text-sm text-slate-500">目标位置</TableHead>
+              <TableHead className="text-sm text-slate-500">登记人</TableHead>
+              <TableHead className="text-sm text-slate-500">状态</TableHead>
+              <TableHead className="text-sm text-slate-500 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-xs text-slate-400">
+                <TableCell colSpan={7} className="h-24 text-center text-sm text-slate-400">
                   {loading ? "加载登记记录…" : "暂无登记"}
                 </TableCell>
               </TableRow>
             ) : (
               items.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="text-xs whitespace-nowrap">
+                  <TableCell className="text-sm whitespace-nowrap">
                     {formatBeijingTime(row.created_at)}
                   </TableCell>
-                  <TableCell className="text-xs font-mono">{row.magazine_rfid}</TableCell>
+                  <TableCell className="text-sm font-mono">{row.magazine_rfid}</TableCell>
                   <TableCell>
                     <LocationCell
                       siteName={row.source_site_name}
@@ -215,8 +215,8 @@ export function CageMoveHistoryView({
                       devicePort={row.target_device_port}
                     />
                   </TableCell>
-                  <TableCell className="text-xs">{row.registrar_name}</TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell className="text-sm">{row.registrar_name}</TableCell>
+                  <TableCell className="text-sm">
                     {row.status === "registered" ? "已登记" : row.status}
                   </TableCell>
                   <TableCell className="text-right">
@@ -224,7 +224,7 @@ export function CageMoveHistoryView({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 text-xs text-red-600"
+                      className="h-7 text-sm text-red-600"
                       onClick={() => setPending(row)}
                       data-testid="cage-move-cancel"
                     >

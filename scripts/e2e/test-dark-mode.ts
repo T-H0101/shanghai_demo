@@ -166,8 +166,8 @@ async function main() {
     /dark:bg-emerald-900\/30/.test(headerSrc) || /dark:bg-amber-900\/30/.test(headerSrc),
   )
   check(
-    "Header: 通知 Bell icon 含 dark:text-slate-300",
-    /dark:text-slate-300/.test(headerSrc),
+    "Header: 通知铃铛已隐藏（接口未接入）",
+    headerSrc.includes("通知铃铛暂隐藏"),
   )
 
   // ── 6. sync-trend-chart 引入 useTheme + lib/chart-theme ──

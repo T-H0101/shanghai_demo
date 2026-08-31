@@ -758,18 +758,18 @@ export default function Page() {
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">设备名称</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">IP 地址</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">设备类型</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">所属站点</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">总容量</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">剩余容量</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap min-w-[100px]">使用率</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">盘位</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">任务数</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">最近同步</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap">状态</TableHead>
-                    <TableHead className="text-xs text-slate-500 whitespace-nowrap text-right">操作</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">设备名称</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">IP 地址</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">设备类型</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">所属站点</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">总容量</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">剩余容量</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap min-w-[100px]">使用率</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">盘位</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">任务数</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">最近同步</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap">状态</TableHead>
+                    <TableHead className="text-sm text-slate-500 whitespace-nowrap text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -790,30 +790,29 @@ export default function Page() {
                       <TableRow key={`${r.siteCode}-${r.rackId}-${r.id}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" onClick={() => openDrawerDetail(r)}>
                         <TableCell>
                           <p className="font-medium text-sm">{r.rackName}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">ID {r.rackId}</p>
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{r.ip ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{r.deviceType ?? "—"}</TableCell>
+                        <TableCell className="font-mono text-sm">{r.ip ?? "—"}</TableCell>
+                        <TableCell className="text-sm">{r.deviceType ?? "—"}</TableCell>
                         <TableCell><p className="text-sm">{r.siteName}</p></TableCell>
-                        <TableCell className="text-xs">{r.totalCapacity ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{r.remainingCapacity ?? "—"}</TableCell>
+                        <TableCell className="text-sm">{r.totalCapacity ?? "—"}</TableCell>
+                        <TableCell className="text-sm">{r.remainingCapacity ?? "—"}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {r.usagePercent != null ? (
                               <>
                                 <Progress value={r.usagePercent} className="h-1.5 flex-1" />
-                                <span className="text-xs tabular-nums min-w-[32px] text-right">{r.usagePercent}%</span>
+                                <span className="text-sm tabular-nums min-w-[32px] text-right">{r.usagePercent}%</span>
                               </>
                             ) : (
-                              <span className="text-xs text-slate-400">—</span>
+                              <span className="text-sm text-slate-400">—</span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs">{r.totalSlots > 0 ? `${r.usedSlots ?? "—"}/${r.totalSlots}` : "—"}</TableCell>
-                        <TableCell className="text-xs tabular-nums">{r.currentTaskCount ?? 0}</TableCell>
-                        <TableCell className="text-[10px] text-slate-400 whitespace-nowrap">{formatBeijingTime(r.lastSyncAt) || "—"}</TableCell>
+                        <TableCell className="text-sm">{r.totalSlots > 0 ? `${r.usedSlots ?? "—"}/${r.totalSlots}` : "—"}</TableCell>
+                        <TableCell className="text-sm tabular-nums">{r.currentTaskCount ?? 0}</TableCell>
+                        <TableCell className="text-sm text-slate-500 whitespace-nowrap">{formatBeijingTime(r.lastSyncAt) || "—"}</TableCell>
                         <TableCell>
-                          <Badge className={cn("text-[10px]", ds.color)}>
+                          <Badge className={cn("font-normal", ds.color)}>
                             <DsIcon className="h-3 w-3 mr-1" />{ds.label}
                           </Badge>
                         </TableCell>

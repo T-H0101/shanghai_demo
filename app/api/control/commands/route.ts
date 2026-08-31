@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server"
 import {
   createControlCommand,
   listControlCommands,
+  countControlCommandsByStatus,
   COMMAND_TYPES,
   TARGET_TYPES,
   type CommandType,
@@ -152,19 +153,35 @@ export async function GET(req: NextRequest) {
   const scope = resolveSiteScope(session!, siteCodeParam ?? null)
   const commandType = (url.searchParams.get("commandType") as CommandType | null) ?? undefined
   const status = (url.searchParams.get("status") as any) ?? undefined
-  const limit = Number(url.searchParams.get("limit") ?? 100)
-  const offset = Number(url.searchParams.get("offset") ?? 0)
+  const keyword = url.searchParams.get("keyword") ?? undefined
+  const pageSizeRaw = url.searchParams.get("pageSize") ?? url.searchParams.get("limit") ?? "20"
+  const pageRaw = url.searchParams.get("page")
+  const pageSize = Math.min(Math.max(Number(pageSizeRaw) || 20, 1), 200)
+  const page = pageRaw ? Math.max(Number(pageRaw) || 1, 1) : null
+  const limit = page != null ? pageSize : Number(url.searchParams.get("limit") ?? 100)
+  const offset =
+    page != null
+      ? (page - 1) * pageSize
+      : Number(url.searchParams.get("offset") ?? 0)
+
+  const siteFilter = {
+    sourceSiteId: scope.kind === "single" ? scope.siteCode : undefined,
+    sourceSiteIds: scope.kind === "listed" ? scope.siteCodes : undefined,
+  }
 
   try {
-    const result = await listControlCommands({
-      sourceSiteId: scope.kind === "single" ? scope.siteCode : undefined,
-      sourceSiteIds: scope.kind === "listed" ? scope.siteCodes : undefined,
-      commandType,
-      status,
-      limit,
-      offset,
-    })
-    return NextResponse.json({ ok: true, ...result })
+    const [result, statusCounts] = await Promise.all([
+      listControlCommands({
+        ...siteFilter,
+        commandType,
+        status,
+        keyword,
+        limit,
+        offset,
+      }),
+      countControlCommandsByStatus(siteFilter),
+    ])
+    return NextResponse.json({ ok: true, ...result, statusCounts })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },

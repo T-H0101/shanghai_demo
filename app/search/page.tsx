@@ -852,16 +852,16 @@ export default function Page() {
                 </colgroup>
                 <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:bg-card">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">名称</TableHead>
-                    {/* <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">类型</TableHead> */}
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">路径</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">大小</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">站点</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">备份位置</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">扩展名</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500">校验码</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500 whitespace-nowrap">创建时间</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-xs text-slate-500 whitespace-nowrap">操作</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">名称</TableHead>
+                    {/* <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">类型</TableHead> */}
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">路径</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">大小</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">站点</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">备份位置</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">扩展名</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">校验码</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500 whitespace-nowrap">创建时间</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500 whitespace-nowrap">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -889,20 +889,20 @@ export default function Page() {
                           {/* <TableCell className="align-top whitespace-nowrap text-sm">
                             {f.docType === "folder" ? "目录" : "文件"}
                           </TableCell> */}
-                          <TableCell className="align-top max-w-0 whitespace-normal break-all font-mono text-xs">
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all font-mono text-sm">
                             {f.path || "—"}
                           </TableCell>
                           <TableCell className="align-top whitespace-nowrap text-sm">{f.size}</TableCell>
                           <TableCell className="align-top max-w-0 whitespace-normal break-all text-sm">
                             {siteLabel || "—"}
                           </TableCell>
-                          <TableCell className="align-top max-w-0 whitespace-normal break-all text-xs">
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all text-sm">
                             {f.locationLabel || "—"}
                           </TableCell>
                           <TableCell className="align-top max-w-0 whitespace-normal break-all text-sm">
                             {f.fileType || "—"}
                           </TableCell>
-                          <TableCell className="align-top max-w-0 whitespace-normal break-all font-mono text-xs text-slate-500">
+                          <TableCell className="align-top max-w-0 whitespace-normal break-all font-mono text-sm text-slate-500">
                             {f.checksum || "—"}
                           </TableCell>
                           <TableCell className="align-top whitespace-nowrap text-sm text-slate-500">
