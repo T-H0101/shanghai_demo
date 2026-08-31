@@ -247,8 +247,14 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       } else {
         params.set("siteCode", code)
       }
-      const qs = params.toString()
+      // 任务页：切换顶部站点时同步清空设备 deep link 筛选（一次 replace，避免与页面 effect 竞态）
       const basePath = pathname ?? "/"
+      if (basePath === "/tasks" || basePath.startsWith("/tasks/")) {
+        params.delete("deviceId")
+        params.delete("deviceName")
+        params.delete("device")
+      }
+      const qs = params.toString()
       router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
     },
     [searchParams, router, pathname, syncSiteCode]
