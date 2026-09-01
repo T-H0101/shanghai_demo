@@ -16,7 +16,7 @@ import { randomBytes } from "crypto"
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(req)
-    requirePermission(session, "platform:read")
+    requirePermission(session, "sync:read")
   } catch (e) {
     if (e instanceof NextResponse) return e
   }
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(req)
-    requirePermission(session, "platform:read")
+    requirePermission(session, "sync:read")
   } catch (e) {
     if (e instanceof NextResponse) return e
   }

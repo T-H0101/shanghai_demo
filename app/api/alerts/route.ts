@@ -127,7 +127,7 @@ async function fetchFailedControlCommands(): Promise<RawAlert[]> {
 export async function GET(request: NextRequest) {
   try {
     const session = await requireSession(request)
-    requirePermission(session, "platform:read")
+    requirePermission(session, "dashboard:read")
 
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get("page") ?? "1")

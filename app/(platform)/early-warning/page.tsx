@@ -8,7 +8,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
 import { TimeDisplay } from "@/components/shared/time-format"
@@ -275,7 +274,7 @@ export default function EarlyWarningPage() {
   }
 
   return (
-    <AppShell mainClassName="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
         <div className="shrink-0">
           <PageHeader
@@ -589,6 +588,6 @@ export default function EarlyWarningPage() {
           </DetailPanel>
         </div>
       </div>
-    </AppShell>
+    </div>
   )
 }

@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query, transaction } from "@/lib/db"
-import { requirePermission, requireSession } from "@/lib/auth/middleware"
+import { requireDashboardReadOr, requireSession } from "@/lib/auth/middleware"
 import { resolveSiteScope, sqlColumnInSiteScope, type SiteScope } from "@/lib/auth/site-scope"
 import { guardR83Api } from "@/lib/auth/r83-api-guard"
 import {
@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
   const traceId = `rbac-early-warning-${Date.now()}`
   try {
     const session = await requireSession(req)
-    requirePermission(session, "platform:read")
+    requireDashboardReadOr(session, "early_warning:read")
 
     const url = new URL(req.url)
     const siteCodeParam = url.searchParams.get("siteCode")

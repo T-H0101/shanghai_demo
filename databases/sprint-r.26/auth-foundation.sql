@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS auth_accounts (
   last_login_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT auth_accounts_status_check CHECK (status IN ('active', 'disabled', 'locked')),
-  CONSTRAINT auth_accounts_role_check CHECK (role IN ('group_admin', 'site_admin', 'auditor', 'operator', 'viewer'))
+  CONSTRAINT auth_accounts_status_check CHECK (status IN ('active', 'disabled', 'locked'))
+  -- auth_accounts_role_check 已移除：支持自定义角色（见 ensureAuthSchema / sprint-rbac-m）
 );
 
 CREATE TABLE IF NOT EXISTS auth_login_audit (
@@ -49,23 +49,61 @@ CREATE INDEX IF NOT EXISTS idx_auth_login_audit_result_created
 CREATE INDEX IF NOT EXISTS idx_auth_accounts_status
   ON auth_accounts(status);
 
+-- 细粒度菜单权限种子（中期 RBAC；不再写入 platform:read）
 INSERT INTO auth_role_permissions(role, permission) VALUES
-  ('group_admin', 'platform:read'),
-  ('group_admin', 'platform:operate'),
+  ('group_admin', 'dashboard:read'),
+  ('group_admin', 'sites:list'),
+  ('group_admin', 'sites:read'),
+  ('group_admin', 'search:read'),
+  ('group_admin', 'sync:read'),
+  ('group_admin', 'sync:operate'),
+  ('group_admin', 'tasks:read'),
+  ('group_admin', 'control:submit'),
+  ('group_admin', 'task:create'),
+  ('group_admin', 'racks:read'),
+  ('group_admin', 'volumes:read'),
+  ('group_admin', 'cage_moves:read'),
+  ('group_admin', 'racks:operate'),
+  ('group_admin', 'early_warning:read'),
   ('group_admin', 'users:read'),
   ('group_admin', 'users:write'),
-  ('group_admin', 'sync:operate'),
-  ('group_admin', 'control:submit'),
+  ('group_admin', 'user:manage'),
   ('group_admin', 'audit:read'),
-  ('site_admin', 'platform:read'),
-  ('site_admin', 'users:read'),
+  ('group_admin', 'platform:operate'),
+  ('site_admin', 'dashboard:read'),
+  ('site_admin', 'sites:list'),
+  ('site_admin', 'sites:read'),
+  ('site_admin', 'search:read'),
+  ('site_admin', 'sync:read'),
   ('site_admin', 'sync:operate'),
+  ('site_admin', 'tasks:read'),
   ('site_admin', 'control:submit'),
-  ('operator', 'platform:read'),
+  ('site_admin', 'task:create'),
+  ('site_admin', 'racks:read'),
+  ('site_admin', 'volumes:read'),
+  ('site_admin', 'cage_moves:read'),
+  ('site_admin', 'racks:operate'),
+  ('site_admin', 'early_warning:read'),
+  ('site_admin', 'users:read'),
+  ('operator', 'dashboard:read'),
+  ('operator', 'search:read'),
+  ('operator', 'tasks:read'),
   ('operator', 'control:submit'),
-  ('auditor', 'platform:read'),
+  ('operator', 'task:create'),
+  ('operator', 'racks:read'),
+  ('operator', 'volumes:read'),
+  ('operator', 'cage_moves:read'),
+  ('operator', 'early_warning:read'),
   ('auditor', 'audit:read'),
-  ('viewer', 'platform:read')
+  ('viewer', 'dashboard:read'),
+  ('viewer', 'sites:list'),
+  ('viewer', 'search:read'),
+  ('viewer', 'sync:read'),
+  ('viewer', 'tasks:read'),
+  ('viewer', 'racks:read'),
+  ('viewer', 'volumes:read'),
+  ('viewer', 'cage_moves:read'),
+  ('viewer', 'early_warning:read')
 ON CONFLICT (role, permission) DO NOTHING;
 
 -- Local development bootstrap account. Replace through ops/admin process before production use.

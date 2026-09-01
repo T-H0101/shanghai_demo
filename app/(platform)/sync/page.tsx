@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { AppShell } from '@/components/layout/app-shell'
 import { PageHeader } from '@/components/platform/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -567,7 +566,7 @@ export default function SyncCenterPage() {
   const warningSyncAlerts = syncAlerts.filter((item) => item.severity === "warning").length
 
   return (
-    <AppShell>
+    <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
       <div className="space-y-5">
         <PageHeader
           title="同步中心"
@@ -1286,6 +1285,6 @@ export default function SyncCenterPage() {
           </Card>
         )}
       </div>
-    </AppShell>
+    </div>
   )
 }

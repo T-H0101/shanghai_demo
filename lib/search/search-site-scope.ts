@@ -18,7 +18,7 @@ export type { SiteScope }
 
 export async function requireSearchSession(request: NextRequest): Promise<AuthUser> {
   const session = await requireSession(request)
-  requirePermission(session, "platform:read")
+  requirePermission(session, "search:read")
   return session
 }
 

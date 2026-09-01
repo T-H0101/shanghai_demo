@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertTriangle, Database, KeyRound, RefreshCw, Server, ShieldAlert } from "lucide-react"
-import { AppShell } from "@/components/layout/app-shell"
 import { CapsuleTabs, type CapsuleTabItem } from "@/components/platform/capsule-tabs"
 import { GlassPanel } from "@/components/platform/glass-panel"
 import { PageHeader } from "@/components/platform/page-header"
@@ -627,7 +626,7 @@ export default function Page() {
   )
 
   return (
-    <AppShell>
+    <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
       <PageHeader
         title="系统设置"
         description="查看运行健康、站点注册与安全配置引用（只读）"
@@ -670,7 +669,7 @@ export default function Page() {
         items={tabItems}
         testId="settings-tabs"
       />
-    </AppShell>
+    </div>
   )
 }
 

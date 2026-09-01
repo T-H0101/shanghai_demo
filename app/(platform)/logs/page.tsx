@@ -22,7 +22,6 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from "react"
-import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
 import { DetailPanel, DetailRow } from "@/components/platform/detail-panel"
@@ -422,7 +421,7 @@ export default function Page() {
   // })()
 
   return (
-    <AppShell>
+    <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
       <PageHeader
         title="日志检索"
         description="同步包/表/调度/控制/审计/登录审计统一查询与导出"
@@ -778,6 +777,6 @@ export default function Page() {
           </div>
         </CardContent>
       </Card>
-    </AppShell>
+    </div>
   )
 }

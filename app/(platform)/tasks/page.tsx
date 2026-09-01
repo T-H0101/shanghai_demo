@@ -1,7 +1,6 @@
 "use client"
 import { useState, useMemo, useCallback, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -199,7 +198,7 @@ function DataSourceBadge() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<AppShell><div className="flex items-center justify-center h-64 text-slate-400">加载中...</div></AppShell>}>
+    <Suspense fallback={<div className="space-y-4 p-4 lg:space-y-6 lg:p-6"><div className="flex items-center justify-center h-64 text-slate-400">加载中...</div></div>}>
       <TasksPageContent />
     </Suspense>
   )
@@ -667,7 +666,7 @@ function TasksPageContent() {
 
   if (view === "commands") {
     return (
-      <AppShell mainClassName="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+      <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
           <div className="shrink-0">
             <PageHeader
@@ -679,12 +678,12 @@ function TasksPageContent() {
           </div>
           <ControlCommandPanel />
         </div>
-      </AppShell>
+      </div>
     )
   }
 
   return (
-    <AppShell mainClassName="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
         <div className="shrink-0">
           <PageHeader
@@ -1283,6 +1282,6 @@ function TasksPageContent() {
         </DialogContent>
       </Dialog>
 
-    </AppShell>
+    </div>
   )
 }

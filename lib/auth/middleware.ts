@@ -15,7 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { formatPermissionLabel } from "./permission-labels"
+import { formatPermissionLabel, hasAnyPermission, hasPermission } from "./permissions-catalog"
 import { sessionFromRequest, type AuthUser } from "./server"
 
 export class AuthError extends NextResponse {
@@ -40,15 +40,32 @@ export async function requireSession(request: NextRequest): Promise<AuthUser> {
 
 /**
  * 检查 session 是否拥有指定权限, 无权限返回 403
+ * 兼容：持有 legacy platform:read 时视为拥有全部业务 *:read
  */
 export function requirePermission(session: AuthUser, permission: string): void {
-  if (!session.permissions.includes(permission)) {
+  if (!hasPermission(session.permissions, permission)) {
     throw new AuthError(
       403,
       "AUTH_FORBIDDEN",
       `缺少权限: ${formatPermissionLabel(permission)}`,
     )
   }
+}
+
+/** 拥有 required 中任一权限即可 */
+export function requireAnyPermission(session: AuthUser, permissions: string[]): void {
+  if (!hasAnyPermission(session.permissions, permissions)) {
+    const labels = permissions.map(formatPermissionLabel).join(" / ")
+    throw new AuthError(403, "AUTH_FORBIDDEN", `缺少权限: ${labels}`)
+  }
+}
+
+/**
+ * 控制台汇总可读：有 dashboard:read 即可拉业务只读汇总；
+ * 或持有对应模块读权限（进模块页时也够用）。
+ */
+export function requireDashboardReadOr(session: AuthUser, permission: string): void {
+  requireAnyPermission(session, ["dashboard:read", permission])
 }
 
 /**

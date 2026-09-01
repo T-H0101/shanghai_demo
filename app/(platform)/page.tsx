@@ -1,6 +1,5 @@
 "use client"
 
-import { AppShell } from "@/components/layout/app-shell"
 import { CommandCenterPanel } from "@/components/dashboard/command-center-panel"
 import { SyncTrendChart } from "@/components/dashboard/sync-trend-chart"
 import { EarlyWarningPreview } from "@/components/dashboard/early-warning-preview"
@@ -8,7 +7,7 @@ import { AlertCenter } from "@/components/dashboard/alert-center"
 
 export default function Page() {
   return (
-    <AppShell>
+    <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
       {/* 数据源提示暂不展示
       <div className="flex items-center gap-2 px-1 text-[10px] text-slate-500" data-testid="dashboard-datasource">
         <Database className="h-3 w-3" />
@@ -26,6 +25,6 @@ export default function Page() {
           <AlertCenter />
         </div>
       </div>
-    </AppShell>
+    </div>
   )
 }

@@ -53,7 +53,7 @@ export interface AuthUser {
   id: string
   username: string
   displayName: string | null
-  role: AuthRole
+  role: string
   department: string | null
   accessibleSites: string[]
   siteCode: string
@@ -68,7 +68,7 @@ interface AccountRow {
   username: string
   display_name: string | null
   password_hash: string
-  role: AuthRole
+  role: string
   department: string | null
   accessible_sites: string[] | null
   status: string
@@ -118,30 +118,59 @@ CREATE INDEX IF NOT EXISTS idx_auth_login_audit_username_created
 CREATE INDEX IF NOT EXISTS idx_auth_login_audit_result_created
   ON auth_login_audit(result, created_at DESC);
 INSERT INTO auth_role_permissions(role, permission) VALUES
-  ('group_admin', 'platform:read'),
-  ('group_admin', 'platform:operate'),
+  ('group_admin', 'dashboard:read'),
+  ('group_admin', 'sites:list'),
+  ('group_admin', 'sites:read'),
+  ('group_admin', 'search:read'),
+  ('group_admin', 'sync:read'),
+  ('group_admin', 'sync:operate'),
+  ('group_admin', 'tasks:read'),
+  ('group_admin', 'control:submit'),
+  ('group_admin', 'task:create'),
+  ('group_admin', 'racks:read'),
+  ('group_admin', 'volumes:read'),
+  ('group_admin', 'cage_moves:read'),
+  ('group_admin', 'racks:operate'),
+  ('group_admin', 'early_warning:read'),
   ('group_admin', 'users:read'),
   ('group_admin', 'users:write'),
   ('group_admin', 'user:manage'),
-  ('group_admin', 'sync:operate'),
-  ('group_admin', 'control:submit'),
-  ('group_admin', 'task:create'),
-  ('group_admin', 'racks:operate'),
-  ('group_admin', 'sites:read'),
   ('group_admin', 'audit:read'),
-  ('site_admin', 'platform:read'),
-  ('site_admin', 'users:read'),
+  ('group_admin', 'platform:operate'),
+  ('site_admin', 'dashboard:read'),
+  ('site_admin', 'sites:list'),
+  ('site_admin', 'sites:read'),
+  ('site_admin', 'search:read'),
+  ('site_admin', 'sync:read'),
   ('site_admin', 'sync:operate'),
+  ('site_admin', 'tasks:read'),
   ('site_admin', 'control:submit'),
   ('site_admin', 'task:create'),
+  ('site_admin', 'racks:read'),
+  ('site_admin', 'volumes:read'),
+  ('site_admin', 'cage_moves:read'),
   ('site_admin', 'racks:operate'),
-  ('site_admin', 'sites:read'),
-  ('operator', 'platform:read'),
+  ('site_admin', 'early_warning:read'),
+  ('site_admin', 'users:read'),
+  ('operator', 'dashboard:read'),
+  ('operator', 'search:read'),
+  ('operator', 'tasks:read'),
   ('operator', 'control:submit'),
   ('operator', 'task:create'),
-  ('auditor', 'platform:read'),
+  ('operator', 'racks:read'),
+  ('operator', 'volumes:read'),
+  ('operator', 'cage_moves:read'),
+  ('operator', 'early_warning:read'),
   ('auditor', 'audit:read'),
-  ('viewer', 'platform:read')
+  ('viewer', 'dashboard:read'),
+  ('viewer', 'sites:list'),
+  ('viewer', 'search:read'),
+  ('viewer', 'sync:read'),
+  ('viewer', 'tasks:read'),
+  ('viewer', 'racks:read'),
+  ('viewer', 'volumes:read'),
+  ('viewer', 'cage_moves:read'),
+  ('viewer', 'early_warning:read')
 ON CONFLICT (role, permission) DO NOTHING;
 INSERT INTO auth_accounts (
   username, display_name, password_hash, role, department, accessible_sites, status
@@ -204,13 +233,97 @@ CREATE TABLE IF NOT EXISTS auth_oidc_id_tokens (
   expires_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS auth_roles (
+  code VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  builtin BOOLEAN NOT NULL DEFAULT FALSE,
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO auth_roles(code, name, description, builtin) VALUES
+  ('group_admin', '集团管理员', '管理全部站点与平台配置，拥有最高操作权限。', TRUE),
+  ('site_admin', '站点管理员', '管理授权站点内的同步、任务控制与盘笼移位等。', TRUE),
+  ('operator', '操作员', '在授权站点内提交任务控制与创建相关操作。', TRUE),
+  ('auditor', '审计员', '仅查看审计日志，不参与业务读写。', TRUE),
+  ('viewer', '只读用户', '只读查看业务数据，不可写操作。', TRUE)
+ON CONFLICT (code) DO NOTHING;
+-- 自定义角色：去掉仅允许 5 个内置角色的 CHECK
+ALTER TABLE auth_accounts DROP CONSTRAINT IF EXISTS auth_accounts_role_check;
 `
 
 let schemaReady: Promise<void> | null = null
 
+/**
+ * 一次性将内置角色权限矩阵同步到细粒度菜单权限（中期 RBAC）。
+ * 仅在 flag 未写入时执行，之后管理员在 UI 上的修改不会被覆盖。
+ */
+async function migrateBuiltinRolePermissionsV1(): Promise<void> {
+  const {
+    BUILTIN_ROLE_PERMISSIONS,
+    RBAC_MIGRATION_FLAG,
+  } = await import("./permissions-catalog")
+
+  const flag = await query<{ value: string }>(
+    `SELECT value FROM auth_system_config WHERE key = $1 LIMIT 1`,
+    [RBAC_MIGRATION_FLAG],
+  )
+  if (flag.rows[0]?.value === "1") return
+
+  await transaction(async (client) => {
+    for (const [role, perms] of Object.entries(BUILTIN_ROLE_PERMISSIONS)) {
+      await client.query(`DELETE FROM auth_role_permissions WHERE role = $1`, [role])
+      for (const permission of perms) {
+        await client.query(
+          `INSERT INTO auth_role_permissions(role, permission) VALUES ($1, $2)
+           ON CONFLICT (role, permission) DO NOTHING`,
+          [role, permission],
+        )
+      }
+    }
+    await client.query(
+      `INSERT INTO auth_system_config(key, value, description)
+       VALUES ($1, '1', '内置角色已迁移到菜单级细粒度权限；此后不再自动覆写')
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [RBAC_MIGRATION_FLAG],
+    )
+  })
+}
+
+/**
+ * 一次性清除残留 platform:read。
+ * 该码不在角色编辑勾选列表中，但 hasPermission 会展开为全部业务 *:read，
+ * 导致「下方勾选不全、上方可访问菜单全亮」；保存时又会被 normalize 丢掉。
+ */
+async function stripLegacyPlatformReadV1(): Promise<void> {
+  const { RBAC_STRIP_PLATFORM_READ_FLAG } = await import("./permissions-catalog")
+
+  const flag = await query<{ value: string }>(
+    `SELECT value FROM auth_system_config WHERE key = $1 LIMIT 1`,
+    [RBAC_STRIP_PLATFORM_READ_FLAG],
+  )
+  if (flag.rows[0]?.value === "1") return
+
+  await transaction(async (client) => {
+    await client.query(
+      `DELETE FROM auth_role_permissions WHERE permission = 'platform:read'`,
+    )
+    await client.query(
+      `INSERT INTO auth_system_config(key, value, description)
+       VALUES ($1, '1', '已清除角色权限中的残留 platform:read')
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [RBAC_STRIP_PLATFORM_READ_FLAG],
+    )
+  })
+}
+
 export function ensureAuthSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = query(SCHEMA_SQL).then(() => undefined)
+    schemaReady = query(SCHEMA_SQL)
+      .then(() => migrateBuiltinRolePermissionsV1())
+      .then(() => stripLegacyPlatformReadV1())
+      .then(() => undefined)
   }
   return schemaReady
 }
@@ -265,12 +378,22 @@ async function recentFailureCount(username: string): Promise<number> {
   return Number.parseInt(result.rows[0]?.count ?? "0", 10)
 }
 
-async function permissionsFor(role: AuthRole): Promise<string[]> {
+async function permissionsFor(role: string): Promise<string[]> {
   const result = await query<{ permission: string }>(
     `SELECT permission FROM auth_role_permissions WHERE role = $1 ORDER BY permission`,
     [role],
   )
   return result.rows.map((row) => row.permission)
+}
+
+/** 角色码是否存在于 auth_roles（启用） */
+export async function roleExists(roleCode: string): Promise<boolean> {
+  await ensureAuthSchema()
+  const result = await query<{ code: string }>(
+    `SELECT code FROM auth_roles WHERE code = $1 AND status = 'active' LIMIT 1`,
+    [roleCode],
+  )
+  return Boolean(result.rows[0])
 }
 
 async function accountFor(username: string): Promise<AccountRow | null> {

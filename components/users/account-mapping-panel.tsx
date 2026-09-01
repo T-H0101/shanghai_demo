@@ -1,7 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type MutableRefObject,
+} from "react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,6 +37,7 @@ import {
 } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { formatSiteLabel, SiteSelect, useRegisteredSites } from "@/components/users/site-field"
+import { cn } from "@/lib/utils"
 
 interface MappingRow {
   id: string
@@ -66,7 +72,19 @@ function apiErrorMessage(json: unknown, status: number): string {
   return `HTTP ${status}`
 }
 
-export function AccountMappingPanel() {
+type Props = {
+  className?: string
+  refreshRef?: MutableRefObject<(() => Promise<void>) | null>
+  onLoadingChange?: (loading: boolean) => void
+  active?: boolean
+}
+
+export function AccountMappingPanel({
+  className,
+  refreshRef,
+  onLoadingChange,
+  active = true,
+}: Props) {
   const [items, setItems] = useState<MappingRow[]>([])
   const [accounts, setAccounts] = useState<AccountOption[]>([])
   const [loading, setLoading] = useState(false)
@@ -78,10 +96,11 @@ export function AccountMappingPanel() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    onLoadingChange?.(true)
     try {
       const [mappingRes, accountRes] = await Promise.all([
-        fetch("/api/auth/account-mappings?limit=200", { cache: "no-store", ...MAPPING_FETCH_INIT }),
-        fetch("/api/auth/accounts?limit=200", { cache: "no-store", ...MAPPING_FETCH_INIT }),
+        fetch("/api/auth/account-mappings?limit=500", { cache: "no-store", ...MAPPING_FETCH_INIT }),
+        fetch("/api/auth/accounts?limit=500", { cache: "no-store", ...MAPPING_FETCH_INIT }),
       ])
       const mappingJson = await mappingRes.json().catch(() => null)
       const accountJson = await accountRes.json().catch(() => null)
@@ -91,12 +110,18 @@ export function AccountMappingPanel() {
       setItems([])
     } finally {
       setLoading(false)
+      onLoadingChange?.(false)
     }
-  }, [])
+  }, [onLoadingChange])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (!active || !refreshRef) return
+    refreshRef.current = load
+  }, [refreshRef, load, active])
+
+  useEffect(() => {
+    if (active) void load()
+  }, [active, load])
 
   const openCreate = () => {
     setEditingId(null)
@@ -188,18 +213,17 @@ export function AccountMappingPanel() {
 
   return (
     <>
-      <Card className="mt-4 gap-0" data-testid="account-mapping-panel">
-        <CardHeader className="pb-3">
+      <Card
+        className={cn("flex min-h-0 flex-col gap-0 overflow-hidden py-0", className)}
+        data-testid="account-mapping-panel"
+      >
+        <CardHeader className="shrink-0 border-b border-slate-100 px-4 !py-3 dark:border-slate-700">
           <CardTitle className="flex items-center justify-between text-base">
             <span>站点账号映射</span>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="font-mono text-[10px]">
                 {loading ? "加载中" : `${items.length} 条`}
               </Badge>
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => void load()}>
-                <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                刷新
-              </Button>
               <Button
                 size="sm"
                 className="h-8 text-xs"
@@ -212,8 +236,8 @@ export function AccountMappingPanel() {
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto pt-0">
-          {items.length === 0 ? (
+        <CardContent className="min-h-0 flex-1 overflow-auto pt-0">
+          {items.length === 0 && !loading ? (
             <p className="py-8 text-center text-sm text-slate-500">暂无映射。</p>
           ) : (
             <Table>

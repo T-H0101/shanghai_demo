@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
@@ -13,31 +14,31 @@ import {
   Users,
   FileText,
   Database,
-  // Settings, // 系统设置菜单已隐藏
   Disc,
   X,
   AlertTriangle,
   ArrowLeftRight,
+  type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PRODUCT_NAME_LINE1, PRODUCT_NAME_LINE2 } from "@/lib/branding"
 import { ALL_SITES, useSite } from "@/lib/site/site-context"
+import { getCachedSession, getSession } from "@/lib/auth/session"
+import { menusForPermissions, type MenuDef } from "@/lib/auth/menu-permissions"
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "控制台", href: "/" },
-  { icon: MapPin, label: "站点管理", href: "/sites" },
-  { icon: Search, label: "统一检索", href: "/search" },
-  { icon: RefreshCw, label: "同步中心", href: "/sync" },
-  { icon: ClipboardList, label: "任务管理", href: "/tasks" },
-  { icon: HardDrive, label: "设备管理", href: "/racks" },
-  { icon: Database, label: "存储卷管理", href: "/volumes" },
-  { icon: ArrowLeftRight, label: "盘笼移位", href: "/cage-moves" },
-  { icon: AlertTriangle, label: "站点预警", href: "/early-warning" },
-  { icon: Users, label: "用户与权限", href: "/users" },
-  { icon: FileText, label: "审计日志", href: "/logs" },
-  // 当前设置页无可用配置入口，暂隐藏菜单（路由 /settings 仍保留）
-  // { icon: Settings, label: "系统设置", href: "/settings" },
-]
+const MENU_ICONS: Record<string, LucideIcon> = {
+  "/": LayoutDashboard,
+  "/sites": MapPin,
+  "/search": Search,
+  "/sync": RefreshCw,
+  "/tasks": ClipboardList,
+  "/racks": HardDrive,
+  "/volumes": Database,
+  "/cage-moves": ArrowLeftRight,
+  "/early-warning": AlertTriangle,
+  "/users": Users,
+  "/logs": FileText,
+}
 
 interface SidebarProps {
   isOpen?: boolean
@@ -47,6 +48,26 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname() ?? "/"
   const { siteCode, isAllSites, isReady } = useSite()
+  const [permissions, setPermissions] = useState<string[] | null>(() => {
+    const cached = getCachedSession()
+    return cached === undefined ? null : (cached?.permissions ?? [])
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    getSession().then((session) => {
+      if (cancelled) return
+      setPermissions(session?.permissions ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const visibleMenus: MenuDef[] = useMemo(() => {
+    if (!permissions) return []
+    return menusForPermissions(permissions)
+  }, [permissions])
 
   const hrefWithSite = (href: string) => {
     if (!isReady) return href
@@ -93,26 +114,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </h1>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
-            const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
-            return (
-              <Link
-                key={item.href}
-                href={hrefWithSite(item.href)}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                  active
-                    ? "bg-white/14 text-white shadow-sm ring-1 ring-white/12"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </Link>
-            )
-          })}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" data-testid="sidebar-nav">
+          {permissions === null ? (
+            <p className="px-3 py-2 text-xs text-slate-400">加载菜单…</p>
+          ) : visibleMenus.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-slate-400">当前角色无可访问菜单</p>
+          ) : (
+            visibleMenus.map((item) => {
+              const Icon = MENU_ICONS[item.href] ?? LayoutDashboard
+              const active =
+                pathname === item.href ||
+                (item.href !== "/" && pathname.startsWith(item.href))
+              return (
+                <Link
+                  key={item.href}
+                  href={hrefWithSite(item.href)}
+                  onClick={onClose}
+                  data-testid={`sidebar-link-${item.href === "/" ? "home" : item.href.slice(1)}`}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                    active
+                      ? "bg-white/14 text-white shadow-sm ring-1 ring-white/12"
+                      : "text-slate-300 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })
+          )}
         </nav>
 
         <div className="border-t border-white/10 p-4">
@@ -122,7 +153,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
             <div>
               <p className="text-sm font-medium">集团管理中心</p>
-              <p className="text-xs text-slate-400">管理员</p>
+              <p className="text-xs text-slate-400">按角色显示菜单</p>
             </div>
           </div>
         </div>

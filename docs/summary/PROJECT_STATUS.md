@@ -1,7 +1,24 @@
 # Project Status
 
-> **截至**: 2026-08-26
-> **当前主线**: Sprint R.101 站点预警跨站只读 + 同步字段修复
+> **截至**: 2026-08-31
+> **当前主线**: Sprint RBAC-M 菜单级细粒度权限（中期方案）
+
+## Sprint RBAC-M — 菜单级细粒度权限 (partial)
+
+**目标**: 功能权限与侧栏菜单共用权限码；拆掉 `platform:read` 大一统；审计员仅审计日志。
+
+**对应**: `requirements.md` §3.2（总控侧）/ §6.2.4。状态：`partial`（总控菜单+读 API 可用；自定义角色与站点内设备/卷 ACL 未做）。
+
+**交付**:
+- `lib/auth/permissions-catalog.ts` + `menu-permissions.ts`
+- 一次性迁移 `rbac.menu_permissions_v1`；审计员仅 `audit:read`
+- 侧栏按 session 过滤；RouteGuard 无权限重定向
+- 角色 Tab：可访问菜单推导 + 权限勾选保存（`group_admin` 锁定）
+- `pnpm e2e:rbac-menus`；审查 `docs/database-analysis/sprint-rbac-m-requirements-review.md`
+
+**非宣称**: 站点内设备/卷细粒度、自定义角色 CRUD、改权限后免重新登录。
+
+---
 
 ## Sprint R.101 — 站点预警同步与只读列表 (partial)
 

@@ -8,7 +8,7 @@ import {
 type R83Action = "read" | "write" | "sync"
 
 const PERMISSION_BY_ACTION: Record<R83Action, string> = {
-  read: "platform:read",
+  read: "dashboard:read",
   write: "platform:operate",
   sync: "sync:operate",
 }

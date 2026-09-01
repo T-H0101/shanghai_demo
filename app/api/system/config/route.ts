@@ -15,7 +15,7 @@ const CONFIG_TABLE = "auth_system_config"
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(req)
-    requirePermission(session, "platform:read")
+    requirePermission(session, "dashboard:read")
   } catch (e) {
     if (e instanceof NextResponse) return e
   }

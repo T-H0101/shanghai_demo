@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
   try {
     // Sprint R.29: 防越权 - 检查登录和权限
     const session = await requireSession(request)
-    requirePermission(session, "platform:read")
+    requirePermission(session, "tasks:read")
     const visibleSites = getVisibleSites(session)
 
     const searchParams = request.nextUrl.searchParams

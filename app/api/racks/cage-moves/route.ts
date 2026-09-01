@@ -23,7 +23,7 @@ function clientIp(req: NextRequest): string {
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(req)
-    requirePermission(session, "platform:read")
+    requirePermission(session, "cage_moves:read")
     const sp = req.nextUrl.searchParams
     const limit = Number(sp.get("limit") ?? 50)
     const offset = Number(sp.get("offset") ?? 0)

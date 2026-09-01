@@ -290,10 +290,13 @@ async function main() {
         !viewSrc.includes(">RFID<"),
     )
     const sidebarSrc = await readFile("components/dashboard/sidebar.tsx", "utf8")
+    const menuSrc = await readFile("lib/auth/menu-permissions.ts", "utf8")
     check(
       "侧边栏盘笼移位在存储卷之后",
-      /存储卷管理[\s\S]*盘笼移位/.test(sidebarSrc) &&
-        sidebarSrc.includes('href: "/cage-moves"'),
+      /存储卷管理[\s\S]*盘笼移位/.test(menuSrc) &&
+        menuSrc.includes('href: "/cage-moves"') &&
+        sidebarSrc.includes("menusForPermissions") &&
+        sidebarSrc.includes('"/cage-moves"'),
     )
     check(
       "ES 扩条件含 inbound RFID",

@@ -1,4 +1,4 @@
-export type UserRole = "group_admin" | "site_admin" | "auditor" | "operator" | "viewer"
+export type UserRole = string
 
 export interface AuthSession {
   id: string
@@ -19,7 +19,7 @@ export interface MockUser {
   password: string
   name: string
   role: string
-  roleLevel: Exclude<UserRole, "viewer">
+  roleLevel: string
   department: string
   defaultSite: string
   allowedSites: string[]

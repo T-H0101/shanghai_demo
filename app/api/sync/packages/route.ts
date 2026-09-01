@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { listPackageLogs, countPackageLogs, type PackageLogStatus } from '@/lib/sync/package-log'
-import { requirePermission, requireSession } from '@/lib/auth/middleware'
+import { requireDashboardReadOr, requireSession } from '@/lib/auth/middleware'
 import { resolveSiteScope } from '@/lib/auth/site-scope'
 
 export const dynamic = 'force-dynamic'
@@ -75,7 +75,7 @@ function toItem(row: import('@/lib/sync/package-log').SyncPackageLog): PackageLi
 export async function GET(request: NextRequest) {
   try {
     const session = await requireSession(request)
-    requirePermission(session, 'platform:read')
+    requireDashboardReadOr(session, 'sync:read')
 
     const sp = request.nextUrl.searchParams
     const page = Math.max(1, parseInt(sp.get('page') ?? '1', 10) || 1)

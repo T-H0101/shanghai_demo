@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const session = await requireSession(request)
-    requirePermission(session, 'platform:read')
+    requirePermission(session, 'dashboard:read')
     const scope = resolveSiteScope(session, siteCode)
 
     if (scope.kind === 'listed' && scope.siteCodes.length === 0) {

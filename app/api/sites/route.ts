@@ -15,7 +15,7 @@ import type { ApiResponse, SiteDTO, SyncStatus } from "@/lib/api/dto"
 import { deriveSiteReachability } from "@/lib/site/reachability"
 import { isProbeableEndpoint, probeTcpHost } from "@/lib/site/probe-tcp"
 import { aggregateSitesStorage, toSiteStorageDisplay } from "@/lib/site/site-storage"
-import { requirePermission, requireSession } from "@/lib/auth/middleware"
+import { requireDashboardReadOr, requireSession } from "@/lib/auth/middleware"
 import { filterRegistrySiteCodes } from "@/lib/auth/site-scope"
 
 interface SiteRegistryRow {
@@ -88,7 +88,7 @@ export async function GET(_request: NextRequest) {
 
   try {
     const session = await requireSession(_request)
-    requirePermission(session, "platform:read")
+    requireDashboardReadOr(session, "sites:list")
 
     const registryResult = await query<SiteRegistryRow>(
       `WITH task_counts AS (

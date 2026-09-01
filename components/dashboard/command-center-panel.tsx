@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import Link from "next/link"
 import {
   Activity,
@@ -26,6 +26,9 @@ import { formatBeijingTime } from "@/components/shared/time-format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { getSession } from "@/lib/auth/session"
+import { canAccessPath } from "@/lib/auth/menu-permissions"
+import { toast } from "@/hooks/use-toast"
 
 interface SummaryData {
   taskCount: number
@@ -228,8 +231,22 @@ function commandTypeLabel(type: string | null | undefined): string {
   return COMMAND_TYPE_LABELS[type] ?? type
 }
 
+function hrefPath(href: string): string {
+  return href.split("?")[0] || "/"
+}
+
+function denyNavigateToast(label?: string) {
+  toast({
+    title: "无权限访问该模块",
+    description: label
+      ? `当前角色无法打开「${label}」，仅可在控制台查看汇总。`
+      : "当前角色无对应菜单权限，仅可在控制台查看汇总。",
+  })
+}
+
 export function CommandCenterPanel() {
   const { siteCode, isAllSites, isReady } = useSite()
+  const [permissions, setPermissions] = useState<string[]>([])
   const [state, setState] = useState<CommandCenterState>({
     summary: null,
     sites: [],
@@ -242,6 +259,22 @@ export function CommandCenterPanel() {
   })
 
   const activeSite = isReady && !isAllSites ? siteCode : null
+
+  const canGo = useCallback(
+    (href: string) => canAccessPath(permissions, hrefPath(href)),
+    [permissions],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    getSession().then((session) => {
+      if (cancelled) return
+      setPermissions(session?.permissions ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -261,7 +294,6 @@ export function CommandCenterPanel() {
           ? `/api/early-warning?statusGroup=open&limit=1&offset=0&siteCode=${encodeURIComponent(activeSite)}`
           : "/api/early-warning?statusGroup=open&limit=1&offset=0"
 
-        // 站点在线与站点管理同源：/api/sites（管理 IP:端口 TCP 探测），已按用户可访问站点过滤
         const [summaryRes, sitesRes, packagesRes, commandsRes, earlyWarningRes] = await Promise.all([
           fetch(summaryUrl, { cache: "no-store", credentials: "include" }),
           fetch("/api/sites", { cache: "no-store", credentials: "include" }),
@@ -270,19 +302,27 @@ export function CommandCenterPanel() {
           fetch(earlyWarningUrl, { cache: "no-store", credentials: "include" }),
         ])
 
-        if (!summaryRes.ok || !sitesRes.ok || !packagesRes.ok || !commandsRes.ok || !earlyWarningRes.ok) {
-          throw new Error("Command Center source API failed")
+        // 汇总主接口失败才算整页失败；其它源接口降级为空
+        if (!summaryRes.ok) {
+          throw new Error("控制台汇总接口不可用")
         }
 
-        const [summaryJson, sitesJson, packagesJson, commandsJson, earlyWarningJson] = await Promise.all([
-          summaryRes.json(),
-          sitesRes.json(),
-          packagesRes.json(),
-          commandsRes.json(),
-          earlyWarningRes.json(),
-        ])
+        const summaryJson = await summaryRes.json()
+        const sitesJson = sitesRes.ok ? await sitesRes.json() : { data: [] }
+        const packagesJson = packagesRes.ok ? await packagesRes.json() : { data: { items: [] } }
+        const commandsJson = commandsRes.ok ? await commandsRes.json() : { rows: [] }
+        const earlyWarningJson = earlyWarningRes.ok
+          ? await earlyWarningRes.json()
+          : { data: { total: 0 } }
 
         if (cancelled) return
+
+        const softFails: string[] = []
+        if (!sitesRes.ok) softFails.push("站点")
+        if (!packagesRes.ok) softFails.push("同步")
+        if (!commandsRes.ok) softFails.push("控制队列")
+        if (!earlyWarningRes.ok) softFails.push("预警")
+
         const registrySites: RegistrySite[] = Array.isArray(sitesJson.data)
           ? sitesJson.data.map((s: {
               code?: string
@@ -305,7 +345,7 @@ export function CommandCenterPanel() {
           commands: commandsJson.rows ?? commandsJson.items ?? commandsJson.data?.items ?? [],
           earlyWarningOpenTotal: Number(earlyWarningJson.data?.total ?? 0),
           loading: false,
-          error: null,
+          error: softFails.length > 0 ? `部分模块暂不可用: ${softFails.join("、")}` : null,
           updatedAt: new Date().toISOString(),
         })
       } catch (error) {
@@ -396,6 +436,7 @@ export function CommandCenterPanel() {
             label="任务"
             value={summary.taskCount}
             href="/tasks"
+            navigable={canGo("/tasks")}
             testid="command-center-metric-tasks"
             stats={[
               { label: "完成", value: summary.taskCompletedCount, tone: "good" },
@@ -408,6 +449,7 @@ export function CommandCenterPanel() {
             label="设备"
             value={summary.deviceCount}
             href="/racks"
+            navigable={canGo("/racks")}
             testid="command-center-metric-devices"
             stats={[
               { label: "在线", value: summary.deviceOnlineCount, tone: "good" },
@@ -420,6 +462,7 @@ export function CommandCenterPanel() {
             label="存储卷"
             value={summary.volumeCount}
             href="/volumes"
+            navigable={canGo("/volumes")}
             testid="command-center-metric-volumes"
             stats={[
               { label: "总容量", value: formatCapacityBytes(summary.volumeTotalCapacityBytes), tone: "idle" },
@@ -436,6 +479,7 @@ export function CommandCenterPanel() {
             label="站点"
             value={siteStats.total}
             href="/sites"
+            navigable={canGo("/sites")}
             testid="command-center-metric-sites"
             stats={[
               { label: "在线", value: siteStats.online, tone: "good" },
@@ -539,15 +583,39 @@ export function CommandCenterPanel() {
             {state.error && <Evidence icon={AlertTriangle} text={`error: ${state.error}`} danger />}
           </div>
           <div className="flex gap-2">
-            <Button asChild size="sm" className="h-8">
-              <Link href="/sync">
+            {canGo("/sync") ? (
+              <Button asChild size="sm" className="h-8">
+                <Link href="/sync">
+                  同步中心
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8"
+                onClick={() => denyNavigateToast("同步中心")}
+              >
                 同步中心
                 <ArrowRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="h-8">
-              <Link href="/logs">查看日志</Link>
-            </Button>
+              </Button>
+            )}
+            {canGo("/logs") ? (
+              <Button asChild size="sm" variant="outline" className="h-8">
+                <Link href="/logs">查看日志</Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => denyNavigateToast("审计日志")}
+              >
+                查看日志
+              </Button>
+            )}
           </div>
         </div>
 
@@ -557,6 +625,7 @@ export function CommandCenterPanel() {
             icon={RefreshCw}
             title="同步"
             href="/sync"
+            navigable={canGo("/sync")}
             evidence="站点推送入库"
             testid="command-center-lane-sync"
           />
@@ -564,6 +633,7 @@ export function CommandCenterPanel() {
             icon={Command}
             title="控制"
             href="/tasks?view=commands"
+            navigable={canGo("/tasks")}
             evidence="命令队列"
             testid="command-center-lane-control"
           />
@@ -571,6 +641,7 @@ export function CommandCenterPanel() {
             icon={Search}
             title="检索"
             href="/search"
+            navigable={canGo("/search")}
             evidence="全文索引"
             testid="command-center-lane-search"
           />
@@ -578,6 +649,7 @@ export function CommandCenterPanel() {
             icon={ShieldCheck}
             title="安全"
             href="/logs"
+            navigable={canGo("/logs")}
             evidence="本地登录 / 审计校验"
             testid="command-center-lane-security"
           />
@@ -624,6 +696,7 @@ function MetricCard({
   label,
   value,
   href,
+  navigable,
   testid,
   stats,
 }: {
@@ -631,15 +704,12 @@ function MetricCard({
   label: string
   value: number
   href: string
+  navigable: boolean
   testid: string
   stats: Array<{ label: string; value: string | number; tone: MetricStatTone }>
 }) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-blue-500"
-      data-testid={testid}
-    >
+  const body = (
+    <>
       {/* 上行：图标 · 标题 · 数量（数量紧跟标题，不两端对齐） */}
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300">
@@ -649,7 +719,11 @@ function MetricCard({
         <span className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-50">
           {value.toLocaleString("zh-CN")}
         </span>
-        <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-blue-600 dark:group-hover:text-blue-300" />
+        {navigable ? (
+          <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-blue-600 dark:group-hover:text-blue-300" />
+        ) : (
+          <span className="ml-auto shrink-0 text-[10px] font-medium text-slate-400">仅可查看</span>
+        )}
       </div>
 
       {/* 下行：带底色的分项卡片，无分割线 */}
@@ -674,7 +748,29 @@ function MetricCard({
           </div>
         ))}
       </div>
-    </Link>
+    </>
+  )
+
+  const className =
+    "group rounded-xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-blue-500"
+
+  if (navigable) {
+    return (
+      <Link href={href} className={className} data-testid={testid}>
+        {body}
+      </Link>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className={cn(className, "w-full cursor-default text-left")}
+      data-testid={testid}
+      onClick={() => denyNavigateToast(label)}
+    >
+      {body}
+    </button>
   )
 }
 
@@ -768,31 +864,55 @@ function LaneCard({
   icon: Icon,
   title,
   href,
+  navigable,
   evidence,
   testid,
 }: {
   icon: LucideIcon
   title: string
   href: string
+  navigable: boolean
   evidence: string
   testid: string
 }) {
-  return (
-    <Link
-      href={href}
-      data-testid={testid}
-      className="group flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-blue-500 dark:hover:bg-blue-950/30"
-    >
+  const body = (
+    <>
       <div className="rounded-xl bg-blue-50 p-2 text-blue-600 transition group-hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 dark:group-hover:bg-blue-900/60">
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">{title}</span>
-          <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-blue-600 dark:group-hover:text-blue-300" />
+          {navigable ? (
+            <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition group-hover:text-blue-600 dark:group-hover:text-blue-300" />
+          ) : (
+            <span className="text-[10px] font-medium text-slate-400">仅可查看</span>
+          )}
         </div>
         <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">{evidence}</p>
       </div>
-    </Link>
+    </>
+  )
+
+  const className =
+    "group flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-blue-500 dark:hover:bg-blue-950/30"
+
+  if (navigable) {
+    return (
+      <Link href={href} data-testid={testid} className={className}>
+        {body}
+      </Link>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid={testid}
+      className={cn(className, "w-full cursor-default text-left")}
+      onClick={() => denyNavigateToast(title)}
+    >
+      {body}
+    </button>
   )
 }

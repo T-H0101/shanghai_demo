@@ -5,7 +5,6 @@
  */
 
 import { useEffect, useRef, useState } from "react"
-import { AppShell } from "@/components/layout/app-shell"
 import { PageHeader } from "@/components/platform/page-header"
 import { CageMoveHistoryView } from "@/components/racks/cage-move-view"
 import { CageMoveDialog } from "@/components/racks/cage-move-dialog"
@@ -45,7 +44,7 @@ export default function CageMovesPage() {
   }, [])
 
   return (
-    <AppShell mainClassName="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
         <div className="shrink-0">
           <PageHeader
@@ -101,6 +100,6 @@ export default function CageMovesPage() {
           setRefreshToken((n) => n + 1)
         }}
       />
-    </AppShell>
+    </div>
   )
 }

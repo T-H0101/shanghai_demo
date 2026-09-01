@@ -8,11 +8,10 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db/postgres"
-import { ensureAuthSchema } from "@/lib/auth/server"
+import { ensureAuthSchema, roleExists } from "@/lib/auth/server"
 import { writeAudit } from "@/lib/control/audit"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
 
-const VALID_ROLES = ["group_admin", "site_admin", "auditor", "operator", "viewer"] as const
 const VALID_STATUSES = ["active", "disabled", "pending_activation"] as const
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -129,8 +128,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       idx++
     }
     if (role !== undefined) {
-      if (typeof role !== "string" || !VALID_ROLES.includes(role as (typeof VALID_ROLES)[number])) {
-        return NextResponse.json({ error: `invalid role: ${VALID_ROLES.join(", ")}` }, { status: 400 })
+      if (typeof role !== "string") {
+        return NextResponse.json({ error: "invalid role" }, { status: 400 })
+      }
+      const ok =
+        ["group_admin", "site_admin", "auditor", "operator", "viewer"].includes(role) ||
+        (await roleExists(role))
+      if (!ok) {
+        return NextResponse.json({ error: `invalid role: ${role}` }, { status: 400 })
       }
       updates.push(`role = $${idx}`)
       values.push(role)

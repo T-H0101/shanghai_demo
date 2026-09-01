@@ -1,6 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type MutableRefObject,
+} from "react"
 import { Copy, KeyRound, LockOpen, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,6 +42,7 @@ import {
   SiteMultiSelect,
   useRegisteredSites,
 } from "@/components/users/site-field"
+import { cn } from "@/lib/utils"
 
 export interface AuthAccount {
   id: string
@@ -54,15 +60,16 @@ export interface AuthAccount {
   created_at: string
 }
 
-const ROLES = [
+type RoleOption = { value: string; label: string }
+
+const FALLBACK_ROLES: RoleOption[] = [
   { value: "group_admin", label: "集团管理员" },
   { value: "site_admin", label: "站点管理员" },
   { value: "auditor", label: "审计员" },
   { value: "operator", label: "操作员" },
   { value: "viewer", label: "只读" },
-] as const
+]
 
-/** 客户端生成初始密码（与 reset-password API 字符集一致） */
 function generateInitialPassword(length = 16): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*"
   const bytes = new Uint8Array(length)
@@ -70,15 +77,8 @@ function generateInitialPassword(length = 16): string {
   return Array.from(bytes, (b) => chars[b % chars.length]).join("")
 }
 
-/**
- * 复制到剪贴板。
- * 内网 HTTP（非 localhost）下 Clipboard API 常不可用，需回退。
- */
 async function copyText(text: string): Promise<void> {
-  if (typeof window === "undefined" || !text) {
-    throw new Error("无法复制")
-  }
-
+  if (typeof window === "undefined" || !text) throw new Error("无法复制")
   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(text)
@@ -87,8 +87,6 @@ async function copyText(text: string): Promise<void> {
       // fall through
     }
   }
-
-  // 回退 1：在用户点击手势里拦截 copy 事件写入（Dialog 内更稳）
   let copiedViaEvent = false
   const onCopy = (e: ClipboardEvent) => {
     e.clipboardData?.setData("text/plain", text)
@@ -101,22 +99,17 @@ async function copyText(text: string): Promise<void> {
   } finally {
     document.removeEventListener("copy", onCopy)
   }
-
-  // 回退 2：隐藏 textarea + select
   const ta = document.createElement("textarea")
   ta.value = text
   ta.setAttribute("readonly", "")
   ta.style.position = "fixed"
   ta.style.left = "-9999px"
-  ta.style.top = "0"
   ta.style.opacity = "0"
   document.body.appendChild(ta)
   ta.focus()
   ta.select()
-  ta.setSelectionRange(0, text.length)
   try {
-    const ok = document.execCommand("copy")
-    if (!ok) throw new Error("execCommand copy failed")
+    if (!document.execCommand("copy")) throw new Error("execCommand copy failed")
   } finally {
     document.body.removeChild(ta)
   }
@@ -129,7 +122,7 @@ async function copyPasswordWithFeedback(text: string): Promise<void> {
   } catch {
     toast({
       title: "复制失败",
-      description: "请手动选中密码后 Ctrl+C 复制（当前环境可能禁止脚本访问剪贴板）",
+      description: "请手动选中密码后 Ctrl+C 复制",
       variant: "destructive",
     })
   }
@@ -137,14 +130,30 @@ async function copyPasswordWithFeedback(text: string): Promise<void> {
 
 type FormMode = "create" | "edit" | null
 
-export function AuthAccountsPanel() {
+type Props = {
+  className?: string
+  refreshRef?: MutableRefObject<(() => Promise<void>) | null>
+  onLoadingChange?: (loading: boolean) => void
+  active?: boolean
+}
+
+export function AuthAccountsPanel({
+  className,
+  refreshRef,
+  onLoadingChange,
+  active = true,
+}: Props) {
   const [accounts, setAccounts] = useState<AuthAccount[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [formMode, setFormMode] = useState<FormMode>(null)
   const [editing, setEditing] = useState<AuthAccount | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AuthAccount | null>(null)
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null)
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>(FALLBACK_ROLES)
 
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -157,16 +166,38 @@ export function AuthAccountsPanel() {
   const [status, setStatus] = useState("active")
   const { sites: registeredSites } = useRegisteredSites()
 
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/roles", { cache: "no-store", credentials: "include" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.code !== 0) return
+      const list = (json.data?.roles ?? []) as { code: string; name: string }[]
+      if (list.length > 0) {
+        setRoleOptions(list.map((r) => ({ value: r.code, label: r.name })))
+      }
+    } catch {
+      // keep fallback
+    }
+  }, [])
+
   const loadAccounts = useCallback(async () => {
     setLoading(true)
+    onLoadingChange?.(true)
     try {
-      const res = await fetch("/api/auth/accounts?limit=200", { cache: "no-store" })
+      const offset = (page - 1) * pageSize
+      const res = await fetch(`/api/auth/accounts?limit=${pageSize}&offset=${offset}`, {
+        cache: "no-store",
+        credentials: "include",
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
         throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`)
       }
       const json = await res.json()
       setAccounts(json.data?.items ?? [])
+      setTotal(Number(json.data?.total ?? 0))
     } catch (e) {
       toast({
         title: "加载账号失败",
@@ -175,12 +206,29 @@ export function AuthAccountsPanel() {
       })
     } finally {
       setLoading(false)
+      onLoadingChange?.(false)
     }
-  }, [])
+  }, [onLoadingChange, page, pageSize])
 
   useEffect(() => {
+    if (!active || !refreshRef) return
+    refreshRef.current = async () => {
+      await Promise.all([loadAccounts(), loadRoles()])
+    }
+  }, [refreshRef, loadAccounts, loadRoles, active])
+
+  useEffect(() => {
+    if (!active) return
     void loadAccounts()
-  }, [loadAccounts])
+  }, [active, loadAccounts])
+
+  useEffect(() => {
+    if (active) void loadRoles()
+  }, [active, loadRoles])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   const openCreate = () => {
     setEditing(null)
@@ -224,6 +272,7 @@ export function AuthAccountsPanel() {
         const res = await fetch("/api/auth/accounts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             username: username.trim(),
             password,
@@ -238,16 +287,17 @@ export function AuthAccountsPanel() {
         })
         const body = await res.json().catch(() => null)
         if (!res.ok) throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`)
-        const createdPassword = password
         toast({ title: "账号已创建", description: `用户 ${username.trim().toLowerCase()}` })
         setFormMode(null)
-        setGeneratedPassword(createdPassword)
+        setGeneratedPassword(password)
+        setPage(1)
         await loadAccounts()
         return
       } else if (formMode === "edit" && editing) {
         const res = await fetch(`/api/auth/accounts/${editing.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             displayName: displayName.trim() || null,
             role,
@@ -277,7 +327,10 @@ export function AuthAccountsPanel() {
     if (!deleteTarget) return
     setBusyId(deleteTarget.id)
     try {
-      const res = await fetch(`/api/auth/accounts/${deleteTarget.id}`, { method: "DELETE" })
+      const res = await fetch(`/api/auth/accounts/${deleteTarget.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`)
       toast({ title: "账号已删除", description: deleteTarget.username })
@@ -297,7 +350,10 @@ export function AuthAccountsPanel() {
   const handleUnlock = async (acc: AuthAccount) => {
     setBusyId(acc.id)
     try {
-      const res = await fetch(`/api/auth/accounts/${acc.id}/unlock`, { method: "POST" })
+      const res = await fetch(`/api/auth/accounts/${acc.id}/unlock`, {
+        method: "POST",
+        credentials: "include",
+      })
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`)
       toast({ title: "解锁成功", description: `账号 ${acc.username} 已解锁` })
@@ -316,7 +372,10 @@ export function AuthAccountsPanel() {
   const handleResetPassword = async (acc: AuthAccount) => {
     setBusyId(acc.id)
     try {
-      const res = await fetch(`/api/auth/accounts/${acc.id}/reset-password`, { method: "POST" })
+      const res = await fetch(`/api/auth/accounts/${acc.id}/reset-password`, {
+        method: "POST",
+        credentials: "include",
+      })
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.message ?? body?.error ?? `HTTP ${res.status}`)
       setGeneratedPassword(body?.newPassword ?? null)
@@ -333,15 +392,18 @@ export function AuthAccountsPanel() {
     }
   }
 
+  const roleLabel = (code: string) =>
+    roleOptions.find((r) => r.value === code)?.label ?? code
+
   return (
     <>
-      <Card className="gap-0">
-        <CardHeader className="pb-3">
+      <Card className={cn("flex min-h-0 flex-col gap-0 overflow-hidden py-0", className)}>
+        <CardHeader className="shrink-0 border-b border-slate-100 px-4 !py-3 dark:border-slate-700">
           <CardTitle className="flex items-center justify-between text-base">
             <span>Auth 账号列表</span>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="font-mono text-[10px]">
-                {loading ? "加载中" : `${accounts.length} 个账号`}
+                {loading ? "加载中" : `共 ${total} 个`}
               </Badge>
               <Button size="sm" className="h-8 text-xs" onClick={openCreate} data-testid="auth-account-create">
                 <Plus className="mr-1 h-3.5 w-3.5" />
@@ -350,13 +412,8 @@ export function AuthAccountsPanel() {
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto pt-0">
-          {/* 说明文案暂不展示
-          <p className="mb-3 text-xs text-slate-500">
-            管理总控登录账号（auth_accounts）。SSO 跳转站点时使用此处用户名，需与站点 tbl_user.name 一致。
-          </p>
-          */}
-          {accounts.length === 0 ? (
+        <CardContent className="min-h-0 flex-1 overflow-auto pt-0">
+          {accounts.length === 0 && !loading ? (
             <p className="py-8 text-center text-sm text-slate-500">
               暂无 Auth 账号。请点击「新增账号」创建。
             </p>
@@ -390,7 +447,7 @@ export function AuthAccountsPanel() {
                       <TableCell className="text-xs">{acc.email ?? "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {ROLES.find((r) => r.value === acc.role)?.label ?? acc.role}
+                          {roleLabel(acc.role)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">{acc.department ?? "—"}</TableCell>
@@ -478,6 +535,52 @@ export function AuthAccountsPanel() {
             </Table>
           )}
         </CardContent>
+        {total > 0 && (
+          <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              上一页
+            </Button>
+            <span className="text-xs tabular-nums text-slate-500">
+              第 {page} / {totalPages} 页 · 共 {total} 条
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              下一页
+            </Button>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400">每页</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v))
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="h-8 w-[72px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 20, 50].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Dialog open={formMode !== null} onOpenChange={(open) => !open && setFormMode(null)}>
@@ -520,7 +623,6 @@ export function AuthAccountsPanel() {
                     variant="outline"
                     size="icon"
                     title="复制密码"
-                    aria-label="复制密码"
                     onClick={() => {
                       if (!password) return
                       void copyPasswordWithFeedback(password)
@@ -533,7 +635,6 @@ export function AuthAccountsPanel() {
                     variant="outline"
                     size="icon"
                     title="重新生成"
-                    aria-label="重新生成密码"
                     onClick={() => setPassword(generateInitialPassword())}
                   >
                     <RefreshCw className="h-4 w-4" />
@@ -543,11 +644,7 @@ export function AuthAccountsPanel() {
             )}
             <div className="grid gap-1.5">
               <Label htmlFor="auth-display">显示名</Label>
-              <Input
-                id="auth-display"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
+              <Input id="auth-display" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="auth-employee-id">员工号</Label>
@@ -575,7 +672,7 @@ export function AuthAccountsPanel() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ROLES.map((r) => (
+                  {roleOptions.map((r) => (
                     <SelectItem key={r.value} value={r.value}>
                       {r.label}
                     </SelectItem>
@@ -585,11 +682,7 @@ export function AuthAccountsPanel() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="auth-dept">部门</Label>
-              <Input
-                id="auth-dept"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-              />
+              <Input id="auth-dept" value={department} onChange={(e) => setDepartment(e.target.value)} />
             </div>
             <div className="grid min-w-0 gap-1.5">
               <Label>可访问站点</Label>
@@ -627,7 +720,7 @@ export function AuthAccountsPanel() {
             <DialogDescription>
               将删除总控登录账号{" "}
               <span className="font-mono font-medium">{deleteTarget?.username}</span>
-              。此操作不可恢复；若该用户名下仍有未完成任务将拒绝删除。
+              。此操作不可恢复。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -652,7 +745,7 @@ export function AuthAccountsPanel() {
             <DialogDescription>请立即复制并交予用户修改。关闭后无法再次查看。</DialogDescription>
           </DialogHeader>
           <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1 rounded border bg-slate-50 p-3 font-mono text-sm break-all dark:bg-slate-900">
+            <div className="min-w-0 flex-1 break-all rounded border bg-slate-50 p-3 font-mono text-sm dark:bg-slate-900">
               {generatedPassword}
             </div>
             <Button
@@ -660,8 +753,6 @@ export function AuthAccountsPanel() {
               variant="outline"
               size="icon"
               className="shrink-0"
-              title="复制密码"
-              aria-label="复制密码"
               onClick={() => {
                 if (!generatedPassword) return
                 void copyPasswordWithFeedback(generatedPassword)

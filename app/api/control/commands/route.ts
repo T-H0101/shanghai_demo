@@ -21,7 +21,7 @@ import {
   dispatchSiteTaskControl,
   isDirectSiteTaskControlType,
 } from "@/lib/control/dispatch-site-task-control"
-import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { requireSession, requirePermission, requireAnyPermission } from "@/lib/auth/middleware"
 import { resolveSiteScope } from "@/lib/auth/site-scope"
 
 export async function POST(req: NextRequest) {
@@ -143,7 +143,8 @@ export async function GET(req: NextRequest) {
   let session
   try {
     session = await requireSession(req)
-    requirePermission(session, "control:submit")
+    // 列表只读：控制台 / 任务查看 / 可提交控制 任一即可
+    requireAnyPermission(session, ["dashboard:read", "tasks:read", "control:submit"])
   } catch (e) {
     if (e instanceof NextResponse) return e
   }

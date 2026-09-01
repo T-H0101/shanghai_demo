@@ -7,12 +7,18 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db/postgres"
-import { ensureAuthSchema } from "@/lib/auth/server"
+import { ensureAuthSchema, roleExists } from "@/lib/auth/server"
 import { hashPassword } from "@/lib/auth/password"
 import { writeAudit } from "@/lib/control/audit"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
 
-const VALID_ROLES = ["group_admin", "site_admin", "auditor", "operator", "viewer"] as const
+const VALID_BUILTIN_ROLES = ["group_admin", "site_admin", "auditor", "operator", "viewer"] as const
+
+async function assertValidRole(role: string): Promise<string | null> {
+  if (VALID_BUILTIN_ROLES.includes(role as (typeof VALID_BUILTIN_ROLES)[number])) return null
+  if (await roleExists(role)) return null
+  return `invalid role: ${role}`
+}
 
 interface AccountRow {
   id: string
@@ -152,8 +158,9 @@ export async function POST(req: NextRequest) {
   }
 
   const resolvedRole = typeof role === "string" ? role : "viewer"
-  if (!VALID_ROLES.includes(resolvedRole as (typeof VALID_ROLES)[number])) {
-    return NextResponse.json({ error: `invalid role, must be one of ${VALID_ROLES.join(", ")}` }, { status: 400 })
+  const roleError = await assertValidRole(resolvedRole)
+  if (roleError) {
+    return NextResponse.json({ error: roleError }, { status: 400 })
   }
 
   const resolvedStatus =

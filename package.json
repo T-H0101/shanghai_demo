@@ -75,6 +75,7 @@
     "test:r83.4-e2e": "tsx scripts/sync/real-e2e-multi-site-test.ts",
     "e2e:auth-audit": "tsx scripts/e2e/test-auth-audit.ts",
     "e2e:rbac": "tsx scripts/e2e/test-rbac.ts",
+    "e2e:rbac-menus": "tsx scripts/e2e/test-rbac-menus.ts",
     "e2e:users": "tsx scripts/e2e/test-users.ts",
     "e2e:racks": "tsx scripts/e2e/test-racks.ts",
     "e2e:cage-move": "tsx scripts/e2e/test-cage-move.ts",

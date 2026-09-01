@@ -27,7 +27,7 @@ function formatCageLabel(rfid: string, position: string | null): string {
 export async function GET(request: NextRequest) {
   try {
     const session = await requireSession(request)
-    requirePermission(session, "platform:read")
+    requirePermission(session, "racks:read")
     const visibleSites = getVisibleSites(session)
 
     const sp = request.nextUrl.searchParams

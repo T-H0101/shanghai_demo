@@ -1,32 +1,97 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import {
-  LayoutGrid,
   Database,
   Activity,
-  AlertTriangle,
   HardDrive,
   CheckCircle2,
   Clock,
-  XCircle,
   ChevronRight,
 } from "lucide-react"
 import { taskProvider, rackProvider } from "@/lib/api"
 import { MOCK_STORE_EVENT } from "@/lib/api/mock-store"
 import { useSite } from "@/lib/site/site-context"
+import { getSession } from "@/lib/auth/session"
+import { canAccessPath } from "@/lib/auth/menu-permissions"
+import { toast } from "@/hooks/use-toast"
+
+function hrefPath(href: string): string {
+  return href.split("?")[0] || "/"
+}
+
+function denyNavigateToast(label: string) {
+  toast({
+    title: "无权限访问该模块",
+    description: `当前角色无法打开「${label}」，仅可在控制台查看汇总。`,
+  })
+}
+
+function StatNav({
+  href,
+  navigable,
+  label,
+  testid,
+  focusRing,
+  children,
+}: {
+  href: string
+  navigable: boolean
+  label: string
+  testid: string
+  focusRing: string
+  children: ReactNode
+}) {
+  const className = `block group focus:outline-none focus-visible:ring-2 ${focusRing} rounded-lg`
+
+  if (navigable) {
+    return (
+      <Link href={href} className={className} data-testid={testid}>
+        {children}
+      </Link>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className={`${className} w-full cursor-default text-left`}
+      data-testid={testid}
+      onClick={() => denyNavigateToast(label)}
+    >
+      {children}
+    </button>
+  )
+}
 
 export function StatsCards() {
   const pathname = usePathname()
   const { siteCode, isAllSites, isReady } = useSite()
+  const [permissions, setPermissions] = useState<string[]>([])
   const [taskStats, setTaskStats] = useState({ total: 0, running: 0, completed: 0, failed: 0, pending: 0 })
   const [rackStats, setRackStats] = useState({ total: 0, online: 0, offline: 0, avgUsage: 0, totalCapacity: "0 TB", remainingCapacity: "0 TB", usedSlots: 0, totalSlotsAll: 0 })
   // R.15: dataSource 显式 (database / empty / error), 不允许 mock 静默 fallback
   const [dataSource, setDataSource] = useState<"database" | "empty" | "error" | "loading">("loading")
+
+  const canGo = useCallback(
+    (href: string) => canAccessPath(permissions, hrefPath(href)),
+    [permissions],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    getSession().then((session) => {
+      if (cancelled) return
+      setPermissions(session?.permissions ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const loadStats = async () => {
     try {
@@ -81,10 +146,12 @@ export function StatsCards() {
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Card 1 - 任务总数 (可点击 → /tasks) */}
-      <Link
+      <StatNav
         href="/tasks"
-        className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg"
-        data-testid="dashboard-stat-tasks"
+        navigable={canGo("/tasks")}
+        label="任务管理"
+        testid="dashboard-stat-tasks"
+        focusRing="focus-visible:ring-blue-500"
       >
         <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-blue-300 dark:group-hover:border-blue-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
@@ -103,13 +170,15 @@ export function StatsCards() {
             <span className="text-emerald-600 dark:text-emerald-300 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{taskStats.completed} 已完成</span>
           </div>
         </Card>
-      </Link>
+      </StatNav>
 
       {/* Card 2 - 运行任务 (可点击 → /tasks?status=running) */}
-      <Link
+      <StatNav
         href="/tasks?status=running"
-        className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
-        data-testid="dashboard-stat-running"
+        navigable={canGo("/tasks")}
+        label="任务管理"
+        testid="dashboard-stat-running"
+        focusRing="focus-visible:ring-emerald-500"
       >
         <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-emerald-300 dark:group-hover:border-emerald-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
@@ -127,13 +196,15 @@ export function StatsCards() {
             {taskStats.pending} 待处理 · {taskStats.failed} 失败
           </div>
         </Card>
-      </Link>
+      </StatNav>
 
       {/* Card 3 - 设备在线 (可点击 → /racks) */}
-      <Link
+      <StatNav
         href="/racks"
-        className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
-        data-testid="dashboard-stat-devices"
+        navigable={canGo("/racks")}
+        label="设备管理"
+        testid="dashboard-stat-devices"
+        focusRing="focus-visible:ring-indigo-500"
       >
         <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-indigo-300 dark:group-hover:border-indigo-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
@@ -152,13 +223,15 @@ export function StatsCards() {
             <span className="text-red-600 dark:text-red-300">{rackStats.offline} 离线</span>
           </div>
         </Card>
-      </Link>
+      </StatNav>
 
       {/* Card 4 - 存储使用率 (可点击 → /volumes) */}
-      <Link
+      <StatNav
         href="/volumes"
-        className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
-        data-testid="dashboard-stat-storage"
+        navigable={canGo("/volumes")}
+        label="存储卷管理"
+        testid="dashboard-stat-storage"
+        focusRing="focus-visible:ring-amber-500"
       >
         <Card className="p-4 transition-all duration-200 group-hover:shadow-md group-hover:border-amber-300 dark:group-hover:border-amber-700 cursor-pointer bg-white dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
@@ -176,7 +249,7 @@ export function StatsCards() {
             已用 {rackStats.usedSlots}/{rackStats.totalSlotsAll} 盘位
           </div>
         </Card>
-      </Link>
+      </StatNav>
       </div>
     </div>
   )

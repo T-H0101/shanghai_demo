@@ -16,7 +16,7 @@ import {
   // Info,
   KeyRound,
 } from "lucide-react"
-import { clearSession, getSession } from "@/lib/auth/session"
+import { clearSession, getCachedSession, getSession } from "@/lib/auth/session"
 import type { AuthSession } from "@/lib/types/auth"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -48,7 +48,10 @@ export function Header({ onMenuClick }: HeaderProps) {
   // 通知铃铛暂隐藏
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore()
   // const [panelOpen, setPanelOpen] = useState(false)
-  const [session, setSession] = useState<AuthSession | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(() => {
+    const cached = getCachedSession()
+    return cached === undefined ? null : cached
+  })
   const [systemStatus, setSystemStatus] = useState<"loading" | "healthy" | "degraded">("loading")
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)

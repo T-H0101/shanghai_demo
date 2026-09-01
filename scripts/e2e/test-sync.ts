@@ -209,10 +209,14 @@ async function main() {
   const { readFile } = await import("node:fs/promises")
   const syncPageSrc = await readFile("app/sync/page.tsx", "utf8")
   const sidebarSrc = await readFile("components/dashboard/sidebar.tsx", "utf8")
+  const menuSrc = await readFile("lib/auth/menu-permissions.ts", "utf8")
   const commandPaletteSrc = await readFile("components/shared/command-palette.tsx", "utf8")
   check(
     "同步中心已加入主导航",
-    sidebarSrc.includes('href: "/sync"') && sidebarSrc.includes("同步中心"),
+    menuSrc.includes('href: "/sync"') &&
+      menuSrc.includes("同步中心") &&
+      sidebarSrc.includes("menusForPermissions") &&
+      sidebarSrc.includes('"/sync"'),
     "sidebar /sync"
   )
   check(

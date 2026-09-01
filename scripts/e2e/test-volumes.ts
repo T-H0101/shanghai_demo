@@ -180,8 +180,11 @@ async function main() {
   const sidebarSource = await readFile("components/dashboard/sidebar.tsx", "utf8")
   check(
     "[16] 侧边栏含存储卷管理",
-    sidebarSource.includes('label: "存储卷管理"') && sidebarSource.includes('href: "/volumes"'),
-    "菜单项存在"
+    (await readFile("lib/auth/menu-permissions.ts", "utf8")).includes('href: "/volumes"') &&
+      (await readFile("lib/auth/menu-permissions.ts", "utf8")).includes('label: "存储卷管理"') &&
+      sidebarSource.includes("menusForPermissions") &&
+      sidebarSource.includes('"/volumes"'),
+    "菜单映射存在"
   )
 
   console.log(`\n=== Volumes: ${pass} pass, ${fail} fail ===`)
