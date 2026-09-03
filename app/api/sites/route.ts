@@ -29,6 +29,7 @@ interface SiteRegistryRow {
   sync_interval_seconds: number
   last_connected_at: string | null
   business_region: string | null
+  region_code: string | null
   business_datacenter: string | null
   contact_name: string | null
   contact_phone: string | null
@@ -177,7 +178,8 @@ export async function GET(_request: NextRequest) {
          ss.status,
          ss.sync_interval_seconds,
          ss.last_connected_at::text,
-         s.region AS business_region,
+         COALESCE(sr.name, s.region) AS business_region,
+         sr.code AS region_code,
          s.datacenter AS business_datacenter,
          s.contact_name,
          s.contact_phone,
@@ -200,6 +202,7 @@ export async function GET(_request: NextRequest) {
            lp.last_package_at
          )::text AS last_sync_at
        FROM sync_sites ss
+       LEFT JOIN site_regions sr ON sr.code = ss.region_code
        LEFT JOIN sites s ON s.site_code = ss.site_code
        LEFT JOIN site_agent_runtime agent ON agent.site_code = ss.site_code
        LEFT JOIN task_counts t ON t.site_code = ss.site_code
@@ -300,6 +303,7 @@ export async function GET(_request: NextRequest) {
           storageTotal: storage.storageTotal,
           storageUsed: storage.storageUsed,
           region: row.business_region ?? "—",
+          regionCode: row.region_code ?? null,
           ssoEnabled: isProbeableEndpoint(row.db_host, row.db_port),
           taskCount: Number(row.task_count) || 0,
           reachabilitySource: reachability.source,

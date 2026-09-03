@@ -195,7 +195,9 @@ export async function dispatchSiteRestoreFile(
     httpStatus: siteResult.httpStatus || (siteResult.ok ? 200 : 502),
     message: siteResult.ok
       ? "回迁记录已提交到站点待回迁表，等待站点处理"
-      : siteResult.message || "站点待回迁写入失败",
+      : siteResult.reasonCode === "RESTORE_IN_PROGRESS"
+        ? siteResult.message || "当前文件正在回迁中，请勿重复发起"
+        : siteResult.message || "站点待回迁写入失败",
     url,
     missing: [],
     payload,

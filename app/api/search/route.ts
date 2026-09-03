@@ -6,19 +6,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
 import { query } from "@/lib/db"
-import { listCurrentMagazineLocations } from "@/lib/control/cage-move-register"
 import {
+  buildSearchEnrichmentContext,
   enrichSearchHits,
   loadDeviceNameByIp,
-  locationMapFromRows,
-  relocationFilterFromDevice,
-  relocationFilterFromLocations,
+  relocationFilterFromRegion,
 } from "@/lib/search/hit-enrichment"
 import {
-  esSiteCodesFromScope,
+  loadAccessibleRegionFacets,
+  resolveSearchRegionFilter,
+} from "@/lib/search/search-region-scope"
+import {
   filterSearchHitsByScope,
-  loadAccessibleDeviceFacets,
-  loadAccessibleSiteFacets,
   requireSearchSession,
   resolveSearchSiteScope,
   searchScopeIsEmpty,
@@ -52,7 +51,7 @@ async function loadVolumeNameMap(): Promise<Map<string, string>> {
               volume_id::text AS volume_id,
               source_id::text AS source_id,
               volume_name
-       FROM unified_volumes`
+       FROM unified_volumes`,
     )
     for (const row of rows) {
       const name = row.volume_name?.trim()
@@ -72,7 +71,7 @@ async function loadSiteNameMap(): Promise<Map<string, string>> {
   const map = new Map<string, string>()
   try {
     const { rows } = await query<SiteRow>(
-      `SELECT site_code, site_name FROM sync_sites WHERE enabled IS DISTINCT FROM FALSE`
+      `SELECT site_code, site_name FROM sync_sites WHERE enabled IS DISTINCT FROM FALSE`,
     )
     for (const row of rows) {
       map.set(row.site_code, row.site_name?.trim() || row.site_code)
@@ -90,16 +89,9 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("q") ??
       request.nextUrl.searchParams.get("keyword") ??
       ""
-    const siteCodeParam =
-      request.nextUrl.searchParams.get("siteCode") ??
-      request.nextUrl.searchParams.get("site") ??
-      undefined
-    const scope = resolveSearchSiteScope(session, siteCodeParam)
+    const scope = resolveSearchSiteScope(session, null)
     if (searchScopeIsEmpty(scope)) {
-      const [sites, devices] = await Promise.all([
-        loadAccessibleSiteFacets(session),
-        loadAccessibleDeviceFacets(session),
-      ])
+      const regions = await loadAccessibleRegionFacets()
       return NextResponse.json({
         code: 0,
         data: {
@@ -110,7 +102,7 @@ export async function GET(request: NextRequest) {
           source: "opensearch",
           pageSize: DEFAULT_LIMIT,
           searchAfter: null,
-          facets: { sites, devices },
+          facets: { regions },
           requirements: SEARCH_REQUIREMENTS,
           missingDimensions: SEARCH_MISSING_DIMENSIONS,
         },
@@ -118,45 +110,45 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const esSiteCodes = await esSiteCodesFromScope(scope)
-    const deviceIpRaw =
-      request.nextUrl.searchParams.get("deviceIp") ??
-      request.nextUrl.searchParams.get("device_ip") ??
+    const regionCodeParam =
+      request.nextUrl.searchParams.get("regionCode") ??
+      request.nextUrl.searchParams.get("region") ??
       undefined
-    const deviceIp = deviceIpRaw?.trim() || undefined
-    // 统一检索仅文件；忽略客户端 docType=folder
+    const regionFilter = await resolveSearchRegionFilter(session, regionCodeParam, scope)
+    const esSiteCodes = regionFilter.siteCodes
     const docType = "file" as const
 
     const pageSize = Math.min(
-      Number(request.nextUrl.searchParams.get("pageSize") ?? request.nextUrl.searchParams.get("limit") ?? DEFAULT_LIMIT),
-      500
+      Number(
+        request.nextUrl.searchParams.get("pageSize") ??
+          request.nextUrl.searchParams.get("limit") ??
+          DEFAULT_LIMIT,
+      ),
+      500,
     )
     const searchAfterRaw = request.nextUrl.searchParams.get("searchAfter")
     const searchAfter =
       searchAfterRaw != null && searchAfterRaw.trim() !== "" ? searchAfterRaw.trim() : null
 
-    // 移位登记表通常很小：一次加载同时用于选站/设备过滤 + 结果展示覆盖
-    const locations = await listCurrentMagazineLocations()
-    const locationMap = locationMapFromRows(locations)
-    const rfidFilter = esSiteCodes.length
-      ? relocationFilterFromLocations(locations, esSiteCodes)
-      : { inboundRfids: [], outboundRfids: [] }
-    const deviceRfidFilter = deviceIp
-      ? relocationFilterFromDevice(locations, deviceIp)
-      : { inboundRfids: [], outboundRfids: [] }
+    const enrichment = await buildSearchEnrichmentContext()
+    const rfidFilter =
+      regionFilter.kind === "region"
+        ? relocationFilterFromRegion(
+            enrichment.relocations,
+            regionFilter.regionCode,
+            regionFilter.siteCodes,
+          )
+        : { inboundRfids: [], outboundRfids: [] }
 
     const adapter = createOpenSearchFileSearchAdapter()
     const result = await adapter.searchFiles({
       keyword,
       siteCodes: esSiteCodes,
-      deviceIp,
       docType,
       limit: pageSize,
       searchAfter,
       inboundRfids: rfidFilter.inboundRfids,
       outboundRfids: rfidFilter.outboundRfids,
-      deviceInboundRfids: deviceRfidFilter.inboundRfids,
-      deviceOutboundRfids: deviceRfidFilter.outboundRfids,
     })
 
     if (result.source === "blocked_by_external_system") {
@@ -176,15 +168,18 @@ export async function GET(request: NextRequest) {
           message:
             "OpenSearch/ES file index is not configured or unreachable; set SEARCH_ES_URL / SEARCH_ES_INDEX",
         },
-        { status: 200 }
+        { status: 200 },
       )
     }
 
-    const previewIps = result.hits.map((h) => {
-      const rfid = h.magazineRfid?.trim()
-      const loc = rfid ? locationMap.get(rfid) : undefined
-      return (loc?.target_device_ip || h.deviceIp || "").trim()
-    }).filter(Boolean)
+    const previewIps = result.hits
+      .map((h) => {
+        const rfid = h.magazineRfid?.trim()
+        const relocated = rfid ? enrichment.relocationMap.has(rfid) : false
+        if (relocated) return ""
+        return (h.deviceIp || "").trim()
+      })
+      .filter(Boolean)
 
     const [volumeNames, siteNames, deviceNames] = await Promise.all([
       loadVolumeNameMap(),
@@ -195,22 +190,17 @@ export async function GET(request: NextRequest) {
       enrichSearchHits(result.hits, {
         volumeNames,
         siteNames,
-        locationMap,
+        relocationMap: enrichment.relocationMap,
+        siteToRegion: enrichment.siteToRegion,
+        regionNames: enrichment.regionNames,
         deviceNames,
       }),
       scope,
     )
 
-    let facets: {
-      sites: Array<{ code: string; name: string }>
-      devices: Array<{ siteCode: string; deviceIp: string; name: string }>
-    } = { sites: [], devices: [] }
+    let facets: { regions: Array<{ code: string; name: string }> } = { regions: [] }
     try {
-      const [sites, devices] = await Promise.all([
-        loadAccessibleSiteFacets(session),
-        loadAccessibleDeviceFacets(session),
-      ])
-      facets = { sites, devices }
+      facets = { regions: await loadAccessibleRegionFacets() }
     } catch {
       // facets optional
     }
@@ -244,7 +234,7 @@ export async function GET(request: NextRequest) {
         },
         error: error instanceof Error ? error.message : "search_failed",
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

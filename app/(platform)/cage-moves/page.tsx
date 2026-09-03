@@ -23,15 +23,16 @@ export default function CageMovesPage() {
   useEffect(() => {
     if (!isApiMode()) return
     let cancelled = false
-    fetch("/api/sites", { cache: "no-store" })
+    fetch("/api/sites", { cache: "no-store", credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (cancelled) return
         const rows = Array.isArray(json?.data) ? json.data : []
         setSiteOptions(
-          rows.map((s: { code?: string; id?: string; name?: string }) => ({
+          rows.map((s: { code?: string; id?: string; name?: string; regionCode?: string | null }) => ({
             code: s.code ?? s.id ?? "",
             name: s.name ?? s.code ?? s.id ?? "",
+            regionCode: s.regionCode ?? null,
           })).filter((s: { code: string }) => s.code),
         )
       })

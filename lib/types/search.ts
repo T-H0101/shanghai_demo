@@ -25,6 +25,10 @@ export interface SearchFile {
   discSide?: number | null
   /** 列表「设备位置」拼好的展示文案 */
   locationLabel?: string
+  /** 区域/站点展示：如 上海/上海01 或 南通 · 盘笼移位（站点未定） */
+  siteDisplayLabel?: string
+  /** 盘笼已登记迁入区域 */
+  relocated?: boolean
   fileType: string
   contentType: string | null
   createdAt: string

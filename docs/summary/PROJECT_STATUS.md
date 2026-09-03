@@ -1,7 +1,22 @@
 # Project Status
 
-> **截至**: 2026-08-31
-> **当前主线**: Sprint RBAC-M 菜单级细粒度权限（中期方案）
+> **截至**: 2026-09-01
+> **当前主线**: 站点区域主数据（为盘笼按区域移位铺垫）
+
+## Sprint R.103 — 站点区域维护 (partial)
+
+**目标**: 总控维护「站点区域」并挂靠业务站点（上海1/2/3 → 上海）；不改业务系统推送。
+
+**对应**: 盘笼移位前置（地区/区域归属）。状态：`partial`（CRUD + 挂靠完成；移位目标改区域 / 回迁扇出未做）。
+
+**交付**:
+- DDL：`site_regions` + `sync_sites.region_code`（`databases/sprint-r103/01-site-regions.sql`）
+- API：`/api/sites/regions`、`/api/sites/regions/[code]`（读 `sites:list`，写 `platform:operate`）
+- UI：站点管理 Tab「站点区域」；站点列表展示「所属区域」
+
+**非宣称**: 盘笼移位已按区域下发；业务系统会推送区域。
+
+---
 
 ## Sprint RBAC-M — 菜单级细粒度权限 (partial)
 

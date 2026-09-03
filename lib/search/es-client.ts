@@ -144,9 +144,14 @@ function siteOwnershipFilter(params: {
   inboundRfids?: string[]
   outboundRfids?: string[]
 }): object | null {
-  if (!params.siteCodes.length) return null
   const inbound = (params.inboundRfids ?? []).filter(Boolean)
   const outbound = (params.outboundRfids ?? []).filter(Boolean)
+  if (!params.siteCodes.length) {
+    if (inbound.length) {
+      return { terms: { magazine_rfid: inbound } }
+    }
+    return null
+  }
   const nativeMust: object[] = [{ terms: { source_site_id: params.siteCodes } }]
   if (outbound.length) {
     nativeMust.push({ bool: { must_not: [{ terms: { magazine_rfid: outbound } }] } })

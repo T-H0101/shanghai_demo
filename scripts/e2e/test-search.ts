@@ -151,13 +151,19 @@ async function main() {
     "设备筛选取代卷筛选"
   )
   check(
-    "发起回迁调用 /api/search/restore 且文案为记录已提交",
+    "发起回迁调用 /api/search/restore 且成功弹框+5分钟确认再发",
     searchPage.includes("/api/search/restore") &&
       searchPage.includes("回迁记录已提交") &&
+      searchPage.includes('data-testid="search-restore-success-dialog"') &&
+      searchPage.includes('data-testid="search-restore-confirm-dialog"') &&
+      searchPage.includes("再次发起回迁") &&
+      searchPage.includes("wasRestoreSubmittedRecently") &&
+      searchPage.includes("openSiteSsoJump") &&
+      searchPage.includes("SITE_TASK_LIST_PATH") &&
       searchPage.includes("fileSize") &&
       !searchPage.includes("回迁成功") &&
       !searchPage.includes("已回迁"),
-    "物理位置登记口径（含可选 size）"
+    "物理位置登记口径（成功弹框 / 5分钟确认 / 去站点查看）"
   )
 
   const restorePhysical = await readFile("lib/search/restore-physical.ts", "utf8")

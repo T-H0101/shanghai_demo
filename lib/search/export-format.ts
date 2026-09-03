@@ -24,7 +24,7 @@ export const SEARCH_EXPORT_LABELS: string[] = [
   // "类型",
   "路径",
   "大小",
-  "站点",
+  "区域/站点",
   "设备位置",
   "扩展名",
   "校验码",
@@ -113,7 +113,6 @@ export function toSearchExportRowFromUi(file: {
   }
 }
 
-/** 由 API/OpenSearch hit 组装导出行 */
 export function toSearchExportRowFromHit(hit: {
   displayName?: string | null
   fileName?: string | null
@@ -124,6 +123,8 @@ export function toSearchExportRowFromHit(hit: {
   siteName?: string | null
   sourceSiteId?: string | null
   displaySiteCode?: string | null
+  siteDisplayLabel?: string | null
+  locationLabel?: string | null
   magazineRfid?: string | null
   volumeName?: string | null
   volumeId?: number | null
@@ -144,26 +145,29 @@ export function toSearchExportRowFromHit(hit: {
     hit.displayName ||
     hit.fileName ||
     (docType === "folder" ? "(未命名目录)" : "(未命名文件)")
-  const siteCode = hit.displaySiteCode || hit.sourceSiteId
-  const location = formatDeviceLocationLabel({
-    volumeType: hit.volumeType,
-    deviceName: hit.deviceName,
-    deviceIp: hit.deviceIp,
-    devicePort: hit.devicePort,
-    magazineRfid: hit.magazineRfid,
-    slotOrder: hit.slotOrder,
-    discSide: hit.discSide,
-    serialNum: hit.serialNum,
-  })
+  const location =
+    dashToEmpty(hit.locationLabel) ||
+    formatDeviceLocationLabel({
+      volumeType: hit.volumeType,
+      deviceName: hit.deviceName,
+      deviceIp: hit.deviceIp,
+      devicePort: hit.devicePort,
+      magazineRfid: hit.magazineRfid,
+      slotOrder: hit.slotOrder,
+      discSide: hit.discSide,
+      serialNum: hit.serialNum,
+    })
   return {
     name,
-    path: hit.folderPath || hit.filePath || "",
+    path: dashToEmpty(hit.folderPath || hit.filePath),
     size: formatSearchSize(hit.sizeBytes, docType),
-    site: formatSearchSiteLabel(hit.siteName, siteCode),
+    site:
+      dashToEmpty(hit.siteDisplayLabel) ||
+      formatSearchSiteLabel(hit.siteName, hit.displaySiteCode || hit.sourceSiteId),
     location: location === "—" ? "" : location,
-    extension: docType === "folder" ? "目录" : hit.extension || "",
-    checksum: hit.hash || "",
-    createdAt: formatBeijingTime(hit.createDate || hit.updatedAt) || "",
+    extension: docType === "folder" ? "目录" : dashToEmpty(hit.extension),
+    checksum: dashToEmpty(hit.hash),
+    createdAt: formatBeijingTime(hit.createDate ?? hit.updatedAt) || "",
   }
 }
 

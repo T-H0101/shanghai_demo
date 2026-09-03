@@ -81,6 +81,22 @@ Body（snake_case）：
 
 失败时返回非 0 `code` 或 HTTP 4xx/5xx，可带 `reasonCode`。
 
+短时重复发起（5 分钟内同键待处理）示例：
+
+```json
+{
+  "code": -1,
+  "accepted": false,
+  "reasonCode": "RESTORE_IN_PROGRESS",
+  "message": "当前文件正在回迁中，请勿重复发起",
+  "existingTaskId": 1001,
+  "existingRestoreFileId": 12345,
+  "existingStatus": 1
+}
+```
+
+HTTP 建议 **409**。总控检索页 toast：标题「当前文件正在回迁中」，描述展示站点 `message`。
+
 ## 总控配置
 
 | 环境变量 | 说明 |
@@ -105,6 +121,11 @@ Body（snake_case）：
    - 多命中优先 `mag_order` 非空（在线），在线仍多个取第一条；`mag_order` 空 → 报错「盘笼离线」；
    - 命中库的 `IP`/`port` 须与总控传入的 `device_ip`/`device_port` 一致，否则报错；
    - `tbl_restore_file.mag_rfid` 仍写总控传入值（不改成库内另一方向字符串）。
+7. **短时防连点（Central `createRestoreFile`，`newTask` 之前）**：
+   - 匹配键：`mag_rfid` + `slot_order` + `disc_side` + `file_full_path` + `hash`；
+   - 若存在 `restore_status = 1` 且 `create_dt` 在 **5 分钟内** 的记录 → **拒绝新建**；
+   - 返回示例：`reasonCode=RESTORE_IN_PROGRESS`，`message=当前文件正在回迁中，请勿重复发起`；Nw HTTP **409**；
+   - 仅防短时多次点击；成功(6)/失败(9)/离线(7) 或超过 5 分钟的待处理(1) **不**拦。
 
 ## 总控验收口径
 
@@ -112,4 +133,5 @@ Body（snake_case）：
 |---|---|
 | 物理位置校验完成（含 AB 面） | 回迁成功 / 已回迁 |
 | 站点待回迁记录已提交 | 站点已执行物理取盘 |
-| audit_log 有登记痕迹 | requirements 回迁能力 complete |
+| 短时重复发起被站点拒绝并展示友好提示 | requirements 回迁能力 complete |
+| audit_log 有登记痕迹 | |

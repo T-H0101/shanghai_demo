@@ -20,6 +20,7 @@ import { GlassPanel } from "@/components/platform/glass-panel"
 import { rackProvider, taskProvider, fetchRackSlots, getRacksDataSource, isApiMode } from "@/lib/api"
 import { MOCK_STORE_EVENT, getStorageKey } from "@/lib/api/mock-store"
 import { ALL_SITES, useSite } from "@/lib/site/site-context"
+import { openSiteSsoJump } from "@/lib/site/open-site-sso"
 import { buildTaskDeviceFilterHref } from "@/lib/tasks/task-device-filter"
 import { InspectionView } from "@/components/racks/inspection-view"
 import type { Rack, RackSlot, RackSlotGroup, RackStats } from "@/lib/types/rack"
@@ -56,25 +57,6 @@ type ApiRacksDataSource = "database" | "empty" | "error"
 
 /** 站点业务系统设备管理页（SSO redirect，hash 路由由服务端规范化） */
 const SITE_DEVICE_MANAGEMENT_PATH = "/device-management"
-
-async function jumpToSiteDeviceManagement(siteCode: string): Promise<string> {
-  const qs = new URLSearchParams({ redirect: SITE_DEVICE_MANAGEMENT_PATH })
-  const res = await fetch(
-    `/api/sites/${encodeURIComponent(siteCode)}/sso?${qs.toString()}`,
-    { cache: "no-store", credentials: "include" },
-  )
-  const json = await res.json().catch(() => ({}))
-  if (res.status === 401) {
-    throw new Error("请先登录后再跳转站点")
-  }
-  if (!res.ok) {
-    throw new Error(json.message || `HTTP ${res.status}`)
-  }
-  if (json.status !== "ready" || !json.jumpUrl) {
-    throw new Error(json.message || json.blocker || "无法签发站点跳转")
-  }
-  return String(json.jumpUrl)
-}
 
 const deviceStatusMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   online: { label: "在线", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
@@ -603,12 +585,11 @@ export default function Page() {
     }
     setSsoJumping(true)
     try {
-      const jumpUrl = await jumpToSiteDeviceManagement(targetSite)
+      await openSiteSsoJump(targetSite, { redirect: SITE_DEVICE_MANAGEMENT_PATH })
       toast({
         title: "正在打开站点",
         description: `前往 ${selected?.siteName || targetSite} 设备管理`,
       })
-      window.open(jumpUrl, "_blank", "noopener,noreferrer")
     } catch (e) {
       toast({
         title: "跳转失败",

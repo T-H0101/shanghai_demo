@@ -272,6 +272,8 @@ MIGRATION_FILES=(
   "databases/sprint-r100/01-restore-files.sql"
   "databases/sprint-r101/01-early-warning-columns.sql"
   "databases/sprint-r102/01-unified-volume-slots.sql"
+  "databases/sprint-r103/01-site-regions.sql"
+  "databases/sprint-r104/01-cage-move-region.sql"
 )
 
 log_step "执行当前版本 DDL patch..."

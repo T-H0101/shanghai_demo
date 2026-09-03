@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { SearchFile } from "@/lib/types/search"
 import { Search, Download, ChevronLeft, ChevronRight, RotateCcw, AlertTriangle } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { formatBeijingTime } from "@/components/shared/time-format"
@@ -24,7 +24,9 @@ import {
   formatDeviceEndpoint,
   formatDeviceLocationLabel,
   isHardDiskVolume,
+  RESTORE_RELOCATED_HINT,
 } from "@/lib/search/location-display"
+import { openSiteSsoJump } from "@/lib/site/open-site-sso"
 
 interface SearchBlkInfo {
   blocker: string
@@ -36,6 +38,42 @@ const SEARCH_BLOCKER_REASON = "全文检索服务尚未接入或不可达，请�
 const SEARCH_BLOCKER_NEXT_STEP = "配置 OpenSearch 并确认 disc_file_index 有数据后重试。"
 const PAGE_SIZE_OPTIONS = [100, 200, 500] as const
 const SEARCH_FETCH_INIT: RequestInit = { credentials: "include" }
+/** 站点任务列表（SSO redirect，与设备「去站点管理」同一跳转契约） */
+const SITE_TASK_LIST_PATH = "/task-list"
+const RESTORE_SUBMITTED_PREFIX = "search-restore-submitted-at:"
+const RESTORE_CONFIRM_WINDOW_MS = 5 * 60 * 1000
+
+function restoreSubmittedStorageKey(fileId: string): string {
+  return `${RESTORE_SUBMITTED_PREFIX}${fileId}`
+}
+
+/** 5 分钟内是否已成功发起过（sessionStorage 时间戳；整页刷新清空） */
+function wasRestoreSubmittedRecently(fileId: string): boolean {
+  if (typeof window === "undefined" || !fileId) return false
+  try {
+    const raw = sessionStorage.getItem(restoreSubmittedStorageKey(fileId))
+    if (!raw) return false
+    const at = Number(raw)
+    if (!Number.isFinite(at)) return false
+    if (Date.now() - at > RESTORE_CONFIRM_WINDOW_MS) {
+      sessionStorage.removeItem(restoreSubmittedStorageKey(fileId))
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+function markRestoreSubmittedNow(fileId: string): void {
+  if (typeof window === "undefined" || !fileId) return
+  try {
+    sessionStorage.setItem(restoreSubmittedStorageKey(fileId), String(Date.now()))
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 type SearchDataSource = "opensearch" | "blocked" | "empty"
 
 type SearchApiHit = {
@@ -61,6 +99,9 @@ type SearchApiHit = {
   deviceIp?: string | null
   devicePort?: string | null
   deviceName?: string | null
+  siteDisplayLabel?: string | null
+  locationLabel?: string | null
+  relocated?: boolean
   slotId?: number | null
   slotOrder?: number | null
   discSide?: number | null
@@ -71,8 +112,7 @@ type SearchApiHit = {
   updatedAt?: string | null
 }
 
-type FacetSite = { code: string; name: string }
-type FacetDevice = { siteCode: string; deviceIp: string; name: string }
+type FacetRegion = { code: string; name: string }
 
 function formatSize(sizeBytes: number | null | undefined): string {
   if (typeof sizeBytes !== "number" || !Number.isFinite(sizeBytes)) return "—"
@@ -98,6 +138,7 @@ function SearchDetailRow({ label, value }: { label: string; value: ReactNode }) 
 function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
   const archiveSiteId = hit.sourceSiteId ?? "—"
   const displaySiteCode = hit.displaySiteCode?.trim() || archiveSiteId
+  const relocated = Boolean(hit.relocated)
   const sourceRecordId = hit.sourceRecordId ?? String(index)
   const docType = hit.docType ?? "file"
   const name = hit.displayName ?? hit.fileName ?? (docType === "folder" ? "(未命名目录)" : "(未命名文件)")
@@ -118,6 +159,23 @@ function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
   const deviceIp = hit.deviceIp?.trim() || null
   const devicePort = hit.devicePort?.trim() || null
   const deviceName = hit.deviceName?.trim() || null
+  const siteDisplayLabel =
+    hit.siteDisplayLabel?.trim() ||
+    (hit.siteName && hit.siteName !== displaySiteCode
+      ? `${hit.siteName} (${displaySiteCode})`
+      : displaySiteCode)
+  const locationLabel =
+    hit.locationLabel?.trim() ||
+    formatDeviceLocationLabel({
+      volumeType,
+      deviceName,
+      deviceIp,
+      devicePort,
+      magazineRfid,
+      slotOrder,
+      discSide,
+      serialNum,
+    })
   return {
     id: `${archiveSiteId}:${hit.sourceTable ?? "row"}:${sourceRecordId}`,
     fileName: name,
@@ -126,6 +184,8 @@ function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
     sizeBytes: hit.sizeBytes ?? 0,
     siteName: hit.siteName ?? displaySiteCode,
     siteCode: displaySiteCode,
+    siteDisplayLabel,
+    relocated,
     docType,
     volumeId: hit.volumeId ?? null,
     volume: hit.volumeName ?? (hit.volumeId != null ? `卷-${hit.volumeId}` : "—"),
@@ -141,16 +201,7 @@ function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
         : null,
     slotOrder,
     discSide,
-    locationLabel: formatDeviceLocationLabel({
-      volumeType,
-      deviceName,
-      deviceIp,
-      devicePort,
-      magazineRfid,
-      slotOrder,
-      discSide,
-      serialNum,
-    }),
+    locationLabel,
     fileType: hit.extension ?? (docType === "folder" ? "目录" : "—"),
     contentType: hit.contentType ?? null,
     createdAt: hit.createDate ?? hit.updatedAt ?? "",
@@ -175,16 +226,13 @@ export default function Page() {
   const [keyword, setKeyword] = useState("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(100)
-  const [siteFilter, setSiteFilter] = useState("all")
-  // const [typeFilter, setTypeFilter] = useState("all") // 仅文件检索，类型筛选暂隐藏
-  const [deviceFilter, setDeviceFilter] = useState("all")
+  const [regionFilter, setRegionFilter] = useState("all")
   const [showExport, setShowExport] = useState(false)
   const [detailFile, setDetailFile] = useState<SearchFile | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
   const [blk, setBlk] = useState<SearchBlkInfo | null>(null)
   const [dataSource, setDataSource] = useState<SearchDataSource>("blocked")
-  const [sites, setSites] = useState<FacetSite[]>([])
-  const [devices, setDevices] = useState<FacetDevice[]>([])
+  const [regions, setRegions] = useState<FacetRegion[]>([])
   /** 进入当前页所用的 searchAfter 栈；空 = 第 1 页 */
   const [cursorStack, setCursorStack] = useState<string[]>([])
   const [nextSearchAfter, setNextSearchAfter] = useState<string | null>(null)
@@ -199,6 +247,13 @@ export default function Page() {
 
   const [searchResults, setSearchResults] = useState<SearchFile[]>([])
   const [searching, setSearching] = useState(false)
+  const [restoreSubmittingId, setRestoreSubmittingId] = useState<string | null>(null)
+  const [restoreSuccess, setRestoreSuccess] = useState<{
+    file: SearchFile
+    message: string
+  } | null>(null)
+  const [restoreConfirmFile, setRestoreConfirmFile] = useState<SearchFile | null>(null)
+  const [ssoJumping, setSsoJumping] = useState(false)
   const filterBarRef = useRef<HTMLDivElement | null>(null)
   const tableScrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -209,45 +264,29 @@ export default function Page() {
     })
   }, [])
 
-  const filteredDevices = useMemo(() => {
-    const list =
-      siteFilter === "all" ? devices : devices.filter((d) => d.siteCode === siteFilter)
-    // Select value 为 deviceIp；跨站同 IP 去重，避免 Radix 重复 value
-    const seen = new Set<string>()
-    const out: FacetDevice[] = []
-    for (const d of list) {
-      if (seen.has(d.deviceIp)) continue
-      seen.add(d.deviceIp)
-      out.push(d)
-    }
-    return out
-  }, [devices, siteFilter])
-
-  const paged = searchResults
-  const canGoPrev = cursorStack.length > 0
-  const canGoNext = hasMore && Boolean(nextSearchAfter)
-
   const buildFilterKey = useCallback(
-    (kw: string, site: string, device: string) =>
+    (kw: string, region: string) =>
       JSON.stringify({
         q: kw.trim(),
-        site,
-        device,
+        region,
         docType: "file",
       }),
     [],
   )
 
   const currentFilterKey = useMemo(
-    () => buildFilterKey(keyword, siteFilter, deviceFilter),
-    [buildFilterKey, keyword, siteFilter, deviceFilter],
+    () => buildFilterKey(keyword, regionFilter),
+    [buildFilterKey, keyword, regionFilter],
   )
 
   const appendFilterParams = (sp: URLSearchParams) => {
-    if (siteFilter !== "all") sp.set("siteCode", siteFilter)
-    if (deviceFilter !== "all") sp.set("deviceIp", deviceFilter)
+    if (regionFilter !== "all") sp.set("regionCode", regionFilter)
     sp.set("docType", "file")
   }
+
+  const paged = searchResults
+  const canGoPrev = cursorStack.length > 0
+  const canGoNext = hasMore && Boolean(nextSearchAfter)
 
   const fetchTotalIfNeeded = async (filterKey: string): Promise<number | null> => {
     if (countedFilterKey === filterKey) {
@@ -271,14 +310,34 @@ export default function Page() {
     return safe
   }
 
-  const applyFacets = (facets: { sites?: FacetSite[]; devices?: FacetDevice[] } | undefined) => {
-    if (facets?.sites?.length) {
-      setSites((prev) => (facets.sites!.length >= prev.length ? facets.sites! : prev))
-    }
-    if (facets?.devices?.length) {
-      setDevices((prev) => (facets.devices!.length >= prev.length ? facets.devices! : prev))
+  const applyFacets = (facets: { regions?: FacetRegion[] } | undefined) => {
+    if (facets?.regions?.length) {
+      setRegions((prev) => (facets.regions!.length >= prev.length ? facets.regions! : prev))
     }
   }
+
+  const loadRegionFacets = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sites/regions", SEARCH_FETCH_INIT)
+      if (!res.ok) return
+      const json = await res.json()
+      const rows = (json?.data?.regions ?? []) as Array<{
+        code: string
+        name?: string
+        status?: string
+      }>
+      setRegions(
+        rows
+          .filter((r) => r.status === "active")
+          .map((r) => ({
+            code: r.code,
+            name: r.name?.trim() || r.code,
+          })),
+      )
+    } catch {
+      // ignore
+    }
+  }, [])
 
   const detectEs = useCallback(async () => {
     try {
@@ -311,7 +370,8 @@ export default function Page() {
 
   useEffect(() => {
     void detectEs()
-  }, [detectEs])
+    void loadRegionFacets()
+  }, [detectEs, loadRegionFacets])
 
   const runSearch = async (opts?: {
     size?: number
@@ -489,9 +549,7 @@ export default function Page() {
 
   const handleReset = () => {
     setKeyword("")
-    setSiteFilter("all")
-    // setTypeFilter("all")
-    setDeviceFilter("all")
+    setRegionFilter("all")
     setPage(1)
     setSearchResults([])
     setCursorStack([])
@@ -548,24 +606,8 @@ export default function Page() {
     })
   }
 
-  const handleRestore = async (file: SearchFile) => {
-    if (file.docType === "folder") {
-      toast({
-        title: "回迁记录未提交",
-        description: "目录暂不支持按物理位置登记回迁，请选择文件。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!canInitiatePhysicalRestore(file.volumeType)) {
-      toast({
-        title: "回迁记录未提交",
-        description: "硬盘卷暂不支持从总控发起物理回迁。",
-        variant: "destructive",
-      })
-      return
-    }
+  const submitRestore = async (file: SearchFile) => {
+    if (restoreSubmittingId) return
 
     const missing: string[] = []
     if (!file.deviceIp?.trim()) missing.push("设备IP")
@@ -586,6 +628,7 @@ export default function Page() {
       return
     }
 
+    setRestoreSubmittingId(file.id)
     try {
       const res = await fetch("/api/search/restore", {
         method: "POST",
@@ -609,6 +652,10 @@ export default function Page() {
         }),
       })
       const body = await res.json().catch(() => ({}))
+      const siteReasonCode =
+        typeof body?.data?.siteReasonCode === "string"
+          ? body.data.siteReasonCode
+          : null
       const message =
         typeof body?.message === "string"
           ? body.message
@@ -620,74 +667,114 @@ export default function Page() {
         const missingFields = Array.isArray(body?.data?.missing)
           ? body.data.missing.join(", ")
           : ""
+        const inProgress = siteReasonCode === "RESTORE_IN_PROGRESS"
         toast({
-          title: "回迁记录未提交",
-          description: missingFields ? `${message}（${missingFields}）` : message,
+          title: inProgress ? "当前文件正在回迁中" : "回迁记录未提交",
+          description: inProgress
+            ? message || "请稍后再试，或前往站点任务列表查看进度"
+            : missingFields
+              ? `${message}（${missingFields}）`
+              : message,
           variant: "destructive",
         })
         return
       }
 
-      toast({
-        title: "回迁记录已提交",
-        description: message,
-      })
+      markRestoreSubmittedNow(file.id)
+      setRestoreConfirmFile(null)
+      setRestoreSuccess({ file, message })
+      setDetailFile(null)
     } catch (e) {
       toast({
         title: "回迁记录未提交",
         description: e instanceof Error ? e.message : "网络异常",
         variant: "destructive",
       })
+    } finally {
+      setRestoreSubmittingId(null)
+    }
+  }
+
+  const handleRestore = async (file: SearchFile) => {
+    if (file.relocated) {
+      toast({
+        title: "回迁记录未提交",
+        description: RESTORE_RELOCATED_HINT,
+        variant: "destructive",
+      })
+      return
+    }
+    if (file.docType === "folder") {
+      toast({
+        title: "回迁记录未提交",
+        description: "目录暂不支持按物理位置登记回迁，请选择文件。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!canInitiatePhysicalRestore(file.volumeType)) {
+      toast({
+        title: "回迁记录未提交",
+        description: "硬盘卷暂不支持从总控发起物理回迁。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (restoreSubmittingId) return
+
+    if (wasRestoreSubmittedRecently(file.id)) {
+      setRestoreConfirmFile(file)
+      return
+    }
+
+    await submitRestore(file)
+  }
+
+  const handleJumpToSiteTaskList = async () => {
+    const siteCode = restoreSuccess?.file.siteCode?.trim()
+    if (!siteCode || siteCode === "—") {
+      toast({
+        title: "无法跳转站点",
+        description: "缺少目标站点",
+        variant: "destructive",
+      })
+      return
+    }
+    setSsoJumping(true)
+    try {
+      await openSiteSsoJump(siteCode, { redirect: SITE_TASK_LIST_PATH })
+      toast({
+        title: "正在打开站点",
+        description: `已签发跳转票据 → ${siteCode} 任务列表`,
+      })
+    } catch (e) {
+      toast({
+        title: "无法跳转站点",
+        description: e instanceof Error ? e.message : "签发跳转失败",
+        variant: "destructive",
+      })
+    } finally {
+      setSsoJumping(false)
     }
   }
 
   const filterSelects = (
     <>
-      <Select
-        value={siteFilter}
-        onValueChange={(v) => {
-          setSiteFilter(v)
-          setDeviceFilter("all")
-        }}
-      >
-        <SelectTrigger className="h-9 w-[180px] shrink-0" data-testid="search-site-filter">
-          <SelectValue placeholder="全部站点" />
+      <Select value={regionFilter} onValueChange={setRegionFilter}>
+        <SelectTrigger className="h-9 w-[200px] shrink-0" data-testid="search-region-filter">
+          <SelectValue placeholder="全部区域" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">全部站点</SelectItem>
-          {sites.map((s) => (
-            <SelectItem key={s.code} value={s.code}>
-              {s.name} ({s.code})
+          <SelectItem value="all">全部区域</SelectItem>
+          {regions.map((r) => (
+            <SelectItem key={r.code} value={r.code}>
+              {r.name} ({r.code})
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Select value={deviceFilter} onValueChange={setDeviceFilter}>
-        <SelectTrigger className="h-9 w-[200px] shrink-0" data-testid="search-device-filter">
-          <SelectValue placeholder="全部设备" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部设备</SelectItem>
-          {filteredDevices.map((d) => (
-            <SelectItem key={`${d.siteCode}-${d.deviceIp}`} value={d.deviceIp}>
-              {d.name === d.deviceIp ? d.deviceIp : `${d.name} · ${d.deviceIp}`}
-              {siteFilter === "all" ? ` · ${d.siteCode}` : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {/* 仅文件检索，类型筛选暂隐藏
-      <Select value={typeFilter} onValueChange={setTypeFilter}>
-        <SelectTrigger className="h-9 w-[120px] shrink-0" data-testid="search-type-filter">
-          <SelectValue placeholder="全部类型" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部类型</SelectItem>
-          <SelectItem value="file">文件</SelectItem>
-          <SelectItem value="folder">目录</SelectItem>
-        </SelectContent>
-      </Select>
-      */}
     </>
   )
 
@@ -855,7 +942,7 @@ export default function Page() {
                     {/* <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">类型</TableHead> */}
                     <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">路径</TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">大小</TableHead>
-                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">站点</TableHead>
+                    <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">区域/站点</TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">备份位置</TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">扩展名</TableHead>
                     <TableHead className="sticky top-0 z-20 bg-card text-sm text-slate-500">校验码</TableHead>
@@ -875,8 +962,15 @@ export default function Page() {
                   ) : (
                     paged.map((f) => {
                       const created = formatBeijingTime(f.createdAt) || "—"
-                      const siteLabel =
-                        f.siteName && f.siteName !== f.siteCode ? `${f.siteName} (${f.siteCode})` : f.siteCode
+                      const siteLabel = f.siteDisplayLabel || f.siteName || f.siteCode
+                      const restoreDisabled =
+                        !canInitiatePhysicalRestore(f.volumeType, f.relocated) ||
+                        restoreSubmittingId === f.id
+                      const restoreTitle = f.relocated
+                        ? RESTORE_RELOCATED_HINT
+                        : isHardDiskVolume(f.volumeType)
+                          ? "硬盘卷暂不支持从总控发起物理回迁"
+                          : undefined
                       return (
                         <TableRow
                           key={f.id}
@@ -923,15 +1017,11 @@ export default function Page() {
                                 size="sm"
                                 className="h-7 shrink-0 cursor-pointer px-2.5 text-xs disabled:cursor-not-allowed"
                                 onClick={() => handleRestore(f)}
-                                disabled={!canInitiatePhysicalRestore(f.volumeType)}
-                                title={
-                                  isHardDiskVolume(f.volumeType)
-                                    ? "硬盘卷暂不支持从总控发起物理回迁"
-                                    : undefined
-                                }
+                                disabled={restoreDisabled}
+                                title={restoreTitle}
                                 data-testid="search-row-restore"
                               >
-                                发起回迁
+                                {restoreSubmittingId === f.id ? "提交中…" : "发起回迁"}
                               </Button>
                             </div>
                           </TableCell>
@@ -1091,17 +1181,109 @@ export default function Page() {
                 onClick={() => {
                   handleRestore(detailFile)
                 }}
-                disabled={!canInitiatePhysicalRestore(detailFile.volumeType)}
+                disabled={
+                  !canInitiatePhysicalRestore(detailFile.volumeType, detailFile.relocated) ||
+                  restoreSubmittingId === detailFile.id
+                }
                 title={
-                  isHardDiskVolume(detailFile.volumeType)
-                    ? "硬盘卷暂不支持从总控发起物理回迁"
-                    : undefined
+                  detailFile.relocated
+                    ? RESTORE_RELOCATED_HINT
+                    : isHardDiskVolume(detailFile.volumeType)
+                      ? "硬盘卷暂不支持从总控发起物理回迁"
+                      : undefined
                 }
                 data-testid="search-detail-restore"
               >
-                发起回迁
+                {restoreSubmittingId === detailFile.id ? "提交中…" : "发起回迁"}
               </Button>
             ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(restoreConfirmFile)}
+        onOpenChange={(open) => {
+          if (!open) setRestoreConfirmFile(null)
+        }}
+      >
+        <DialogContent data-testid="search-restore-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>已发起过回迁</DialogTitle>
+            <DialogDescription>
+              该文件在 5 分钟内已发起过回迁。是否再次发起？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRestoreConfirmFile(null)}
+              disabled={Boolean(restoreSubmittingId)}
+              data-testid="search-restore-confirm-cancel"
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (restoreConfirmFile) void submitRestore(restoreConfirmFile)
+              }}
+              disabled={Boolean(restoreSubmittingId)}
+              data-testid="search-restore-confirm-retry"
+            >
+              {restoreSubmittingId && restoreConfirmFile?.id === restoreSubmittingId
+                ? "提交中…"
+                : "再次发起回迁"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(restoreSuccess)}
+        onOpenChange={(open) => {
+          if (!open) setRestoreSuccess(null)
+        }}
+      >
+        <DialogContent data-testid="search-restore-success-dialog">
+          <DialogHeader>
+            <DialogTitle>回迁记录已提交</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground pt-1">
+                <p>
+                  已提交到站点
+                  {restoreSuccess?.file.siteCode
+                    ? ` ${restoreSuccess.file.siteName && restoreSuccess.file.siteName !== restoreSuccess.file.siteCode ? `${restoreSuccess.file.siteName}（${restoreSuccess.file.siteCode}）` : restoreSuccess.file.siteCode}`
+                    : ""}
+                  的回迁任务。请在站点任务列表查看处理进度。
+                </p>
+                <p>
+                  总控任务管理需等待站点同步后才会出现（约 5 分钟），请勿重复发起。
+                </p>
+                {restoreSuccess?.message ? (
+                  <p className="text-xs text-slate-500">{restoreSuccess.message}</p>
+                ) : null}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRestoreSuccess(null)}
+              data-testid="search-restore-success-close"
+            >
+              关闭
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleJumpToSiteTaskList()}
+              disabled={ssoJumping || !restoreSuccess?.file.siteCode}
+              data-testid="search-restore-jump-site"
+            >
+              {ssoJumping ? "跳转中…" : "去站点查看"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

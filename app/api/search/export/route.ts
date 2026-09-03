@@ -1,12 +1,10 @@
 /**
  * GET /api/search/export — 检索结果导出（OpenSearch disc_file_index）
- * 列与统一检索页面对齐：中文表头 + 格式化内容
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import type { AuthUser } from "@/lib/auth/server"
 import { createOpenSearchFileSearchAdapter } from "@/lib/adapters/opensearch/file-search-adapter"
-import { listCurrentMagazineLocations } from "@/lib/control/cage-move-register"
 import { query } from "@/lib/db"
 import { buildExport } from "@/lib/export"
 import { toNextResponse } from "@/lib/export/next-response"
@@ -17,14 +15,13 @@ import {
   type SearchExportRow,
 } from "@/lib/search/export-format"
 import {
+  buildSearchEnrichmentContext,
   enrichSearchHits,
   loadDeviceNameByIp,
-  locationMapFromRows,
-  relocationFilterFromDevice,
-  relocationFilterFromLocations,
+  relocationFilterFromRegion,
 } from "@/lib/search/hit-enrichment"
+import { resolveSearchRegionFilter } from "@/lib/search/search-region-scope"
 import {
-  esSiteCodesFromScope,
   filterSearchHitsByScope,
   requireSearchSession,
   resolveSearchSiteScope,
@@ -92,18 +89,14 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const formatRaw = (url.searchParams.get("format") ?? "csv").toLowerCase()
   const format = formatRaw === "json" ? "json" : "csv"
-  const keyword =
-    url.searchParams.get("q") ?? url.searchParams.get("keyword") ?? ""
-  const siteCodeParam =
-    url.searchParams.get("siteCode") ?? url.searchParams.get("site") ?? undefined
-  const deviceIpRaw =
-    url.searchParams.get("deviceIp") ?? url.searchParams.get("device_ip") ?? undefined
-  const deviceIp = deviceIpRaw?.trim() || undefined
+  const keyword = url.searchParams.get("q") ?? url.searchParams.get("keyword") ?? ""
+  const regionCodeParam =
+    url.searchParams.get("regionCode") ?? url.searchParams.get("region") ?? undefined
   const docType = "file" as const
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 10000), 50000)
 
   try {
-    const scope = resolveSearchSiteScope(session, siteCodeParam)
+    const scope = resolveSearchSiteScope(session, null)
     if (searchScopeIsEmpty(scope)) {
       const exportResult = buildExport({
         exportType: "search",
@@ -112,10 +105,10 @@ export async function GET(req: NextRequest) {
         columns: [...SEARCH_EXPORT_COLUMNS],
         columnLabels: SEARCH_EXPORT_LABELS,
         rows: [],
-        siteCode: siteCodeParam ?? null,
+        siteCode: null,
         filters: {
           keyword: keyword || null,
-          deviceIp: deviceIp ?? null,
+          regionCode: regionCodeParam ?? null,
           docType: docType ?? null,
         },
         filenamePrefix: "search-export",
@@ -123,28 +116,26 @@ export async function GET(req: NextRequest) {
       return toNextResponse(exportResult)
     }
 
-    const esSiteCodes = await esSiteCodesFromScope(scope)
-    const locations = await listCurrentMagazineLocations()
-    const locationMap = locationMapFromRows(locations)
-    const rfidFilter = esSiteCodes.length
-      ? relocationFilterFromLocations(locations, esSiteCodes)
-      : { inboundRfids: [], outboundRfids: [] }
-    const deviceRfidFilter = deviceIp
-      ? relocationFilterFromDevice(locations, deviceIp)
-      : { inboundRfids: [], outboundRfids: [] }
+    const regionFilter = await resolveSearchRegionFilter(session, regionCodeParam, scope)
+    const enrichment = await buildSearchEnrichmentContext()
+    const rfidFilter =
+      regionFilter.kind === "region"
+        ? relocationFilterFromRegion(
+            enrichment.relocations,
+            regionFilter.regionCode,
+            regionFilter.siteCodes,
+          )
+        : { inboundRfids: [], outboundRfids: [] }
 
     const adapter = createOpenSearchFileSearchAdapter()
     const result = await adapter.searchFiles({
       keyword,
-      siteCodes: esSiteCodes,
-      deviceIp,
+      siteCodes: regionFilter.siteCodes,
       docType,
       limit,
       searchAfter: null,
       inboundRfids: rfidFilter.inboundRfids,
       outboundRfids: rfidFilter.outboundRfids,
-      deviceInboundRfids: deviceRfidFilter.inboundRfids,
-      deviceOutboundRfids: deviceRfidFilter.outboundRfids,
     })
 
     if (result.source === "blocked_by_external_system") {
@@ -158,11 +149,14 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const previewIps = result.hits.map((h) => {
-      const rfid = h.magazineRfid?.trim()
-      const loc = rfid ? locationMap.get(rfid) : undefined
-      return (loc?.target_device_ip || h.deviceIp || "").trim()
-    }).filter(Boolean)
+    const previewIps = result.hits
+      .map((h) => {
+        const rfid = h.magazineRfid?.trim()
+        const relocated = rfid ? enrichment.relocationMap.has(rfid) : false
+        if (relocated) return ""
+        return (h.deviceIp || "").trim()
+      })
+      .filter(Boolean)
 
     const [volumeMap, siteMap, deviceNames] = await Promise.all([
       loadVolumeNameMap(),
@@ -173,7 +167,9 @@ export async function GET(req: NextRequest) {
       enrichSearchHits(result.hits, {
         volumeNames: volumeMap,
         siteNames: siteMap,
-        locationMap,
+        relocationMap: enrichment.relocationMap,
+        siteToRegion: enrichment.siteToRegion,
+        regionNames: enrichment.regionNames,
         deviceNames,
       }),
       scope,
@@ -187,10 +183,10 @@ export async function GET(req: NextRequest) {
       columns: [...SEARCH_EXPORT_COLUMNS],
       columnLabels: SEARCH_EXPORT_LABELS,
       rows,
-      siteCode: siteCodeParam ?? null,
+      siteCode: null,
       filters: {
         keyword: keyword || null,
-        deviceIp: deviceIp ?? null,
+        regionCode: regionCodeParam ?? null,
         docType: docType ?? null,
       },
       filenamePrefix: "search-export",

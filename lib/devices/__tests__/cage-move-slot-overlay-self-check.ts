@@ -31,9 +31,11 @@ function check(name: string, ok: boolean, detail?: string) {
 
 const reloc: MagazineRelocation = {
   magazine_rfid: "E00401D003AFE0A5",
+  source_region_code: "SH",
   source_site_code: "SH01",
   source_device_ip: "10.0.0.1",
   source_device_port: "8080",
+  target_region_code: "BJ",
   target_site_code: "BJ02",
   target_device_ip: "10.0.0.2",
   target_device_port: null,

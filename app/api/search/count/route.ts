@@ -1,18 +1,16 @@
 /**
  * GET /api/search/count
  * 与统一检索同条件的 OpenSearch /_count（精确命中总数）
- * 由前端在「检索条件变化」时调用一次；翻页不应重复请求。
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { listCurrentMagazineLocations } from "@/lib/control/cage-move-register"
 import {
-  relocationFilterFromDevice,
-  relocationFilterFromLocations,
+  buildSearchEnrichmentContext,
+  relocationFilterFromRegion,
 } from "@/lib/search/hit-enrichment"
 import { countFilesInEs, isEsConfigured } from "@/lib/search/es-client"
+import { resolveSearchRegionFilter } from "@/lib/search/search-region-scope"
 import {
-  esSiteCodesFromScope,
   requireSearchSession,
   resolveSearchSiteScope,
   searchScopeIsEmpty,
@@ -40,11 +38,7 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("q") ??
       request.nextUrl.searchParams.get("keyword") ??
       ""
-    const siteCodeParam =
-      request.nextUrl.searchParams.get("siteCode") ??
-      request.nextUrl.searchParams.get("site") ??
-      undefined
-    const scope = resolveSearchSiteScope(session, siteCodeParam)
+    const scope = resolveSearchSiteScope(session, null)
     if (searchScopeIsEmpty(scope)) {
       return NextResponse.json({
         code: 0,
@@ -53,31 +47,29 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const esSiteCodes = await esSiteCodesFromScope(scope)
-    const deviceIpRaw =
-      request.nextUrl.searchParams.get("deviceIp") ??
-      request.nextUrl.searchParams.get("device_ip") ??
+    const regionCodeParam =
+      request.nextUrl.searchParams.get("regionCode") ??
+      request.nextUrl.searchParams.get("region") ??
       undefined
-    const deviceIp = deviceIpRaw?.trim() || undefined
+    const regionFilter = await resolveSearchRegionFilter(session, regionCodeParam, scope)
     const docType = "file" as const
 
-    const locations = await listCurrentMagazineLocations()
-    const rfidFilter = esSiteCodes.length
-      ? relocationFilterFromLocations(locations, esSiteCodes)
-      : { inboundRfids: [], outboundRfids: [] }
-    const deviceRfidFilter = deviceIp
-      ? relocationFilterFromDevice(locations, deviceIp)
-      : { inboundRfids: [], outboundRfids: [] }
+    const enrichment = await buildSearchEnrichmentContext()
+    const rfidFilter =
+      regionFilter.kind === "region"
+        ? relocationFilterFromRegion(
+            enrichment.relocations,
+            regionFilter.regionCode,
+            regionFilter.siteCodes,
+          )
+        : { inboundRfids: [], outboundRfids: [] }
 
     const total = await countFilesInEs({
       q: keyword,
-      siteCodes: esSiteCodes,
-      deviceIp,
+      siteCodes: regionFilter.siteCodes,
       docType,
       inboundRfids: rfidFilter.inboundRfids,
       outboundRfids: rfidFilter.outboundRfids,
-      deviceInboundRfids: deviceRfidFilter.inboundRfids,
-      deviceOutboundRfids: deviceRfidFilter.outboundRfids,
     })
 
     return NextResponse.json({

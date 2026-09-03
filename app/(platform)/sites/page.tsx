@@ -23,9 +23,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import type { Site } from "@/lib/types/site"
-import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, ShieldCheck } from "lucide-react"
+import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, ShieldCheck, MapPinned } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import type { SiteDTO } from "@/lib/api/dto"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SiteRegionsPanel } from "@/components/sites/site-regions-panel"
 
 /**
  * /sites 页面 — Sprint R.82 中心库治理
@@ -40,17 +42,11 @@ import type { SiteDTO } from "@/lib/api/dto"
  *   - 调用 GET /api/sites 真实接口
  *   - dataSource 显式: database / empty / error (不允许 mock 静默 fallback)
  *   - 站点列表只统计 sync_sites 注册站点
+ *   - Tab「站点区域」：总控维护区域主数据并挂靠业务站点（sprint-r103）
  *   - 业务表里未注册 siteCode 仅作为 meta.orphanSiteCodes 数据质量证据
  *   - 不提供站点业务系统启停 (Power)
  *   - SSO：有真实 db_host:db_port 时可跳转（近期 ticket，见 docs/source/site-sso-jump-v1.md）
  *   - 一致性校验入口已隐藏（只读易误导）；结果见 /sync 与日志检索「一致性」
- *
- * 范围严格限定:
- *   - 不新增数据库表
- *   - 不新增 API
- *   - 不新增页面
- *   - 不做站点 CRUD
- *   - 不接多站点
  */
 
 type SiteStatusFilter = "all" | "online" | "offline"
@@ -71,7 +67,12 @@ interface ApiEnvelope {
 }
 
 // 把 /api/sites 的 SiteDTO 转成前端 Site (缺失展示字段统一显示 —)
-function toSite(dto: SiteDTO): Site & { reachabilityNote?: string; reachabilitySource?: string; ssoEnabled?: boolean } {
+function toSite(dto: SiteDTO): Site & {
+  reachabilityNote?: string
+  reachabilitySource?: string
+  ssoEnabled?: boolean
+  regionCode?: string | null
+} {
   return {
     id: dto.id,
     name: dto.name,
@@ -93,6 +94,7 @@ function toSite(dto: SiteDTO): Site & { reachabilityNote?: string; reachabilityS
     storageTotal: dto.storageTotal || "—",
     storageUsed: dto.storageUsed || "—",
     region: dto.region || "—",
+    regionCode: dto.regionCode ?? null,
     ssoEnabled: dto.ssoEnabled ?? false,
     rackCount: dto.rackCount,
     onlineRackCount: dto.onlineRackCount,
@@ -125,6 +127,8 @@ export default function Page() {
   const [showOrphanDetail, setShowOrphanDetail] = useState(false)
   const [orphanDetail, setOrphanDetail] = useState<Array<{ site_code: string; sources: { tasks: number; devices: number; volumes: number; packages: number } }>>([])
   const [orphanLoading, setOrphanLoading] = useState(false)
+  const [mainTab, setMainTab] = useState<"sites" | "regions">("sites")
+  const [regionsRefreshKey, setRegionsRefreshKey] = useState(0)
 
   const loadOrphanDetail = async () => {
     setOrphanLoading(true)
@@ -326,7 +330,7 @@ export default function Page() {
         <div className="shrink-0">
           <PageHeader
             title="站点管理"
-            description="统一管理各数据中心光盘库站点；在线状态依据管理 IP:端口 TCP 探测"
+            description="统一管理各数据中心业务站点与站点区域；在线状态依据管理 IP:端口 TCP 探测"
             badge="SITE MGMT"
             actions={
               <div className="flex items-center gap-2">
@@ -335,7 +339,10 @@ export default function Page() {
                     variant="outline"
                     size="sm"
                     className="h-8 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    onClick={loadSites}
+                    onClick={() => {
+                      void loadSites()
+                      setRegionsRefreshKey((k) => k + 1)
+                    }}
                     disabled={loading}
                     data-testid="sites-refresh"
                   >
@@ -348,6 +355,32 @@ export default function Page() {
           />
         </div>
 
+      <Tabs
+        value={mainTab}
+        onValueChange={(v) => setMainTab(v as "sites" | "regions")}
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+      >
+        <TabsList className="h-9 w-fit shrink-0">
+          <TabsTrigger value="sites" className="text-xs" data-testid="sites-tab-list">
+            <Server className="mr-1 h-3.5 w-3.5" />
+            站点列表
+          </TabsTrigger>
+          <TabsTrigger value="regions" className="text-xs" data-testid="sites-tab-regions">
+            <MapPinned className="mr-1 h-3.5 w-3.5" />
+            站点区域
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="regions" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+          <SiteRegionsPanel
+            key={regionsRefreshKey}
+            availableSites={sites.map((s) => ({ code: s.code, name: s.name }))}
+            className="min-h-0 flex-1"
+            onChanged={() => void loadSites()}
+          />
+        </TabsContent>
+
+        <TabsContent value="sites" className="mt-0 flex min-h-0 flex-1 flex-col gap-3 overflow-hidden data-[state=inactive]:hidden">
       {meta?.orphanSiteCodes && meta.orphanSiteCodes.length > 0 && (
         <div className="flex shrink-0 flex-col sm:flex-row sm:items-center gap-2 px-1">
           <span className="text-xs text-slate-500">
@@ -457,6 +490,7 @@ export default function Page() {
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-white dark:bg-slate-800">
                   <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-sm text-slate-500">所属区域</TableHead>
                     <TableHead className="text-sm text-slate-500">站点</TableHead>
                     <TableHead className="text-sm text-slate-500">状态</TableHead>
                     <TableHead className="text-sm text-slate-500">IP:端口</TableHead>
@@ -472,6 +506,11 @@ export default function Page() {
                       className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.id === site.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
                       onClick={() => setSelected(site)}
                     >
+                      <TableCell className="text-sm text-slate-600 dark:text-slate-300">
+                        {site.region && site.region !== "—" ? site.region : (
+                          <span className="text-slate-400">未归属</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <p className="font-medium text-sm">{site.name}</p>
                         <p className="text-xs text-slate-400">{site.code}</p>
@@ -536,6 +575,14 @@ export default function Page() {
           {selected && (
             <div className="space-y-4">
               <DetailRow label="站点名称" value={selected.name} />
+              <DetailRow
+                label="所属区域"
+                value={
+                  selected.region && selected.region !== "—"
+                    ? `${selected.region}${selected.regionCode ? ` (${selected.regionCode})` : ""}`
+                    : "未归属"
+                }
+              />
               <DetailRow label="IP:端口" value={
                 selected.ip && selected.ip !== "—"
                   ? `${selected.ip}:${selected.port || "—"}`
@@ -609,6 +656,8 @@ export default function Page() {
           )}
         </DetailPanel>
       </div>
+        </TabsContent>
+      </Tabs>
       </div>
 
       {/*

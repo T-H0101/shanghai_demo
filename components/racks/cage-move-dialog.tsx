@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,13 @@ import {
 } from "@/lib/devices/device-display"
 import { ArrowLeftRight, Loader2 } from "lucide-react"
 
-type SiteOption = { code: string; name: string }
+type SiteOption = { code: string; name: string; regionCode?: string | null }
+
+type RegionOption = {
+  code: string
+  name: string
+  sites: Array<{ code: string; name: string }>
+}
 
 type DeviceOption = {
   id: string
@@ -45,7 +51,7 @@ type Props = {
 }
 
 const REGISTERED_TOAST =
-  "盘笼移位已登记到总控，检索将按目标站点归属，等待站点库同步盘笼位置"
+  "盘笼移位已登记到总控，目标为站点区域，等待线下移笼"
 
 const OPTICAL_CODES = new Set([
   "gen2_library",
@@ -91,7 +97,7 @@ async function fetchDevicesForSite(siteCode: string): Promise<DeviceOption[]> {
         deviceType: r.deviceType,
         rawData: r.rawData,
       }))
-      .filter((d: DeviceOption | null): d is DeviceOption => d != null)
+      .filter((d: DeviceOption | null): d is DeviceOption => d != null),
   )
 }
 
@@ -100,22 +106,45 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
   const [submitting, setSubmitting] = useState(false)
   const [loadingMags, setLoadingMags] = useState(false)
   const [loadingSourceDevices, setLoadingSourceDevices] = useState(false)
-  const [loadingTargetDevices, setLoadingTargetDevices] = useState(false)
+  const [loadingRegions, setLoadingRegions] = useState(false)
+  const [loadingPreviewDevices, setLoadingPreviewDevices] = useState(false)
   const [mags, setMags] = useState<MagOption[]>([])
   const [sourceDevices, setSourceDevices] = useState<DeviceOption[]>([])
-  const [targetDevices, setTargetDevices] = useState<DeviceOption[]>([])
+  const [regions, setRegions] = useState<RegionOption[]>([])
+  const [previewDevices, setPreviewDevices] = useState<DeviceOption[]>([])
 
+  const [sourceRegionCode, setSourceRegionCode] = useState("")
   const [sourceSiteCode, setSourceSiteCode] = useState("")
   const [sourceDeviceId, setSourceDeviceId] = useState("")
   const [sourceRfid, setSourceRfid] = useState("")
-  const [targetSiteCode, setTargetSiteCode] = useState("")
-  const [targetDeviceId, setTargetDeviceId] = useState("")
+  const [targetRegionCode, setTargetRegionCode] = useState("")
   const [registrarName, setRegistrarName] = useState("")
   const [remark, setRemark] = useState("")
 
   const sourceDevice = sourceDevices.find((d) => d.id === sourceDeviceId)
-  const targetDevice = targetDevices.find((d) => d.id === targetDeviceId)
   const selectedMag = mags.find((m) => m.rfid === sourceRfid)
+  const targetRegion = regions.find((r) => r.code === targetRegionCode)
+
+  /** 当前账号可见、且已挂区域的源区域 */
+  const sourceRegionOptions = useMemo(() => {
+    const codesWithSites = new Set(
+      sites.map((s) => s.regionCode?.trim()).filter(Boolean) as string[],
+    )
+    return regions.filter((r) => codesWithSites.has(r.code))
+  }, [regions, sites])
+
+  const sourceSitesInRegion = useMemo(
+    () =>
+      sourceRegionCode
+        ? sites.filter((s) => s.regionCode?.trim() === sourceRegionCode)
+        : [],
+    [sites, sourceRegionCode],
+  )
+
+  const targetRegionOptions = useMemo(
+    () => regions.filter((r) => r.code !== sourceRegionCode),
+    [regions, sourceRegionCode],
+  )
 
   useEffect(() => {
     if (!open) return
@@ -129,6 +158,41 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
       })
       .catch(() => {
         if (!cancelled) setOperatorLabel("当前账号")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoadingRegions(true)
+    fetch("/api/sites/regions", { cache: "no-store", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled) return
+        const rows = (json?.data?.regions ?? []) as Array<{
+          code: string
+          name?: string
+          status?: string
+          sites?: Array<{ code: string; name: string }>
+        }>
+        setRegions(
+          rows
+            .filter((r) => r.status === "active")
+            .map((r) => ({
+              code: r.code,
+              name: r.name?.trim() || r.code,
+              sites: Array.isArray(r.sites) ? r.sites : [],
+            })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setRegions([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRegions(false)
       })
     return () => {
       cancelled = true
@@ -158,26 +222,33 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
   }, [open, sourceSiteCode])
 
   useEffect(() => {
-    if (!open || !targetSiteCode) {
-      setTargetDevices([])
+    if (!open || !targetRegionCode) {
+      setPreviewDevices([])
+      return
+    }
+    const region = regions.find((r) => r.code === targetRegionCode)
+    const siteCodes = region?.sites?.map((s) => s.code).filter(Boolean) ?? []
+    if (!siteCodes.length) {
+      setPreviewDevices([])
       return
     }
     let cancelled = false
-    setLoadingTargetDevices(true)
-    fetchDevicesForSite(targetSiteCode)
-      .then((rows) => {
-        if (!cancelled) setTargetDevices(rows)
+    setLoadingPreviewDevices(true)
+    Promise.all(siteCodes.map((code) => fetchDevicesForSite(code)))
+      .then((lists) => {
+        if (cancelled) return
+        setPreviewDevices(lists.flat())
       })
       .catch(() => {
-        if (!cancelled) setTargetDevices([])
+        if (!cancelled) setPreviewDevices([])
       })
       .finally(() => {
-        if (!cancelled) setLoadingTargetDevices(false)
+        if (!cancelled) setLoadingPreviewDevices(false)
       })
     return () => {
       cancelled = true
     }
-  }, [open, targetSiteCode])
+  }, [open, targetRegionCode, regions])
 
   useEffect(() => {
     if (!open || !sourceSiteCode || !sourceDeviceId) {
@@ -188,7 +259,7 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
     setLoadingMags(true)
     fetch(
       `/api/racks/magazines?siteCode=${encodeURIComponent(sourceSiteCode)}&deviceId=${encodeURIComponent(sourceDeviceId)}`,
-      { cache: "no-store" }
+      { cache: "no-store" },
     )
       .then((r) => r.json())
       .then((json) => {
@@ -199,7 +270,7 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
             magazineId: m.magazineId ?? null,
             rfid: m.rfid,
             label: m.label || m.rfid,
-          }))
+          })),
         )
       })
       .catch(() => {
@@ -214,32 +285,58 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
   }, [open, sourceSiteCode, sourceDeviceId])
 
   function resetForm() {
+    setSourceRegionCode("")
     setSourceSiteCode("")
     setSourceDeviceId("")
     setSourceRfid("")
-    setTargetSiteCode("")
-    setTargetDeviceId("")
+    setTargetRegionCode("")
     setRegistrarName("")
     setRemark("")
     setMags([])
     setSourceDevices([])
-    setTargetDevices([])
+    setPreviewDevices([])
   }
+
+  const isSameRegion =
+    Boolean(sourceRegionCode && targetRegionCode && sourceRegionCode === targetRegionCode)
+
+  const submitBlocked =
+    !sourceDevice ||
+    !selectedMag ||
+    !targetRegionCode ||
+    !sourceRegionCode ||
+    isSameRegion
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!sourceDevice || !targetDevice || !selectedMag) {
+    if (!sourceDevice || !selectedMag) {
       toast({
         title: "请完善选择",
-        description: "原侧需站点、光盘库、盘笼；目标侧需站点、光盘库",
+        description: "原侧需站点、光盘库、盘笼",
         variant: "destructive",
       })
       return
     }
-    if (isSamePosition) {
+    if (!sourceRegionCode) {
       toast({
-        title: "不允许相同位置的移位",
-        description: "从同一站点同一光盘库移到自身无意义，请选择不同站点作为目标。",
+        title: "源站未挂区域",
+        description: "请先在站点管理中为源站维护所属区域",
+        variant: "destructive",
+      })
+      return
+    }
+    if (!targetRegionCode) {
+      toast({
+        title: "请选择目标区域",
+        description: "目标位置须为站点区域",
+        variant: "destructive",
+      })
+      return
+    }
+    if (isSameRegion) {
+      toast({
+        title: "不允许相同区域的移位",
+        description: "源区域与目标区域须不同",
         variant: "destructive",
       })
       return
@@ -255,9 +352,7 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
           sourceSiteCode,
           sourceDeviceIp: sourceDevice.ip,
           sourceDevicePort: sourceDevice.port,
-          targetSiteCode,
-          targetDeviceIp: targetDevice.ip,
-          targetDevicePort: targetDevice.port,
+          targetRegionCode,
           registrarName,
           remark: remark.trim() || null,
         }),
@@ -287,29 +382,15 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
     }
   }
 
-  const sourceDevicePlaceholder = !sourceSiteCode
-    ? "先选站点"
-    : loadingSourceDevices
-      ? "加载光盘库…"
-      : sourceDevices.length
-        ? "选择光盘库"
-        : "该站点无带 IP 的光盘库"
-
-  const targetDevicePlaceholder = !targetSiteCode
-    ? "先选站点"
-    : loadingTargetDevices
-      ? "加载光盘库…"
-      : targetDevices.length
-        ? "选择光盘库"
-        : "该站点无带 IP 的光盘库"
-
-  const isSamePosition =
-    Boolean(sourceSiteCode && targetSiteCode && sourceSiteCode === targetSiteCode) ||
-    Boolean(
-      sourceDevice?.ip &&
-        targetDevice?.ip &&
-        sourceDevice.ip === targetDevice.ip
-    )
+  const sourceDevicePlaceholder = !sourceRegionCode
+    ? "先选区域"
+    : !sourceSiteCode
+      ? "先选站点"
+      : loadingSourceDevices
+        ? "加载光盘库…"
+        : sourceDevices.length
+          ? "选择光盘库"
+          : "该站点无带 IP 的光盘库"
 
   return (
     <Dialog
@@ -332,6 +413,37 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
             <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3 bg-slate-50/50 dark:bg-slate-900/30">
               <p className="text-xs font-medium text-slate-700 dark:text-slate-200">原位置</p>
               <div className="space-y-1">
+                <Label className="text-xs">区域</Label>
+                <Select
+                  value={sourceRegionCode || undefined}
+                  onValueChange={(v) => {
+                    setSourceRegionCode(v)
+                    setSourceSiteCode("")
+                    setSourceDeviceId("")
+                    setSourceRfid("")
+                    setMags([])
+                    if (targetRegionCode === v) setTargetRegionCode("")
+                  }}
+                  disabled={loadingRegions}
+                >
+                  <SelectTrigger className="h-8 text-xs" data-testid="cage-move-source-region">
+                    <SelectValue placeholder={loadingRegions ? "加载区域…" : "选择原区域"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sourceRegionOptions.map((r) => (
+                      <SelectItem key={`src-reg-${r.code}`} value={r.code} className="text-xs">
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!loadingRegions && sites.length > 0 && sourceRegionOptions.length === 0 ? (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    无可选源区域：请先在站点管理中为业务站维护所属区域
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-1">
                 <Label className="text-xs">站点</Label>
                 <Select
                   value={sourceSiteCode || undefined}
@@ -341,18 +453,22 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
                     setSourceRfid("")
                     setMags([])
                   }}
+                  disabled={!sourceRegionCode}
                 >
                   <SelectTrigger className="h-8 text-xs" data-testid="cage-move-source-site">
-                    <SelectValue placeholder="选择原站点" />
+                    <SelectValue placeholder={sourceRegionCode ? "选择原站点" : "先选区域"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {sites.map((s) => (
+                    {sourceSitesInRegion.map((s) => (
                       <SelectItem key={`src-site-${s.code}`} value={s.code} className="text-xs">
                         {s.name} ({s.code})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {sourceRegionCode && sourceSitesInRegion.length === 0 ? (
+                  <p className="text-[11px] text-slate-400">该区域下暂无可用业务站</p>
+                ) : null}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">设备（光盘库）</Label>
@@ -413,57 +529,82 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
             <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3 bg-slate-50/50 dark:bg-slate-900/30">
               <p className="text-xs font-medium text-slate-700 dark:text-slate-200">目标位置</p>
               <div className="space-y-1">
-                <Label className="text-xs">站点</Label>
+                <Label className="text-xs">站点区域</Label>
                 <Select
-                  value={targetSiteCode || undefined}
-                  onValueChange={(v) => {
-                    setTargetSiteCode(v)
-                    setTargetDeviceId("")
-                  }}
+                  value={targetRegionCode || undefined}
+                  onValueChange={setTargetRegionCode}
+                  disabled={loadingRegions}
                 >
-                  <SelectTrigger className="h-8 text-xs" data-testid="cage-move-target-site">
-                    <SelectValue placeholder="选择目标站点" />
+                  <SelectTrigger className="h-8 text-xs" data-testid="cage-move-target-region">
+                    <SelectValue placeholder={loadingRegions ? "加载区域…" : "选择目标区域"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {sites.map((s) => (
-                      <SelectItem key={`tgt-site-${s.code}`} value={s.code} className="text-xs">
-                        {s.name} ({s.code})
+                    {targetRegionOptions.map((r) => (
+                      <SelectItem key={`tgt-reg-${r.code}`} value={r.code} className="text-xs">
+                        {r.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">设备（光盘库）</Label>
-                <Select
-                  key={`tgt-dev-${targetSiteCode}`}
-                  value={targetDeviceId || undefined}
-                  onValueChange={setTargetDeviceId}
-                  disabled={!targetSiteCode || loadingTargetDevices}
+              <div className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <Label className="text-xs">区域下站点与设备</Label>
+                  <span className="text-[10px] text-slate-400 shrink-0">仅展示，不指定设备</span>
+                </div>
+                <div
+                  className="h-40 overflow-y-auto rounded-lg bg-slate-100/70 dark:bg-slate-900/50 p-2 space-y-2"
+                  data-testid="cage-move-region-preview"
                 >
-                  <SelectTrigger className="h-8 text-xs" data-testid="cage-move-target-device">
-                    <SelectValue placeholder={targetDevicePlaceholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {targetDevices.map((d) => (
-                      <SelectItem key={`tgt-dev-${d.id}`} value={d.id} className="text-xs">
-                        {d.name} · {d.ip}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {!targetRegionCode ? (
+                    <p className="text-xs text-slate-400 px-1 py-6 text-center">选择目标区域后展示</p>
+                  ) : loadingPreviewDevices ? (
+                    <p className="text-xs text-slate-400 px-1 py-6 text-center">加载设备…</p>
+                  ) : (targetRegion?.sites ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500 px-1 py-6 text-center">该区域暂无挂靠业务站</p>
+                  ) : (
+                    (targetRegion?.sites ?? []).map((s) => {
+                      const devs = previewDevices.filter((d) => d.siteCode === s.code)
+                      return (
+                        <div
+                          key={s.code}
+                          className="rounded-md border border-slate-200/90 dark:border-slate-700/90 bg-white dark:bg-slate-800/90 px-2.5 py-2 shadow-sm"
+                        >
+                          <p className="text-xs font-medium text-slate-800 dark:text-slate-100">
+                            {s.name}
+                            <span className="ml-1 font-normal text-slate-400">({s.code})</span>
+                          </p>
+                          {devs.length ? (
+                            <ul className="mt-1.5 space-y-1">
+                              {devs.map((d) => (
+                                <li
+                                  key={d.id}
+                                  className="text-[11px] font-mono text-slate-600 dark:text-slate-300 pl-2 border-l-2 border-slate-200 dark:border-slate-600"
+                                >
+                                  {d.name} · {d.ip}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-1 text-[11px] text-slate-400">暂无光盘库设备</p>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </div>
               <p
                 className={`text-[11px] pt-1 ${
-                  isSamePosition
+                  isSameRegion
                     ? "text-amber-700 dark:text-amber-400"
                     : "text-slate-400"
                 }`}
-                data-testid="cage-move-same-position-hint"
+                data-testid="cage-move-same-region-hint"
               >
-                {isSamePosition
-                  ? "不允许相同位置的移位：当前原侧与目标侧为同一站点或同一光盘库，登记无意义。"
-                  : "不允许相同位置的移位。原站点与目标站点须不同。"}
+                {isSameRegion
+                  ? "不允许相同区域的移位：当前源区域与目标区域相同。"
+                  : "目标仅登记到站点区域；物理移笼由线下完成。"}
               </p>
             </div>
           </div>
@@ -500,7 +641,7 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
             </Button>
             <Button
               type="submit"
-              disabled={submitting || isSamePosition}
+              disabled={submitting || submitBlocked}
               data-testid="cage-move-submit"
             >
               {submitting && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
@@ -529,7 +670,7 @@ export function mapRackToCageMoveDevice(r: {
     pickDevicePort(
       r.rawData && typeof r.rawData === "object"
         ? (r.rawData as Record<string, unknown>)
-        : null
+        : null,
     )
   return {
     id: r.id,

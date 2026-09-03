@@ -47,7 +47,7 @@ export async function DELETE(
     return NextResponse.json({
       code: 0,
       data: row,
-      message: "已撤销这次移位登记。在目标站点检索将不再包含该盘笼",
+      message: "已撤销这次移位登记。在目标区域检索将不再包含该盘笼",
     })
   } catch (e) {
     if (e instanceof CageMoveRegisterError) {

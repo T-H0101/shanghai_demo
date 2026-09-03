@@ -64,7 +64,30 @@ export function isHardDiskVolume(volumeType?: number | null): boolean {
   return volumeType === 3
 }
 
-export function canInitiatePhysicalRestore(volumeType?: number | null): boolean {
-  // 硬盘暂不支持物理回迁；缺 volume_type 的旧光盘文档仍允许尝试
+export function canInitiatePhysicalRestore(
+  volumeType?: number | null,
+  relocated?: boolean,
+): boolean {
+  if (relocated) return false
   return !isHardDiskVolume(volumeType)
 }
+
+/** 迁入区域展示：RFID · 盘位 · 盘面（无设备） */
+export function formatRelocatedLocationLabel(input: {
+  magazineRfid?: string | null
+  slotOrder?: number | null
+  discSide?: number | null
+}): string {
+  const parts: string[] = []
+  const rfid = input.magazineRfid?.trim()
+  if (rfid) parts.push(rfid)
+  if (input.slotOrder != null && Number.isFinite(input.slotOrder)) {
+    parts.push(`盘位 ${input.slotOrder}`)
+  }
+  const side = formatDiscSideLabel(input.discSide)
+  if (side) parts.push(side)
+  return parts.length ? parts.join(" · ") : "—"
+}
+
+export const RESTORE_RELOCATED_HINT =
+  "盘笼已登记迁移至区域，物理设备未定，暂不支持从总控发起回迁"

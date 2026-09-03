@@ -487,6 +487,8 @@ export interface SiteDTO {
   storageTotal: string
   storageUsed: string
   region: string
+  /** 站点区域编码（site_regions.code），未挂靠时为空 */
+  regionCode?: string | null
   ssoEnabled: boolean
   rackCount?: number
   onlineRackCount?: number

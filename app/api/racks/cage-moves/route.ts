@@ -1,15 +1,12 @@
 /**
  * GET/POST /api/racks/cage-moves
- * Sprint R.98 — 总控盘笼移位登记（REQ-4.3.1）
- *
- * POST 只写入中心库 unified_cage_move_register，不向站点下发移位执行。
- * GET 仅返回 status=registered；错误登记走 DELETE /api/racks/cage-moves/[id]。
- * 站点权限：源站与目标站均在账号可访问范围内才可见/可写。
+ * Sprint R.104 — 总控盘笼移位登记（目标=站点区域）
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
 import { resolveSiteScope } from "@/lib/auth/site-scope"
+import { query } from "@/lib/db"
 import {
   CageMoveRegisterError,
   createCageMoveRegister,
@@ -38,7 +35,7 @@ export async function GET(req: NextRequest) {
     if (e instanceof NextResponse) return e
     return NextResponse.json(
       { code: 500, error: e instanceof Error ? e.message : String(e) },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -62,9 +59,7 @@ export async function POST(req: NextRequest) {
     sourceSiteCode?: string
     sourceDeviceIp?: string
     sourceDevicePort?: string | null
-    targetSiteCode?: string
-    targetDeviceIp?: string
-    targetDevicePort?: string | null
+    targetRegionCode?: string
     registrarName?: string
     remark?: string | null
   }
@@ -82,9 +77,7 @@ export async function POST(req: NextRequest) {
       sourceSiteCode: body.sourceSiteCode ?? "",
       sourceDeviceIp: body.sourceDeviceIp ?? "",
       sourceDevicePort: body.sourceDevicePort,
-      targetSiteCode: body.targetSiteCode ?? "",
-      targetDeviceIp: body.targetDeviceIp ?? "",
-      targetDevicePort: body.targetDevicePort,
+      targetRegionCode: body.targetRegionCode ?? "",
       registrarName: body.registrarName ?? "",
       remark: body.remark,
       operatorAccountId: session.id,
@@ -92,13 +85,20 @@ export async function POST(req: NextRequest) {
       actorIp: clientIp(req),
       siteScope,
     })
+    const regionName =
+      (
+        await query<{ name: string | null }>(
+          `SELECT name FROM site_regions WHERE code = $1 LIMIT 1`,
+          [row.target_region_code],
+        )
+      ).rows[0]?.name?.trim() || row.target_region_code
     return NextResponse.json(
       {
         code: 0,
         data: row,
-        message: "盘笼移位已登记到总控，检索将按目标站点归属，等待站点库同步盘笼位置",
+        message: `盘笼移位已登记到总控，目标为站点区域 ${regionName}，等待线下移笼`,
       },
-      { status: 201 }
+      { status: 201 },
     )
   } catch (e) {
     if (e instanceof CageMoveRegisterError) {
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(
       { code: 500, error: e instanceof Error ? e.message : String(e) },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

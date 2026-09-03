@@ -27,6 +27,7 @@ import {
 } from "@/lib/devices/disc-slot-display"
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
+import { fetchSiteSsoJumpUrl } from "@/lib/site/open-site-sso"
 
 /** 站点业务系统存储卷管理页（SSO redirect，hash 路由由服务端规范化） */
 const SITE_VOLUME_MANAGEMENT_PATH = "/volume-management"
@@ -96,22 +97,7 @@ function volumeKey(v: Pick<VolumeDTO, "id" | "siteCode">): string {
 }
 
 async function jumpToSiteVolumeManagement(siteCode: string): Promise<string> {
-  const qs = new URLSearchParams({ redirect: SITE_VOLUME_MANAGEMENT_PATH })
-  const res = await fetch(
-    `/api/sites/${encodeURIComponent(siteCode)}/sso?${qs.toString()}`,
-    { cache: "no-store", credentials: "include" },
-  )
-  const json = await res.json().catch(() => ({}))
-  if (res.status === 401) {
-    throw new Error("请先登录后再跳转站点")
-  }
-  if (!res.ok) {
-    throw new Error(json.message || `HTTP ${res.status}`)
-  }
-  if (json.status !== "ready" || !json.jumpUrl) {
-    throw new Error(json.message || json.blocker || "无法签发站点跳转")
-  }
-  return String(json.jumpUrl)
+  return fetchSiteSsoJumpUrl(siteCode, SITE_VOLUME_MANAGEMENT_PATH)
 }
 
 export interface VolumesViewProps {

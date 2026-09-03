@@ -20,28 +20,72 @@ import { Loader2, Trash2 } from "lucide-react"
 export type CageMoveHistoryRow = {
   id: string
   magazine_rfid: string
+  source_region_code?: string
+  source_region_name?: string
   source_site_code: string
   source_site_name?: string
   source_site_ip?: string | null
   source_device_name?: string
   source_device_ip: string
   source_device_port: string | null
-  target_site_code: string
-  target_site_name?: string
+  target_region_code?: string
+  target_region_name?: string
+  target_site_code: string | null
+  target_site_name?: string | null
   target_site_ip?: string | null
-  target_device_name?: string
-  target_device_ip: string
+  target_device_name?: string | null
+  target_device_ip: string | null
   target_device_port: string | null
   registrar_name: string
   status: string
   created_at: string
 }
 
-const CANCEL_TOAST = "已撤销这次移位登记。在目标站点检索将不再包含该盘笼"
+const CANCEL_TOAST = "已撤销这次移位登记。在目标区域检索将不再包含该盘笼"
 
 function formatEndpoint(ip: string, port: string | null | undefined): string {
   const p = port?.trim()
   return p ? `${ip}:${p}` : ip
+}
+
+function TargetRegionCell({
+  regionName,
+  regionCode,
+  siteName,
+  siteCode,
+  deviceName,
+  deviceIp,
+  devicePort,
+}: {
+  regionName?: string
+  regionCode?: string
+  siteName?: string | null
+  siteCode?: string | null
+  deviceName?: string | null
+  deviceIp?: string | null
+  devicePort?: string | null
+}) {
+  const code = regionCode?.trim() || "—"
+  const name = regionName?.trim() || code
+  const hasDevice = Boolean(deviceIp?.trim())
+  if (hasDevice && siteCode) {
+    return (
+      <LocationCell
+        siteName={siteName ?? undefined}
+        siteCode={siteCode}
+        siteIp={null}
+        deviceName={deviceName ?? undefined}
+        deviceIp={deviceIp!}
+        devicePort={devicePort ?? null}
+      />
+    )
+  }
+  return (
+    <div className="text-sm leading-5">
+      <div>{name} ({code})</div>
+      <div className="text-slate-500 dark:text-slate-400">区域目标（未指定站/设备）</div>
+    </div>
+  )
 }
 
 function LocationCell({
@@ -206,10 +250,11 @@ export function CageMoveHistoryView({
                     />
                   </TableCell>
                   <TableCell>
-                    <LocationCell
+                    <TargetRegionCell
+                      regionName={row.target_region_name}
+                      regionCode={row.target_region_code}
                       siteName={row.target_site_name}
                       siteCode={row.target_site_code}
-                      siteIp={row.target_site_ip}
                       deviceName={row.target_device_name}
                       deviceIp={row.target_device_ip}
                       devicePort={row.target_device_port}
