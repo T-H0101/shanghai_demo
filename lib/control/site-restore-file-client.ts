@@ -14,6 +14,10 @@ export type SiteRestoreFileResult = {
   reasonCode: string | null
   message: string
   restoreFileId: string | number | null
+  taskId: string | number | null
+  libIp: string | null
+  libPort: string | null
+  deviceName: string | null
   raw: unknown
 }
 
@@ -27,6 +31,14 @@ export type SiteRestoreFileCallInput = {
 
 function trimSlash(s: string): string {
   return s.replace(/\/+$/, "")
+}
+
+function pickStr(...vals: unknown[]): string | null {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim()) return v.trim()
+    if (typeof v === "number" && Number.isFinite(v)) return String(v)
+  }
+  return null
 }
 
 export function siteRestoreFilePath(env: NodeJS.ProcessEnv = process.env): string {
@@ -81,6 +93,7 @@ export async function callSiteRestoreFile(
     const code = typeof body.code === "number" ? body.code : res.ok ? 0 : -1
     const accepted = body.accepted === true || code === 0
     const idRaw = body.restoreFileId ?? body.id ?? body.restore_file_id ?? null
+    const taskRaw = body.taskId ?? body.task_id ?? null
     return {
       ok: res.ok && accepted,
       httpStatus: res.status,
@@ -90,6 +103,10 @@ export async function callSiteRestoreFile(
       message: typeof body.message === "string" ? body.message : res.statusText || "unknown",
       restoreFileId:
         typeof idRaw === "string" || typeof idRaw === "number" ? idRaw : null,
+      taskId: typeof taskRaw === "string" || typeof taskRaw === "number" ? taskRaw : null,
+      libIp: pickStr(body.lib_ip, body.device_ip, body.libIp, body.deviceIp),
+      libPort: pickStr(body.lib_port, body.device_port, body.libPort, body.devicePort),
+      deviceName: pickStr(body.device_name, body.deviceName, body.name),
       raw,
     }
   } catch (e) {
@@ -102,6 +119,10 @@ export async function callSiteRestoreFile(
       reasonCode: "NETWORK_ERROR",
       message,
       restoreFileId: null,
+      taskId: null,
+      libIp: null,
+      libPort: null,
+      deviceName: null,
       raw: null,
     }
   } finally {

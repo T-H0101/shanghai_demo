@@ -1,14 +1,15 @@
 /**
  * 跨站回迁：按物理位置组包与校验（不依赖 slot_id 主键）
  *
- * 必填物理位置：
- *   device_ip / device_port / magazine_rfid / slot_order / disc_side / file_path / file_hash
- * 可选：size（文件大小，写入站点 tbl_restore_file.size，不强制）
+ * 必填：magazine_rfid / slot_order / disc_side / file_path / file_hash
+ * 可选：device_ip / device_port（站点按 RFID 认领在线设备，总控可不传）
+ * 可选：size（文件大小，写入站点 tbl_restore_file.size）
  */
 
 export type PhysicalRestorePayload = {
-  device_ip: string
-  device_port: string
+  /** 可选；站点按 RFID 认领后回写真实值 */
+  device_ip?: string
+  device_port?: string
   magazine_rfid: string
   slot_order: number
   /** 光盘 AB 面：0=A，1=B */
@@ -124,8 +125,6 @@ export function validatePhysicalRestoreInput(
       ? Math.trunc(discRaw)
       : null
 
-  if (!device_ip) missing.push("device_ip")
-  if (!device_port) missing.push("device_port")
   if (!magazine_rfid) missing.push("magazine_rfid")
   if (slot_order == null || slot_order < 0) missing.push("slot_order")
   if (disc_side == null || disc_side < 0) missing.push("disc_side")
@@ -140,8 +139,8 @@ export function validatePhysicalRestoreInput(
     ok: true,
     missing: [],
     payload: {
-      device_ip,
-      device_port,
+      ...(device_ip ? { device_ip } : {}),
+      ...(device_port ? { device_port } : {}),
       magazine_rfid,
       slot_order: slot_order as number,
       disc_side: disc_side as number,

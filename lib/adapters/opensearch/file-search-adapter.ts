@@ -83,7 +83,7 @@ function esDocToHit(doc: EsIndexDocument & { _id?: string }): FileSearchHit {
     devicePort: doc.device_port?.trim() || null,
     deviceName: null,
     serialNum: doc.serial_num?.trim() || null,
-    hash: doc.hash ?? doc.hash1 ?? null,
+    hash: doc.hash ?? null,
     taskId: doc.task_id ?? null,
     status: doc.status != null && Number.isFinite(Number(doc.status)) ? Number(doc.status) : null,
     createDate: doc.create_date ?? null,

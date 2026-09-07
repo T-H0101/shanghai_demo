@@ -17,7 +17,6 @@ export type EsIndexDocument = {
   file_size?: number | null
   folder_id?: number | null
   hash?: string | null
-  hash1?: string | null
   task_id?: string | null
   items_id?: string | null
   create_date?: string | null
@@ -231,7 +230,6 @@ function buildSearchQuery(params: {
                 wildcardContains("file_name.keyword", keyword),
                 wildcardContains("folder_path.keyword", keyword),
                 wildcardContains("hash", keyword),
-                wildcardContains("hash1", keyword),
                 wildcardContains("extension", keyword),
                 wildcardContains("source_record_id", keyword),
               ],

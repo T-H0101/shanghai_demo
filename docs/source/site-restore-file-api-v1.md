@@ -7,32 +7,39 @@
 
 ## 调用链
 
+### 未迁入（归档站已知）
+
 ```text
 总控检索页「发起回迁」
-  → 校验物理位置（含 disc_side；size 可选补传）
-  → POST /api/search/restore（总控）
-  → 查 sync_sites.db_host:db_port（目标站 = 当前物理所在站）
-  → POST http://{db_host}:{db_port}/unified-restore-file
-  → MultimediumNw（验密钥；注入 unifiedDisc.restore.path）
-  → TCP request: center_restore_file_register
-  → MultimediumCentral：
-       1) INSERT tbl_task (task_type=1, task_mode=2)
-       2) INSERT tbl_restore_file（含 task_id / disc_side / size / restore_root_path，restore_status=1）
-  → 总控 audit_log 留痕
+  → 校验 RFID + 盘位 + 盘面 + 路径 + hash（设备 IP/Port 可不传）
+  → POST /api/search/restore（单站）
+  → POST 目标站 /unified-restore-file
+  → Central：按 RFID 查在线盘笼 → 认领 lib_ip/lib_port → 建任务 + INSERT tbl_restore_file
+```
+
+### 迁入区域（站点未定）
+
+```text
+总控检索页「发起回迁」（relocated）
+  → 校验 RFID + 盘位 + 盘面 + 路径 + hash + regionCode
+  → POST /api/search/restore（fanoutByRegion）
+  → 并行请求该区域下全部可访问站点 /unified-restore-file
+  → 各站：RFID 在线则建单；不存在/离线则失败
+  → ≥1 成功 → 整体成功（按 site_code 排序取第一个成功站展示/跳转）
+  → 全失败 → 列出各站失败原因
 ```
 
 寻址键（**禁止**用归档站 `slot_id` 跨站寻址）：
 
 | 总控/HTTP 字段 | 写入 `tbl_restore_file` | 说明 |
 |---|---|---|
-| `device_ip` | `lib_ip` | 当前设备 IP（移位登记覆盖优先） |
-| `device_port` | `lib_port` | 当前设备端口 |
-| `magazine_rfid` | `mag_rfid` | 盘笼 RFID |
+| `magazine_rfid` | `mag_rfid` | 盘笼 RFID（必填） |
 | `slot_order` | `slot_order` | 片匣内盘位号（从 0 起） |
 | `disc_side` | `disc_side` | 光盘 AB 面：0=A，1=B |
 | `file_path` | `file_full_path` | 文件在介质上的全路径 |
 | `file_hash` | `hash` | 文件校验码 |
-| `size`（可选） | `size` | 文件字节数；总控从检索 hit 补传，缺省可 null |
+| `size`（可选） | `size` | 文件字节数；缺省可 null |
+| `device_ip` / `device_port`（可选，可忽略） | `lib_ip` / `lib_port` | **由站点按 RFID 认领在线设备后写入**，总控可不传 |
 | —（Nw 配置） | `restore_root_path` | `unifiedDisc.restore.path` |
 | — | `task_id` | 关联新建的物理回迁任务 |
 | — | `restore_status=1` | 1=待处理（本接口只写待处理） |
@@ -48,12 +55,10 @@
 - `x-unified-restore-file-secret`
 - `x-unified-sync-secret`（兼容）
 
-Body（snake_case）：
+Body（snake_case；设备字段可选）：
 
 ```json
 {
-  "device_ip": "10.186.1.21",
-  "device_port": "5000",
   "magazine_rfid": "E200001122334455",
   "slot_order": 3,
   "disc_side": 0,
@@ -67,7 +72,7 @@ Body（snake_case）：
 }
 ```
 
-建议响应：
+成功响应示例：
 
 ```json
 {
@@ -75,27 +80,32 @@ Body（snake_case）：
   "accepted": true,
   "message": "待回迁记录已写入",
   "taskId": 1001,
-  "restoreFileId": 12345
+  "restoreFileId": 12345,
+  "lib_ip": "10.186.1.21",
+  "lib_port": "5000",
+  "device_name": "一体机-1"
 }
 ```
 
-失败时返回非 0 `code` 或 HTTP 4xx/5xx，可带 `reasonCode`。
+失败时返回非 0 `code` 或 HTTP 4xx/5xx，可带 `reasonCode`：
 
-短时重复发起（5 分钟内同键待处理）示例：
+| reasonCode | HTTP | 含义 |
+|---|---|---|
+| `MAGAZINE_NOT_FOUND` | 404 | 本站无此盘笼 |
+| `MAGAZINE_OFFLINE` | 404 | 盘笼离线 |
+| `RESTORE_IN_PROGRESS` | 409 | 5 分钟内同键待处理 |
+| `INVALID_PHYSICAL_LOCATION` | 400 | 缺必填字段 |
+
+短时重复发起示例：
 
 ```json
 {
   "code": -1,
   "accepted": false,
   "reasonCode": "RESTORE_IN_PROGRESS",
-  "message": "当前文件正在回迁中，请勿重复发起",
-  "existingTaskId": 1001,
-  "existingRestoreFileId": 12345,
-  "existingStatus": 1
+  "message": "当前文件正在回迁中，请勿重复发起"
 }
 ```
-
-HTTP 建议 **409**。总控检索页 toast：标题「当前文件正在回迁中」，描述展示站点 `message`。
 
 ## 总控配置
 
@@ -106,7 +116,7 @@ HTTP 建议 **409**。总控检索页 toast：标题「当前文件正在回迁�
 | `SITE_RESTORE_FILE_BASE_URL` | 可选覆盖整站基址 |
 | `SITE_RESTORE_FILE_BASE_URL_<SITE>` | 按站点覆盖 |
 
-生产主路径：**`sync_sites.db_host` / `db_port`**。未配置时也可回退 `SITE_TASK_CONTROL_BASE_URL[_SITE]`。
+生产主路径：**`sync_sites.db_host` / `db_port`**。
 
 ## 站点侧实现要求（本阶段）
 
@@ -115,23 +125,22 @@ HTTP 建议 **409**。总控检索页 toast：标题「当前文件正在回迁�
 3. **不要**在本接口内启动机械臂/光驱回迁；执行由站点后续消费表数据完成。
 4. `restore_root_path` 取自本站 `unifiedDisc.restore.path`。
 5. 已有库需 `ALTER TABLE tbl_restore_file ADD COLUMN disc_side INT DEFAULT 0;`（若缺列）。
-6. **落库前校验盘笼/设备（Central `createRestoreFile`）**：
-   - 按 `mag_rfid` **大写**后，用正序 + **hex 字节对倒序**（例 `E00401D003AFE0A5` ↔ `A5E0AF03D00104E0`）查 `tbl_magzines` ⋈ `tbl_disc_lib`（库内 `RFID` 已为大写，直接等值匹配）；
-   - 查无 → 报错「盘笼 RFID 不存在」；
-   - 多命中优先 `mag_order` 非空（在线），在线仍多个取第一条；`mag_order` 空 → 报错「盘笼离线」；
-   - 命中库的 `IP`/`port` 须与总控传入的 `device_ip`/`device_port` 一致，否则报错；
-   - `tbl_restore_file.mag_rfid` 仍写总控传入值（不改成库内另一方向字符串）。
-7. **短时防连点（Central `createRestoreFile`，`newTask` 之前）**：
+6. **落库前按 RFID 认领设备（Central `createRestoreFile`）**：
+   - **不再**要求总控传 `lib_ip`/`lib_port`，**不再**做 IP/端口一致性校验；
+   - 按 `mag_rfid` 大写后正序 + hex 字节对倒序查 `tbl_magzines` ⋈ `tbl_disc_lib`；
+   - 查无 → `MAGAZINE_NOT_FOUND`；
+   - `mag_order` 空 → `MAGAZINE_OFFLINE`；
+   - 在线 → 用库内 `IP`/`port` 写入 `tbl_restore_file`，并在响应中回传。
+7. **短时防连点（`newTask` 之前）**：
    - 匹配键：`mag_rfid` + `slot_order` + `disc_side` + `file_full_path` + `hash`；
-   - 若存在 `restore_status = 1` 且 `create_dt` 在 **5 分钟内** 的记录 → **拒绝新建**；
-   - 返回示例：`reasonCode=RESTORE_IN_PROGRESS`，`message=当前文件正在回迁中，请勿重复发起`；Nw HTTP **409**；
-   - 仅防短时多次点击；成功(6)/失败(9)/离线(7) 或超过 5 分钟的待处理(1) **不**拦。
+   - `restore_status=1` 且 `create_dt` 在 5 分钟内 → `RESTORE_IN_PROGRESS`（HTTP 409）。
 
 ## 总控验收口径
 
 | 可宣称 | 不可宣称 |
 |---|---|
 | 物理位置校验完成（含 AB 面） | 回迁成功 / 已回迁 |
-| 站点待回迁记录已提交 | 站点已执行物理取盘 |
-| 短时重复发起被站点拒绝并展示友好提示 | requirements 回迁能力 complete |
+| 站点待回迁记录已提交（含区域扇出后命中站） | 站点已执行物理取盘 |
+| 成功展示命中站/设备并跳转该站 | requirements 回迁能力 complete |
+| 全失败列出各站原因 | |
 | audit_log 有登记痕迹 | |

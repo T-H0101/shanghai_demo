@@ -66,9 +66,9 @@ export function isHardDiskVolume(volumeType?: number | null): boolean {
 
 export function canInitiatePhysicalRestore(
   volumeType?: number | null,
-  relocated?: boolean,
+  _relocated?: boolean,
 ): boolean {
-  if (relocated) return false
+  // 迁入区域也可发起：总控按区域并行扇出，站点按 RFID 认领在线设备
   return !isHardDiskVolume(volumeType)
 }
 
@@ -90,4 +90,4 @@ export function formatRelocatedLocationLabel(input: {
 }
 
 export const RESTORE_RELOCATED_HINT =
-  "盘笼已登记迁移至区域，物理设备未定，暂不支持从总控发起回迁"
+  "盘笼已登记迁移至区域：将向该区域各站点询问；盘笼在线的站点会登记待回迁"

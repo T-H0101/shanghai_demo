@@ -2,6 +2,8 @@
  * POST /api/search/restore
  * 从检索结果按物理位置发起待回迁登记（调站点 /unified-restore-file 仅 INSERT）
  *
+ * - 迁入区域（relocated / fanout）：对该区域全部可访问站点并行扇出
+ * - 未迁入：打归档单站；站点按 RFID 认领在线设备
  * 口径：只宣称「待回迁记录已提交」，不宣称回迁执行成功。
  */
 
@@ -10,6 +12,7 @@ import {
   requireSession,
   requirePermission,
   requireSiteAccess,
+  getVisibleSites,
 } from "@/lib/auth/middleware"
 import { dispatchSiteRestoreFile } from "@/lib/control/dispatch-site-restore-file"
 
@@ -37,10 +40,28 @@ export async function POST(req: NextRequest) {
         ? body.siteCode
         : ""
 
-  try {
-    requireSiteAccess(session, targetSiteCode)
-  } catch (e) {
-    if (e instanceof NextResponse) return e
+  const regionCode =
+    typeof body.regionCode === "string"
+      ? body.regionCode
+      : typeof body.region_code === "string"
+        ? body.region_code
+        : typeof body.logicalRegionCode === "string"
+          ? body.logicalRegionCode
+          : ""
+
+  const relocated =
+    body.relocated === true ||
+    body.fanoutByRegion === true ||
+    body.fanout === true
+
+  const fanoutByRegion = Boolean(relocated || (regionCode && !targetSiteCode))
+
+  if (!fanoutByRegion && targetSiteCode) {
+    try {
+      requireSiteAccess(session, targetSiteCode)
+    } catch (e) {
+      if (e instanceof NextResponse) return e
+    }
   }
 
   const ip =
@@ -56,8 +77,13 @@ export async function POST(req: NextRequest) {
         ? Number(slotOrderRaw)
         : null
 
+  const accessibleSites = getVisibleSites(session)
+
   const result = await dispatchSiteRestoreFile({
-    targetSiteCode,
+    targetSiteCode: fanoutByRegion ? null : targetSiteCode,
+    regionCode: fanoutByRegion ? regionCode : null,
+    fanoutByRegion,
+    accessibleSites,
     physical: {
       deviceIp:
         (body.deviceIp as string | undefined) ??
@@ -128,7 +154,21 @@ export async function POST(req: NextRequest) {
       data: {
         accepted: result.ok,
         restoreFileId: result.restoreFileId,
-        targetSiteCode: targetSiteCode.trim().toUpperCase() || null,
+        targetSiteCode: result.winnerSiteCode,
+        winnerSiteCode: result.winnerSiteCode,
+        winnerSiteName: result.winnerSiteName,
+        winnerDeviceLabel: result.winnerDeviceLabel,
+        mode: result.mode,
+        attempts: result.attempts.map((a) => ({
+          siteCode: a.siteCode,
+          siteName: a.siteName,
+          ok: a.ok,
+          message: a.message,
+          reasonCode: a.reasonCode,
+          libIp: a.libIp,
+          libPort: a.libPort,
+          deviceName: a.deviceName,
+        })),
         url: result.url,
         missing: result.missing,
         payload: result.payload,

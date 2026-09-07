@@ -101,6 +101,8 @@ type SearchApiHit = {
   deviceName?: string | null
   siteDisplayLabel?: string | null
   locationLabel?: string | null
+  logicalRegionCode?: string | null
+  logicalRegionName?: string | null
   relocated?: boolean
   slotId?: number | null
   slotOrder?: number | null
@@ -186,6 +188,7 @@ function mapApiHitToSearchFile(hit: SearchApiHit, index: number): SearchFile {
     siteCode: displaySiteCode,
     siteDisplayLabel,
     relocated,
+    logicalRegionCode: hit.logicalRegionCode?.trim() || null,
     docType,
     volumeId: hit.volumeId ?? null,
     volume: hit.volumeName ?? (hit.volumeId != null ? `卷-${hit.volumeId}` : "—"),
@@ -251,6 +254,13 @@ export default function Page() {
   const [restoreSuccess, setRestoreSuccess] = useState<{
     file: SearchFile
     message: string
+    winnerSiteCode: string | null
+    winnerSiteName: string | null
+    winnerDeviceLabel: string | null
+  } | null>(null)
+  const [restoreFailDetail, setRestoreFailDetail] = useState<{
+    title: string
+    lines: string[]
   } | null>(null)
   const [restoreConfirmFile, setRestoreConfirmFile] = useState<SearchFile | null>(null)
   const [ssoJumping, setSsoJumping] = useState(false)
@@ -610,14 +620,16 @@ export default function Page() {
     if (restoreSubmittingId) return
 
     const missing: string[] = []
-    if (!file.deviceIp?.trim()) missing.push("设备IP")
-    if (!file.devicePort?.trim()) missing.push("设备端口")
     if (!file.magazineRfid?.trim()) missing.push("盘笼RFID")
     if (file.slotOrder == null || !Number.isFinite(file.slotOrder)) missing.push("盘位号")
     if (file.discSide == null || !Number.isFinite(file.discSide)) missing.push("光盘面(AB)")
     if (!file.path?.trim() || file.path === "—") missing.push("文件路径")
     if (!file.checksum?.trim()) missing.push("文件校验码")
-    if (!file.siteCode?.trim() || file.siteCode === "—") missing.push("目标站点")
+    if (file.relocated) {
+      if (!file.logicalRegionCode?.trim()) missing.push("目标区域")
+    } else if (!file.siteCode?.trim() || file.siteCode === "—") {
+      missing.push("目标站点")
+    }
 
     if (missing.length) {
       toast({
@@ -635,7 +647,10 @@ export default function Page() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          targetSiteCode: file.siteCode,
+          relocated: Boolean(file.relocated),
+          fanoutByRegion: Boolean(file.relocated),
+          regionCode: file.logicalRegionCode ?? null,
+          targetSiteCode: file.relocated ? null : file.siteCode,
           deviceIp: file.deviceIp,
           devicePort: file.devicePort,
           magazineRfid: file.magazineRfid,
@@ -662,27 +677,74 @@ export default function Page() {
           : res.ok
             ? "回迁记录已提交到站点待回迁表，等待站点处理"
             : "回迁记录提交失败"
+      const attempts = Array.isArray(body?.data?.attempts) ? body.data.attempts : []
 
       if (!res.ok || body?.code !== 0) {
         const missingFields = Array.isArray(body?.data?.missing)
           ? body.data.missing.join(", ")
           : ""
-        const inProgress = siteReasonCode === "RESTORE_IN_PROGRESS"
+        const inProgress =
+          siteReasonCode === "RESTORE_IN_PROGRESS" ||
+          attempts.some(
+            (a: { reasonCode?: string }) => a?.reasonCode === "RESTORE_IN_PROGRESS",
+          )
+        if (inProgress) {
+          toast({
+            title: "当前文件正在回迁中",
+            description: message || "请稍后再试，或前往站点任务列表查看进度",
+            variant: "destructive",
+          })
+          return
+        }
+        if (attempts.length > 0) {
+          setRestoreFailDetail({
+            title: "回迁记录未提交",
+            lines: attempts.map(
+              (a: {
+                siteName?: string
+                siteCode?: string
+                message?: string
+                reasonCode?: string
+              }) =>
+                `${a.siteName || a.siteCode || "站点"}（${a.siteCode || "—"}）：${
+                  a.message || a.reasonCode || "失败"
+                }`,
+            ),
+          })
+          return
+        }
         toast({
-          title: inProgress ? "当前文件正在回迁中" : "回迁记录未提交",
-          description: inProgress
-            ? message || "请稍后再试，或前往站点任务列表查看进度"
-            : missingFields
-              ? `${message}（${missingFields}）`
-              : message,
+          title: "回迁记录未提交",
+          description: missingFields ? `${message}（${missingFields}）` : message,
           variant: "destructive",
         })
         return
       }
 
+      const winnerSiteCode =
+        typeof body?.data?.winnerSiteCode === "string"
+          ? body.data.winnerSiteCode
+          : typeof body?.data?.targetSiteCode === "string"
+            ? body.data.targetSiteCode
+            : file.siteCode
+      const winnerSiteName =
+        typeof body?.data?.winnerSiteName === "string"
+          ? body.data.winnerSiteName
+          : null
+      const winnerDeviceLabel =
+        typeof body?.data?.winnerDeviceLabel === "string"
+          ? body.data.winnerDeviceLabel
+          : null
+
       markRestoreSubmittedNow(file.id)
       setRestoreConfirmFile(null)
-      setRestoreSuccess({ file, message })
+      setRestoreSuccess({
+        file,
+        message,
+        winnerSiteCode,
+        winnerSiteName,
+        winnerDeviceLabel,
+      })
       setDetailFile(null)
     } catch (e) {
       toast({
@@ -696,14 +758,6 @@ export default function Page() {
   }
 
   const handleRestore = async (file: SearchFile) => {
-    if (file.relocated) {
-      toast({
-        title: "回迁记录未提交",
-        description: RESTORE_RELOCATED_HINT,
-        variant: "destructive",
-      })
-      return
-    }
     if (file.docType === "folder") {
       toast({
         title: "回迁记录未提交",
@@ -733,7 +787,8 @@ export default function Page() {
   }
 
   const handleJumpToSiteTaskList = async () => {
-    const siteCode = restoreSuccess?.file.siteCode?.trim()
+    const siteCode =
+      restoreSuccess?.winnerSiteCode?.trim() || restoreSuccess?.file.siteCode?.trim()
     if (!siteCode || siteCode === "—") {
       toast({
         title: "无法跳转站点",
@@ -966,10 +1021,10 @@ export default function Page() {
                       const restoreDisabled =
                         !canInitiatePhysicalRestore(f.volumeType, f.relocated) ||
                         restoreSubmittingId === f.id
-                      const restoreTitle = f.relocated
-                        ? RESTORE_RELOCATED_HINT
-                        : isHardDiskVolume(f.volumeType)
-                          ? "硬盘卷暂不支持从总控发起物理回迁"
+                      const restoreTitle = isHardDiskVolume(f.volumeType)
+                        ? "硬盘卷暂不支持从总控发起物理回迁"
+                        : f.relocated
+                          ? RESTORE_RELOCATED_HINT
                           : undefined
                       return (
                         <TableRow
@@ -1186,10 +1241,10 @@ export default function Page() {
                   restoreSubmittingId === detailFile.id
                 }
                 title={
-                  detailFile.relocated
-                    ? RESTORE_RELOCATED_HINT
-                    : isHardDiskVolume(detailFile.volumeType)
-                      ? "硬盘卷暂不支持从总控发起物理回迁"
+                  isHardDiskVolume(detailFile.volumeType)
+                    ? "硬盘卷暂不支持从总控发起物理回迁"
+                    : detailFile.relocated
+                      ? RESTORE_RELOCATED_HINT
                       : undefined
                 }
                 data-testid="search-detail-restore"
@@ -1253,10 +1308,17 @@ export default function Page() {
               <div className="space-y-2 text-sm text-muted-foreground pt-1">
                 <p>
                   已提交到站点
-                  {restoreSuccess?.file.siteCode
-                    ? ` ${restoreSuccess.file.siteName && restoreSuccess.file.siteName !== restoreSuccess.file.siteCode ? `${restoreSuccess.file.siteName}（${restoreSuccess.file.siteCode}）` : restoreSuccess.file.siteCode}`
+                  {(() => {
+                    const code = restoreSuccess?.winnerSiteCode || restoreSuccess?.file.siteCode
+                    const name = restoreSuccess?.winnerSiteName || restoreSuccess?.file.siteName
+                    if (!code) return ""
+                    return name && name !== code ? ` ${name}（${code}）` : ` ${code}`
+                  })()}
+                  的回迁任务
+                  {restoreSuccess?.winnerDeviceLabel
+                    ? `，设备 ${restoreSuccess.winnerDeviceLabel}`
                     : ""}
-                  的回迁任务。请在站点任务列表查看处理进度。
+                  。请在站点任务列表查看处理进度。
                 </p>
                 <p>
                   总控任务管理需等待站点同步后才会出现（约 5 分钟），请勿重复发起。
@@ -1279,10 +1341,49 @@ export default function Page() {
             <Button
               type="button"
               onClick={() => void handleJumpToSiteTaskList()}
-              disabled={ssoJumping || !restoreSuccess?.file.siteCode}
+              disabled={
+                ssoJumping ||
+                !(
+                  restoreSuccess?.winnerSiteCode?.trim() ||
+                  restoreSuccess?.file.siteCode?.trim()
+                )
+              }
               data-testid="search-restore-jump-site"
             >
               {ssoJumping ? "跳转中…" : "去站点查看"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(restoreFailDetail)}
+        onOpenChange={(open) => {
+          if (!open) setRestoreFailDetail(null)
+        }}
+      >
+        <DialogContent data-testid="search-restore-fail-dialog">
+          <DialogHeader>
+            <DialogTitle>{restoreFailDetail?.title || "回迁记录未提交"}</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground pt-1">
+                <p>站点区域内各设备均未成功回迁文件，原因如下：</p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-700 dark:text-slate-200">
+                  {(restoreFailDetail?.lines || []).map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRestoreFailDetail(null)}
+              data-testid="search-restore-fail-close"
+            >
+              关闭
             </Button>
           </DialogFooter>
         </DialogContent>

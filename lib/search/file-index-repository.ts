@@ -61,7 +61,7 @@ function esItemToFileIndexItem(doc: EsIndexDocument): FileIndexItem {
     fileName: name,
     filePath: doc.folder_path ?? doc.disc_path ?? undefined,
     extension: doc.extension ?? undefined,
-    hash: doc.hash ?? doc.hash1 ?? undefined,
+    hash: doc.hash ?? undefined,
     volume: doc.volume_id != null ? String(doc.volume_id) : undefined,
     disc: undefined,
     department: undefined,

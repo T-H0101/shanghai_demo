@@ -27,6 +27,8 @@ export interface SearchFile {
   locationLabel?: string
   /** 区域/站点展示：如 上海/上海01 或 南通 · 盘笼移位（站点未定） */
   siteDisplayLabel?: string
+  /** 逻辑区域编码（迁入扇出用） */
+  logicalRegionCode?: string | null
   /** 盘笼已登记迁入区域 */
   relocated?: boolean
   fileType: string

@@ -24,6 +24,7 @@
 - 在总控仓实现推送脚本、推送 API、水位表
 - 总控 `/api/search`、`es-client`、`FileIndexDocument` 字段改造（另开任务）
 - 推送 `tbl_file_N`（无 `_a`）、`*_empty` / `*_error` / `*_repeat` 等过程/异常表
+- 文件不推 `hash1`；目录不推 `sum_files` / `files`（源表可有这些列，SELECT 与 ES 文档均不含）
 
 ### 1.3 实现落点
 
@@ -94,7 +95,7 @@ OpenSearch 索引 disc_file_index
 推送时 LEFT JOIN 同卷目录表，写入 ES 的 `folder_path`（总控检索「路径」列）：
 
 ```sql
-SELECT f.id, f.file_size, f.file_name, f.folder_id, f.hash, f.hash1,
+SELECT f.id, f.file_size, f.file_name, f.folder_id, f.hash,
        f.task_id, f.items_id, f.create_date, f.status, f.slot_id, f.content_type,
        COALESCE(NULLIF(fo.folder_path, ''), fo.name) AS folder_path
 FROM `{tbl_file_N_a}` f
@@ -106,19 +107,22 @@ LIMIT 1000;
 
 绑定参数：`?` = 该表进度中的 `lastId`（新表为 `0`）。
 
+不 SELECT、不写入 ES：`hash1`。
+
 > **根目录陈年数据**：建卷时根目录常为 `name='/'`、`folder_path=''`。推送时若 `folder_path` 为空则回退用 `name`（根下文件会推成 `folder_path: "/"`）。  
 > 已推送过、文档中无 `folder_path` 的历史文件：将该表水位 `lastId` 置 `0`（或删水位条目）后重推；`_id` 覆盖写回。
 
 ### 5.2 目录表 `tbl_folder_{N}`
 
 ```sql
-SELECT id, name, folder_path, disc_path, s_level, parent,
-       sum_files, files, subs
+SELECT id, name, folder_path, disc_path, s_level, parent, subs
 FROM `{tbl_folder_N}`
 WHERE id > ?
 ORDER BY id
 LIMIT 1000;
 ```
+
+不 SELECT、不写入 ES：`sum_files`、`files`。
 
 ### 5.3 盘位/设备映射（每轮一次，不 JOIN file 大表）
 
@@ -224,7 +228,6 @@ WHERE h.serial_num IS NOT NULL AND h.serial_num <> ''
 | `folder_id` | long | 表 |
 | `folder_path` | text + keyword | **推送时** `LEFT JOIN tbl_folder_{volumeId}`；`COALESCE(NULLIF(folder_path,''), name)`（空路径回退 name，兼容根目录 `name='/'`） |
 | `hash` | keyword | 表 |
-| `hash1` | keyword | 表 |
 | `task_id` | keyword | 表（数值转 string；null 可省略或写空） |
 | `items_id` | keyword | 表（转 string） |
 | `create_date` | date | 表 datetime → ISO-8601（**源表时间**） |
@@ -248,8 +251,6 @@ WHERE h.serial_num IS NOT NULL AND h.serial_num <> ''
 | `disc_path` | text | 表 |
 | `s_level` | integer | 表 |
 | `parent` | long | 表 |
-| `sum_files` | long | 表 |
-| `files` | integer | 表 |
 | `subs` | integer | 表 |
 
 检索可用 `doc_type` 过滤；文件检索与目录定位共用同一索引。
@@ -273,9 +274,9 @@ Content-Type: application/x-ndjson
 
 ```text
 {"index":{"_index":"disc_file_index","_id":"CD01:tbl_file_1_a:125801"}}
-{"source_site_id":"CD01","source_table":"tbl_file_1_a","source_record_id":"125801","volume_id":1,"doc_type":"file","file_name":"报告.pdf","file_size":1048576,"folder_id":789,"folder_path":"/归档/报告","hash":"...","hash1":"...","task_id":"1001","items_id":"2002","create_date":"2026-08-01T08:00:00.000Z","status":1,"slot_id":12,"slot_order":3,"disc_side":0,"magazine_rfid":"E200001122334455","device_ip":"10.186.1.21","device_port":"5000","content_type":"application/pdf","extension":"pdf","indexed_at":"2026-08-13T02:00:00.000Z","deleted":false}
+{"source_site_id":"CD01","source_table":"tbl_file_1_a","source_record_id":"125801","volume_id":1,"doc_type":"file","file_name":"报告.pdf","file_size":1048576,"folder_id":789,"folder_path":"/归档/报告","hash":"...","task_id":"1001","items_id":"2002","create_date":"2026-08-01T08:00:00.000Z","status":1,"slot_id":12,"slot_order":3,"disc_side":0,"magazine_rfid":"E200001122334455","device_ip":"10.186.1.21","device_port":"5000","content_type":"application/pdf","extension":"pdf","indexed_at":"2026-08-13T02:00:00.000Z","deleted":false}
 {"index":{"_index":"disc_file_index","_id":"CD01:tbl_folder_1:3201"}}
-{"source_site_id":"CD01","source_table":"tbl_folder_1","source_record_id":"3201","volume_id":1,"doc_type":"folder","folder_name":"归档","folder_path":"/归档","disc_path":"","s_level":1,"parent":0,"sum_files":0,"files":0,"subs":0,"indexed_at":"2026-08-13T02:00:00.000Z","deleted":false}
+{"source_site_id":"CD01","source_table":"tbl_folder_1","source_record_id":"3201","volume_id":1,"doc_type":"folder","folder_name":"归档","folder_path":"/归档","disc_path":"","s_level":1,"parent":0,"subs":0,"indexed_at":"2026-08-13T02:00:00.000Z","deleted":false}
 ```
 
 任一条目失败 → 整批视为失败 → **不**更新该表 `lastId`。
@@ -346,3 +347,4 @@ Content-Type: application/x-ndjson
 | 版本 | 说明 |
 |------|------|
 | v1 | 首版：file `_a` + folder 按卷分表；JSON 水位；`disc_file_index`；业务侧实现 |
+| v1.1 | 文件不再推 `hash1`；目录不再推 `sum_files` / `files`（源表字段仍在，仅不写入 ES） |
