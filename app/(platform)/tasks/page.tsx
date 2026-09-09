@@ -39,6 +39,7 @@ import {
   isPhysicalRestoreTask,
 } from "@/lib/tasks/restore-file-display"
 import { useSite, useSiteSites } from "@/lib/site/site-context"
+import { openSiteSsoJump } from "@/lib/site/open-site-sso"
 import { formatSiteLabel } from "@/components/users/site-field"
 import { buildTaskDeviceFilterHref, parseTaskDeviceFilter } from "@/lib/tasks/task-device-filter"
 import {
@@ -46,7 +47,7 @@ import {
   Search, Download, X, Clock, CheckCircle2, AlertCircle,
   ChevronRight, Info, Package, BarChart3, Zap, Link2, HardDrive,
   // Timer, FileText, // 执行日志暂时隐藏
-  SkipForward, CheckCheck, XCircle, Eye,
+  SkipForward, CheckCheck, XCircle, Eye, ExternalLink, Loader2,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -57,6 +58,8 @@ import { TASK_TYPE_COLORS } from "@/lib/types/colors"
 const typeColors = TASK_TYPE_COLORS
 // const logLevelColor = LOG_LEVEL_COLORS // 执行日志暂时隐藏
 
+/** 站点任务列表（SSO redirect，与设备「去站点管理」同一跳转契约） */
+const SITE_TASK_LIST_PATH = "/task-list"
 function taskTypeDisplay(task: TaskItem): string {
   return task.typeLabel ?? TASK_TYPE_LABELS[task.type]
 }
@@ -224,6 +227,7 @@ function TasksPageContent() {
   const [scopeFilter, setScopeFilter] = useState<string>("all")
   const [selected, setSelected] = useState<TaskItem | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [ssoJumping, setSsoJumping] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
@@ -403,6 +407,34 @@ function TasksPageContent() {
   }, [phaseQuery])
 
   const openDetail = (task: TaskItem) => { setSelected(task); setDrawerOpen(true) }
+
+  const handleGoSiteTaskList = async () => {
+    const targetSite = selected?.siteCode?.trim()
+    if (!targetSite) {
+      toast({
+        title: "无法跳转",
+        description: "当前任务缺少所属站点信息",
+        variant: "destructive",
+      })
+      return
+    }
+    setSsoJumping(true)
+    try {
+      await openSiteSsoJump(targetSite, { redirect: SITE_TASK_LIST_PATH })
+      toast({
+        title: "正在打开站点",
+        description: `前往 ${formatSiteLabel(targetSite, siteLabelByCode.get(targetSite))} 任务列表`,
+      })
+    } catch (e) {
+      toast({
+        title: "跳转失败",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      })
+    } finally {
+      setSsoJumping(false)
+    }
+  }
 
   // 计算统计（当前页；总数用服务端 total）
   const allStats = useMemo(() => {
@@ -969,9 +1001,31 @@ function TasksPageContent() {
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
         <DrawerContent className="!w-[680px] !max-w-[90vw] !h-full">
           <DrawerHeader className="border-b border-slate-100 dark:border-slate-700 shrink-0">
-            <div className="flex items-start justify-between">
-              <DrawerTitle className="text-base">{selected?.name}</DrawerTitle>
-              {selected && <Badge className={cn("text-xs", taskStatusBadgeClass(selected))}>{taskStatusDisplay(selected)}</Badge>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <DrawerTitle className="truncate text-base">{selected?.name}</DrawerTitle>
+                {selected && (
+                  <Badge className={cn("shrink-0 text-xs", taskStatusBadgeClass(selected))}>
+                    {taskStatusDisplay(selected)}
+                  </Badge>
+                )}
+              </div>
+              {selected && (
+                <Button
+                  size="sm"
+                  className="h-8 shrink-0 gap-1"
+                  disabled={ssoJumping || !selected.siteCode?.trim()}
+                  onClick={() => void handleGoSiteTaskList()}
+                  data-testid="tasks-go-site-manage"
+                >
+                  {ssoJumping ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  )}
+                  去站点管理
+                </Button>
+              )}
             </div>
           </DrawerHeader>
           <div className="flex-1 min-h-0 overflow-hidden">

@@ -532,6 +532,7 @@ export default function Page() {
 
   const renderSlotCell = (slot: RackSlot | undefined, index: number, key: string) => {
     const displayIndex = slot?.index && slot.index > 0 ? slot.index : index
+    const displayLabel = slot?.indexLabel?.trim() || String(displayIndex)
     const { discType, label, colors: sc } = resolveSlotDisplay(slot)
     const isEmptyOptical = discType === 0 || (!slot?.occupied && discType === null && slot?.status !== "error")
     const showPlus = !slot || (isEmptyOptical && !isApiMode())
@@ -554,17 +555,17 @@ export default function Page() {
                 return
               }
               toast({
-                title: `盘位 ${displayIndex}`,
+                title: `盘位 ${displayLabel}`,
                 description: `状态: ${label} | 总容量: ${formatSlotCapacityLabel(slot?.capacity)} | 已使用: ${formatSlotCapacityLabel(slot?.usedCapacity)}`,
               })
             }}
           >
-            <span>{displayIndex}</span>
+            <span>{displayLabel}</span>
           </button>
         </TooltipTrigger>
         <TooltipContent>
           <div className="space-y-0.5 text-xs">
-            <p>盘位 {displayIndex}{label ? ` · ${label}` : ""}</p>
+            <p>盘位 {displayLabel}{label ? ` · ${label}` : ""}</p>
             <p>总容量：{formatSlotCapacityLabel(slot?.capacity)}</p>
             <p>已使用：{formatSlotCapacityLabel(slot?.usedCapacity)}</p>
           </div>

@@ -60,6 +60,8 @@ function adaptSlot(slot: RackSlot): RackSlotDTO {
   return {
     id: slot.id,
     index: slot.index,
+    indexLabel: slot.indexLabel,
+    discSide: slot.discSide,
     occupied: slot.occupied ?? false,
     status: safeAdaptSlotStatus(slot.status ?? (slot.occupied ? "used" : "free")),
     discType: slot.discType,

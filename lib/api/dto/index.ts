@@ -254,6 +254,13 @@ export interface NasMountInfoDTO {
 export interface RackSlotDTO {
   id: string
   index: number
+  /**
+   * 盘位展示标签：单面 "1"；双面 "1A"/"1B"
+   * （缺省时前端回退 String(index)）
+   */
+  indexLabel?: string
+  /** tbl_slots.disc_side：0=A，1=B */
+  discSide?: number
   occupied: boolean
   status: SlotStatus
   /** 业务 disc_type：0 无盘 / 1 未刻 / 2 满盘 / 3 未满 / 4 坏盘 */

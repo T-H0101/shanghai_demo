@@ -63,6 +63,54 @@ export function displaySlotIndex(order0Based: number | null | undefined): number
   return Math.max(1, Math.trunc(order0Based) + 1)
 }
 
+/**
+ * 业务双面盘判断（对齐 MultimediumCentral volume_controller）：
+ * - mag.disc_type == 8 → 双面
+ * - 或 tbl_disc_type.disc_side == 2（unified_disc_types.disc_side）
+ */
+export function isDualSidedMagazine(input: {
+  magDiscType?: number | null
+  /** unified_disc_types.disc_side：1=单面，2=双面 */
+  discTypeSide?: number | null
+}): boolean {
+  if (input.magDiscType === 8) return true
+  if (input.discTypeSide === 2) return true
+  return false
+}
+
+/** tbl_slots.disc_side：0=A，1=B → 后缀；单面返回空串 */
+export function formatDiscSideSuffix(
+  discSide: number | null | undefined,
+  dualSided: boolean,
+): string {
+  if (!dualSided) return ""
+  if (discSide == null || !Number.isFinite(Number(discSide))) return "A"
+  return Number(discSide) > 0 ? "B" : "A"
+}
+
+/**
+ * 盘位展示标签：单面 1/2/3/4；双面 1A/1B/2A/2B
+ * （业务：`${slot_order+1}${disc_type==8 ? (disc_side==0?'A':'B') : ''}`）
+ */
+export function displaySlotLabel(
+  order0Based: number | null | undefined,
+  options?: {
+    discSide?: number | null
+    dualSided?: boolean
+    magDiscType?: number | null
+    discTypeSide?: number | null
+  },
+): string {
+  const num = displaySlotIndex(order0Based)
+  const dual =
+    options?.dualSided ??
+    isDualSidedMagazine({
+      magDiscType: options?.magDiscType,
+      discTypeSide: options?.discTypeSide,
+    })
+  return `${num}${formatDiscSideSuffix(options?.discSide, dual)}`
+}
+
 /** 兼容旧 SlotStatus 映射（仅作 fallback） */
 export function discTypeToLegacySlotStatus(
   discType: number | null | undefined

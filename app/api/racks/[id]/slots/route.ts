@@ -10,6 +10,7 @@ import type { RackSlotDetailDTO, RackSlotDTO, RackSlotGroupDTO } from "@/lib/api
 import {
   discTypeToLegacySlotStatus,
   displaySlotIndex,
+  displaySlotLabel,
   normalizeOpticalDiscType,
   opticalDiscTypeLabel,
 } from "@/lib/devices/disc-slot-display"
@@ -117,12 +118,17 @@ function resolveMagazineDisplayName(
   return `托盘${order0 + 1}`
 }
 
-function mapSlot(row: SlotRow, cageName: string | undefined): RackSlotDTO {
+function mapSlot(
+  row: SlotRow,
+  cageName: string | undefined,
+  options?: { magDiscType?: number | null; discTypeSide?: number | null },
+): RackSlotDTO {
   const raw = row.raw_data ?? {}
   const rawDiscType = numberValue(raw.disc_type)
   const opticalDiscType = normalizeOpticalDiscType(rawDiscType)
   const rawSlotOrder = numberValue(raw.slot_order)
   const order0Based = rawSlotOrder ?? row.slot_index
+  const discSide = numberValue(raw.disc_side)
   const rawMaxCapacity = numberValue(raw.max_cap)
   const rawRemainingCapacity = numberValue(raw.rest_cap)
   const occupied = row.occupied || (rawDiscType !== null && rawDiscType !== 0)
@@ -136,11 +142,18 @@ function mapSlot(row: SlotRow, cageName: string | undefined): RackSlotDTO {
           ? "used"
           : "free"
   const cageId = String(row.magazine_id ?? raw.mag_id ?? "unassigned")
+  const index = displaySlotIndex(order0Based ?? numberValue(row.source_id))
 
   return {
     id: row.id,
-    // 与业务 DgDetailDeviceCd 一致：展示序号 = slot_order + 1（从 1 起）
-    index: displaySlotIndex(order0Based ?? numberValue(row.source_id)),
+    // 与业务一致：展示序号 = slot_order + 1；双面追加 A/B
+    index,
+    indexLabel: displaySlotLabel(order0Based ?? numberValue(row.source_id), {
+      discSide,
+      magDiscType: options?.magDiscType,
+      discTypeSide: options?.discTypeSide,
+    }),
+    discSide: discSide ?? undefined,
     occupied,
     status,
     discType: opticalDiscType ?? rawDiscType ?? undefined,
@@ -208,28 +221,48 @@ export async function GET(
     const deviceTypeLabel = resolveDeviceTypeLabel(device.device_type)
     const isHddDevice = isHddDeviceTypeLabel(deviceTypeLabel)
     const identifiers = [...new Set([device.device_id, device.source_id].filter(Boolean))]
-    const slotResult = await query<SlotRow>(
-      `SELECT s.id::text, s.source_site_id, s.source_table,
-              COALESCE(s.source_id, s.source_record_id, s.slot_id) AS source_id,
-              s.source_record_id, s.slot_id, s.slot_index, s.magazine_id, s.status, s.occupied,
-              s.media_id, s.media_type, s.capacity, s.raw_data,
-              m.position AS cage_position,
-              m.raw_data->>'mag_order' AS mag_raw_order,
-              m.raw_data->>'disc_type' AS mag_disc_type,
-              m.rfid AS mag_rfid
-       FROM unified_slots s
-       INNER JOIN unified_magazines m
-         ON m.source_site_id = s.source_site_id
-        AND (m.magazine_id = s.magazine_id OR m.source_record_id = s.magazine_id OR m.source_id = s.magazine_id)
-        AND (m.raw_data->>'mag_order') IS NOT NULL
-       WHERE s.source_site_id = $1
-         AND s.device_id = ANY($2::text[])
-       ORDER BY
-         CASE WHEN m.position ~ '^[0-9]+$' THEN m.position::int ELSE 2147483647 END,
-         COALESCE(s.slot_index, (s.raw_data->>'slot_order')::int) NULLS LAST,
-         COALESCE(s.source_id, s.source_record_id)`,
-      [device.source_site_id, identifiers]
-    )
+    const [slotResult, discTypeResult] = await Promise.all([
+      query<SlotRow>(
+        `SELECT s.id::text, s.source_site_id, s.source_table,
+                COALESCE(s.source_id, s.source_record_id, s.slot_id) AS source_id,
+                s.source_record_id, s.slot_id, s.slot_index, s.magazine_id, s.status, s.occupied,
+                s.media_id, s.media_type, s.capacity, s.raw_data,
+                m.position AS cage_position,
+                m.raw_data->>'mag_order' AS mag_raw_order,
+                m.raw_data->>'disc_type' AS mag_disc_type,
+                m.rfid AS mag_rfid
+         FROM unified_slots s
+         INNER JOIN unified_magazines m
+           ON m.source_site_id = s.source_site_id
+          AND (m.magazine_id = s.magazine_id OR m.source_record_id = s.magazine_id OR m.source_id = s.magazine_id)
+          AND (m.raw_data->>'mag_order') IS NOT NULL
+         WHERE s.source_site_id = $1
+           AND s.device_id = ANY($2::text[])
+         ORDER BY
+           CASE WHEN m.position ~ '^[0-9]+$' THEN m.position::int ELSE 2147483647 END,
+           COALESCE(s.slot_index, (s.raw_data->>'slot_order')::int) NULLS LAST,
+           COALESCE((s.raw_data->>'disc_side')::int, 0),
+           COALESCE(s.source_id, s.source_record_id)`,
+        [device.source_site_id, identifiers]
+      ),
+      query<{ src_type_id: string | null; disc_side: number | null; raw_data: Record<string, unknown> | null }>(
+        `SELECT src_type_id, disc_side, raw_data
+         FROM unified_disc_types
+         WHERE source_site_id = $1`,
+        [device.source_site_id]
+      ).catch(() => ({ rows: [] as { src_type_id: string | null; disc_side: number | null; raw_data: Record<string, unknown> | null }[] })),
+    ])
+
+    const discTypeSideById = new Map<number, number>()
+    for (const row of discTypeResult.rows) {
+      const typeId = numberValue(row.src_type_id) ?? numberValue(row.raw_data?.id)
+      if (typeId == null) continue
+      const side =
+        numberValue(row.disc_side) ??
+        numberValue(row.raw_data?.disc_side) ??
+        1
+      discTypeSideById.set(typeId, side)
+    }
 
     const { ip: deviceIp, port: devicePort } = resolveDeviceIpPort(device)
     const historyOverlays = await loadSlotHistoryOverlayMaps({
@@ -278,7 +311,12 @@ export async function GET(
         row.cage_position,
         row.mag_raw_order
       )
-      const slot = mapSlot(displayRow, cageName)
+      const magDiscType =
+        numberValue(row.mag_disc_type) ?? (isHddDevice ? 9 : null)
+      const slot = mapSlot(displayRow, cageName, {
+        magDiscType,
+        discTypeSide: magDiscType != null ? discTypeSideById.get(magDiscType) ?? null : null,
+      })
       const cageId = slot.cageId ?? "unassigned"
       if (!groups.has(cageId)) {
         const magOrder =
@@ -291,7 +329,7 @@ export async function GET(
           cageIndex: magOrder + 1,
           magOrder,
           // 业务 lib_magInfo：仅 disc_type==9 才裁剪；硬盘库托盘缺字段时按 9 兜底
-          magDiscType: numberValue(row.mag_disc_type) ?? (isHddDevice ? 9 : null),
+          magDiscType,
           slots: [],
         })
       }
@@ -312,6 +350,16 @@ export async function GET(
               deviceType: device.device_type,
             })
           : group.slots
+        // 兜底：同笼若出现 B 面（disc_side>0），按双面补齐 A/B 标签
+        const dualByData = sliced.some((s) => (s.discSide ?? 0) > 0)
+        if (dualByData) {
+          for (const slot of sliced) {
+            slot.indexLabel = displaySlotLabel(slot.index - 1, {
+              discSide: slot.discSide ?? 0,
+              dualSided: true,
+            })
+          }
+        }
         return {
           cageId: group.cageId,
           cageName: group.cageName,
