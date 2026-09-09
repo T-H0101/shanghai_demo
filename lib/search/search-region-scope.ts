@@ -16,7 +16,7 @@ export async function loadAccessibleRegionFacets(): Promise<
 > {
   try {
     const { rows } = await query<{ code: string; name: string }>(
-      `SELECT code, name FROM site_regions WHERE status = 'active' ORDER BY code ASC`,
+      `SELECT code, name FROM site_regions WHERE status = 'active' ORDER BY sort_order ASC, code ASC`,
     )
     return rows.map((r) => ({
       code: r.code,

@@ -20,6 +20,7 @@ const scripts = [
   "e2e:sync",
   "e2e:control",
   "e2e:sites",
+  "e2e:site-region-sort",
   "e2e:search",
   "e2e:settings",
   "e2e:auth",

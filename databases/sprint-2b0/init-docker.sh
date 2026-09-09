@@ -274,6 +274,7 @@ MIGRATION_FILES=(
   "databases/sprint-r102/01-unified-volume-slots.sql"
   "databases/sprint-r103/01-site-regions.sql"
   "databases/sprint-r104/01-cage-move-region.sql"
+  "databases/sprint-r105/01-site-region-sort.sql"
 )
 
 log_step "执行当前版本 DDL patch..."

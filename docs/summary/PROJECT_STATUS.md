@@ -1,7 +1,24 @@
 # Project Status
 
-> **截至**: 2026-09-01
-> **当前主线**: 站点区域主数据（为盘笼按区域移位铺垫）
+> **截至**: 2026-09-07
+> **当前主线**: 站点区域主数据（展示顺序 + 盘笼按区域移位铺垫）
+
+## Sprint R.105 — 站点区域排序与站点列表分组 (partial)
+
+**目标**: 总控可调整站点区域顺序；站点列表同一区域显示在一起，区域内按站点名称排。
+
+**对应**: `requirements.md` §2.1 站点配置展示。状态：`partial`（排序/分组完成；§2.1 站点 CRUD/启停未做）。
+
+**交付**:
+- DDL：`site_regions.sort_order`（`databases/sprint-r105/01-site-region-sort.sql`）
+- API：`PUT /api/sites/regions/reorder`；`GET /api/sites` 按区域序+名称
+- UI：站点区域 Tab 拖拽；站点列表分组分隔
+- 审查：`docs/database-analysis/sprint-r105-requirements-review.md`
+- e2e：`pnpm e2e:site-region-sort`
+
+**非宣称**: 站点新增/禁用/删除已完成；业务系统会推送区域顺序。
+
+---
 
 ## Sprint R.103 — 站点区域维护 (partial)
 

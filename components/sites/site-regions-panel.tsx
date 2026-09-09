@@ -4,8 +4,8 @@
  * 站点区域维护：增删改 + 挂靠业务站点（总控主数据）
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, MapPinned, Pencil, Plus, Save, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { GripVertical, Loader2, MapPinned, Pencil, Plus, Save, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,8 +28,19 @@ export type RegionRow = {
   name: string
   description: string
   status: "active" | "inactive"
+  sortOrder?: number
   siteCount: number
   sites: Array<{ code: string; name: string }>
+}
+
+function moveRegion(list: RegionRow[], fromCode: string, toCode: string): RegionRow[] {
+  const from = list.findIndex((r) => r.code === fromCode)
+  const to = list.findIndex((r) => r.code === toCode)
+  if (from < 0 || to < 0 || from === to) return list
+  const next = [...list]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item)
+  return next
 }
 
 type SiteOption = { code: string; name: string }
@@ -54,6 +65,11 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
   const [newName, setNewName] = useState("")
   const [newDesc, setNewDesc] = useState("")
   const [creating, setCreating] = useState(false)
+  const [reordering, setReordering] = useState(false)
+  const dragCodeRef = useRef<string | null>(null)
+  const orderAtDragStartRef = useRef<string[]>([])
+  const regionsRef = useRef<RegionRow[]>([])
+  regionsRef.current = regions
 
   const [editName, setEditName] = useState("")
   const [editDesc, setEditDesc] = useState("")
@@ -145,6 +161,35 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
       if (checked) return prev.includes(code) ? prev : [...prev, code]
       return prev.filter((c) => c !== code)
     })
+  }
+
+  const persistOrder = async (ordered: RegionRow[]) => {
+    const codes = ordered.map((r) => r.code)
+    if (codes.join("|") === orderAtDragStartRef.current.join("|")) return
+    setReordering(true)
+    try {
+      const res = await fetch("/api/sites/regions/reorder", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.code !== 0) {
+        throw new Error(json.message ?? json.error ?? `HTTP ${res.status}`)
+      }
+      toast({ title: "区域顺序已保存", description: "站点列表按此顺序分组显示" })
+      onChanged?.()
+    } catch (e) {
+      toast({
+        title: "保存顺序失败",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      })
+      await load()
+    } finally {
+      setReordering(false)
+    }
   }
 
   const createRegion = async () => {
@@ -286,31 +331,77 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
               暂无站点区域。请先新建，例如编码 SH、名称「上海」。
             </p>
           ) : (
-            <ul className="space-y-1">
-              {regions.map((r) => (
-                <li key={r.code}>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex w-full items-start justify-between rounded-lg px-3 py-2 text-left text-sm transition",
-                      selected === r.code
-                        ? "bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-100"
-                        : "hover:bg-slate-50 dark:hover:bg-slate-800/60",
-                    )}
-                    onClick={() => setSelected(r.code)}
-                    data-testid={`site-region-item-${r.code}`}
+            <>
+              <p className="px-2 pb-2 text-[11px] text-slate-400" data-testid="site-region-reorder-hint">
+                拖动手柄调整顺序；站点列表按区域分组，同区域内按名称排序
+                {reordering ? " · 保存中…" : ""}
+              </p>
+              <ul className="space-y-1" data-testid="site-region-list">
+                {regions.map((r) => (
+                  <li
+                    key={r.code}
+                    draggable={!reordering}
+                    onDragStart={(e) => {
+                      dragCodeRef.current = r.code
+                      orderAtDragStartRef.current = regions.map((x) => x.code)
+                      e.dataTransfer.effectAllowed = "move"
+                      e.dataTransfer.setData("text/plain", r.code)
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      const from = dragCodeRef.current
+                      if (!from || from === r.code) return
+                      setRegions((prev) => {
+                        const next = moveRegion(prev, from, r.code)
+                        regionsRef.current = next
+                        return next
+                      })
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      void persistOrder(regionsRef.current)
+                    }}
+                    onDragEnd={(e) => {
+                      dragCodeRef.current = null
+                      if (e.dataTransfer.dropEffect === "none") void load()
+                    }}
+                    className={cn(reordering && "opacity-70")}
                   >
-                    <span className="min-w-0">
-                      <span className="block font-medium">{r.name}</span>
-                      <span className="font-mono text-[11px] text-slate-400">{r.code}</span>
-                    </span>
-                    <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
-                      {r.siteCount} 站
-                    </Badge>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    <div
+                      className={cn(
+                        "flex w-full items-start gap-1 rounded-lg py-2 pr-3 text-left text-sm transition",
+                        selected === r.code
+                          ? "bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-100"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/60",
+                      )}
+                    >
+                      <span
+                        className="mt-0.5 shrink-0 cursor-grab px-1 text-slate-400 active:cursor-grabbing"
+                        data-testid={`site-region-drag-${r.code}`}
+                        aria-label={`拖动调整 ${r.name} 顺序`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </span>
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-start justify-between text-left"
+                        onClick={() => setSelected(r.code)}
+                        data-testid={`site-region-item-${r.code}`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-medium">{r.name}</span>
+                          <span className="font-mono text-[11px] text-slate-400">{r.code}</span>
+                        </span>
+                        <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
+                          {r.siteCount} 站
+                        </Badge>
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </CardContent>
       </Card>

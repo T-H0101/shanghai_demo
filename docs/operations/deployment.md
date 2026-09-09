@@ -191,7 +191,7 @@ pnpm db:init
 
 脚本通过 `docker exec -i ... < file.sql` 灌库（不用 `docker cp`），在 Windows Git Bash 下可正常执行。Windows 上请用 Git Bash 跑 `pnpm db:init`（或确保 PATH 中有 `bash`）。
 
-当前 `pnpm db:init` 已包含 R.86 `file_index_jobs` 调度账本，以及 R.98 `unified_cage_move_register`（总控盘笼移位登记表）。已有中心库只需再跑一次 `pnpm db:init`（`CREATE TABLE IF NOT EXISTS`）或执行 `databases/sprint-r98/01-cage-move-register.sql`。开发环境启用文件索引增量任务时, 初始化后执行:
+当前 `pnpm db:init` 已包含 R.86 `file_index_jobs` 调度账本，R.98 `unified_cage_move_register`（总控盘笼移位登记表），以及 R.105 `site_regions.sort_order`（站点区域展示顺序）。已有中心库只需再跑一次 `pnpm db:init` 或执行 `databases/sprint-r105/01-site-region-sort.sql`。开发环境启用文件索引增量任务时, 初始化后执行:
 
 ```bash
 pnpm import:file-index-job-bootstrap -- --sites SH01

@@ -1,9 +1,21 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-08-26
+> 截至: 2026-09-07
 
 快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
+## R.105 站点区域排序与站点列表分组 (2026-09-07)
+
+- [x] `site_regions.sort_order` + `pnpm db:init` 注册。
+- [x] `PUT /api/sites/regions/reorder`（全量编码列表，写 audit）。
+- [x] 区域 Tab 拖拽排序。
+- [x] `GET /api/sites`：先区域顺序、再站点名称；未挂靠排最后。
+- [x] `e2e:site-region-sort` + sprint-r105 requirements review。
+- [ ] 站点列表内单站拖拽（不做：按名称即可）。
+- [ ] REQ-2.1.1 站点 CRUD/启停（不做）。
+
+R.105 不宣称站点全生命周期管理完成。
 
 ## R.101 站点预警跨站只读 (2026-08-26)
 

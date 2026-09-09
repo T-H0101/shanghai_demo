@@ -213,7 +213,12 @@ export async function GET(_request: NextRequest) {
        LEFT JOIN volume_counts v ON v.site_code = ss.site_code
        LEFT JOIN package_counts p ON p.site_code = ss.site_code
        LEFT JOIN latest_packages lp ON lp.site_code = ss.site_code
-       ORDER BY ss.site_code`
+       ORDER BY
+         CASE WHEN ss.region_code IS NULL THEN 1 ELSE 0 END,
+         sr.sort_order ASC NULLS LAST,
+         sr.code ASC NULLS LAST,
+         ss.site_name ASC,
+         ss.site_code ASC`
     )
 
     const allowedCodes = filterRegistrySiteCodes(

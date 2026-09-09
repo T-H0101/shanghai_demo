@@ -15,6 +15,7 @@ export type SiteRegionDto = {
   name: string
   description: string
   status: "active" | "inactive"
+  sortOrder: number
   siteCount: number
   sites: Array<{ code: string; name: string }>
   createdAt: string | null
@@ -40,13 +41,14 @@ export async function GET(req: NextRequest) {
       name: string
       description: string | null
       status: string
+      sort_order: number
       created_at: string | null
       updated_at: string | null
     }>(
-      `SELECT code, name, description, status,
+      `SELECT code, name, description, status, sort_order,
               created_at::text, updated_at::text
        FROM site_regions
-       ORDER BY code ASC`,
+       ORDER BY sort_order ASC, code ASC`,
     )
 
     const siteRows = await query<{
@@ -57,7 +59,7 @@ export async function GET(req: NextRequest) {
       `SELECT site_code, site_name, region_code
        FROM sync_sites
        WHERE region_code IS NOT NULL
-       ORDER BY site_code ASC`,
+       ORDER BY site_name ASC, site_code ASC`,
     )
 
     const byRegion = new Map<string, Array<{ code: string; name: string }>>()
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
         name: r.name,
         description: r.description ?? "",
         status: r.status === "inactive" ? "inactive" : "active",
+        sortOrder: Number(r.sort_order) || 0,
         siteCount: sites.length,
         sites,
         createdAt: r.created_at,
@@ -91,7 +94,7 @@ export async function GET(req: NextRequest) {
         {
           code: 503,
           error: "SCHEMA_MISSING",
-          message: "未找到 site_regions 表，请执行 databases/sprint-r103/01-site-regions.sql 或 pnpm db:init",
+          message: "未找到 site_regions 表，请执行 databases/sprint-r103/01-site-regions.sql、databases/sprint-r105/01-site-region-sort.sql 或 pnpm db:init",
         },
         { status: 503 },
       )
@@ -150,9 +153,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    await query(
-      `INSERT INTO site_regions(code, name, description, status)
-       VALUES ($1, $2, $3, 'active')`,
+    const inserted = await query<{ sort_order: number }>(
+      `INSERT INTO site_regions(code, name, description, status, sort_order)
+       VALUES (
+         $1, $2, $3, 'active',
+         (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM site_regions)
+       )
+       RETURNING sort_order`,
       [code, name, description || null],
     )
 
@@ -174,6 +181,7 @@ export async function POST(req: NextRequest) {
           name,
           description,
           status: "active",
+          sortOrder: Number(inserted.rows[0]?.sort_order) || 0,
           siteCount: 0,
           sites: [],
           createdAt: null,

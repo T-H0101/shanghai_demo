@@ -43,6 +43,7 @@ import { SiteRegionsPanel } from "@/components/sites/site-regions-panel"
  *   - dataSource 显式: database / empty / error (不允许 mock 静默 fallback)
  *   - 站点列表只统计 sync_sites 注册站点
  *   - Tab「站点区域」：总控维护区域主数据并挂靠业务站点（sprint-r103）
+ *   - 站点列表按区域 sort_order 分组，同区域内按名称（sprint-r105）
  *   - 业务表里未注册 siteCode 仅作为 meta.orphanSiteCodes 数据质量证据
  *   - 不提供站点业务系统启停 (Power)
  *   - SSO：有真实 db_host:db_port 时可跳转（近期 ticket，见 docs/source/site-sso-jump-v1.md）
@@ -499,12 +500,18 @@ export default function Page() {
                     <TableHead className="text-sm text-slate-500">操作</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {filtered.map((site, idx) => (
+                <TableBody data-testid="sites-table-body">
+                  {filtered.map((site, idx) => {
+                    const prev = idx > 0 ? filtered[idx - 1] : null
+                    const regionKey = site.regionCode || ""
+                    const prevKey = prev?.regionCode || ""
+                    const isGroupStart = idx > 0 && regionKey !== prevKey
+                    return (
                     <TableRow
                       key={`site-${site.id}-${idx}`}
-                      className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.id === site.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}
+                      className={`cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selected?.id === site.id ? "bg-blue-50 dark:bg-blue-900/20" : ""} ${isGroupStart ? "border-t-2 border-slate-200 dark:border-slate-600" : ""}`}
                       onClick={() => setSelected(site)}
+                      data-testid={`site-row-${site.code}`}
                     >
                       <TableCell className="text-sm text-slate-600 dark:text-slate-300">
                         {site.region && site.region !== "—" ? site.region : (
@@ -558,7 +565,8 @@ export default function Page() {
                         </AppTooltip>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             )}
