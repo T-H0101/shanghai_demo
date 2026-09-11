@@ -14,13 +14,13 @@ import {
   Users,
   FileText,
   Database,
-  Disc,
   X,
   AlertTriangle,
   ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { BrandLogo } from "@/components/brand/brand-logo"
 import { PRODUCT_NAME_LINE1, PRODUCT_NAME_LINE2 } from "@/lib/branding"
 import { ALL_SITES, useSite } from "@/lib/site/site-context"
 import { getCachedSession, getSession } from "@/lib/auth/session"
@@ -104,11 +104,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <X className="h-5 w-5" />
         </Button>
 
-        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 shadow-lg shadow-blue-950/30 backdrop-blur">
-            <Disc className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="min-w-0 flex-1 text-center text-sm font-semibold leading-snug">
+        <div className="flex flex-col items-center gap-3 border-b border-white/10 px-4 py-5">
+          <BrandLogo variant="white" className="mx-auto h-7 w-auto max-w-[180px]" priority />
+          <h1 className="min-w-0 text-center text-sm font-semibold leading-snug">
             <span className="block">{PRODUCT_NAME_LINE1}</span>
             <span className="block">{PRODUCT_NAME_LINE2}</span>
           </h1>
@@ -146,15 +144,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           )}
         </nav>
 
-        <div className="border-t border-white/10 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600">
-              <Disc className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">集团管理中心</p>
-              <p className="text-xs text-slate-400">按角色显示菜单</p>
-            </div>
+        <div className="border-t border-white/10 px-4 py-4">
+          <div className="flex justify-center">
+            <BrandLogo variant="white" className="h-6 w-auto max-w-[120px]" />
           </div>
         </div>
       </aside>

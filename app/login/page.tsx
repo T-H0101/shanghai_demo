@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Disc, Network, ShieldCheck } from "lucide-react"
+import { Network, ShieldCheck } from "lucide-react"
 import { LoginBackground } from "@/components/auth/login-background"
 import { LoginHeader } from "@/components/auth/login-header"
 import { LoginCard } from "@/components/auth/login-card"
+import { BrandLogo } from "@/components/brand/brand-logo"
 import { GlassPanel } from "@/components/platform/glass-panel"
 import { isAuthenticated } from "@/lib/auth/session"
 import { PRODUCT_NAME } from "@/lib/branding"
@@ -72,10 +73,12 @@ export default function LoginPage() {
               className="hidden flex-col justify-center py-8 lg:flex lg:py-0 lg:pr-8"
               data-testid="login-brand"
             >
-              <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-900/40">
-                  <Disc className="h-7 w-7 text-white" aria-hidden="true" />
-                </div>
+              <div className="mb-6 flex flex-col gap-3">
+                <BrandLogo
+                  variant={isDark ? "white" : "color"}
+                  className="h-10 w-auto max-w-[220px]"
+                  priority
+                />
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-blue-600 dark:text-blue-400">
                     Enterprise Operations

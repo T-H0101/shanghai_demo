@@ -19,7 +19,6 @@ import {
   Activity,
   ChevronRight,
   Database,
-  Disc,
   HardDrive,
   ListChecks,
   Power,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
 import { PRODUCT_NAME } from "@/lib/branding"
+import { BrandLogo } from "@/components/brand/brand-logo"
 import { formatBeijingTime } from "@/components/shared/time-format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -101,9 +101,8 @@ export function WelcomeBanner() {
         {/* 左侧: 标题 + 上下文 */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 shadow-sm">
-              <Disc className="h-5 w-5 text-white" />
-            </div>
+            <BrandLogo variant="color" className="h-7 w-auto max-w-[140px] dark:hidden" />
+            <BrandLogo variant="white" className="hidden h-7 w-auto max-w-[140px] dark:block" />
             <div className="flex flex-col">
               <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 UNIFIED CONTROL
