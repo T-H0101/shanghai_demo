@@ -25,7 +25,7 @@ export type EnrichedSearchHit = FileSearchHit & {
 }
 
 export type MagazineLogicalLocation = MagazineCurrentLocation & {
-  source_site_code: string
+  source_site_code: string | null
   relocated: boolean
   logicalRegionCode: string
   logicalRegionName: string
@@ -87,6 +87,7 @@ export function relocationFilterFromRegion(
     ) {
       outboundRfids.push(rfid)
     } else if (
+      loc.source_site_code != null &&
       sitesSet.has(loc.source_site_code) &&
       loc.target_region_code !== region
     ) {

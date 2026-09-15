@@ -296,6 +296,7 @@ export async function loadSlotHistoryOverlayMaps(opts: {
   for (const rfid of uniqueRfids) {
     const reloc = findInboundRelocationForMagazine(relocations, rfid, device)
     if (!reloc) continue
+    if (!reloc.source_site_code?.trim() || !reloc.source_device_ip?.trim()) continue
     const history = await loadHistoricalSlotsByRfid({
       sourceSiteCode: reloc.source_site_code,
       sourceDeviceIp: reloc.source_device_ip,

@@ -275,6 +275,7 @@ MIGRATION_FILES=(
   "databases/sprint-r103/01-site-regions.sql"
   "databases/sprint-r104/01-cage-move-region.sql"
   "databases/sprint-r105/01-site-region-sort.sql"
+  "databases/sprint-r106/01-cage-move-source-nullable.sql"
 )
 
 log_step "执行当前版本 DDL patch..."

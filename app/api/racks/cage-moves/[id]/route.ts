@@ -1,13 +1,11 @@
 /**
  * DELETE /api/racks/cage-moves/[id]
- * Sprint R.98 — 取消错误登记：status=cancelled，检索不再按该条映射。
+ * 取消错误登记：仅同一 RFID 最新一条 registered 可撤。
  * 不向站点下发撤销，不代表现场搬迁已撤回。
- * 站点权限：源站与目标站均须在账号可访问范围内。
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
-import { resolveSiteScope } from "@/lib/auth/site-scope"
 import {
   CageMoveRegisterError,
   cancelCageMoveRegister,
@@ -36,13 +34,11 @@ export async function DELETE(
   const { id } = await params
 
   try {
-    const siteScope = resolveSiteScope(session, null)
     const row = await cancelCageMoveRegister({
       id,
       operatorAccountId: session.id,
       actor: session.username,
       actorIp: clientIp(req),
-      siteScope,
     })
     return NextResponse.json({
       code: 0,

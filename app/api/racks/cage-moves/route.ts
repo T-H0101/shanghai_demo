@@ -1,16 +1,17 @@
 /**
  * GET/POST /api/racks/cage-moves
- * Sprint R.104 — 总控盘笼移位登记（目标=站点区域）
+ * Sprint R.104/R.106 — 总控盘笼移位登记（目标=站点区域；支持再迁）
+ * 有页权限即可全站查询，不做站级裁剪。
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
-import { resolveSiteScope } from "@/lib/auth/site-scope"
 import { query } from "@/lib/db"
 import {
   CageMoveRegisterError,
   createCageMoveRegister,
   listCageMoveRegisters,
+  listRegisteredMagazineRfids,
 } from "@/lib/control/cage-move-register"
 
 function clientIp(req: NextRequest): string {
@@ -22,10 +23,18 @@ export async function GET(req: NextRequest) {
     const session = await requireSession(req)
     requirePermission(session, "cage_moves:read")
     const sp = req.nextUrl.searchParams
+    if (sp.get("rfidsOnly") === "1" || sp.get("rfidsOnly") === "true") {
+      const rfids = await listRegisteredMagazineRfids()
+      return NextResponse.json({
+        code: 0,
+        data: { rfids },
+        message: "已登记过的盘笼 RFID（筛选用）",
+      })
+    }
     const limit = Number(sp.get("limit") ?? 50)
     const offset = Number(sp.get("offset") ?? 0)
-    const siteScope = resolveSiteScope(session, null)
-    const result = await listCageMoveRegisters({ limit, offset, siteScope })
+    const magazineRfid = sp.get("magazineRfid") ?? sp.get("rfid") ?? null
+    const result = await listCageMoveRegisters({ limit, offset, magazineRfid })
     return NextResponse.json({
       code: 0,
       data: result,
@@ -56,9 +65,11 @@ export async function POST(req: NextRequest) {
   let body: {
     cageId?: string
     magazineRfid?: string
-    sourceSiteCode?: string
-    sourceDeviceIp?: string
+    sourceRegionCode?: string
+    sourceSiteCode?: string | null
+    sourceDeviceIp?: string | null
     sourceDevicePort?: string | null
+    relocated?: boolean
     targetRegionCode?: string
     registrarName?: string
     remark?: string | null
@@ -70,20 +81,20 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const siteScope = resolveSiteScope(session, null)
     const row = await createCageMoveRegister({
       cageId: body.cageId,
       magazineRfid: body.magazineRfid ?? "",
-      sourceSiteCode: body.sourceSiteCode ?? "",
-      sourceDeviceIp: body.sourceDeviceIp ?? "",
+      sourceRegionCode: body.sourceRegionCode ?? "",
+      sourceSiteCode: body.sourceSiteCode,
+      sourceDeviceIp: body.sourceDeviceIp,
       sourceDevicePort: body.sourceDevicePort,
+      relocated: Boolean(body.relocated),
       targetRegionCode: body.targetRegionCode ?? "",
       registrarName: body.registrarName ?? "",
       remark: body.remark,
       operatorAccountId: session.id,
       actor: session.username,
       actorIp: clientIp(req),
-      siteScope,
     })
     const regionName =
       (

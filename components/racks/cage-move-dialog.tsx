@@ -37,10 +37,17 @@ type DeviceOption = {
   deviceType?: string
 }
 
-type MagOption = {
-  magazineId: string | null
+type CageCandidate = {
   rfid: string
   label: string
+  magazineId: string | null
+  relocated: boolean
+  siteCode: string | null
+  siteName: string | null
+  deviceId: string | null
+  deviceName: string | null
+  deviceIp: string | null
+  devicePort: string | null
 }
 
 type Props = {
@@ -101,45 +108,27 @@ async function fetchDevicesForSite(siteCode: string): Promise<DeviceOption[]> {
   )
 }
 
-export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Props) {
+export function CageMoveDialog({ open, onOpenChange, sites: _sites, onRegistered }: Props) {
   const [operatorLabel, setOperatorLabel] = useState("当前账号")
   const [submitting, setSubmitting] = useState(false)
   const [loadingMags, setLoadingMags] = useState(false)
-  const [loadingSourceDevices, setLoadingSourceDevices] = useState(false)
   const [loadingRegions, setLoadingRegions] = useState(false)
   const [loadingPreviewDevices, setLoadingPreviewDevices] = useState(false)
-  const [mags, setMags] = useState<MagOption[]>([])
-  const [sourceDevices, setSourceDevices] = useState<DeviceOption[]>([])
+  const [cages, setCages] = useState<CageCandidate[]>([])
   const [regions, setRegions] = useState<RegionOption[]>([])
   const [previewDevices, setPreviewDevices] = useState<DeviceOption[]>([])
 
   const [sourceRegionCode, setSourceRegionCode] = useState("")
-  const [sourceSiteCode, setSourceSiteCode] = useState("")
-  const [sourceDeviceId, setSourceDeviceId] = useState("")
   const [sourceRfid, setSourceRfid] = useState("")
   const [targetRegionCode, setTargetRegionCode] = useState("")
   const [registrarName, setRegistrarName] = useState("")
   const [remark, setRemark] = useState("")
 
-  const sourceDevice = sourceDevices.find((d) => d.id === sourceDeviceId)
-  const selectedMag = mags.find((m) => m.rfid === sourceRfid)
+  const selectedCage = cages.find((c) => c.rfid === sourceRfid)
   const targetRegion = regions.find((r) => r.code === targetRegionCode)
 
-  /** 当前账号可见、且已挂区域的源区域 */
-  const sourceRegionOptions = useMemo(() => {
-    const codesWithSites = new Set(
-      sites.map((s) => s.regionCode?.trim()).filter(Boolean) as string[],
-    )
-    return regions.filter((r) => codesWithSites.has(r.code))
-  }, [regions, sites])
-
-  const sourceSitesInRegion = useMemo(
-    () =>
-      sourceRegionCode
-        ? sites.filter((s) => s.regionCode?.trim() === sourceRegionCode)
-        : [],
-    [sites, sourceRegionCode],
-  )
+  /** 全部启用区域均可作原区域（页权限=全站） */
+  const sourceRegionOptions = useMemo(() => regions, [regions])
 
   const targetRegionOptions = useMemo(
     () => regions.filter((r) => r.code !== sourceRegionCode),
@@ -200,28 +189,6 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
   }, [open])
 
   useEffect(() => {
-    if (!open || !sourceSiteCode) {
-      setSourceDevices([])
-      return
-    }
-    let cancelled = false
-    setLoadingSourceDevices(true)
-    fetchDevicesForSite(sourceSiteCode)
-      .then((rows) => {
-        if (!cancelled) setSourceDevices(rows)
-      })
-      .catch(() => {
-        if (!cancelled) setSourceDevices([])
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingSourceDevices(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, sourceSiteCode])
-
-  useEffect(() => {
     if (!open || !targetRegionCode) {
       setPreviewDevices([])
       return
@@ -251,30 +218,37 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
   }, [open, targetRegionCode, regions])
 
   useEffect(() => {
-    if (!open || !sourceSiteCode || !sourceDeviceId) {
-      setMags([])
+    if (!open || !sourceRegionCode) {
+      setCages([])
       return
     }
     let cancelled = false
     setLoadingMags(true)
     fetch(
-      `/api/racks/magazines?siteCode=${encodeURIComponent(sourceSiteCode)}&deviceId=${encodeURIComponent(sourceDeviceId)}`,
+      `/api/racks/magazines/by-region?regionCode=${encodeURIComponent(sourceRegionCode)}`,
       { cache: "no-store" },
     )
       .then((r) => r.json())
       .then((json) => {
         if (cancelled) return
         const items = Array.isArray(json?.data?.items) ? json.data.items : []
-        setMags(
-          items.map((m: MagOption) => ({
-            magazineId: m.magazineId ?? null,
+        setCages(
+          items.map((m: CageCandidate) => ({
             rfid: m.rfid,
             label: m.label || m.rfid,
+            magazineId: m.magazineId ?? null,
+            relocated: Boolean(m.relocated),
+            siteCode: m.siteCode ?? null,
+            siteName: m.siteName ?? null,
+            deviceId: m.deviceId ?? null,
+            deviceName: m.deviceName ?? null,
+            deviceIp: m.deviceIp ?? null,
+            devicePort: m.devicePort ?? null,
           })),
         )
       })
       .catch(() => {
-        if (!cancelled) setMags([])
+        if (!cancelled) setCages([])
       })
       .finally(() => {
         if (!cancelled) setLoadingMags(false)
@@ -282,48 +256,55 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
     return () => {
       cancelled = true
     }
-  }, [open, sourceSiteCode, sourceDeviceId])
+  }, [open, sourceRegionCode])
 
   function resetForm() {
     setSourceRegionCode("")
-    setSourceSiteCode("")
-    setSourceDeviceId("")
     setSourceRfid("")
     setTargetRegionCode("")
     setRegistrarName("")
     setRemark("")
-    setMags([])
-    setSourceDevices([])
+    setCages([])
     setPreviewDevices([])
   }
 
   const isSameRegion =
     Boolean(sourceRegionCode && targetRegionCode && sourceRegionCode === targetRegionCode)
 
+  const firstMigrateReady =
+    selectedCage &&
+    !selectedCage.relocated &&
+    Boolean(selectedCage.siteCode?.trim()) &&
+    Boolean(selectedCage.deviceIp?.trim())
+
+  const remigrateReady = Boolean(selectedCage?.relocated)
+
   const submitBlocked =
-    !sourceDevice ||
-    !selectedMag ||
+    !selectedCage ||
     !targetRegionCode ||
     !sourceRegionCode ||
-    isSameRegion
+    isSameRegion ||
+    (!firstMigrateReady && !remigrateReady)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!sourceDevice || !selectedMag) {
+    if (!selectedCage || !sourceRegionCode) {
       toast({
         title: "请完善选择",
-        description: "原侧需站点、光盘库、盘笼",
+        description: "请选择原区域与盘笼",
         variant: "destructive",
       })
       return
     }
-    if (!sourceRegionCode) {
-      toast({
-        title: "源站未挂区域",
-        description: "请先在站点管理中为源站维护所属区域",
-        variant: "destructive",
-      })
-      return
+    if (!selectedCage.relocated) {
+      if (!selectedCage.siteCode?.trim() || !selectedCage.deviceIp?.trim()) {
+        toast({
+          title: "缺少设备信息",
+          description: "首次迁移需能解析到所属站点与设备 IP，请检查同步数据",
+          variant: "destructive",
+        })
+        return
+      }
     }
     if (!targetRegionCode) {
       toast({
@@ -347,11 +328,13 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          magazineRfid: selectedMag.rfid,
-          cageId: selectedMag.magazineId ?? undefined,
-          sourceSiteCode,
-          sourceDeviceIp: sourceDevice.ip,
-          sourceDevicePort: sourceDevice.port,
+          magazineRfid: selectedCage.rfid,
+          cageId: selectedCage.magazineId ?? undefined,
+          sourceRegionCode,
+          relocated: selectedCage.relocated,
+          sourceSiteCode: selectedCage.relocated ? null : selectedCage.siteCode,
+          sourceDeviceIp: selectedCage.relocated ? null : selectedCage.deviceIp,
+          sourceDevicePort: selectedCage.relocated ? null : selectedCage.devicePort,
           targetRegionCode,
           registrarName,
           remark: remark.trim() || null,
@@ -382,16 +365,6 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
     }
   }
 
-  const sourceDevicePlaceholder = !sourceRegionCode
-    ? "先选区域"
-    : !sourceSiteCode
-      ? "先选站点"
-      : loadingSourceDevices
-        ? "加载光盘库…"
-        : sourceDevices.length
-          ? "选择光盘库"
-          : "该站点无带 IP 的光盘库"
-
   return (
     <Dialog
       open={open}
@@ -418,10 +391,8 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
                   value={sourceRegionCode || undefined}
                   onValueChange={(v) => {
                     setSourceRegionCode(v)
-                    setSourceSiteCode("")
-                    setSourceDeviceId("")
                     setSourceRfid("")
-                    setMags([])
+                    setCages([])
                     if (targetRegionCode === v) setTargetRegionCode("")
                   }}
                   disabled={loadingRegions}
@@ -437,93 +408,75 @@ export function CageMoveDialog({ open, onOpenChange, sites, onRegistered }: Prop
                     ))}
                   </SelectContent>
                 </Select>
-                {!loadingRegions && sites.length > 0 && sourceRegionOptions.length === 0 ? (
+                {!loadingRegions && sourceRegionOptions.length === 0 ? (
                   <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                    无可选源区域：请先在站点管理中为业务站维护所属区域
+                    暂无启用区域，请先在站点管理中维护站点区域
                   </p>
                 ) : null}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">站点</Label>
-                <Select
-                  value={sourceSiteCode || undefined}
-                  onValueChange={(v) => {
-                    setSourceSiteCode(v)
-                    setSourceDeviceId("")
-                    setSourceRfid("")
-                    setMags([])
-                  }}
-                  disabled={!sourceRegionCode}
-                >
-                  <SelectTrigger className="h-8 text-xs" data-testid="cage-move-source-site">
-                    <SelectValue placeholder={sourceRegionCode ? "选择原站点" : "先选区域"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sourceSitesInRegion.map((s) => (
-                      <SelectItem key={`src-site-${s.code}`} value={s.code} className="text-xs">
-                        {s.name} ({s.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {sourceRegionCode && sourceSitesInRegion.length === 0 ? (
-                  <p className="text-[11px] text-slate-400">该区域下暂无可用业务站</p>
-                ) : null}
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">设备（光盘库）</Label>
-                <Select
-                  key={`src-dev-${sourceSiteCode}`}
-                  value={sourceDeviceId || undefined}
-                  onValueChange={(v) => {
-                    setSourceDeviceId(v)
-                    setSourceRfid("")
-                    setMags([])
-                  }}
-                  disabled={!sourceSiteCode || loadingSourceDevices}
-                >
-                  <SelectTrigger className="h-8 text-xs" data-testid="cage-move-source-device">
-                    <SelectValue placeholder={sourceDevicePlaceholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sourceDevices.map((d) => (
-                      <SelectItem key={`src-dev-${d.id}`} value={d.id} className="text-xs">
-                        {d.name} · {d.ip}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
                 <Label className="text-xs">盘笼（RFID）</Label>
                 <Select
-                  key={`src-mag-${sourceSiteCode}-${sourceDeviceId}`}
+                  key={`src-mag-${sourceRegionCode}`}
                   value={sourceRfid || undefined}
                   onValueChange={setSourceRfid}
-                  disabled={!sourceDeviceId || loadingMags}
+                  disabled={!sourceRegionCode || loadingMags}
                 >
                   <SelectTrigger className="h-8 text-xs" data-testid="cage-move-source-cage">
                     <SelectValue
                       placeholder={
                         loadingMags
                           ? "加载盘笼…"
-                          : sourceDeviceId
-                            ? mags.length
+                          : sourceRegionCode
+                            ? cages.length
                               ? "选择盘笼"
-                              : "该库无带 RFID 盘笼"
-                            : "先选光盘库"
+                              : "该区域无可登记盘笼"
+                            : "先选区域"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {mags.map((m) => (
+                    {cages.map((m) => (
                       <SelectItem key={`mag-${m.rfid}`} value={m.rfid} className="text-xs">
-                        {m.label}
+                        {m.relocated ? `${m.rfid}（迁移）` : m.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              {selectedCage ? (
+                <div
+                  className="rounded-md border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/60 px-2.5 py-2 text-[11px] text-slate-600 dark:text-slate-300"
+                  data-testid="cage-move-source-detail"
+                >
+                  {selectedCage.relocated ? (
+                    <p>当前为盘笼移位迁入本区域（站点未定），再迁仅登记目标区域。</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      <p>
+                        所属站点：
+                        {selectedCage.siteName?.trim() || selectedCage.siteCode || "—"}
+                        {selectedCage.siteCode ? (
+                          <span className="text-slate-400"> ({selectedCage.siteCode})</span>
+                        ) : null}
+                      </p>
+                      <p>
+                        所属设备：
+                        {selectedCage.deviceName?.trim() || "—"}
+                        {selectedCage.deviceIp ? (
+                          <span className="font-mono text-slate-500">
+                            {" "}
+                            · {selectedCage.deviceIp}
+                            {selectedCage.devicePort ? `:${selectedCage.devicePort}` : ""}
+                          </span>
+                        ) : (
+                          <span className="text-amber-600 dark:text-amber-400">（缺设备 IP，无法首次登记）</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-3 bg-slate-50/50 dark:bg-slate-900/30">

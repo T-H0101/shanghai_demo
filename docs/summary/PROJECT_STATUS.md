@@ -1,7 +1,23 @@
 # Project Status
 
-> **截至**: 2026-09-07
-> **当前主线**: 站点区域主数据（展示顺序 + 盘笼按区域移位铺垫）
+> **截至**: 2026-09-14
+> **当前主线**: 盘笼移位再迁（区域选笼）与登记撤销链
+
+## Sprint R.106 — 盘笼再迁与仅最新可撤 (partial)
+
+**目标**: 登记原位置改为「区域→盘笼」；支持迁入后再迁；同一 RFID 仅最新登记可撤销；历史按已登记 RFID 筛选。
+
+**对应**: `requirements.md` §4.3 盘笼移位登记。状态：`partial`。
+
+**交付**:
+- DDL：`source_site_code` / `source_device_ip` 可空（`databases/sprint-r106/01-cage-move-source-nullable.sql`）
+- API：`/api/racks/magazines/by-region`；登记/撤销/RFID 筛选；无站级裁剪
+- UI：移位 Dialog 区域选笼；历史 RFID 筛选；非最新撤销置灰
+- 审查：`docs/database-analysis/sprint-r106-cage-remigrate-requirements-review.md`
+
+**非宣称**: 站点已物理移笼；再迁后一定有盘位叠加。
+
+---
 
 ## Sprint R.105 — 站点区域排序与站点列表分组 (partial)
 

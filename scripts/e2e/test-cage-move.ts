@@ -37,6 +37,7 @@ function applyDdl() {
     "databases/sprint-r98/01-cage-move-register.sql",
     "databases/sprint-r103/01-site-regions.sql",
     "databases/sprint-r104/01-cage-move-region.sql",
+    "databases/sprint-r106/01-cage-move-source-nullable.sql",
   ]) {
     execSync(
       `docker exec -i ${DB_CONTAINER} psql -U ${DB_USER} -d ${DB_NAME} -v ON_ERROR_STOP=1`,
@@ -46,17 +47,20 @@ function applyDdl() {
 }
 
 async function main() {
-  console.log("=== 盘笼移位登记 e2e (R.104) ===\n")
+  console.log("=== 盘笼移位登记 e2e (R.106) ===\n")
   await installAuthenticatedFetch(BASE)
   applyDdl()
 
-  const rfid = `E2E-R104-${Date.now()}`
+  const rfid = `E2E-R106-${Date.now()}`
   const sourceSite = "SH01"
   const sourceRegion = psql(
     `SELECT COALESCE(region_code,'') FROM sync_sites WHERE site_code='${sourceSite}' LIMIT 1`,
   )
   const targetRegion = psql(
     `SELECT code FROM site_regions WHERE status='active' AND code <> '${sourceRegion}' ORDER BY code LIMIT 1`,
+  )
+  const thirdRegion = psql(
+    `SELECT code FROM site_regions WHERE status='active' AND code <> '${sourceRegion}' AND code <> '${targetRegion}' ORDER BY code LIMIT 1`,
   )
 
   try {
@@ -79,11 +83,22 @@ async function main() {
       beforeRes.status === 200 && beforeJson.code === 0 && Array.isArray(beforeJson.data?.items),
     )
 
+    const byRegionRes = await fetch(
+      `${BASE}/api/racks/magazines/by-region?regionCode=${encodeURIComponent(sourceRegion)}`,
+    )
+    const byRegionJson = await byRegionRes.json()
+    check(
+      "GET magazines/by-region",
+      byRegionRes.status === 200 && byRegionJson.code === 0 && Array.isArray(byRegionJson.data?.items),
+      `HTTP ${byRegionRes.status}`,
+    )
+
     const sameRegionRes = await fetch(`${BASE}/api/racks/cage-moves`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         magazineRfid: rfid,
+        sourceRegionCode: sourceRegion,
         sourceSiteCode: sourceSite,
         sourceDeviceIp: "10.98.0.1",
         targetRegionCode: sourceRegion,
@@ -103,20 +118,23 @@ async function main() {
       body: JSON.stringify({
         magazineRfid: rfid,
         cageId: "mag-e2e-note",
+        sourceRegionCode: sourceRegion,
         sourceSiteCode: sourceSite,
         sourceDeviceIp: "10.98.0.1",
         sourceDevicePort: "",
+        relocated: false,
         targetRegionCode: targetRegion,
         registrarName: "e2e-registrar",
-        remark: "R.104 e2e",
+        remark: "R.106 e2e first",
       }),
     })
     const postJson = await postRes.json()
     const message = String(postJson.message ?? "")
+    const firstId = String(postJson.data?.id ?? "")
     check(
-      "POST /api/racks/cage-moves 201",
+      "POST 首次登记 201",
       postRes.status === 201 && postJson.code === 0 && postJson.data?.magazine_rfid === rfid,
-      `HTTP ${postRes.status} id=${postJson.data?.id ?? "—"}`,
+      `HTTP ${postRes.status} id=${firstId || "—"}`,
     )
     check(
       "API message 为总控登记口径（目标区域）",
@@ -128,36 +146,97 @@ async function main() {
     )
 
     const dbLoc = psql(
-      `SELECT target_region_code || '|' || COALESCE(target_site_code,'') || '|' || COALESCE(target_device_ip,'') FROM unified_cage_move_register WHERE magazine_rfid='${rfid}' AND status='registered' ORDER BY created_at DESC LIMIT 1`,
+      `SELECT target_region_code || '|' || COALESCE(target_site_code,'') || '|' || COALESCE(target_device_ip,'') || '|' || COALESCE(source_site_code,'') FROM unified_cage_move_register WHERE magazine_rfid='${rfid}' AND status='registered' ORDER BY created_at DESC LIMIT 1`,
     )
-    check("数据库目标=区域且站/设备为空", dbLoc.startsWith(`${targetRegion}||`), dbLoc)
-
-    const afterRes = await fetch(`${BASE}/api/racks/cage-moves?limit=20`)
-    const afterJson = await afterRes.json()
-    const listed = (afterJson.data?.items ?? []).find(
-      (row: { magazine_rfid: string }) => row.magazine_rfid === rfid,
-    )
-    check("GET 列表含新登记 RFID", Boolean(listed))
     check(
-      "列表含目标区域名称",
-      Boolean(listed?.target_region_name || listed?.target_region_code),
+      "首次：目标区域空站设备，源站有值",
+      dbLoc.startsWith(`${targetRegion}||`) && dbLoc.endsWith(`|${sourceSite}`),
+      dbLoc,
     )
 
-    const registerId = String(postJson.data?.id ?? listed?.id ?? "")
-    const delRes = await fetch(`${BASE}/api/racks/cage-moves/${encodeURIComponent(registerId)}`, {
-      method: "DELETE",
-    })
-    const delJson = await delRes.json()
-    const delMsg = String(delJson.message ?? "")
+    if (thirdRegion) {
+      const remigrateRes = await fetch(`${BASE}/api/racks/cage-moves`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          magazineRfid: rfid,
+          sourceRegionCode: targetRegion,
+          relocated: true,
+          targetRegionCode: thirdRegion,
+          registrarName: "e2e-registrar",
+          remark: "R.106 remigrate",
+        }),
+      })
+      const remigrateJson = await remigrateRes.json()
+      const secondId = String(remigrateJson.data?.id ?? "")
+      check(
+        "再迁登记 201（无源站设备）",
+        remigrateRes.status === 201 && remigrateJson.code === 0,
+        `HTTP ${remigrateRes.status}`,
+      )
+      const remigrateDb = psql(
+        `SELECT COALESCE(source_site_code,'') || '|' || COALESCE(source_device_ip,'') || '|' || target_region_code FROM unified_cage_move_register WHERE id='${secondId}'`,
+      )
+      check("再迁库：源站设备空", remigrateDb === `||${thirdRegion}`, remigrateDb)
+
+      const delOldRes = await fetch(`${BASE}/api/racks/cage-moves/${encodeURIComponent(firstId)}`, {
+        method: "DELETE",
+      })
+      const delOldJson = await delOldRes.json()
+      check(
+        "非最新撤销拒绝",
+        delOldRes.status === 409 && String(delOldJson.error ?? "").includes("最近一次"),
+        `HTTP ${delOldRes.status} ${delOldJson.error ?? ""}`,
+      )
+
+      const delLatestRes = await fetch(
+        `${BASE}/api/racks/cage-moves/${encodeURIComponent(secondId)}`,
+        { method: "DELETE" },
+      )
+      const delLatestJson = await delLatestRes.json()
+      check(
+        "最新再迁可撤销",
+        delLatestRes.status === 200 && delLatestJson.data?.status === "cancelled",
+        `HTTP ${delLatestRes.status}`,
+      )
+
+      const delFirstAgain = await fetch(
+        `${BASE}/api/racks/cage-moves/${encodeURIComponent(firstId)}`,
+        { method: "DELETE" },
+      )
+      const delFirstAgainJson = await delFirstAgain.json()
+      check(
+        "撤销后再撤首次（现为最新）",
+        delFirstAgain.status === 200 && delFirstAgainJson.data?.status === "cancelled",
+        `HTTP ${delFirstAgain.status}`,
+      )
+    } else {
+      check("再迁用例跳过（无第三区域）", true)
+
+      const afterRes = await fetch(`${BASE}/api/racks/cage-moves?limit=20`)
+      const afterJson = await afterRes.json()
+      const listed = (afterJson.data?.items ?? []).find(
+        (row: { magazine_rfid: string }) => row.magazine_rfid === rfid,
+      )
+      check("GET 列表含新登记 RFID", Boolean(listed))
+      check("列表 is_latest_registered", listed?.is_latest_registered === true)
+
+      const delRes = await fetch(`${BASE}/api/racks/cage-moves/${encodeURIComponent(firstId)}`, {
+        method: "DELETE",
+      })
+      const delJson = await delRes.json()
+      check(
+        "DELETE 取消登记",
+        delRes.status === 200 && delJson.data?.status === "cancelled",
+        `HTTP ${delRes.status}`,
+      )
+    }
+
+    const rfidsRes = await fetch(`${BASE}/api/racks/cage-moves?rfidsOnly=1`)
+    const rfidsJson = await rfidsRes.json()
     check(
-      "DELETE 取消登记",
-      delRes.status === 200 && delJson.data?.status === "cancelled",
-      `HTTP ${delRes.status}`,
-    )
-    check(
-      "撤销文案含目标区域",
-      delMsg.includes("目标区域") && !delMsg.includes("移位成功"),
-      delMsg,
+      "RFID 筛选项接口",
+      rfidsRes.status === 200 && Array.isArray(rfidsJson.data?.rfids),
     )
 
     const searchRes = await fetch(
@@ -188,10 +267,13 @@ async function main() {
       /移位成功|已移位/.test(routeSrc)
     check("文案不含「移位成功/已移位」", !misleading)
     check(
-      "Dialog 目标区域 + 预览",
-      dialogSrc.includes('data-testid="cage-move-target-region"') &&
+      "Dialog 原区域+盘笼 / 目标区域+预览",
+      dialogSrc.includes('data-testid="cage-move-source-region"') &&
+        dialogSrc.includes('data-testid="cage-move-source-cage"') &&
+        dialogSrc.includes('data-testid="cage-move-target-region"') &&
         dialogSrc.includes('data-testid="cage-move-region-preview"') &&
-        dialogSrc.includes("targetRegionCode"),
+        dialogSrc.includes("relocated") &&
+        !dialogSrc.includes('data-testid="cage-move-source-site"'),
     )
     check(
       "search 用区域过滤",

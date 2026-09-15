@@ -1,9 +1,20 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-09-07
+> 截至: 2026-09-14
 
 快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
+## R.106 盘笼再迁（区域选笼 + 仅最新可撤）(2026-09-14)
+
+- [x] DDL：原站/原设备可空；注册 `init-docker.sh`。
+- [x] 登记：区域→盘笼（未迁写站设备；再迁无站设备）；页权限全站可见。
+- [x] 撤销：同一 RFID 仅最新 `registered` 可撤；非最新按钮置灰。
+- [x] 历史：按登记表 RFID 筛选；筛选时可见完整迁移链。
+- [x] `GET /api/racks/magazines/by-region` + requirements review。
+- [ ] 站点物理移笼与位置回写（不做本 Sprint）。
+
+R.106 不宣称站点已执行移位。
 
 ## R.105 站点区域排序与站点列表分组 (2026-09-07)
 
