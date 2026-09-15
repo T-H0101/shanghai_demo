@@ -1,8 +1,9 @@
 import type { OnlineStatus, SyncStatus } from "./common"
 
 /**
- * Site.status: 站点可达性（在线/离线）
- * - 来自 GET /api/sites → 对 sync_sites.db_host:db_port 的 TCP 探测
+ * Site.status: 站点可达性（在线/离线/探测中）
+ * - GET /api/sites：可探测站先返回 checking；禁用/无地址可直接 offline
+ * - GET /api/sites/reachability：异步 TCP 探测后更新 online/offline
  */
 export type SiteStatusValue = OnlineStatus
 

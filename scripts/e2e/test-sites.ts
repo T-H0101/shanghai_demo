@@ -115,6 +115,37 @@ async function main() {
     leakedOrphans.length === 0 ? "orphan only in meta" : `leaked=${leakedOrphans.join(",")}`
   )
 
+  // 列表不阻塞 TCP：可探测站应为 checking；探测走独立接口
+  const listStatuses = (sites.data ?? []).map((s: { status?: string }) => s.status)
+  const hasCheckingOrFinal = listStatuses.every(
+    (st: string | undefined) => st === "checking" || st === "online" || st === "offline",
+  )
+  check(
+    "/api/sites 不阻塞探测（status 为 checking|online|offline）",
+    hasCheckingOrFinal,
+    `statuses=${[...new Set(listStatuses)].join(",")}`,
+  )
+  check(
+    "meta.reachability 声明异步探测",
+    typeof sites.meta?.reachability === "string" &&
+      String(sites.meta.reachability).includes("reachability"),
+    `reachability=${sites.meta?.reachability ?? ""}`,
+  )
+
+  const reachRes = await fetch(`${BASE}/api/sites/reachability`)
+  const reach = await reachRes.json()
+  check(
+    "/api/sites/reachability 200",
+    reachRes.status === 200 && reach.code === 0,
+    `HTTP ${reachRes.status}`,
+  )
+  check(
+    "reachability 返回 online|offline（探测已完成）",
+    Array.isArray(reach.data) &&
+      reach.data.every((i: { status?: string }) => i.status === "online" || i.status === "offline"),
+    `items=${reach.data?.length ?? 0}`,
+  )
+
   // ──────────────────────────────────────────────────────────
   // 3. source 显式 (R.4 修复)
   // ──────────────────────────────────────────────────────────
@@ -137,7 +168,9 @@ async function main() {
   // 5. R.9A: 页面源码不再 import mockSites / 硬编码 6 站点名
   // ──────────────────────────────────────────────────────────
   const { readFile } = await import("node:fs/promises")
-  const sitesPage = await readFile("app/sites/page.tsx", "utf8")
+  const sitesPage = await readFile("app/(platform)/sites/page.tsx", "utf8").catch(() =>
+    readFile("app/sites/page.tsx", "utf8"),
+  )
   // 真实 import 匹配 (不允许: from "@/lib/mock/sites")
   const hasMockSitesImport = /from\s+["']@\/lib\/mock\/sites["']/.test(sitesPage)
   check(
@@ -166,6 +199,11 @@ async function main() {
     "R.82: 页面 fetch /api/sites",
     sitesPage.includes("/api/sites") && sitesPage.includes("fetch"),
     "fetch('/api/sites') 已接入"
+  )
+  check(
+    "页面异步探测 /api/sites/reachability",
+    sitesPage.includes("/api/sites/reachability"),
+    "reachability 已接入",
   )
   check(
     "R.82: 页面渲染 dataSource 标识 (database/empty)",

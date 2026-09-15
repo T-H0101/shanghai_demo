@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
-    const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20))
+    const pageSize = Math.min(500, Math.max(1, parseInt(searchParams.get("pageSize") ?? "50", 10) || 50))
     const siteCode = searchParams.get("siteCode")
     const status = searchParams.get("status")
     const type = searchParams.get("type")

@@ -149,12 +149,90 @@ export default function Page() {
     if (showOrphanDetail) loadOrphanDetail()
   }, [showOrphanDetail])
 
-  // 真实加载 /api/sites
-  const loadSites = async () => {
+  /** 异步 TCP 探测：不阻塞列表；结果回写 status / note */
+  const probeReachability = async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/api/sites/reachability", {
+        cache: "no-store",
+        credentials: "include",
+        signal,
+      })
+      if (!res.ok) {
+        setSites((prev) =>
+          prev.map((s) =>
+            s.status === "checking"
+              ? {
+                  ...s,
+                  status: "offline" as const,
+                  reachabilitySource: "probe_error",
+                  reachabilityNote: `可达性探测失败（HTTP ${res.status}）`,
+                }
+              : s,
+          ),
+        )
+        return
+      }
+      const json = await res.json()
+      const items = Array.isArray(json.data)
+        ? (json.data as Array<{
+            code: string
+            status: "online" | "offline"
+            reachabilitySource?: string
+            reachabilityNote?: string
+          }>)
+        : []
+      if (items.length === 0) return
+      const byCode = new Map(items.map((i) => [i.code, i]))
+      setSites((prev) =>
+        prev.map((s) => {
+          const hit = byCode.get(s.code)
+          if (!hit) return s
+          return {
+            ...s,
+            status: hit.status,
+            reachabilitySource: hit.reachabilitySource ?? s.reachabilitySource,
+            reachabilityNote: hit.reachabilityNote ?? s.reachabilityNote,
+          }
+        }),
+      )
+      setSelected((prev) => {
+        if (!prev) return prev
+        const hit = byCode.get(prev.code)
+        if (!hit) return prev
+        return {
+          ...prev,
+          status: hit.status,
+          reachabilitySource: hit.reachabilitySource ?? prev.reachabilitySource,
+          reachabilityNote: hit.reachabilityNote ?? prev.reachabilityNote,
+        }
+      })
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return
+      setSites((prev) =>
+        prev.map((s) =>
+          s.status === "checking"
+            ? {
+                ...s,
+                status: "offline" as const,
+                reachabilitySource: "probe_error",
+                reachabilityNote: "可达性探测请求失败",
+              }
+            : s,
+        ),
+      )
+    }
+  }
+
+  // 真实加载 /api/sites（不含 TCP）；随后异步探测
+  const loadSites = async (signal?: AbortSignal) => {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = await fetch("/api/sites", { cache: "no-store", credentials: "include" })
+      const res = await fetch("/api/sites", {
+        cache: "no-store",
+        credentials: "include",
+        signal,
+      })
       if (!res.ok) {
         const txt = await res.text().catch(() => "")
         throw new Error(`HTTP ${res.status}${txt ? `: ${txt.slice(0, 100)}` : ""}`)
@@ -166,7 +244,9 @@ export default function Page() {
       const list = Array.isArray(json.data) ? json.data : []
       const mapped = list.map(toSite)
       setSites(mapped)
+      void probeReachability(signal)
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return
       setDataSource("error")
       setLoadError(e instanceof Error ? e.message : String(e))
       setSites([])
@@ -177,7 +257,9 @@ export default function Page() {
   }
 
   useEffect(() => {
-    loadSites()
+    const ac = new AbortController()
+    loadSites(ac.signal)
+    return () => ac.abort()
   }, [])
 
   const stats = useMemo(() => {
@@ -473,7 +555,7 @@ export default function Page() {
                 <AlertTriangle className="h-10 w-10 mx-auto mb-2" />
                 <p className="font-medium">加载站点列表失败</p>
                 <p className="text-sm text-slate-500 mt-1">{loadError}</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={loadSites}>重试</Button>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => void loadSites()}>重试</Button>
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-8 text-slate-500">

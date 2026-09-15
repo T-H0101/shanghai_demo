@@ -13,13 +13,47 @@ export type ReachabilitySource =
   | "tcp_probe"
   | "no_address"
   | "probe_error"
+  | "pending"
 
-export type SiteReachabilityStatus = "online" | "offline"
+export type SiteReachabilityStatus = "online" | "offline" | "checking"
 
 export interface SiteReachability {
   status: SiteReachabilityStatus
   source: ReachabilitySource
   note: string
+}
+
+/**
+ * 列表接口用：不做 TCP，可立即判定的返回 offline；需探测的返回 checking。
+ */
+export function deriveListReachabilityPending(input: {
+  enabled: boolean
+  dbHost?: string | null
+  dbPort?: number | null
+}): SiteReachability {
+  if (!input.enabled) {
+    return {
+      status: "offline",
+      source: "disabled",
+      note: "站点已在总控禁用",
+    }
+  }
+
+  if (!isProbeableEndpoint(input.dbHost, input.dbPort)) {
+    return {
+      status: "offline",
+      source: "no_address",
+      note: "未登记真实管理 IP/端口（db_host），无法主动探测；请站点推送 db_host/db_port",
+    }
+  }
+
+  const host = input.dbHost.trim()
+  const port = input.dbPort as number
+  return {
+    status: "checking",
+    source: "pending",
+    note: `正在探测管理端口 ${host}:${port}…`,
+  }
 }
 
 export function deriveSiteReachability(input: {
@@ -50,9 +84,9 @@ export function deriveSiteReachability(input: {
 
   if (!input.probe) {
     return {
-      status: "offline",
-      source: "probe_error",
-      note: `未执行对 ${host}:${port} 的探测`,
+      status: "checking",
+      source: "pending",
+      note: `正在探测管理端口 ${host}:${port}…`,
     }
   }
 

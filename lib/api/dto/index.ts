@@ -473,7 +473,8 @@ export interface AlertStatsDTO {
 // Site
 // ─────────────────────────────────────────────────────────────
 
-export type SiteStatus = "online" | "offline"
+/** checking: 列表先返回，管理端口 TCP 由 /api/sites/reachability 异步探测 */
+export type SiteStatus = "online" | "offline" | "checking"
 export type SyncStatus = "synced" | "syncing" | "failed" | "pending"
 
 export interface SiteDTO {

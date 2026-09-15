@@ -161,7 +161,7 @@ function formatBytesFixed2(bytes: number): string {
 // const NO_REALTIME_DATA = "暂无实时数据"
 // const LOG_NOT_CONNECTED = "运行日志未接入" // 执行日志暂时隐藏
 const RUNNING_PHASES = ["scanning", "preparing", "splitting", "packaging", "verifying", "writing"]
-const PAGE_SIZE_OPTIONS = [20, 50, 100, 200] as const
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500] as const
 
 // 5) 进度展示: null → "—", 否则数字
 function formatProgress(p: number | null | undefined, phase: string | null | undefined): string {
@@ -229,7 +229,7 @@ function TasksPageContent() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [ssoJumping, setSsoJumping] = useState(false)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(50)
   const [total, setTotal] = useState(0)
   const [listLoading, setListLoading] = useState(false)
   // 用本地 state 驱动视图：刷新后仅靠删 URL searchParam 时，Next.js 可能不重渲染 useSearchParams

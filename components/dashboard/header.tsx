@@ -38,6 +38,7 @@ import { AppTooltip } from "@/components/shared/tooltip"
 import { TimeDisplay } from "@/components/shared/time-format"
 import { cn } from "@/lib/utils"
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog"
+import { VersionDrawer } from "@/components/dashboard/version-drawer"
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -55,6 +56,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [systemStatus, setSystemStatus] = useState<"loading" | "healthy" | "degraded">("loading")
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [versionDrawerOpen, setVersionDrawerOpen] = useState(false)
+  const [appVersion, setAppVersion] = useState("1.0.0")
 
   useEffect(() => {
     getSession().then(setSession).catch(() => setSession(null))
@@ -76,6 +79,25 @@ export function Header({ onMenuClick }: HeaderProps) {
         if (cancelled) return
         setSystemStatus("degraded")
         setHealthCheckedAt(new Date().toISOString())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/system/version", { cache: "no-store", credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) return
+        const json = await res.json()
+        const current = json?.data?.current
+        if (!cancelled && typeof current === "string" && current.trim()) {
+          setAppVersion(current.trim())
+        }
+      })
+      .catch(() => {
+        /* 保留默认 1.0.0 */
       })
     return () => {
       cancelled = true
@@ -211,6 +233,18 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
         </AppTooltip>
 
+        <AppTooltip content="查看系统版本与更新说明" side="bottom">
+          <button
+            type="button"
+            onClick={() => setVersionDrawerOpen(true)}
+            className="h-8 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+            data-testid="header-version-badge"
+            aria-label={`系统版本 v${appVersion}`}
+          >
+            v{appVersion}
+          </button>
+        </AppTooltip>
+
         {/* 通知铃铛暂隐藏：接口未接入，避免「未启用」空按钮误导；恢复时取消注释并接真实聚合 */}
         {/*
         {isApiMode() ? (
@@ -299,6 +333,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         </AppTooltip>
 
         <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
+        <VersionDrawer open={versionDrawerOpen} onOpenChange={setVersionDrawerOpen} />
       </div>
     </header>
   )

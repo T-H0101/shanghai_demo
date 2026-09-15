@@ -21,7 +21,7 @@
  *   - taskType: 任务类型 (刻录/回迁/控制动作) 匹配
  *   - dateFrom: ISO 时间起点 (含)
  *   - dateTo:   ISO 时间终点 (含)
- *   - limit:    默认 50, 最大 200
+ *   - limit:    默认 50, 最大 500
  *   - offset:   默认 0
  *   - 单 type 时走 SQL LIMIT/OFFSET + COUNT；扩展筛选 (errorCode/deviceId/taskType) 时先取池再内存分页
  *
@@ -190,7 +190,15 @@ async function fetchSyncScheduler(siteCode: string, status: string, dateFrom: st
   const conds: string[] = []
   const params: unknown[] = []
   if (siteCode) { params.push(siteCode); conds.push(`site_code = $${params.length}`) }
-  if (status) { params.push(status); conds.push(`status = $${params.length}`) }
+  if (status) {
+    // 立即同步旧数据写 completed，与 success 同义
+    if (status === "success") {
+      conds.push(`status IN ('success', 'completed')`)
+    } else {
+      params.push(status)
+      conds.push(`status = $${params.length}`)
+    }
+  }
   if (dateFrom) { params.push(dateFrom); conds.push(`started_at >= $${params.length}`) }
   if (dateTo) { params.push(dateTo); conds.push(`started_at <= $${params.length}`) }
   if (keyword.trim()) { params.push(`%${keyword.trim()}%`); conds.push(`(run_id ILIKE $${params.length} OR COALESCE(site_code,'') ILIKE $${params.length})`) }
@@ -199,27 +207,41 @@ async function fetchSyncScheduler(siteCode: string, status: string, dateFrom: st
   const r = await query<{
     id: string; site_code: string; run_id: string; status: string; export_status: string;
     push_status: string; consistency_status: string; started_at: string; finished_at: string | null;
-    error_message: string | null; package_batch_id: string | null;
+    error_message: string | null; package_batch_id: string | null; result_json: unknown;
   }>(
-    `SELECT id, site_code, run_id, status, export_status, push_status, consistency_status, started_at, finished_at, error_message, package_batch_id
+    `SELECT id, site_code, run_id, status, export_status, push_status, consistency_status, started_at, finished_at, error_message, package_batch_id, result_json
      FROM sync_scheduler_log ${where}
      ORDER BY started_at DESC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params
   )
-  return r.rows.map((row) => ({
-    log_type: "sync_scheduler",
-    log_id: row.id,
-    site_code: row.site_code,
-    status: row.status,
-    summary: `run ${row.run_id} export=${row.export_status} push=${row.push_status} consistency=${row.consistency_status} status=${row.status}`,
-    detail: { run_id: row.run_id, export_status: row.export_status, push_status: row.push_status, consistency_status: row.consistency_status, finished_at: row.finished_at, error_message: row.error_message, package_batch_id: row.package_batch_id },
-    occurred_at: row.started_at,
-    operator: null,
-    ref_batch_id: row.package_batch_id,
-    ref_table_name: null,
-    error_code: null,
-  }))
+  return r.rows.map((row) => {
+    const requestedBy =
+      jsonStringValue(row.result_json, "requestedBy") ??
+      jsonStringValue(row.result_json, "requested_by")
+    return {
+      log_type: "sync_scheduler" as const,
+      log_id: row.id,
+      site_code: row.site_code,
+      status: row.status,
+      summary: `run ${row.run_id} export=${row.export_status} push=${row.push_status} consistency=${row.consistency_status} status=${row.status}`,
+      detail: {
+        run_id: row.run_id,
+        export_status: row.export_status,
+        push_status: row.push_status,
+        consistency_status: row.consistency_status,
+        finished_at: row.finished_at,
+        error_message: row.error_message,
+        package_batch_id: row.package_batch_id,
+        requestedBy,
+      },
+      occurred_at: row.started_at,
+      operator: requestedBy,
+      ref_batch_id: row.package_batch_id,
+      ref_table_name: null,
+      error_code: null,
+    }
+  })
 }
 
 async function fetchSyncConsistency(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
@@ -375,7 +397,7 @@ export async function GET(request: NextRequest) {
     const taskType = sp.get("taskType") ?? ""
     const dateFrom = sp.get("dateFrom") ?? ""
     const dateTo = sp.get("dateTo") ?? ""
-    const limit = Math.min(parseInt(sp.get("limit") ?? "50", 10) || 50, 200)
+    const limit = Math.min(parseInt(sp.get("limit") ?? "50", 10) || 50, 500)
     const offset = Math.max(parseInt(sp.get("offset") ?? "0", 10) || 0, 0)
     const hasExtended = Boolean(errorCode.trim() || deviceId.trim() || taskType.trim())
 
@@ -438,7 +460,13 @@ export async function GET(request: NextRequest) {
       } else if (t === "sync_scheduler") {
         table = "sync_scheduler_log"
         if (siteCode) eq("site_code", siteCode)
-        if (status) eq("status", status)
+        if (status) {
+          if (status === "success") {
+            conds.push(`status IN ('success', 'completed')`)
+          } else {
+            eq("status", status)
+          }
+        }
         if (dateFrom) gte("started_at", dateFrom)
         if (dateTo) lte("started_at", dateTo)
         if (keyword.trim()) {

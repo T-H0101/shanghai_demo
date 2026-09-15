@@ -12,8 +12,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import type { ApiResponse, SiteDTO, SyncStatus } from "@/lib/api/dto"
-import { deriveSiteReachability } from "@/lib/site/reachability"
-import { isProbeableEndpoint, probeTcpHost } from "@/lib/site/probe-tcp"
+import { deriveListReachabilityPending } from "@/lib/site/reachability"
+import { isProbeableEndpoint } from "@/lib/site/probe-tcp"
 import { aggregateSitesStorage, toSiteStorageDisplay } from "@/lib/site/site-storage"
 import { requireDashboardReadOr, requireSession } from "@/lib/auth/middleware"
 import { filterRegistrySiteCodes } from "@/lib/auth/site-scope"
@@ -266,60 +266,53 @@ export async function GET(_request: NextRequest) {
       return new Map() as Map<string, import("@/lib/site/site-storage").SiteStorageBytes>
     })
 
-    const data: SiteDTO[] = await Promise.all(
-      visibleRows.map(async (row) => {
-        const endpoint = formatRegistryEndpoint(row.db_host, row.db_port)
-        const canProbe = isProbeableEndpoint(row.db_host, row.db_port)
-        const probe = canProbe
-          ? await probeTcpHost(row.db_host.trim(), Number(row.db_port), 2_000)
-          : null
-        const reachability = deriveSiteReachability({
-          enabled: row.enabled,
-          dbHost: row.db_host,
-          dbPort: row.db_port,
-          probe,
-        })
-        const lastSyncAt = row.last_sync_at ?? row.last_connected_at ?? "—"
-        const storage = toSiteStorageDisplay(storageBySite.get(row.site_code))
-        return {
-          id: row.id,
-          name: row.site_name,
-          code: row.site_code,
-          status: reachability.status,
-          ip: endpoint.ip,
-          port: endpoint.port,
-          datacenter: row.business_datacenter ?? "—",
-          contact: row.contact_name ?? "—",
-          contactPhone: row.contact_phone ?? "—",
-          deviceCount: Number(row.device_count) || 0,
-          rackCount: Number(row.optical_rack_count) || 0,
-          onlineRackCount: Number(row.optical_online_count) || 0,
-          cageCount: Number(row.cage_count) || 0,
-          totalSlots: Number(row.total_slots) || 0,
-          usedSlots: Number(row.used_slots) || 0,
-          lastSyncAt,
-          syncStatus: toSyncStatus(
-            row.enabled,
-            row.last_package_status,
-            lastSyncAt === "—" ? null : lastSyncAt,
-          ),
-          syncDelay: 0,
-          storageUsedPercent: storage.storageUsedPercent,
-          storageTotal: storage.storageTotal,
-          storageUsed: storage.storageUsed,
-          region: row.business_region ?? "—",
-          regionCode: row.region_code ?? null,
-          ssoEnabled: isProbeableEndpoint(row.db_host, row.db_port),
-          taskCount: Number(row.task_count) || 0,
-          reachabilitySource: reachability.source,
-          reachabilityNote: reachability.note,
-          sourceSiteId: row.site_code,
-          sourceTable: "sync_sites",
-          sourceId: row.site_code,
-          description: `registered site; tasks=${row.task_count}, devices=${row.device_count}, opticalRacks=${row.optical_rack_count}, cages=${row.cage_count}, slots=${row.total_slots}, volumes=${row.volume_count}, packages=${row.package_count}`,
-        }
-      }),
-    )
+    // 不做 TCP：列表先返回；需探测的站 status=checking，由 GET /api/sites/reachability 异步补齐
+    const data: SiteDTO[] = visibleRows.map((row) => {
+      const endpoint = formatRegistryEndpoint(row.db_host, row.db_port)
+      const reachability = deriveListReachabilityPending({
+        enabled: row.enabled,
+        dbHost: row.db_host,
+        dbPort: row.db_port,
+      })
+      const lastSyncAt = row.last_sync_at ?? row.last_connected_at ?? "—"
+      const storage = toSiteStorageDisplay(storageBySite.get(row.site_code))
+      return {
+        id: row.id,
+        name: row.site_name,
+        code: row.site_code,
+        status: reachability.status,
+        ip: endpoint.ip,
+        port: endpoint.port,
+        datacenter: row.business_datacenter ?? "—",
+        contact: row.contact_name ?? "—",
+        contactPhone: row.contact_phone ?? "—",
+        deviceCount: Number(row.device_count) || 0,
+        rackCount: Number(row.optical_rack_count) || 0,
+        onlineRackCount: Number(row.optical_online_count) || 0,
+        cageCount: Number(row.cage_count) || 0,
+        totalSlots: Number(row.total_slots) || 0,
+        usedSlots: Number(row.used_slots) || 0,
+        lastSyncAt,
+        syncStatus: toSyncStatus(
+          row.enabled,
+          row.last_package_status,
+          lastSyncAt === "—" ? null : lastSyncAt,
+        ),
+        syncDelay: 0,
+        storageUsedPercent: storage.storageUsedPercent,
+        storageTotal: storage.storageTotal,
+        storageUsed: storage.storageUsed,
+        region: row.business_region ?? "—",
+        regionCode: row.region_code ?? null,
+        ssoEnabled: isProbeableEndpoint(row.db_host, row.db_port),
+        taskCount: Number(row.task_count) || 0,
+        reachabilitySource: reachability.source,
+        reachabilityNote: reachability.note,
+        sourceSiteId: row.site_code,
+        sourceTable: "sync_sites",
+        sourceId: row.site_code,
+      }
+    })
 
     return NextResponse.json({
       code: 0,
@@ -332,7 +325,7 @@ export async function GET(_request: NextRequest) {
         detailSource: "sites",
         orphanSiteCodes: orphanResult.rows,
         note: "Only sync_sites rows are registered sites. Orphan site codes are data quality evidence and are not counted as sites.",
-        reachability: "TCP probe of sync_sites.db_host:db_port on each list request; push history is not used for online status",
+        reachability: "List returns checking for probeable sites; TCP probe is async via GET /api/sites/reachability (does not block list)",
         requirement: {
           id: "REQ-2.1.1",
           text: "站点配置 (名称/IP/状态)",

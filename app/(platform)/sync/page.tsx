@@ -1083,14 +1083,9 @@ export default function SyncCenterPage() {
                   <SelectContent>
                     <SelectItem value="all">全部</SelectItem>
                     <SelectItem value="success">成功</SelectItem>
-                    <SelectItem value="failed">失败</SelectItem>
-                    <SelectItem value="running">运行中</SelectItem>
-                    <SelectItem value="receiving">接收中</SelectItem>
                     <SelectItem value="partial">部分成功</SelectItem>
-                    <SelectItem value="pending">待处理</SelectItem>
-                    <SelectItem value="duplicated">重复</SelectItem>
-                    <SelectItem value="skipped">已跳过</SelectItem>
-                    <SelectItem value="abandoned">已放弃</SelectItem>
+                    <SelectItem value="failed">失败</SelectItem>
+                    <SelectItem value="receiving">接收中</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

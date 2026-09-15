@@ -18,7 +18,7 @@ export function AppShell({ children, mainClassName }: AppShellProps) {
     <RouteGuard>
       <div className="app-ambient-shell">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="lg:ml-60">
+        <div className="lg:ml-60 flex min-h-screen flex-col">
           <Header onMenuClick={() => setSidebarOpen(true)} />
           <main
             className={
@@ -27,6 +27,16 @@ export function AppShell({ children, mainClassName }: AppShellProps) {
           >
             {children}
           </main>
+          <footer
+            className="mt-auto border-t border-slate-200/80 bg-white/60 px-4 py-3 text-center dark:border-slate-800 dark:bg-slate-950/40"
+            data-testid="app-tech-support-footer"
+          >
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              © 2026 北京星震同源数字系统股份有限公司
+              <span className="mx-2 text-slate-300 dark:text-slate-600">·</span>
+              技术支持
+            </p>
+          </footer>
         </div>
       </div>
     </RouteGuard>

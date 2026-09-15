@@ -19,6 +19,7 @@ import {
   Search,
   ShieldCheck,
   TerminalSquare,
+  Loader2,
   type LucideIcon,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
@@ -87,7 +88,7 @@ interface ControlItem {
 
 interface CommandCenterState {
   summary: SummaryData | null
-  /** 与站点管理一致：TCP 探测在线状态（/api/sites，已按权限过滤） */
+  /** 与站点管理一致：列表先出，TCP 由 /api/sites/reachability 异步探测 */
   sites: RegistrySite[]
   packages: PackageItem[]
   commands: ControlItem[]
@@ -151,7 +152,7 @@ function normalizeSummary(raw: Partial<SummaryData> | null | undefined): Summary
 function statusTone(status: string): "good" | "warn" | "bad" | "idle" {
   const s = status.toLowerCase()
   if (["success", "matched", "online", "healthy", "completed", "synced", "ok"].includes(s)) return "good"
-  if (["running", "pending", "stale", "partial", "not_run", "not_registered"].includes(s)) return "warn"
+  if (["running", "pending", "stale", "partial", "not_run", "not_registered", "checking"].includes(s)) return "warn"
   if (["failed", "mismatched", "offline", "degraded", "error", "cancelled"].includes(s)) return "bad"
   return "idle"
 }
@@ -333,21 +334,80 @@ export function CommandCenterPanel() {
             }) => ({
               code: s.code ?? "",
               name: s.name ?? s.code ?? "",
-              status: s.status ?? "offline",
+              status: s.status ?? "checking",
               reachabilityNote: s.reachabilityNote,
               reachabilitySource: s.reachabilitySource,
             }))
           : []
-        setState({
-          summary: normalizeSummary(summaryJson.data),
-          sites: registrySites.filter((s) => s.code),
-          packages: packagesJson.data?.items ?? [],
-          commands: commandsJson.rows ?? commandsJson.items ?? commandsJson.data?.items ?? [],
-          earlyWarningOpenTotal: Number(earlyWarningJson.data?.total ?? 0),
-          loading: false,
-          error: softFails.length > 0 ? `部分模块暂不可用: ${softFails.join("、")}` : null,
-          updatedAt: new Date().toISOString(),
+        const filteredSites = registrySites.filter((s) => s.code)
+        // 首屏：API 的 checking 正常展示；定时刷新：保留上次 online/offline，避免拓扑反复转圈
+        setState((prev) => {
+          const prevByCode = new Map(prev.sites.map((s) => [s.code, s]))
+          const sites = filteredSites.map((s) => {
+            const old = prevByCode.get(s.code)
+            if (
+              old &&
+              s.status === "checking" &&
+              (old.status === "online" || old.status === "offline")
+            ) {
+              return {
+                ...s,
+                status: old.status,
+                reachabilityNote: old.reachabilityNote,
+                reachabilitySource: old.reachabilitySource,
+              }
+            }
+            return s
+          })
+          return {
+            summary: normalizeSummary(summaryJson.data),
+            sites,
+            packages: packagesJson.data?.items ?? [],
+            commands: commandsJson.rows ?? commandsJson.items ?? commandsJson.data?.items ?? [],
+            earlyWarningOpenTotal: Number(earlyWarningJson.data?.total ?? 0),
+            loading: false,
+            error: softFails.length > 0 ? `部分模块暂不可用: ${softFails.join("、")}` : null,
+            updatedAt: new Date().toISOString(),
+          }
         })
+
+        // 列表不阻塞：异步刷在线状态
+        void (async () => {
+          try {
+            const reachRes = await fetch("/api/sites/reachability", {
+              cache: "no-store",
+              credentials: "include",
+            })
+            if (!reachRes.ok || cancelled) return
+            const reachJson = await reachRes.json()
+            const items = Array.isArray(reachJson.data) ? reachJson.data : []
+            if (items.length === 0 || cancelled) return
+            const byCode = new Map(
+              items.map((i: { code?: string; status?: string; reachabilityNote?: string; reachabilitySource?: string }) => [
+                i.code,
+                i,
+              ]),
+            )
+            setState((prev) => ({
+              ...prev,
+              sites: prev.sites.map((s) => {
+                const hit = byCode.get(s.code) as
+                  | { status?: string; reachabilityNote?: string; reachabilitySource?: string }
+                  | undefined
+                if (!hit) return s
+                return {
+                  ...s,
+                  status: hit.status ?? s.status,
+                  reachabilityNote: hit.reachabilityNote ?? s.reachabilityNote,
+                  reachabilitySource: hit.reachabilitySource ?? s.reachabilitySource,
+                }
+              }),
+              updatedAt: new Date().toISOString(),
+            }))
+          } catch {
+            /* 探测失败时保留 checking/列表态 */
+          }
+        })()
       } catch (error) {
         if (cancelled) return
         setState((prev) => ({
@@ -377,7 +437,7 @@ export function CommandCenterPanel() {
   const siteStats = useMemo(() => {
     const total = scopedSites.length
     const online = scopedSites.filter((s) => s.status === "online").length
-    const offline = scopedSites.filter((s) => s.status !== "online").length
+    const offline = scopedSites.filter((s) => s.status === "offline").length
     return { total, online, offline }
   }, [scopedSites])
 
@@ -426,7 +486,7 @@ export function CommandCenterPanel() {
             <StatusTile label="站点在线" value={`${siteStats.online}/${siteStats.total || 0}`} tone={siteStats.offline > 0 ? "warn" : "good"} />
             <StatusTile label="同步成功率" value={summary.packageCount > 0 ? `${syncRisk}%` : "暂无"} tone={summary.failedPackageCount > 0 ? "warn" : "good"} />
             <StatusTile label="站点预警" value={state.earlyWarningOpenTotal} tone={state.earlyWarningOpenTotal > 0 ? "bad" : "good"} />
-            <StatusTile label="任务告警" value={taskAlertCount} tone={taskAlertCount > 0 ? "bad" : "good"} />
+            <StatusTile label="任务异常" value={taskAlertCount} tone={taskAlertCount > 0 ? "bad" : "good"} />
           </div>
         </div>
 
@@ -439,9 +499,9 @@ export function CommandCenterPanel() {
             navigable={canGo("/tasks")}
             testid="command-center-metric-tasks"
             stats={[
-              { label: "完成", value: summary.taskCompletedCount, tone: "good" },
+              { label: "成功", value: summary.taskCompletedCount, tone: "good" },
               { label: "进行中", value: summary.taskRunningCount, tone: "info" },
-              { label: "失败", value: summary.taskFailedCount, tone: "bad" },
+              { label: "异常", value: summary.taskFailedCount, tone: "bad" },
             ]}
           />
           <MetricCard
@@ -516,9 +576,13 @@ export function CommandCenterPanel() {
                         <span className={cn("h-2 w-2 rounded-full", tone === "good" ? "bg-emerald-500" : tone === "bad" ? "bg-red-500" : "bg-amber-500")} />
                       </div>
                       <p className="mt-1 truncate text-[11px] opacity-80">{site.name}</p>
-                      <p className="mt-1 text-[10px] opacity-70">
-                        {site.status === "online" ? "在线" : "离线"}
-                      </p>
+                      {site.status === "checking" ? (
+                        <Loader2 className="mt-1 h-3 w-3 animate-spin opacity-70" aria-label="状态检测中" />
+                      ) : (
+                        <p className="mt-1 text-[10px] opacity-70">
+                          {site.status === "online" ? "在线" : "离线"}
+                        </p>
+                      )}
                     </div>
                   )
                 })}

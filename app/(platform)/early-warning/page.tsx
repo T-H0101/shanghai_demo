@@ -50,7 +50,7 @@ import { toast } from "@/hooks/use-toast"
 
 type DataSource = "database" | "empty" | "error" | "loading"
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500] as const
 /** 站点默认主题预警管理路由（hash）；SSO redirect 会规范为 /#/early-warning-list */
 const SITE_EARLY_WARNING_PATH = "/early-warning-list"
 
@@ -127,7 +127,7 @@ export default function EarlyWarningPage() {
     level: "all",
   })
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(20)
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(50)
   const [selected, setSelected] = useState<EarlyWarningListItem | null>(null)
   const [feedbacks, setFeedbacks] = useState<EarlyWarningFeedbackItem[]>([])
   const [feedbackLoading, setFeedbackLoading] = useState(false)

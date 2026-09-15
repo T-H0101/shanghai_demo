@@ -1,10 +1,12 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import type { OnlineStatus, SyncStatus, TaskStatus, Priority, AccountStatus, LogResult } from "@/lib/types"
+import { Loader2 } from "lucide-react"
 
 const onlineMap: Record<OnlineStatus, { label: string; className: string }> = {
   online: { label: "在线", className: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800" },
   offline: { label: "离线", className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800" },
+  checking: { label: "", className: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700" },
 }
 
 const syncMap: Record<SyncStatus, { label: string; className: string }> = {
@@ -35,9 +37,20 @@ const priorityMap: Record<Priority, { label: string; className: string }> = {
 export function OnlineStatusBadge({ status }: { status: OnlineStatus }) {
   const s = onlineMap[status]
   if (!s) return null
+  if (status === "checking") {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("text-xs font-medium px-2", s.className)}
+        aria-label="状态检测中"
+      >
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      </Badge>
+    )
+  }
   return (
     <Badge variant="outline" className={cn("text-xs font-medium", s.className)}>
-      <span className={cn("h-1.5 w-1.5 rounded-full mr-1.5 inline-block", status === "online" ? "bg-emerald-500" : status === "offline" ? "bg-red-500" : "bg-amber-500")} />
+      <span className={cn("h-1.5 w-1.5 rounded-full mr-1.5 inline-block", status === "online" ? "bg-emerald-500" : "bg-red-500")} />
       {s.label}
     </Badge>
   )

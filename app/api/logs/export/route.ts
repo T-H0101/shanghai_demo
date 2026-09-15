@@ -76,19 +76,36 @@ async function runQueryOneType(type: LogType, siteCode: string, status: string, 
     }))
   }
   if (type === "sync_scheduler") {
-    return q("sync_scheduler_log", "site_code", "status", "started_at", ["run_id", "site_code"], siteCode, status, dateFrom, dateTo, keyword, limit, (row: any) => ({
-      log_type: "sync_scheduler",
-      log_id: row.id,
-      site_code: row.site_code,
-      status: row.status,
-      summary: `run ${row.run_id} export=${row.export_status} push=${row.push_status} consistency=${row.consistency_status} status=${row.status}`,
-      detail: { run_id: row.run_id, export_status: row.export_status, push_status: row.push_status, consistency_status: row.consistency_status, finished_at: row.finished_at, error_message: row.error_message, package_batch_id: row.package_batch_id },
-      occurred_at: row.started_at,
-      operator: null,
-      ref_batch_id: row.package_batch_id,
-      ref_table_name: null,
-      error_code: null,
-    }))
+    return q("sync_scheduler_log", "site_code", "status", "started_at", ["run_id", "site_code"], siteCode, status, dateFrom, dateTo, keyword, limit, (row: any) => {
+      const requestedBy =
+        typeof row.result_json?.requestedBy === "string"
+          ? row.result_json.requestedBy
+          : typeof row.result_json?.requested_by === "string"
+            ? row.result_json.requested_by
+            : null
+      return {
+        log_type: "sync_scheduler",
+        log_id: row.id,
+        site_code: row.site_code,
+        status: row.status,
+        summary: `run ${row.run_id} export=${row.export_status} push=${row.push_status} consistency=${row.consistency_status} status=${row.status}`,
+        detail: {
+          run_id: row.run_id,
+          export_status: row.export_status,
+          push_status: row.push_status,
+          consistency_status: row.consistency_status,
+          finished_at: row.finished_at,
+          error_message: row.error_message,
+          package_batch_id: row.package_batch_id,
+          requestedBy,
+        },
+        occurred_at: row.started_at,
+        operator: requestedBy,
+        ref_batch_id: row.package_batch_id,
+        ref_table_name: null,
+        error_code: null,
+      }
+    })
   }
   if (type === "sync_consistency") {
     return q("sync_consistency_log", "site_code", "status", "checked_at", ["site_code"], siteCode, status, dateFrom, dateTo, keyword, limit, (row: any) => ({
@@ -153,7 +170,14 @@ async function q<R = any>(
   const conds: string[] = []
   const params: unknown[] = []
   if (siteCode) { params.push(siteCode); conds.push(`${siteCol} = $${params.length}`) }
-  if (status) { params.push(status); conds.push(`${statusCol} = $${params.length}`) }
+  if (status) {
+    if (tableName === "sync_scheduler_log" && status === "success") {
+      conds.push(`status IN ('success', 'completed')`)
+    } else {
+      params.push(status)
+      conds.push(`${statusCol} = $${params.length}`)
+    }
+  }
   if (dateFrom) { params.push(dateFrom); conds.push(`${tsCol} >= $${params.length}`) }
   if (dateTo) { params.push(dateTo); conds.push(`${tsCol} <= $${params.length}`) }
   if (keyword.trim()) {

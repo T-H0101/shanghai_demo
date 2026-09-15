@@ -11,11 +11,12 @@ export const dynamic = "force-dynamic"
 const SYNC_STATUS_LABELS: Record<string, string> = {
   success: "成功",
   failed: "失败",
-  running: "运行中",
-  receiving: "接收中",
-  pending: "待处理",
   partial: "部分成功",
-  duplicated: "重复",
+  receiving: "接收中",
+  completed: "成功",
+  running: "运行中",
+  pending: "待处理",
+  duplicated: "重复包",
   skipped: "已跳过",
   abandoned: "已放弃",
 }

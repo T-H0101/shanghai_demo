@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
     notifyOk = false
   }
 
-  const status = notifyOk ? "completed" : "failed"
+  const status = notifyOk ? "success" : "failed"
   const pushStatus = notifyOk ? "accepted" : "failed"
 
   try {

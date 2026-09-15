@@ -9,7 +9,7 @@
  *   - R.12 重构: 移除所有静态测试数据, 改走 fetch /api/logs 真实数据库读取
  *   - 6 类日志 Tab (sync_package / sync_table / sync_scheduler / sync_consistency / control / audit)
  *   - login 审计: 中心库无表, 显示 blocked (blocked_by_auth, 等待 ADFS)
- *   - 筛选: siteCode / status / keyword / taskType(控制命令) / dateFrom/dateTo
+ *   - 筛选: siteCode / status / taskType(控制命令) / dateFrom/dateTo
  *   - 导出走 /api/logs/export 真实 API, 含 SHA-256 摘要
  *   - dataSource 显式 (database | empty | error)
  *   - 数字签名按钮删除 (R.1 §7 不允许假证书)
@@ -36,6 +36,7 @@ import {
   logTypeLabel,
   type LogTabKey,
 } from "@/lib/types/logs"
+import { formatSiteLabel } from "@/components/users/site-field"
 import { siteProvider } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -141,11 +142,10 @@ async function readApiErrorMessage(res: Response): Promise<string> {
 
 export default function Page() {
   // Tab: 默认 sync_package
-  const [activeType, setActiveType] = useState<LogType | "all">("sync_package")
+  const [activeType, setActiveType] = useState<LogType | "all">("audit")
   // 筛选
   const [siteCode, setSiteCode] = useState("")
   const [status, setStatus] = useState("")
-  const [keyword, setKeyword] = useState("")
   const [taskType, setTaskType] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
@@ -153,7 +153,7 @@ export default function Page() {
   const [items, setItems] = useState<LogRow[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(50)
   const [dataSource, setDataSource] = useState<DataSource>("loading")
   const [sources, setSources] = useState<string[]>([])
   const [meta, setMeta] = useState<ApiEnvelope["meta"]>(undefined)
@@ -166,8 +166,8 @@ export default function Page() {
   // 去抖 timer
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  // Round UI-Tweaks: 站点列表 (siteCode datalist), 当前 Tab 的 status 候选
-  const [siteCodeOptions, setSiteCodeOptions] = useState<string[]>([])
+  // 站点列表（名称展示）+ 当前 Tab 的 status 候选
+  const [siteOptions, setSiteOptions] = useState<Array<{ code: string; name: string }>>([])
   const statusOptions = useMemo(
     () => (activeType === "all" ? [] : (LOG_STATUS_OPTIONS_BY_TAB[activeType as LogTabKey] ?? [])),
     [activeType],
@@ -183,9 +183,13 @@ export default function Page() {
 
   useEffect(() => {
     siteProvider.getAll().then((sites) => {
-      setSiteCodeOptions(sites.map((s) => s.code).filter(Boolean))
+      setSiteOptions(
+        sites
+          .filter((s) => s.code)
+          .map((s) => ({ code: s.code, name: s.name || s.code })),
+      )
     }).catch(() => {
-      setSiteCodeOptions([])
+      setSiteOptions([])
     })
   }, [])
 
@@ -196,12 +200,11 @@ export default function Page() {
     sp.set("offset", String((page - 1) * pageSize))
     if (siteCode) sp.set("siteCode", siteCode)
     if (status) sp.set("status", status)
-    if (keyword) sp.set("keyword", keyword)
     if (taskType) sp.set("taskType", taskType)
     if (dateFrom) sp.set("dateFrom", localDateTimeToIso(dateFrom))
     if (dateTo) sp.set("dateTo", localDateTimeToIso(dateTo))
     return sp.toString()
-  }, [activeType, page, pageSize, siteCode, status, keyword, taskType, dateFrom, dateTo])
+  }, [activeType, page, pageSize, siteCode, status, taskType, dateFrom, dateTo])
 
   const loadLogs = async () => {
     setLoading(true)
@@ -212,7 +215,6 @@ export default function Page() {
         const sp = new URLSearchParams()
         sp.set("limit", String(pageSize))
         sp.set("offset", String((page - 1) * pageSize))
-        if (keyword) sp.set("username", keyword)
         if (status) sp.set("result", status)
         if (siteCode) sp.set("siteCode", siteCode)
         if (dateFrom) sp.set("from", localDateTimeToIso(dateFrom))
@@ -269,7 +271,7 @@ export default function Page() {
   // Tab / 筛选 / 每页条数变更时回到第 1 页
   useEffect(() => {
     setPage(1)
-  }, [activeType, siteCode, status, keyword, taskType, dateFrom, dateTo, pageSize])
+  }, [activeType, siteCode, status, taskType, dateFrom, dateTo, pageSize])
 
   // 总数变少时校正页码，避免停在空页
   useEffect(() => {
@@ -292,7 +294,7 @@ export default function Page() {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteCode, status, keyword, taskType, dateFrom, dateTo])
+  }, [siteCode, status, taskType, dateFrom, dateTo])
 
   const handleExport = async (format: "csv" | "json" | "xlsx") => {
     if (items.length === 0) {
@@ -305,7 +307,6 @@ export default function Page() {
       if (activeType === "login_audit") {
         const sp = new URLSearchParams()
         sp.set("format", format)
-        if (keyword) sp.set("username", keyword)
         if (status) sp.set("result", status)
         if (siteCode) sp.set("siteCode", siteCode)
         if (dateFrom) sp.set("from", localDateTimeToIso(dateFrom))
@@ -337,7 +338,6 @@ export default function Page() {
       sp.set("max", "5000")
       if (siteCode) sp.set("siteCode", siteCode)
       if (status) sp.set("status", status)
-      if (keyword) sp.set("keyword", keyword)
       if (taskType) sp.set("taskType", taskType)
       if (dateFrom) sp.set("dateFrom", localDateTimeToIso(dateFrom))
       if (dateTo) sp.set("dateTo", localDateTimeToIso(dateTo))
@@ -504,15 +504,15 @@ export default function Page() {
         <CardHeader className="pb-0">
           <Tabs value={activeType} onValueChange={(v) => setActiveType(v as LogType)}>
             <TabsList className="h-9 flex-wrap">
+              <TabsTrigger value="audit" className="text-xs">审计</TabsTrigger>
+              <TabsTrigger value="login_audit" className="text-xs">登录审计</TabsTrigger>
+              <TabsTrigger value="control" className="text-xs">控制命令</TabsTrigger>
               <TabsTrigger value="sync_package" className="text-xs">同步包</TabsTrigger>
               <TabsTrigger value="sync_table" className="text-xs">同步表</TabsTrigger>
               <TabsTrigger value="sync_scheduler" className="text-xs">调度</TabsTrigger>
               {/* 推送主路径下日常不用，暂隐藏
               <TabsTrigger value="sync_consistency" className="text-xs">一致性</TabsTrigger>
               */}
-              <TabsTrigger value="control" className="text-xs">控制命令</TabsTrigger>
-              <TabsTrigger value="audit" className="text-xs">审计</TabsTrigger>
-              <TabsTrigger value="login_audit" className="text-xs">登录审计</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardHeader>
@@ -530,9 +530,9 @@ export default function Page() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部站点</SelectItem>
-                  {siteCodeOptions.map((sc) => (
-                    <SelectItem key={sc} value={sc}>
-                      {sc}
+                  {siteOptions.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {formatSiteLabel(s.code, s.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -551,21 +551,11 @@ export default function Page() {
                   <SelectItem value="all">全部状态</SelectItem>
                   {statusOptions.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {logStatusLabel(s)}
+                      {logStatusLabel(s, activeType === "all" ? undefined : activeType)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex w-[180px] flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-wide text-slate-500">关键字</span>
-              <Input
-                placeholder="批次号 / 命令号"
-                className="h-9 w-full"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                aria-label="按关键字模糊搜索"
-              />
             </div>
             {showControlExtraFilters && (
               <div className="flex w-[180px] flex-col gap-1">
@@ -645,9 +635,9 @@ export default function Page() {
                         <TableHead className="text-xs text-slate-500">类型</TableHead>
                         <TableHead className="text-xs text-slate-500">操作</TableHead>
                         <TableHead className="text-xs text-slate-500">站点</TableHead>
+                        <TableHead className="text-xs text-slate-500">操作人</TableHead>
                         <TableHead className="text-xs text-slate-500">状态</TableHead>
                         <TableHead className="text-xs text-slate-500">时间</TableHead>
-                        <TableHead className="text-xs text-slate-500">摘要</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -663,16 +653,25 @@ export default function Page() {
                           <TableCell className="text-sm text-slate-800 dark:text-slate-100 whitespace-nowrap">
                             {logOperationLabel(row)}
                           </TableCell>
-                          <TableCell className="text-sm">{logSiteCodeLabel(row.site_code)}</TableCell>
+                          <TableCell className="text-sm">
+                            {(() => {
+                              const opt = siteOptions.find((s) => s.code === row.site_code)
+                              return opt
+                                ? formatSiteLabel(opt.code, opt.name)
+                                : logSiteCodeLabel(row.site_code)
+                            })()}
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                            {row.operator?.trim() || "—"}
+                          </TableCell>
                           <TableCell>
                             <Badge className={`text-xs ${statusBadgeColor(row.status)}`}>
-                              {logStatusLabel(row.status)}
+                              {logStatusLabel(row.status, row.log_type)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs text-slate-500">
                             <TimeDisplay value={row.occurred_at} mode="datetime" />
                           </TableCell>
-                          <TableCell className="text-xs max-w-[240px] truncate" title={row.summary}>{row.summary}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -691,10 +690,10 @@ export default function Page() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="20">20</SelectItem>
                         <SelectItem value="50">50</SelectItem>
                         <SelectItem value="100">100</SelectItem>
                         <SelectItem value="200">200</SelectItem>
+                        <SelectItem value="500">500</SelectItem>
                       </SelectContent>
                     </Select>
                     <span>条</span>
