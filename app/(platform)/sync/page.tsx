@@ -566,7 +566,7 @@ export default function SyncCenterPage() {
   const warningSyncAlerts = syncAlerts.filter((item) => item.severity === "warning").length
 
   return (
-    <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
+    <div className="page-pad space-y-4 lg:space-y-6">
       <div className="space-y-5">
         <PageHeader
           title="同步中心"

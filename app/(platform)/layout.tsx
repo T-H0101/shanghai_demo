@@ -8,5 +8,5 @@ import { AppShell } from "@/components/layout/app-shell"
  * 各 page 自行控制 main 内边距与定高（不再包一层 AppShell）。
  */
 export default function PlatformLayout({ children }: { children: ReactNode }) {
-  return <AppShell mainClassName="min-h-0 p-0">{children}</AppShell>
+  return <AppShell mainClassName="min-h-0 overflow-y-auto p-0">{children}</AppShell>
 }

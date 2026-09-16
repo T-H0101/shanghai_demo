@@ -7,7 +7,7 @@ import { AlertCenter } from "@/components/dashboard/alert-center"
 
 export default function Page() {
   return (
-    <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
+    <div className="page-pad space-y-4 lg:space-y-6">
       {/* 数据源提示暂不展示
       <div className="flex items-center gap-2 px-1 text-[10px] text-slate-500" data-testid="dashboard-datasource">
         <Database className="h-3 w-3" />

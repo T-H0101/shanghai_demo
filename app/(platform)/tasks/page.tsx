@@ -201,7 +201,7 @@ function DataSourceBadge() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="space-y-4 p-4 lg:space-y-6 lg:p-6"><div className="flex items-center justify-center h-64 text-slate-400">加载中...</div></div>}>
+    <Suspense fallback={<div className="page-pad space-y-4 lg:space-y-6"><div className="flex items-center justify-center h-64 text-slate-400">加载中...</div></div>}>
       <TasksPageContent />
     </Suspense>
   )
@@ -698,7 +698,7 @@ function TasksPageContent() {
 
   if (view === "commands") {
     return (
-      <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+      <div className="flex h-full flex-col overflow-hidden page-pad">
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
           <div className="shrink-0">
             <PageHeader
@@ -715,7 +715,7 @@ function TasksPageContent() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+    <div className="flex h-full flex-col overflow-hidden page-pad">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
         <div className="shrink-0">
           <PageHeader

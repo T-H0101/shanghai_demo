@@ -274,7 +274,7 @@ export default function EarlyWarningPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+    <div className="flex h-full flex-col overflow-hidden page-pad">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
         <div className="shrink-0">
           <PageHeader

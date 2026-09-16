@@ -122,7 +122,7 @@ async function main() {
   )
   check(
     "设备页定高布局（KPI 无总览标题，列表内搜索+滚动）",
-    pageSource.includes('h-[calc(100dvh-4rem)]') &&
+    pageSource.includes('h-full') &&
       pageSource.includes('data-testid="racks-device-list"') &&
       pageSource.includes('data-testid="racks-hero-glass-panel"') &&
       !pageSource.includes('title="设备总览"') &&

@@ -421,7 +421,7 @@ export default function Page() {
   // })()
 
   return (
-    <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
+    <div className="page-pad space-y-4 lg:space-y-6">
       <PageHeader
         title="日志检索"
         description="同步包/表/调度/控制/审计/登录审计统一查询与导出"

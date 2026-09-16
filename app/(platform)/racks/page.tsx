@@ -605,7 +605,7 @@ export default function Page() {
   // R.91.1: Conditional rendering for sub-view (inspection)
   if (view === "inspection") {
     return (
-      <div className="space-y-4 p-4 lg:space-y-6 lg:p-6">
+      <div className="page-pad space-y-4 lg:space-y-6">
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-4">
             <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-700" onClick={goRacksMain}>
@@ -622,7 +622,7 @@ export default function Page() {
   const remainingCapacityParts = splitCapacityLabel(stats.remainingCapacity)
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col overflow-hidden p-4 lg:p-6">
+    <div className="flex h-full flex-col overflow-hidden page-pad">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:gap-4">
         <div className="shrink-0">
           <PageHeader

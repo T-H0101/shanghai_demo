@@ -215,10 +215,31 @@
 }
 
 .app-ambient-shell {
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--app-ambient-bg);
   color: var(--foreground);
   transition: background 200ms ease, color 200ms ease;
+}
+
+/**
+ * 业务页内容区内边距（统一）
+ * 上/左/右：16 → lg 24；底边减半：8 → lg 12（为固定页脚腾出可视高度）
+ */
+.page-pad {
+  padding-top: 1rem;
+  padding-right: 1rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .page-pad {
+    padding-top: 1.5rem;
+    padding-right: 1.5rem;
+    padding-bottom: 0.75rem;
+    padding-left: 1.5rem;
+  }
 }
 
 .app-header-glass {
