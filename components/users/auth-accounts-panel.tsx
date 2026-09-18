@@ -146,7 +146,7 @@ export function AuthAccountsPanel({
   const [accounts, setAccounts] = useState<AuthAccount[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(50)
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [formMode, setFormMode] = useState<FormMode>(null)
@@ -567,13 +567,13 @@ export function AuthAccountsPanel({
                   setPage(1)
                 }}
               >
-                <SelectTrigger className="h-8 w-[72px]">
+                <SelectTrigger className="h-8 w-[88px]" aria-label="每页条数">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[10, 20, 50].map((n) => (
+                  {[50, 100, 200, 500].map((n) => (
                     <SelectItem key={n} value={String(n)}>
-                      {n}
+                      {n} 条
                     </SelectItem>
                   ))}
                 </SelectContent>

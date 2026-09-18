@@ -679,47 +679,44 @@ export default function Page() {
                 )}
               </div>
               {total > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span>每页</span>
+                <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    disabled={loading || page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-xs text-slate-500 tabular-nums">
+                    第 {page} / {totalPages} 页 · 共 {total} 条
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    disabled={loading || page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    下一页
+                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-400">每页</span>
                     <Select
                       value={String(pageSize)}
                       onValueChange={(v) => setPageSize(Number(v))}
                     >
-                      <SelectTrigger className="h-8 w-[5.5rem]">
+                      <SelectTrigger className="h-8 w-[88px]" aria-label="每页条数">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                        <SelectItem value="200">200</SelectItem>
-                        <SelectItem value="500">500</SelectItem>
+                        <SelectItem value="50">50 条</SelectItem>
+                        <SelectItem value="100">100 条</SelectItem>
+                        <SelectItem value="200">200 条</SelectItem>
+                        <SelectItem value="500">500 条</SelectItem>
                       </SelectContent>
                     </Select>
-                    <span>条</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8"
-                      disabled={loading || page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
-                      上一页
-                    </Button>
-                    <span className="text-xs text-slate-500">
-                      第 {page} / {totalPages} 页
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8"
-                      disabled={loading || page >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    >
-                      下一页
-                    </Button>
                   </div>
                 </div>
               )}
@@ -748,10 +745,6 @@ export default function Page() {
                     const target = logTargetDisplay(selected)
                     return target ? <DetailRow label={target.label} value={target.value} /> : null
                   })()}
-                  <div>
-                    <p className="text-xs font-medium text-slate-700 mb-1">摘要</p>
-                    <p className="text-xs bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-700">{selected.summary}</p>
-                  </div>
                   <div>
                     <p className="text-xs font-medium text-slate-700 mb-1">详细 (JSON)</p>
                     <pre className="text-[10px] bg-slate-900 text-slate-100 p-2 rounded-lg overflow-x-auto max-h-64">

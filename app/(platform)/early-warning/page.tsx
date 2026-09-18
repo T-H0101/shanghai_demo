@@ -450,52 +450,52 @@ export default function EarlyWarningPage() {
               </Table>
             </CardContent>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-2.5 dark:border-slate-700">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>每页</span>
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={(v) => {
-                    setPage(1)
-                    setPageSize(Number(v) as (typeof PAGE_SIZE_OPTIONS)[number])
-                  }}
-                >
-                  <SelectTrigger className="h-7 w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_SIZE_OPTIONS.map((n) => (
-                      <SelectItem key={n} value={String(n)}>
-                        {n}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span>
-                  第 {page} / {totalPages} 页
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
+            {total > 0 && (
+              <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="h-7"
+                  size="sm"
+                  className="h-8"
                   disabled={page <= 1 || loading}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   上一页
                 </Button>
+                <span className="text-xs text-slate-500 tabular-nums">
+                  第 {page} / {totalPages} 页 · 共 {total} 条
+                </span>
                 <Button
-                  size="sm"
                   variant="outline"
-                  className="h-7"
+                  size="sm"
+                  className="h-8"
                   disabled={page >= totalPages || loading}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
                   下一页
                 </Button>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-slate-400">每页</span>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(v) => {
+                      setPageSize(Number(v) as (typeof PAGE_SIZE_OPTIONS)[number])
+                      setPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[88px]" aria-label="每页条数">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n} 条
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            )}
           </Card>
 
           <DetailPanel
