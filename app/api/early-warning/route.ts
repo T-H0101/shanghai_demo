@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query, transaction } from "@/lib/db"
 import { requireDashboardReadOr, requireSession } from "@/lib/auth/middleware"
-import { resolveSiteScope, sqlColumnInSiteScope, type SiteScope } from "@/lib/auth/site-scope"
+import { resolveRequestScope, sqlColumnInSiteScope, type SiteScope } from "@/lib/auth/site-scope"
 import { guardR83Api } from "@/lib/auth/r83-api-guard"
 import {
   mapEarlyWarningFeedbackRow,
@@ -167,8 +167,10 @@ export async function GET(req: NextRequest) {
     requireDashboardReadOr(session, "early_warning:read")
 
     const url = new URL(req.url)
-    const siteCodeParam = url.searchParams.get("siteCode")
-    const scope = resolveSiteScope(session, siteCodeParam)
+    const scope = await resolveRequestScope(session, {
+      siteCode: url.searchParams.get("siteCode"),
+      regionCode: url.searchParams.get("regionCode"),
+    })
 
     if (scope.kind === "listed" && scope.siteCodes.length === 0) {
       return NextResponse.json({
@@ -204,7 +206,7 @@ export async function GET(req: NextRequest) {
       offset,
     })
 
-    const siteCode = siteCodeParam?.trim() || null
+    const siteCode = url.searchParams.get("siteCode")?.trim() || null
     const warningIdRaw = url.searchParams.get("warningId")
     let feedbacks: ReturnType<typeof mapEarlyWarningFeedbackRow>[] | undefined
     if (warningIdRaw != null && warningIdRaw !== "" && siteCode) {

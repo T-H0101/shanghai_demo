@@ -237,8 +237,8 @@ function TasksPageContent() {
     () => (searchParams?.get("view") === "commands" ? "commands" : "tasks"),
   )
 
-  // Sprint 2F.4: 全局 siteCode
-  const { siteCode, isAllSites, isReady: siteReady } = useSite()
+  // Sprint 2F.4: 全局 siteCode；区域筛选用 regionCode
+  const { siteCode, regionCode, isAllSites, isRegionScope, isReady: siteReady } = useSite()
   const { sites } = useSiteSites()
   const siteLabelByCode = useMemo(
     () => new Map(sites.map((s) => [s.code, s.label])),
@@ -257,8 +257,11 @@ function TasksPageContent() {
           : !isAllSites && siteCode
             ? siteCode
             : undefined
+      const listRegionCode =
+        listSiteCode || deviceIdFilter ? undefined : regionCode ?? undefined
       const filters = {
         siteCode: listSiteCode,
+        regionCode: listRegionCode,
         keyword: keyword.trim() || undefined,
         type: resolvedType as any,
         statusFilter: statusFilter !== "all" ? statusFilter : undefined,
@@ -274,6 +277,7 @@ function TasksPageContent() {
           // 用专用 query：API 支持 phaseGroup=running
           const qs = new URLSearchParams()
           if (filters.siteCode) qs.set("siteCode", filters.siteCode)
+          else if (filters.regionCode) qs.set("regionCode", filters.regionCode)
           if (filters.keyword) qs.set("keyword", filters.keyword)
           if (filters.type) qs.set("type", String(filters.type))
           if (filters.deviceId) qs.set("deviceId", filters.deviceId)
@@ -375,6 +379,7 @@ function TasksPageContent() {
   }, [
     isAllSites,
     siteCode,
+    regionCode,
     keyword,
     resolvedType,
     statusFilter,
@@ -390,7 +395,7 @@ function TasksPageContent() {
   // 筛选变更时回到第 1 页
   useEffect(() => {
     setPage(1)
-  }, [keyword, typeFilter, statusFilter, scopeFilter, phaseGroupQuery, deviceIdFilter, legacyDeviceFilter, deviceFilterSiteCode, isAllSites, siteCode])
+  }, [keyword, typeFilter, statusFilter, scopeFilter, phaseGroupQuery, deviceIdFilter, legacyDeviceFilter, deviceFilterSiteCode, isAllSites, siteCode, regionCode])
 
   // 初始加载 + 条件变化重新加载
   useEffect(() => {
@@ -562,10 +567,10 @@ function TasksPageContent() {
   const [createJumpOpen, setCreateJumpOpen] = useState(false)
 
   const handleOpenCreateTask = () => {
-    if (!siteReady || isAllSites || !siteCode) {
+    if (!siteReady || isAllSites || isRegionScope || !siteCode) {
       toast({
         title: "请先选择站点",
-        description: "新建任务需要明确目标站点",
+        description: "新建任务需要明确目标站点；全部站点与区域不可创建",
         variant: "destructive",
       })
       return
@@ -730,10 +735,10 @@ function TasksPageContent() {
                   size="sm"
                   className="h-8"
                   data-testid="task-create-open"
-                  disabled={!siteReady || isAllSites}
+                  disabled={!siteReady || isAllSites || isRegionScope}
                   title={
-                    isAllSites
-                      ? "请先选择站点"
+                    isAllSites || isRegionScope
+                      ? "请先选择具体站点"
                       : "跳转到站点业务系统创建任务"
                   }
                   onClick={handleOpenCreateTask}

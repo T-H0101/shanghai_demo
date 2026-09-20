@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { listPackageLogs, countPackageLogs, type PackageLogStatus } from '@/lib/sync/package-log'
 import { requireDashboardReadOr, requireSession } from '@/lib/auth/middleware'
-import { resolveSiteScope } from '@/lib/auth/site-scope'
+import { resolveRequestScope } from '@/lib/auth/site-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,7 +84,17 @@ export async function GET(request: NextRequest) {
       Math.max(1, parseInt(sp.get('pageSize') ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
     )
     const siteCodeParam = sp.get('siteCode') ?? undefined
-    const scope = resolveSiteScope(session, siteCodeParam ?? null)
+    const scope = await resolveRequestScope(session, {
+      siteCode: siteCodeParam,
+      regionCode: sp.get('regionCode'),
+    })
+    if (scope.kind === 'listed' && scope.siteCodes.length === 0) {
+      return NextResponse.json({
+        code: 0,
+        message: 'ok',
+        data: { items: [], total: 0, page, pageSize },
+      })
+    }
     const status = sp.get('status') as PackageLogStatus | null
     const batchId = sp.get('batchId') ?? undefined
     const dateFrom = sp.get('dateFrom') ?? undefined

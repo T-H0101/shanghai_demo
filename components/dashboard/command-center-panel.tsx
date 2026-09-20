@@ -246,7 +246,7 @@ function denyNavigateToast(label?: string) {
 }
 
 export function CommandCenterPanel() {
-  const { siteCode, isAllSites, isReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady } = useSite()
   const [permissions, setPermissions] = useState<string[]>([])
   const [state, setState] = useState<CommandCenterState>({
     summary: null,
@@ -260,6 +260,7 @@ export function CommandCenterPanel() {
   })
 
   const activeSite = isReady && !isAllSites ? siteCode : null
+  const activeRegion = isReady && !activeSite ? regionCode : null
 
   const canGo = useCallback(
     (href: string) => canAccessPath(permissions, hrefPath(href)),
@@ -282,18 +283,32 @@ export function CommandCenterPanel() {
     async function load() {
       setState((prev) => ({ ...prev, loading: true, error: null }))
       try {
-        const summaryUrl = activeSite
-          ? `/api/dashboard/summary?siteCode=${encodeURIComponent(activeSite)}`
-          : "/api/dashboard/summary"
-        const packagesUrl = activeSite
-          ? `/api/sync/packages?pageSize=6&siteCode=${encodeURIComponent(activeSite)}`
-          : "/api/sync/packages?pageSize=6"
-        const commandsUrl = activeSite
-          ? `/api/control/commands?limit=6&siteCode=${encodeURIComponent(activeSite)}`
-          : "/api/control/commands?limit=6"
-        const earlyWarningUrl = activeSite
-          ? `/api/early-warning?statusGroup=open&limit=1&offset=0&siteCode=${encodeURIComponent(activeSite)}`
-          : "/api/early-warning?statusGroup=open&limit=1&offset=0"
+        const scopeQs = new URLSearchParams()
+        if (activeSite) scopeQs.set("siteCode", activeSite)
+        else if (activeRegion) scopeQs.set("regionCode", activeRegion)
+        const scopeSuffix = scopeQs.toString() ? `?${scopeQs.toString()}` : ""
+        const summaryUrl = `/api/dashboard/summary${scopeSuffix}`
+        const packagesUrl = `/api/sync/packages?pageSize=6${
+          activeSite
+            ? `&siteCode=${encodeURIComponent(activeSite)}`
+            : activeRegion
+              ? `&regionCode=${encodeURIComponent(activeRegion)}`
+              : ""
+        }`
+        const commandsUrl = `/api/control/commands?limit=6${
+          activeSite
+            ? `&siteCode=${encodeURIComponent(activeSite)}`
+            : activeRegion
+              ? `&regionCode=${encodeURIComponent(activeRegion)}`
+              : ""
+        }`
+        const earlyWarningUrl = `/api/early-warning?statusGroup=open&limit=1&offset=0${
+          activeSite
+            ? `&siteCode=${encodeURIComponent(activeSite)}`
+            : activeRegion
+              ? `&regionCode=${encodeURIComponent(activeRegion)}`
+              : ""
+        }`
 
         const [summaryRes, sitesRes, packagesRes, commandsRes, earlyWarningRes] = await Promise.all([
           fetch(summaryUrl, { cache: "no-store", credentials: "include" }),
@@ -425,7 +440,7 @@ export function CommandCenterPanel() {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [activeSite])
+  }, [activeSite, activeRegion])
 
   const summary = state.summary ?? emptySummary
 
@@ -470,7 +485,13 @@ export function CommandCenterPanel() {
                 实时数据
               </Badge>
               <Badge className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                {isReady ? (activeSite ?? "全部站点") : "站点加载中"}
+                {isReady
+                  ? activeSite
+                    ? activeSite
+                    : activeRegion
+                      ? `区域 ${activeRegion}`
+                      : "全部站点"
+                  : "站点加载中"}
               </Badge>
             </div>
 

@@ -3,21 +3,14 @@
 /**
  * Sprint 2F.4 - 全局 siteCode 状态
  * Sprint R.69 Task 1 - 中心注册表 (`sync_sites`) 成为站点单一来源
+ * Sprint R.region - 全局 regionCode（点区域筛选；不改写 siteCode 单值契约）
  *
  * 设计:
- * - React Context 提供 siteCode 状态
- * - localStorage 记忆 (selectedSiteCode)
- * - URL query 同步 (?siteCode=SH01)
- * - 优先级: URL query > localStorage > 默认 null (All Sites)
- * - URL 无 siteCode 时从 localStorage 恢复并写回 URL（登录页除外）
- * - URL 的 siteCode 变化会同步到 Context（含登录成功跳转）
- * - "All Sites" 用 null 表示
- *
- * 候选站点列表 (Sprint R.69 修订):
- * - 不再硬编码 `SITE_CANDIDATES` 数组
- * - 唯一来源: 中心注册表 `/api/sync/config` → `sync_sites` 表 (R.61 已落地)
- * - 失败时降级: 仅 `[{code: ALL_SITES, label: "全部站点"}]`, 不默认 SH01
- * - 通过 `useSiteSites()` 暴露数据来源 (`sync_sites` / `error`)
+ * - React Context 提供 siteCode + regionCode
+ * - localStorage 记忆 (selectedSiteCode / selectedRegionCode)
+ * - URL: ?siteCode= / ?regionCode=
+ * - 优先级: 具体 siteCode 覆盖 regionCode；点区域时 siteCode=__all__
+ * - "All Sites" 用 siteCode=null 且 regionCode=null 表示
  */
 
 import {
@@ -36,6 +29,7 @@ export const ALL_SITES = "__all__" as const
 export interface SiteOption {
   code: string
   label: string
+  regionCode?: string | null
 }
 
 export type SiteSource = "sync_sites" | "error"
@@ -48,13 +42,20 @@ export interface SiteSitesValue {
 }
 
 const STORAGE_KEY = "unified.selectedSiteCode"
+const REGION_STORAGE_KEY = "unified.selectedRegionCode"
 
 const FALLBACK_SITES: SiteOption[] = [{ code: ALL_SITES, label: "全部站点" }]
 
 interface SiteContextValue {
-  siteCode: string | null // null = All Sites
+  siteCode: string | null // null = All Sites (或区域模式)
+  regionCode: string | null
   isAllSites: boolean
+  /** siteCode==null 且 regionCode 有值 */
+  isRegionScope: boolean
   setSiteCode: (code: string | null) => void
+  setRegionCode: (code: string | null) => void
+  /** 全部站点（清站 + 清区域） */
+  clearScope: () => void
   /** 仅更新状态 + localStorage（登录成功等需改站点但不走当前 pathname 的场景） */
   syncSiteCode: (code: string | null) => void
   isReady: boolean
@@ -73,6 +74,7 @@ interface SyncConfigSitesResponse {
       siteCode?: string
       siteName?: string | null
       enabled?: boolean
+      regionCode?: string | null
     }>
   }
 }
@@ -114,12 +116,43 @@ function writeStoredSiteCode(code: string | null) {
   }
 }
 
+function readStoredRegionCode(): string | null {
+  try {
+    const stored = localStorage.getItem(REGION_STORAGE_KEY)
+    if (!stored || !stored.trim()) return null
+    return stored.trim().toUpperCase()
+  } catch {
+    return null
+  }
+}
+
+function writeStoredRegionCode(code: string | null) {
+  try {
+    if (code == null || !code.trim()) {
+      localStorage.removeItem(REGION_STORAGE_KEY)
+    } else {
+      localStorage.setItem(REGION_STORAGE_KEY, code.trim().toUpperCase())
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function applyTaskDeepLinkCleanup(params: URLSearchParams, basePath: string) {
+  if (basePath === "/tasks" || basePath.startsWith("/tasks/")) {
+    params.delete("deviceId")
+    params.delete("deviceName")
+    params.delete("device")
+  }
+}
+
 export function SiteProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
   const [siteCode, setSiteCodeState] = useState<string | null>(null)
+  const [regionCode, setRegionCodeState] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
 
   const [sites, setSites] = useState<SiteOption[]>(FALLBACK_SITES)
@@ -128,32 +161,64 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   const [sitesSource, setSitesSource] = useState<SiteSource>("sync_sites")
   const [accessibleSites, setAccessibleSites] = useState<string[] | null>(null)
 
-  // 依赖具体 query 字符串，避免 searchParams 对象引用不变导致不刷新
   const urlSiteParam = searchParams?.get("siteCode") ?? null
+  const urlRegionParam = searchParams?.get("regionCode") ?? null
   const isLoginPath = (pathname ?? "").startsWith("/login")
 
   useEffect(() => {
-    if (urlSiteParam !== null) {
-      const next = urlSiteParam === ALL_SITES ? null : urlSiteParam
-      setSiteCodeState(next)
-      writeStoredSiteCode(next)
+    const rawSite = urlSiteParam
+    const rawRegion = urlRegionParam?.trim() ? urlRegionParam.trim().toUpperCase() : null
+
+    // URL 有 siteCode 时：具体站覆盖区域；__all__ 时可保留 region
+    if (rawSite !== null) {
+      const nextSite = rawSite === ALL_SITES ? null : rawSite
+      let nextRegion: string | null = null
+      if (nextSite != null) {
+        nextRegion = null
+      } else if (rawRegion) {
+        nextRegion = rawRegion
+      } else {
+        nextRegion = readStoredRegionCode()
+      }
+      setSiteCodeState(nextSite)
+      setRegionCodeState(nextRegion)
+      writeStoredSiteCode(nextSite)
+      writeStoredRegionCode(nextRegion)
       setIsReady(true)
+
+      // 具体站时清 URL 上的 regionCode，避免双参并存
+      if (!isLoginPath && nextSite != null && rawRegion) {
+        const params = new URLSearchParams(searchParams?.toString() ?? "")
+        params.delete("regionCode")
+        const qs = params.toString()
+        const basePath = pathname ?? "/"
+        router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+      }
       return
     }
 
-    // 侧栏跳转常丢掉 query：回退 localStorage，保证登录写入的站点仍生效
-    const stored = readStoredSiteCode()
-    setSiteCodeState(stored)
+    // 无 siteCode：回退 localStorage；region 优先 URL，否则 storage
+    const storedSite = readStoredSiteCode()
+    const nextRegion =
+      storedSite != null ? null : rawRegion ?? readStoredRegionCode()
+    setSiteCodeState(storedSite)
+    setRegionCodeState(nextRegion)
+    writeStoredSiteCode(storedSite)
+    writeStoredRegionCode(nextRegion)
     setIsReady(true)
 
-    // 写回 URL，避免页面切换后 Select remount 时与 URL 脱节、误落到列表第一项
     if (isLoginPath) return
     const params = new URLSearchParams(searchParams?.toString() ?? "")
-    params.set("siteCode", stored == null ? ALL_SITES : stored)
+    params.set("siteCode", storedSite == null ? ALL_SITES : storedSite)
+    if (nextRegion) {
+      params.set("regionCode", nextRegion)
+    } else {
+      params.delete("regionCode")
+    }
     const qs = params.toString()
     const basePath = pathname ?? "/"
     router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
-  }, [urlSiteParam, pathname, router, searchParams, isLoginPath])
+  }, [urlSiteParam, urlRegionParam, pathname, router, searchParams, isLoginPath])
 
   useEffect(() => {
     let cancelled = false
@@ -174,14 +239,20 @@ export function SiteProvider({ children }: { children: ReactNode }) {
 
         const rows = json?.data?.sites ?? []
         const enabledRows = rows.filter((r) => r && r.enabled !== false)
-        const mapped: SiteOption[] = enabledRows
-          .map((r) => {
-            const code = r.siteCode
-            if (!code) return null
-            const label = r.siteName ? `${code} ${r.siteName}` : code
-            return { code, label }
-          })
-          .filter((v): v is SiteOption => v !== null)
+        const mapped: SiteOption[] = enabledRows.flatMap((r) => {
+          const code = r.siteCode
+          if (!code) return []
+          const label = r.siteName ? `${code} ${r.siteName}` : code
+          return [
+            {
+              code,
+              label,
+              regionCode: r.regionCode?.trim()
+                ? r.regionCode.trim().toUpperCase()
+                : null,
+            },
+          ]
+        })
         const filtered = filterSitesForSession(mapped, accessible)
         if (cancelled) return
         setAccessibleSites(accessible)
@@ -208,9 +279,13 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   const syncSiteCode = useCallback((code: string | null) => {
     setSiteCodeState(code)
     writeStoredSiteCode(code)
+    if (code != null) {
+      setRegionCodeState(null)
+      writeStoredRegionCode(null)
+    }
   }, [])
 
-  // 当前选中站点不在权限列表时，回退到「全部站点」（= 可访问站点并集）
+  // 当前选中站点不在权限列表时，回退到「全部站点」
   useEffect(() => {
     if (!isReady || sitesLoading || accessibleSites == null) return
     if (accessibleSites.includes("*")) return
@@ -221,6 +296,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       if (isLoginPath) return
       const params = new URLSearchParams(searchParams?.toString() ?? "")
       params.set("siteCode", ALL_SITES)
+      params.delete("regionCode")
       const qs = params.toString()
       const basePath = pathname ?? "/"
       router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
@@ -237,34 +313,67 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     searchParams,
   ])
 
-  const setSiteCode = useCallback(
-    (code: string | null) => {
-      syncSiteCode(code)
-
+  const replaceScopeUrl = useCallback(
+    (nextSite: string | null, nextRegion: string | null) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "")
-      if (code == null) {
-        params.set("siteCode", ALL_SITES)
+      params.set("siteCode", nextSite == null ? ALL_SITES : nextSite)
+      if (nextSite != null || !nextRegion) {
+        params.delete("regionCode")
       } else {
-        params.set("siteCode", code)
+        params.set("regionCode", nextRegion)
       }
-      // 任务页：切换顶部站点时同步清空设备 deep link 筛选（一次 replace，避免与页面 effect 竞态）
       const basePath = pathname ?? "/"
-      if (basePath === "/tasks" || basePath.startsWith("/tasks/")) {
-        params.delete("deviceId")
-        params.delete("deviceName")
-        params.delete("device")
-      }
+      applyTaskDeepLinkCleanup(params, basePath)
       const qs = params.toString()
       router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
     },
-    [searchParams, router, pathname, syncSiteCode]
+    [searchParams, router, pathname],
   )
+
+  const setSiteCode = useCallback(
+    (code: string | null) => {
+      setSiteCodeState(code)
+      writeStoredSiteCode(code)
+      setRegionCodeState(null)
+      writeStoredRegionCode(null)
+      replaceScopeUrl(code, null)
+    },
+    [replaceScopeUrl],
+  )
+
+  const setRegionCode = useCallback(
+    (code: string | null) => {
+      const normalized = code?.trim() ? code.trim().toUpperCase() : null
+      setSiteCodeState(null)
+      writeStoredSiteCode(null)
+      setRegionCodeState(normalized)
+      writeStoredRegionCode(normalized)
+      replaceScopeUrl(null, normalized)
+    },
+    [replaceScopeUrl],
+  )
+
+  const clearScope = useCallback(() => {
+    setSiteCodeState(null)
+    writeStoredSiteCode(null)
+    setRegionCodeState(null)
+    writeStoredRegionCode(null)
+    replaceScopeUrl(null, null)
+  }, [replaceScopeUrl])
+
+  const isRegionScope = siteCode == null && regionCode != null
+  // isAllSites：未选具体站（含「全部」与「区域」）；区域模式用 isRegionScope 区分
+  const isAllSites = siteCode == null
 
   const value = useMemo<SiteContextValue>(
     () => ({
       siteCode,
-      isAllSites: siteCode == null,
+      regionCode,
+      isAllSites,
+      isRegionScope,
       setSiteCode,
+      setRegionCode,
+      clearScope,
       syncSiteCode,
       isReady,
       sites,
@@ -272,7 +381,21 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       sitesError,
       sitesSource,
     }),
-    [siteCode, setSiteCode, syncSiteCode, isReady, sites, sitesLoading, sitesError, sitesSource]
+    [
+      siteCode,
+      regionCode,
+      isAllSites,
+      isRegionScope,
+      setSiteCode,
+      setRegionCode,
+      clearScope,
+      syncSiteCode,
+      isReady,
+      sites,
+      sitesLoading,
+      sitesError,
+      sitesSource,
+    ],
   )
 
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>
@@ -283,8 +406,12 @@ export function useSite(): SiteContextValue {
   if (!ctx) {
     return {
       siteCode: null,
+      regionCode: null,
       isAllSites: true,
+      isRegionScope: false,
       setSiteCode: () => {},
+      setRegionCode: () => {},
+      clearScope: () => {},
       syncSiteCode: () => {},
       isReady: false,
       sites: FALLBACK_SITES,
@@ -307,5 +434,20 @@ export function useSiteSites(): SiteSitesValue {
     loading: sitesLoading,
     error: sitesError,
     source: sitesSource,
+  }
+}
+
+/** 构造带全局站点/区域筛选的 query（供各页 fetch 复用） */
+export function appendScopeParams(
+  params: URLSearchParams,
+  opts: { siteCode: string | null; regionCode: string | null; isAllSites: boolean },
+) {
+  if (!opts.isAllSites && opts.siteCode) {
+    params.set("siteCode", opts.siteCode)
+    params.delete("regionCode")
+    return
+  }
+  if (opts.regionCode) {
+    params.set("regionCode", opts.regionCode)
   }
 }

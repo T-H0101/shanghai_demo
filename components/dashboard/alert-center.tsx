@@ -36,7 +36,7 @@ function taskAlertStatusLabel(statusLabel?: string): string {
 export function AlertCenter() {
   const router = useRouter()
   const pathname = usePathname()
-  const { siteCode, isAllSites, isReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady } = useSite()
   const { sites } = useSiteSites()
   const siteLabelByCode = useMemo(
     () => new Map(sites.map((s) => [s.code, s.label])),
@@ -55,6 +55,7 @@ export function AlertCenter() {
       qs.set("pageSize", String(PREVIEW_LIMIT))
       qs.set("page", "1")
       if (!isAllSites && siteCode) qs.set("siteCode", siteCode)
+      else if (regionCode) qs.set("regionCode", regionCode)
 
       const res = await fetch(`/api/tasks?${qs.toString()}`, FETCH_INIT)
       const json = (await res.json()) as {
@@ -74,7 +75,7 @@ export function AlertCenter() {
     } finally {
       setLoading(false)
     }
-  }, [isAllSites, siteCode])
+  }, [isAllSites, siteCode, regionCode])
 
   useEffect(() => {
     if (isReady) void loadFailedTasks()

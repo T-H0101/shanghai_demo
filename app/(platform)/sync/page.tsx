@@ -218,7 +218,7 @@ export default function SyncCenterPage() {
   const [notifyingPush, setNotifyingPush] = useState(false)
 
   // 全局 siteCode
-  const { siteCode, isAllSites, isReady: siteReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady: siteReady } = useSite()
 
   const loadPackages = useCallback(async () => {
     setLoading(true)
@@ -226,9 +226,10 @@ export default function SyncCenterPage() {
     const sp = new URLSearchParams()
     sp.set('page', String(page))
     sp.set('pageSize', String(pageSize))
-    // 站点代码优先级 = 全局选择 > 页面本地筛选
+    // 站点代码优先级 = 全局选择 > 页面本地筛选；区域仅全局
     const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
     if (effectiveSiteCode) sp.set('siteCode', effectiveSiteCode)
+    else if (regionCode) sp.set('regionCode', regionCode)
     if (statusFilter !== 'all') sp.set('status', statusFilter)
     if (batchIdFilter.trim()) sp.set('batchId', batchIdFilter.trim())
 
@@ -252,7 +253,7 @@ export default function SyncCenterPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, siteCodeFilter, statusFilter, batchIdFilter, isAllSites, siteCode])
+  }, [page, pageSize, siteCodeFilter, statusFilter, batchIdFilter, isAllSites, siteCode, regionCode])
 
   const loadTables = useCallback(async (packageId: string) => {
     setTablesLoading(true)
@@ -381,6 +382,7 @@ export default function SyncCenterPage() {
     const sp = new URLSearchParams({ pageSize: "300" })
     const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
     if (effectiveSiteCode) sp.set("siteCode", effectiveSiteCode)
+    else if (regionCode) sp.set("regionCode", regionCode)
 
     fetch(`/api/alerts?${sp.toString()}`)
       .then((response) => {
@@ -402,7 +404,7 @@ export default function SyncCenterPage() {
         setSyncAlertError(err instanceof Error ? err.message : "同步告警读取失败")
       })
     return () => { cancelled = true }
-  }, [siteCodeFilter, isAllSites, siteCode])
+  }, [siteCodeFilter, isAllSites, siteCode, regionCode])
 
   const handleExport = async () => {
     setExporting(true)
@@ -410,6 +412,7 @@ export default function SyncCenterPage() {
       const sp = new URLSearchParams({ kind: exportKind, format: exportFormat })
       const effectiveSiteCode = !isAllSites && siteCode ? siteCode : siteCodeFilter.trim()
       if (effectiveSiteCode) sp.set('siteCode', effectiveSiteCode)
+      else if (regionCode) sp.set('regionCode', regionCode)
       const response = await fetch(`/api/sync/export?${sp.toString()}`)
       if (response.status === 501) {
         const body = await response.json().catch(() => null)
@@ -624,7 +627,12 @@ export default function SyncCenterPage() {
               variant="outline"
               size="sm"
               className="h-8 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900"
-              disabled={notifyingPush || isAllSites || !siteCode}
+              disabled={notifyingPush || isAllSites || !siteCode || Boolean(regionCode)}
+              title={
+                isAllSites || regionCode || !siteCode
+                  ? "请先在顶部选择具体站点"
+                  : undefined
+              }
               onClick={() => void handleNotifyPush()}
               data-testid="notify-push-button"
             >

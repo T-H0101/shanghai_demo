@@ -113,7 +113,7 @@ const CommandItemRow = memo(function CommandItemRow({
 
 export function CommandPalette() {
   const router = useRouter()
-  const { siteCode, isAllSites, setSiteCode } = useSite()
+  const { siteCode, isAllSites, setSiteCode, clearScope } = useSite()
   const { sites: siteOptions } = useSiteSites()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -171,13 +171,18 @@ export function CommandPalette() {
       group: "site",
       keywords: ["site", "站点", s.code.toLowerCase(), s.label],
       perform: () => {
-        setSiteCode(s.code === ALL_SITES ? null : s.code)
-        router.push(s.code === ALL_SITES ? "/" : `/?siteCode=${s.code}`)
+        if (s.code === ALL_SITES) {
+          clearScope()
+          router.push(`/?siteCode=${ALL_SITES}`)
+        } else {
+          setSiteCode(s.code)
+          router.push(`/?siteCode=${encodeURIComponent(s.code)}`)
+        }
       },
     }))
 
     return [...pages, ...sites]
-  }, [router, setSiteCode, siteOptions])
+  }, [router, setSiteCode, clearScope, siteOptions])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()

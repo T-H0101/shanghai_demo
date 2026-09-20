@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db/postgres'
 import { requirePermission, requireSession } from '@/lib/auth/middleware'
-import { resolveSiteScope, sqlColumnInSiteScope } from '@/lib/auth/site-scope'
+import { resolveRequestScope, sqlColumnInSiteScope } from '@/lib/auth/site-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,18 +39,16 @@ interface ApiResponse<T> {
 }
 
 export async function GET(request: NextRequest) {
-  const siteCodeRaw = request.nextUrl.searchParams.get('siteCode')
-  const siteCode = siteCodeRaw && siteCodeRaw.trim().length > 0 && siteCodeRaw !== '__all__'
-    ? siteCodeRaw.trim()
-    : null
-
   const limitRaw = request.nextUrl.searchParams.get('limit')
   const limit = Math.min(Math.max(parseInt(limitRaw ?? '10', 10) || 10, 1), 50)
 
   try {
     const session = await requireSession(request)
     requirePermission(session, 'dashboard:read')
-    const scope = resolveSiteScope(session, siteCode)
+    const scope = await resolveRequestScope(session, {
+      siteCode: request.nextUrl.searchParams.get('siteCode'),
+      regionCode: request.nextUrl.searchParams.get('regionCode'),
+    })
 
     if (scope.kind === 'listed' && scope.siteCodes.length === 0) {
       const response: ApiResponse<RecentSyncItem[]> = {
@@ -125,7 +123,7 @@ export async function GET(request: NextRequest) {
       message: 'failed to query recent syncs',
       source: 'database',
       data: [],
-      siteCode: siteCode,
+      siteCode: null,
       count: 0,
       generatedAt: new Date().toISOString(),
     }

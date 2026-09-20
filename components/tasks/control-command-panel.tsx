@@ -60,7 +60,7 @@ const COMMAND_LABELS: Record<string, string> = {
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const
 
 export function ControlCommandPanel() {
-  const { siteCode, isReady: siteReady } = useSite()
+  const { siteCode, regionCode, isReady: siteReady } = useSite()
   const [commands, setCommands] = useState<ControlCommand[]>([])
   const [total, setTotal] = useState(0)
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
@@ -79,7 +79,7 @@ export function ControlCommandPanel() {
 
   useEffect(() => {
     setPage(1)
-  }, [debouncedKeyword, status, siteCode, pageSize])
+  }, [debouncedKeyword, status, siteCode, regionCode, pageSize])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -90,6 +90,7 @@ export function ControlCommandPanel() {
         pageSize: String(pageSize),
       })
       if (siteCode) params.set("siteCode", siteCode)
+      else if (regionCode) params.set("regionCode", regionCode)
       if (status !== "all") params.set("status", status)
       if (debouncedKeyword) params.set("keyword", debouncedKeyword)
 
@@ -108,7 +109,7 @@ export function ControlCommandPanel() {
     } finally {
       setLoading(false)
     }
-  }, [siteCode, page, pageSize, status, debouncedKeyword])
+  }, [siteCode, regionCode, page, pageSize, status, debouncedKeyword])
 
   useEffect(() => {
     if (!siteReady) return

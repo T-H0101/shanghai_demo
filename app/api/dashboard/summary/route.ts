@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db/postgres'
 import { requirePermission, requireSession } from '@/lib/auth/middleware'
-import { resolveSiteScope, sqlColumnInSiteScope, type SiteScope } from '@/lib/auth/site-scope'
+import { resolveRequestScope, sqlColumnInSiteScope, type SiteScope } from '@/lib/auth/site-scope'
 import { TASK_ALERT_STATUS_SQL } from '@/lib/tasks/task-status-display'
 
 export const dynamic = 'force-dynamic'
@@ -183,15 +183,14 @@ function buildScopedSql(scope: SiteScope): { sql: string; params: unknown[] } {
 }
 
 export async function GET(request: NextRequest) {
-  const siteCodeRaw = request.nextUrl.searchParams.get('siteCode')
-  const siteCode = siteCodeRaw && siteCodeRaw.trim().length > 0 && siteCodeRaw !== '__all__'
-    ? siteCodeRaw.trim()
-    : null
-
   try {
     const session = await requireSession(request)
     requirePermission(session, 'dashboard:read')
-    const scope = resolveSiteScope(session, siteCode)
+    const scope = await resolveRequestScope(session, {
+      siteCode: request.nextUrl.searchParams.get('siteCode'),
+      regionCode: request.nextUrl.searchParams.get('regionCode'),
+    })
+    const siteCode = scope.kind === 'single' ? scope.siteCode : null
 
     if (scope.kind === 'listed' && scope.siteCodes.length === 0) {
       const response: ApiResponse<DashboardSummaryData> = {
@@ -228,8 +227,8 @@ export async function GET(request: NextRequest) {
       code: 500,
       message: 'failed to query summary',
       source: 'database',
-      data: emptySummary(siteCode),
-      siteCode,
+      data: emptySummary(null),
+      siteCode: null,
       generatedAt: new Date().toISOString(),
     }
     return NextResponse.json(response, { status: 500 })

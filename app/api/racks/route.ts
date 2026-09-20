@@ -11,7 +11,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
-import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { resolveRequestScope, sqlColumnInSiteScope } from "@/lib/auth/site-scope"
 import type { RackDTO } from "@/lib/api/dto"
 import { DEVICE_TYPE_LABELS, pickDeviceIp, pickDevicePort } from "@/lib/devices/device-display"
 import {
@@ -122,10 +123,12 @@ export async function GET(request: NextRequest) {
   try {
     const session = await requireSession(request)
     requirePermission(session, "racks:read")
-    const visibleSites = getVisibleSites(session)
+    const scope = await resolveRequestScope(session, {
+      siteCode: request.nextUrl.searchParams.get("siteCode"),
+      regionCode: request.nextUrl.searchParams.get("regionCode"),
+    })
 
     const searchParams = request.nextUrl.searchParams
-    const siteCode = searchParams.get("siteCode")
     const status = searchParams.get("status")
 
     // 默认排除 deleted
@@ -133,13 +136,20 @@ export async function GET(request: NextRequest) {
     const params: unknown[] = []
     let paramIndex = 1
 
-    if (siteCode) {
-      conditions.push(`d.source_site_id = $${paramIndex++}`)
-      params.push(siteCode)
-    } else if (visibleSites) {
-      conditions.push(`d.source_site_id = ANY($${paramIndex++})`)
-      params.push(visibleSites)
+    if (scope.kind === "listed" && scope.siteCodes.length === 0) {
+      return NextResponse.json({
+        code: 0,
+        message: "ok",
+        data: [],
+        source: "database",
+      })
     }
+
+    const siteClause = sqlColumnInSiteScope("d.source_site_id", scope, paramIndex)
+    conditions.push(siteClause.sql)
+    params.push(...siteClause.params)
+    paramIndex = siteClause.nextParam
+
     if (status) {
       if (status === "deleted") {
         conditions[0] = `d.status = $${paramIndex++}`

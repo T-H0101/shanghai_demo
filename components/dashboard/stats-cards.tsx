@@ -70,7 +70,7 @@ function StatNav({
 
 export function StatsCards() {
   const pathname = usePathname()
-  const { siteCode, isAllSites, isReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady } = useSite()
   const [permissions, setPermissions] = useState<string[]>([])
   const [taskStats, setTaskStats] = useState({ total: 0, running: 0, completed: 0, failed: 0, pending: 0 })
   const [rackStats, setRackStats] = useState({ total: 0, online: 0, offline: 0, avgUsage: 0, totalCapacity: "0 TB", remainingCapacity: "0 TB", usedSlots: 0, totalSlotsAll: 0 })
@@ -95,10 +95,17 @@ export function StatsCards() {
 
   const loadStats = async () => {
     try {
-      const filterSite = isAllSites ? undefined : siteCode ?? undefined
+      const filterSite = !isAllSites && siteCode ? siteCode : undefined
+      const filterRegion = !filterSite && regionCode ? regionCode : undefined
       const [tasks, rStats] = await Promise.all([
-        taskProvider.getAll(filterSite ? { siteCode: filterSite } : undefined),
-        rackProvider.getStats(filterSite),
+        taskProvider.getAll(
+          filterSite
+            ? { siteCode: filterSite }
+            : filterRegion
+              ? { regionCode: filterRegion }
+              : undefined,
+        ),
+        rackProvider.getStats(filterSite, filterRegion),
       ])
       setTaskStats({
         total: tasks.length,
@@ -119,7 +126,7 @@ export function StatsCards() {
   // 首次加载 + 路由变化时重新读取
   useEffect(() => {
     if (isReady) loadStats()
-  }, [pathname, isReady, siteCode, isAllSites])
+  }, [pathname, isReady, siteCode, regionCode, isAllSites])
 
   // 监听 localStorage 变化
   useEffect(() => {

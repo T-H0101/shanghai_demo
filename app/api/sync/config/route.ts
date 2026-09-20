@@ -18,6 +18,7 @@ interface SyncSiteRow {
   agent_database_reachable: boolean | null
   scheduler_status: string | null
   scheduler_started_at: string | null
+  region_code: string | null
 }
 
 const SAFE_ENV_KEY_REFS = [
@@ -67,6 +68,7 @@ export async function GET() {
          s.status,
          s.credential_ref,
          s.last_connected_at::text,
+         s.region_code,
          agent.agent_id,
          agent.agent_version,
          agent.reported_at::text AS agent_reported_at,
@@ -93,6 +95,7 @@ export async function GET() {
       status: row.status,
       credentialKeyRef: row.credential_ref,
       lastConnectedAt: row.last_connected_at,
+      regionCode: row.region_code?.trim() ? row.region_code.trim().toUpperCase() : null,
       schedulerEnabled: schedulerEnabledFromRow(row),
       agentStatus: agentStatusFromRow(row),
       agentVersion: row.agent_version,

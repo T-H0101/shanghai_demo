@@ -24,7 +24,7 @@ import { adaptAlertList } from "@/lib/api/adapters"
 import type { ApiResponse, PaginatedResponse, AlertDTO } from "@/lib/api/dto"
 import type { MockAlert } from "@/lib/api/adapters/alert-adapter"
 import { requirePermission, requireSession } from "@/lib/auth/middleware"
-import { rawAlertInScope, resolveSiteScope } from "@/lib/auth/site-scope"
+import { rawAlertInScope, resolveRequestScope } from "@/lib/auth/site-scope"
 
 interface RawAlert {
   id: string
@@ -134,8 +134,10 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get("pageSize") ?? "20")
     const level = searchParams.get("level")
     const status = searchParams.get("status")
-    const siteCodeParam = searchParams.get("siteCode")
-    const scope = resolveSiteScope(session, siteCodeParam)
+    const scope = await resolveRequestScope(session, {
+      siteCode: searchParams.get("siteCode"),
+      regionCode: searchParams.get("regionCode"),
+    })
 
     // 1. 并行查 3 个真实源
     const [syncPkgs, syncTables, ctrlCmds] = await Promise.all([

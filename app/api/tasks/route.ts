@@ -8,7 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
-import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { resolveRequestScope, sqlColumnInSiteScope } from "@/lib/auth/site-scope"
 import type { ApiResponse, PaginatedResponse, TaskDTO, TaskType, TaskPhase, Priority } from "@/lib/api/dto"
 import { formatTaskTypeLabelFromUnified, resolveNumericTaskType, buildTaskTypeFilterSql } from "@/lib/tasks/task-type-display"
 import {
@@ -165,12 +166,14 @@ export async function GET(request: NextRequest) {
     // Sprint R.29: 防越权 - 检查登录和权限
     const session = await requireSession(request)
     requirePermission(session, "tasks:read")
-    const visibleSites = getVisibleSites(session)
+    const scope = await resolveRequestScope(session, {
+      siteCode: request.nextUrl.searchParams.get("siteCode"),
+      regionCode: request.nextUrl.searchParams.get("regionCode"),
+    })
 
     const searchParams = request.nextUrl.searchParams
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
     const pageSize = Math.min(500, Math.max(1, parseInt(searchParams.get("pageSize") ?? "50", 10) || 50))
-    const siteCode = searchParams.get("siteCode")
     const status = searchParams.get("status")
     const type = searchParams.get("type")
     const phase = searchParams.get("phase")
@@ -185,14 +188,20 @@ export async function GET(request: NextRequest) {
     const params: unknown[] = []
     let paramIndex = 1
 
-    if (siteCode) {
-      conditions.push(`source_site_id = $${paramIndex++}`)
-      params.push(siteCode)
-    } else if (visibleSites) {
-      // Sprint R.29: 非 group_admin 只看授权站点
-      conditions.push(`source_site_id = ANY($${paramIndex++})`)
-      params.push(visibleSites)
+    if (scope.kind === "listed" && scope.siteCodes.length === 0) {
+      return NextResponse.json({
+        code: 0,
+        message: "ok",
+        data: { items: [], page, pageSize, total: 0 },
+        source: "database",
+      })
     }
+
+    const siteClause = sqlColumnInSiteScope("source_site_id", scope, paramIndex)
+    conditions.push(siteClause.sql)
+    params.push(...siteClause.params)
+    paramIndex = siteClause.nextParam
+
     if (status && status !== "all") {
       conditions.push(`status = $${paramIndex++}`)
       params.push(status)

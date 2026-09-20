@@ -117,7 +117,7 @@ function buildTiles(d: DashboardSummaryData): StatTile[] {
 }
 
 export function DashboardSummaryBar() {
-  const { siteCode, isReady } = useSite()
+  const { siteCode, regionCode, isReady } = useSite()
   const [data, setData] = useState<DashboardSummaryData | null>(null)
   const [source, setSource] = useState<DashboardSource>("unavailable")
   const [error, setError] = useState<string | null>(null)
@@ -133,7 +133,7 @@ export function DashboardSummaryBar() {
     }
     let cancelled = false
     setLoading(true)
-    fetchDashboardSummary(siteCode).then((res) => {
+    fetchDashboardSummary(siteCode, { regionCode }).then((res) => {
       if (cancelled) return
       setData(res.data)
       setSource(res.source)
@@ -143,7 +143,7 @@ export function DashboardSummaryBar() {
     return () => {
       cancelled = true
     }
-  }, [isReady, siteCode])
+  }, [isReady, siteCode, regionCode])
 
   if (!isApiMode()) return null
 
@@ -158,7 +158,7 @@ export function DashboardSummaryBar() {
           type="button"
           onClick={() => {
             setLoading(true)
-            fetchDashboardSummary(siteCode).then((res) => {
+            fetchDashboardSummary(siteCode, { regionCode }).then((res) => {
               setData(res.data)
               setSource(res.source)
               setError(res.error)
@@ -177,7 +177,11 @@ export function DashboardSummaryBar() {
   if (!data) return null
 
   const tiles = buildTiles(data)
-  const siteLabel = siteCode ?? "全部站点"
+  const siteLabel = siteCode
+    ? siteCode
+    : regionCode
+      ? `区域 ${regionCode}`
+      : "全部站点"
 
   return (
     <Card className="p-4 bg-white dark:bg-slate-800">

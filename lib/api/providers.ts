@@ -46,9 +46,9 @@ export interface UserProvider {
 }
 
 export interface RackProvider {
-  getAll(siteCode?: string): Promise<Rack[]>
+  getAll(siteCode?: string, regionCode?: string): Promise<Rack[]>
   getById(id: string, siteCode?: string): Promise<Rack | undefined>
-  getStats(siteCode?: string): Promise<RackStats>
+  getStats(siteCode?: string, regionCode?: string): Promise<RackStats>
   registerTransfer(transfer: TransferInput): Promise<TransferRecord>
   syncRacks(): Promise<Rack[]>
   addMedia(rackId: string, slotIndex: number, media: AddMediaInput): Promise<void>
@@ -84,6 +84,8 @@ export interface TaskFilters {
   /** 业务状态筛选：success / aborted / packaging / running … */
   statusFilter?: string
   siteCode?: string
+  /** 全局区域筛选（与 siteCode 互斥；服务端展开为站点列表） */
+  regionCode?: string
   keyword?: string
   /** @deprecated 旧链接 device=名称/ID；请用 deviceId + siteCode */
   device?: string

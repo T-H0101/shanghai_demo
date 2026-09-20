@@ -117,6 +117,7 @@ export async function fetchTasksPage(filters?: TaskFilters): Promise<TaskListPag
   if (filters?.type && filters.type !== "all") params.set("type", filters.type)
   if (filters?.status) params.set("status", filters.status)
   if (filters?.siteCode) params.set("siteCode", filters.siteCode)
+  else if (filters?.regionCode) params.set("regionCode", filters.regionCode)
   if (filters?.keyword) params.set("keyword", filters.keyword)
   if (filters?.deviceId) params.set("deviceId", filters.deviceId)
   else if (filters?.device) params.set("device", filters.device)
@@ -294,10 +295,12 @@ function formatCapacity(bytes: number): string {
 }
 
 export const apiRackProvider: RackProvider = {
-  getAll: async (siteCode?: string) => {
-    const url = siteCode
-      ? `${API_BASE}/api/racks?siteCode=${siteCode}`
-      : `${API_BASE}/api/racks`
+  getAll: async (siteCode?: string, regionCode?: string) => {
+    const qs = new URLSearchParams()
+    if (siteCode) qs.set("siteCode", siteCode)
+    else if (regionCode) qs.set("regionCode", regionCode)
+    const q = qs.toString()
+    const url = q ? `${API_BASE}/api/racks?${q}` : `${API_BASE}/api/racks`
 
     try {
       const response = await fetch(url, { cache: "no-store", credentials: "include" })
@@ -326,9 +329,9 @@ export const apiRackProvider: RackProvider = {
     }
   },
 
-  getStats: async (siteCode?: string) => {
+  getStats: async (siteCode?: string, regionCode?: string) => {
     try {
-      const racks = await apiRackProvider.getAll(siteCode)
+      const racks = await apiRackProvider.getAll(siteCode, regionCode)
       const usageValues = racks
         .map((rack) => rack.usagePercent)
         .filter((value): value is number => typeof value === "number")

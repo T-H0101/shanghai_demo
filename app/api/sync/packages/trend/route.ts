@@ -2,24 +2,18 @@
  * GET /api/sync/packages/trend
  * R.94 补丁 — 同步包趋势聚合 (供 Dashboard SyncTrendChart 真实数据源)
  *
- * 查询 sync_package_log, 按「北京时间日历日」聚合最近 N 天的 success/failed/partial 包数,
- * 按站点分组。
- *
  * Query params:
  *   days (default 7, max 30)
- *   siteCode (optional, 按站点过滤)
- *
- * 只读 sync_package_log, 不回退 mock
- *
- * 时区约定: 业务日 = Asia/Shanghai，禁止 DATE(timestamptz) + toISOString() 导致东八区偏一天。
+ *   siteCode / regionCode (optional)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { requirePermission, requireSession } from '@/lib/auth/middleware'
+import { resolveRequestScope, sqlColumnInSiteScope } from '@/lib/auth/site-scope'
 
 export const dynamic = 'force-dynamic'
 
-const SITE_CODE_PATTERN = /^[A-Za-z0-9_-]+$/
 const BEIJING_TZ = 'Asia/Shanghai'
 
 interface TrendDay {
@@ -62,20 +56,27 @@ function toBeijingDateString(val: unknown): string {
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams
   const days = Math.min(30, Math.max(1, parseInt(sp.get('days') ?? '7', 10) || 7))
-  const siteCode = sp.get('siteCode') ?? undefined
-
-  if (siteCode && !SITE_CODE_PATTERN.test(siteCode)) {
-    return NextResponse.json(
-      { code: 400, message: 'invalid siteCode', source: 'empty', data: [] },
-      { status: 400 }
-    )
-  }
 
   try {
-    const params: Array<string | number> = [days]
-    if (siteCode) params.push(siteCode)
-    const siteFilter = siteCode ? `AND site_code = $2` : ''
-    // 用 to_char 直接返回文本日，避免 node-pg 把 date 转成 Date 后再 toISOString 偏天
+    const session = await requireSession(request)
+    requirePermission(session, 'dashboard:read')
+    const scope = await resolveRequestScope(session, {
+      siteCode: sp.get('siteCode'),
+      regionCode: sp.get('regionCode'),
+    })
+
+    if (scope.kind === 'listed' && scope.siteCodes.length === 0) {
+      return NextResponse.json({
+        code: 0,
+        message: 'ok',
+        source: 'empty',
+        data: [],
+      } satisfies ApiResponse)
+    }
+
+    const siteClause = sqlColumnInSiteScope('site_code', scope, 2)
+    const params: unknown[] = [days, ...siteClause.params]
+
     const rows = await query<{
       site_code: string
       day: string
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
        FROM sync_package_log
        WHERE finished_at IS NOT NULL
          AND finished_at >= NOW() - ($1::int * interval '1 day')
-         ${siteFilter}
+         AND (${siteClause.sql})
        GROUP BY site_code,
                 to_char((finished_at AT TIME ZONE '${BEIJING_TZ}'), 'YYYY-MM-DD'),
                 status
@@ -97,7 +98,6 @@ export async function GET(request: NextRequest) {
       params
     )
 
-    // Aggregate into site → day → status structure
     const siteMap = new Map<string, Map<string, TrendDay>>()
 
     for (const row of rows.rows) {

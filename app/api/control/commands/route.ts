@@ -22,7 +22,7 @@ import {
   isDirectSiteTaskControlType,
 } from "@/lib/control/dispatch-site-task-control"
 import { requireSession, requirePermission, requireAnyPermission } from "@/lib/auth/middleware"
-import { resolveSiteScope } from "@/lib/auth/site-scope"
+import { resolveRequestScope } from "@/lib/auth/site-scope"
 
 export async function POST(req: NextRequest) {
   let session
@@ -150,8 +150,13 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url)
-  const siteCodeParam = url.searchParams.get("siteCode") ?? undefined
-  const scope = resolveSiteScope(session!, siteCodeParam ?? null)
+  const scope = await resolveRequestScope(session!, {
+    siteCode: url.searchParams.get("siteCode"),
+    regionCode: url.searchParams.get("regionCode"),
+  })
+  if (scope.kind === "listed" && scope.siteCodes.length === 0) {
+    return NextResponse.json({ ok: true, items: [], total: 0, statusCounts: {} })
+  }
   const commandType = (url.searchParams.get("commandType") as CommandType | null) ?? undefined
   const status = (url.searchParams.get("status") as any) ?? undefined
   const keyword = url.searchParams.get("keyword") ?? undefined

@@ -1,7 +1,25 @@
 # Project Status
 
-> **截至**: 2026-09-14
-> **当前主线**: 盘笼移位再迁（区域选笼）与登记撤销链
+> **截至**: 2026-09-20
+> **当前主线**: 全局区域筛选（顶部点区域）
+
+## Sprint R.107 — 全局区域筛选 (partial)
+
+**目标**: 顶部站点选择器支持区域-站点树；点区域写入 `?regionCode=`；列表 API 按区域∩权限过滤；空区域空数据。
+
+**对应**: `requirements.md` §2.1 统一视图。状态：`partial`。
+
+**交付**:
+- Context：`regionCode` + URL/localStorage；site 覆盖 region
+- UI：`SiteSelector` 树；一级 `·区域`/`·站点`；未挂靠站点平铺（无「未分区」项）
+- Scope：`resolveRequestScope`；tasks/dashboard/early-warning/packages/racks/volumes/trend/logs 等
+- 动作门禁：SSO / 新建任务 / 同步 trigger 仍要求具体站
+- 审查：`docs/database-analysis/sprint-r107-region-scope-requirements-review.md`
+- e2e：`pnpm e2e:region-scope`
+
+**非宣称**: 检索/日志页已跟顶部区域；区域可下发控制。
+
+---
 
 ## Sprint R.106 — 盘笼再迁与仅最新可撤 (partial)
 

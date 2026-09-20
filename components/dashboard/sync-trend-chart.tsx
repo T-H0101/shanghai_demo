@@ -57,7 +57,7 @@ function padTrendDays(data: TrendDay[]): TrendDay[] {
 
 export function SyncTrendChart({ className }: SyncTrendChartProps) {
   const { resolvedTheme } = useTheme()
-  const { siteCode, isAllSites, isReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady } = useSite()
   const [mounted, setMounted] = useState(false)
   const [data, setData] = useState<TrendDay[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,6 +74,8 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
     const params = new URLSearchParams({ days: String(TREND_DAYS) })
     if (!isAllSites && siteCode) {
       params.set("siteCode", siteCode)
+    } else if (regionCode) {
+      params.set("regionCode", regionCode)
     }
 
     fetch(`/api/sync/packages/trend?${params}`, { cache: "no-store" })
@@ -115,11 +117,16 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
     return () => {
       cancelled = true
     }
-  }, [mounted, isReady, isAllSites, siteCode])
+  }, [mounted, isReady, isAllSites, siteCode, regionCode])
 
   const isDark = mounted && resolvedTheme === "dark"
   const palette: ChartPalette = getChartPalette(isDark ? "dark" : "light")
-  const scopeLabel = !isAllSites && siteCode ? siteCode : "全部站点"
+  const scopeLabel =
+    !isAllSites && siteCode
+      ? siteCode
+      : regionCode
+        ? `区域 ${regionCode}`
+        : "全部站点"
   const badgeLabel = `最近${TREND_DAYS}日 · ${scopeLabel}`
 
   if (!loading && data.length === 0) {

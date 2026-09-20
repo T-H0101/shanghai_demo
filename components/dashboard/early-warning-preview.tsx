@@ -27,7 +27,7 @@ function levelTextClass(level: number | null): string {
 export function EarlyWarningPreview() {
   const router = useRouter()
   const pathname = usePathname()
-  const { siteCode, isAllSites, isReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady } = useSite()
   const { sites } = useSiteSites()
   const siteLabelByCode = useMemo(
     () => new Map(sites.map((s) => [s.code, s.label])),
@@ -46,6 +46,7 @@ export function EarlyWarningPreview() {
       qs.set("offset", "0")
       qs.set("statusGroup", "open")
       if (!isAllSites && siteCode) qs.set("siteCode", siteCode)
+      else if (regionCode) qs.set("regionCode", regionCode)
 
       const res = await fetch(`/api/early-warning?${qs.toString()}`, FETCH_INIT)
       const json = (await res.json()) as {
@@ -65,7 +66,7 @@ export function EarlyWarningPreview() {
     } finally {
       setLoading(false)
     }
-  }, [isAllSites, siteCode])
+  }, [isAllSites, siteCode, regionCode])
 
   useEffect(() => {
     if (isReady) void loadPreview()

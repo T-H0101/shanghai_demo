@@ -81,16 +81,20 @@ function buildUrl(base: string, params?: Record<string, string | null | undefine
 
 export async function fetchDashboardSummary(
   siteCode?: string | null,
+  opts?: { regionCode?: string | null },
 ): Promise<DashboardFetchResult<DashboardSummaryData>> {
   // mock mode 不走真实端点
   if (!isApiMode()) {
     return { data: null, source: "mock", error: null }
   }
   try {
-    const res = await fetch(buildUrl("/api/dashboard/summary", { siteCode }), {
-      cache: "no-store",
-      credentials: "include",
-    })
+    const res = await fetch(
+      buildUrl("/api/dashboard/summary", { siteCode, regionCode: opts?.regionCode }),
+      {
+        cache: "no-store",
+        credentials: "include",
+      },
+    )
     if (!res.ok) {
       return { data: null, source: "unavailable", error: `HTTP ${res.status}` }
     }
@@ -107,6 +111,7 @@ export async function fetchDashboardSummary(
 export async function fetchRecentSyncs(
   siteCode?: string | null,
   limit = 10,
+  opts?: { regionCode?: string | null },
 ): Promise<DashboardFetchResult<RecentSyncItem[]>> {
   if (!isApiMode()) {
     return { data: null, source: "mock", error: null }
@@ -115,6 +120,7 @@ export async function fetchRecentSyncs(
     const res = await fetch(
       buildUrl("/api/dashboard/recent-syncs", {
         siteCode,
+        regionCode: opts?.regionCode,
         limit: String(limit),
       }),
       { cache: "no-store", credentials: "include" },

@@ -170,7 +170,7 @@ export default function Page() {
   const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv")
 
   // Sprint 2F.4: 全局 siteCode
-  const { siteCode, isAllSites, isReady: siteReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady: siteReady } = useSite()
 
   // R.91.1: URL view parameter for sub-view (inspection)
   const searchParams = useSearchParams()
@@ -178,9 +178,14 @@ export default function Page() {
 
   const goRacksMain = useCallback(() => {
     const params = new URLSearchParams()
-    params.set("siteCode", isAllSites || !siteCode ? ALL_SITES : siteCode)
+    if (!isAllSites && siteCode) {
+      params.set("siteCode", siteCode)
+    } else {
+      params.set("siteCode", ALL_SITES)
+      if (regionCode) params.set("regionCode", regionCode)
+    }
     router.push(`/racks?${params.toString()}`)
-  }, [isAllSites, siteCode, router])
+  }, [isAllSites, siteCode, regionCode, router])
 
   // 弹窗状态
   const [showAddMedia, setShowAddMedia] = useState(false)
@@ -224,9 +229,11 @@ export default function Page() {
   // 加载数据
   const loadRacks = useCallback(async () => {
     try {
+      const listSite = !isAllSites && siteCode ? siteCode : undefined
+      const listRegion = !listSite && regionCode ? regionCode : undefined
       const [racksData, statsData] = await Promise.all([
-        rackProvider.getAll(isAllSites ? undefined : siteCode ?? undefined),
-        rackProvider.getStats(isAllSites ? undefined : siteCode ?? undefined)
+        rackProvider.getAll(listSite, listRegion),
+        rackProvider.getStats(listSite, listRegion),
       ])
       setRackList(racksData)
       setStats(statsData as any)
@@ -244,7 +251,7 @@ export default function Page() {
       setSelected(null)
       setRacksDataSource(isApiMode() ? "error" : "empty")
     }
-  }, [isAllSites, siteCode])
+  }, [isAllSites, siteCode, regionCode])
 
   useEffect(() => { if (siteReady) loadRacks() }, [loadRacks, siteReady])
 
@@ -375,6 +382,7 @@ export default function Page() {
     try {
       const params = new URLSearchParams({ format: exportFormat })
       if (!isAllSites && siteCode) params.set("siteCode", siteCode)
+      else if (regionCode) params.set("regionCode", regionCode)
       const response = await fetch(`/api/racks/export?${params.toString()}`)
       if (response.status === 501) {
         const body = await response.json().catch(() => null)

@@ -543,10 +543,11 @@ export const mockUserProvider: UserProvider = {
 // ============================================================
 
 export const mockRackProvider: RackProvider = {
-  getAll: async (siteCode?: string) => {
+  getAll: async (siteCode?: string, _regionCode?: string) => {
     await simulateDelay(100)
     const stored = readMockStore(getStorageKey("racks"), null)
     if (stored) mockRacks = stored
+    // mock 无区域表；有 siteCode 时按站点过滤，regionCode 仅对齐接口签名
     if (siteCode) {
       return mockRacks.filter(r => r.siteCode === siteCode)
     }
@@ -560,7 +561,7 @@ export const mockRackProvider: RackProvider = {
     return mockRacks.find(r => r.id === id)
   },
 
-  getStats: async (siteCode?: string) => {
+  getStats: async (siteCode?: string, _regionCode?: string) => {
     await simulateDelay(80)
     const stored = readMockStore(getStorageKey("racks"), null)
     if (stored) mockRacks = stored

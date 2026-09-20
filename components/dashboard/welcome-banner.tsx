@@ -41,7 +41,7 @@ interface HealthSnapshot {
 }
 
 export function WelcomeBanner() {
-  const { siteCode, isAllSites, isReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady } = useSite()
   const [health, setHealth] = useState<HealthSnapshot>({
     serviceOk: false,
     dbOk: false,
@@ -118,9 +118,11 @@ export function WelcomeBanner() {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
             <Badge variant="outline" className="border-slate-300 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
               {isReady
-                ? isAllSites
-                  ? "全部站点"
-                  : `当前站点 ${siteCode}`
+                ? !isAllSites && siteCode
+                  ? `当前站点 ${siteCode}`
+                  : regionCode
+                    ? `当前区域 ${regionCode}`
+                    : "全部站点"
                 : "加载中…"}
             </Badge>
 

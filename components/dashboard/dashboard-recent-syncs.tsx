@@ -43,7 +43,7 @@ function shortenBatchId(batchId: string): string {
 }
 
 export function DashboardRecentSyncs() {
-  const { siteCode, isReady } = useSite()
+  const { siteCode, regionCode, isReady } = useSite()
   const { sites } = useSiteSites()
   const siteLabelByCode = useMemo(
     () => new Map(sites.map((s) => [s.code, s.label])),
@@ -59,7 +59,7 @@ export function DashboardRecentSyncs() {
     if (!isApiMode()) return
     let cancelled = false
     setLoading(true)
-    fetchRecentSyncs(siteCode, 10).then((res) => {
+    fetchRecentSyncs(siteCode, 10, { regionCode }).then((res) => {
       if (cancelled) return
       setItems(res.data ?? [])
       setSource(res.source)
@@ -69,7 +69,7 @@ export function DashboardRecentSyncs() {
     return () => {
       cancelled = true
     }
-  }, [isReady, siteCode])
+  }, [isReady, siteCode, regionCode])
 
   if (!isApiMode()) return null
 
@@ -88,7 +88,7 @@ export function DashboardRecentSyncs() {
             type="button"
             onClick={() => {
               setLoading(true)
-              fetchRecentSyncs(siteCode, 10).then((res) => {
+              fetchRecentSyncs(siteCode, 10, { regionCode }).then((res) => {
                 setItems(res.data ?? [])
                 setSource(res.source)
                 setError(res.error)

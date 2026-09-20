@@ -13,7 +13,7 @@
  * Query params:
  *   - type:    sync_package | sync_table | sync_scheduler | sync_consistency | control | audit
  *              (缺省 = 全部 6 类 union)
- *   - siteCode: 站点过滤
+ *   - siteCode / regionCode: 站点或区域过滤（区域由服务端展开为站点列表）
  *   - status: 状态过滤
  *   - keyword: 关键字 (logId / batchId / commandNo / 摘要)
  *   - errorCode: 错误码 / 错误文本匹配
@@ -31,8 +31,32 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { resolveRequestScope } from "@/lib/auth/site-scope"
 
 export const dynamic = "force-dynamic"
+
+/** siteCodes 非 null 时优先（区域展开）；[] → 无数据 */
+function applySiteCol(
+  conds: string[],
+  params: unknown[],
+  column: string,
+  siteCode: string,
+  siteCodes: string[] | null,
+) {
+  if (siteCodes !== null) {
+    if (siteCodes.length === 0) {
+      conds.push("FALSE")
+      return
+    }
+    params.push(siteCodes)
+    conds.push(`${column} = ANY($${params.length})`)
+    return
+  }
+  if (siteCode) {
+    params.push(siteCode)
+    conds.push(`${column} = $${params.length}`)
+  }
+}
 
 type LogType = "sync_package" | "sync_table" | "sync_scheduler" | "sync_consistency" | "control" | "audit"
 const ALLOWED_TYPES: LogType[] = [
@@ -115,10 +139,10 @@ function rowMatchesExtendedFilters(
   return true
 }
 
-async function fetchSyncPackage(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
+async function fetchSyncPackage(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number, siteCodes: string[] | null = null): Promise<UnifiedLogRow[]> {
   const conds: string[] = []
   const params: unknown[] = []
-  if (siteCode) { params.push(siteCode); conds.push(`site_code = $${params.length}`) }
+  applySiteCol(conds, params, "site_code", siteCode, siteCodes)
   if (status) { params.push(status); conds.push(`status = $${params.length}`) }
   if (dateFrom) { params.push(dateFrom); conds.push(`started_at >= $${params.length}`) }
   if (dateTo) { params.push(dateTo); conds.push(`started_at <= $${params.length}`) }
@@ -151,10 +175,10 @@ async function fetchSyncPackage(siteCode: string, status: string, dateFrom: stri
   }))
 }
 
-async function fetchSyncTable(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
+async function fetchSyncTable(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number, siteCodes: string[] | null = null): Promise<UnifiedLogRow[]> {
   const conds: string[] = []
   const params: unknown[] = []
-  if (siteCode) { params.push(siteCode); conds.push(`site_code = $${params.length}`) }
+  applySiteCol(conds, params, "site_code", siteCode, siteCodes)
   if (status) { params.push(status); conds.push(`status = $${params.length}`) }
   if (dateFrom) { params.push(dateFrom); conds.push(`started_at >= $${params.length}`) }
   if (dateTo) { params.push(dateTo); conds.push(`started_at <= $${params.length}`) }
@@ -186,10 +210,10 @@ async function fetchSyncTable(siteCode: string, status: string, dateFrom: string
   }))
 }
 
-async function fetchSyncScheduler(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
+async function fetchSyncScheduler(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number, siteCodes: string[] | null = null): Promise<UnifiedLogRow[]> {
   const conds: string[] = []
   const params: unknown[] = []
-  if (siteCode) { params.push(siteCode); conds.push(`site_code = $${params.length}`) }
+  applySiteCol(conds, params, "site_code", siteCode, siteCodes)
   if (status) {
     // 立即同步旧数据写 completed，与 success 同义
     if (status === "success") {
@@ -244,10 +268,10 @@ async function fetchSyncScheduler(siteCode: string, status: string, dateFrom: st
   })
 }
 
-async function fetchSyncConsistency(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
+async function fetchSyncConsistency(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number, siteCodes: string[] | null = null): Promise<UnifiedLogRow[]> {
   const conds: string[] = []
   const params: unknown[] = []
-  if (siteCode) { params.push(siteCode); conds.push(`site_code = $${params.length}`) }
+  applySiteCol(conds, params, "site_code", siteCode, siteCodes)
   if (status) { params.push(status); conds.push(`status = $${params.length}`) }
   if (dateFrom) { params.push(dateFrom); conds.push(`checked_at >= $${params.length}`) }
   if (dateTo) { params.push(dateTo); conds.push(`checked_at <= $${params.length}`) }
@@ -279,10 +303,10 @@ async function fetchSyncConsistency(siteCode: string, status: string, dateFrom: 
   }))
 }
 
-async function fetchControl(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
+async function fetchControl(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number, siteCodes: string[] | null = null): Promise<UnifiedLogRow[]> {
   const conds: string[] = []
   const params: unknown[] = []
-  if (siteCode) { params.push(siteCode); conds.push(`source_site_id = $${params.length}`) }
+  applySiteCol(conds, params, "source_site_id", siteCode, siteCodes)
   if (status) { params.push(status); conds.push(`status = $${params.length}`) }
   if (dateFrom) { params.push(dateFrom); conds.push(`requested_at >= $${params.length}`) }
   if (dateTo) { params.push(dateTo); conds.push(`requested_at <= $${params.length}`) }
@@ -326,10 +350,10 @@ async function fetchControl(siteCode: string, status: string, dateFrom: string, 
   }))
 }
 
-async function fetchAudit(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number): Promise<UnifiedLogRow[]> {
+async function fetchAudit(siteCode: string, status: string, dateFrom: string, dateTo: string, keyword: string, limit: number, offset: number, siteCodes: string[] | null = null): Promise<UnifiedLogRow[]> {
   const conds: string[] = []
   const params: unknown[] = []
-  if (siteCode) { params.push(siteCode); conds.push(`site_code = $${params.length}`) }
+  applySiteCol(conds, params, "site_code", siteCode, siteCodes)
   if (status) { params.push(status); conds.push(`result = $${params.length}`) }
   if (dateFrom) { params.push(dateFrom); conds.push(`created_at >= $${params.length}`) }
   if (dateTo) { params.push(dateTo); conds.push(`created_at <= $${params.length}`) }
@@ -389,7 +413,28 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const siteCode = sp.get("siteCode") ?? ""
+    let siteCode = sp.get("siteCode") ?? ""
+    if (siteCode === "__all__") siteCode = ""
+    let siteCodes: string[] | null = null
+    const regionCode = sp.get("regionCode")
+    if (regionCode?.trim() && !siteCode) {
+      const scope = await resolveRequestScope(session, {
+        siteCode: null,
+        regionCode,
+      })
+      if (scope.kind === "listed") {
+        siteCodes = scope.siteCodes
+        if (siteCodes.length === 0) {
+          return NextResponse.json({
+            code: 0,
+            message: "ok",
+            data: { items: [], total: 0 },
+            dataSource: "empty",
+            traceId,
+          })
+        }
+      }
+    }
     const status = sp.get("status") ?? ""
     const keyword = sp.get("keyword") ?? ""
     const errorCode = sp.get("errorCode") ?? ""
@@ -404,17 +449,17 @@ export async function GET(request: NextRequest) {
     const loadType = (t: LogType, lim: number, off: number) => {
       switch (t) {
         case "sync_package":
-          return fetchSyncPackage(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+          return fetchSyncPackage(siteCode, status, dateFrom, dateTo, keyword, lim, off, siteCodes)
         case "sync_table":
-          return fetchSyncTable(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+          return fetchSyncTable(siteCode, status, dateFrom, dateTo, keyword, lim, off, siteCodes)
         case "sync_scheduler":
-          return fetchSyncScheduler(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+          return fetchSyncScheduler(siteCode, status, dateFrom, dateTo, keyword, lim, off, siteCodes)
         case "sync_consistency":
-          return fetchSyncConsistency(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+          return fetchSyncConsistency(siteCode, status, dateFrom, dateTo, keyword, lim, off, siteCodes)
         case "control":
-          return fetchControl(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+          return fetchControl(siteCode, status, dateFrom, dateTo, keyword, lim, off, siteCodes)
         case "audit":
-          return fetchAudit(siteCode, status, dateFrom, dateTo, keyword, lim, off)
+          return fetchAudit(siteCode, status, dateFrom, dateTo, keyword, lim, off, siteCodes)
         default:
           return Promise.resolve([] as UnifiedLogRow[])
       }
@@ -435,11 +480,12 @@ export async function GET(request: NextRequest) {
         params.push(val)
         conds.push(`${col} <= $${params.length}`)
       }
+      const siteEq = (col: string) => applySiteCol(conds, params, col, siteCode, siteCodes)
 
       let table = ""
       if (t === "sync_package") {
         table = "sync_package_log"
-        if (siteCode) eq("site_code", siteCode)
+        siteEq("site_code")
         if (status) eq("status", status)
         if (dateFrom) gte("started_at", dateFrom)
         if (dateTo) lte("started_at", dateTo)
@@ -449,7 +495,7 @@ export async function GET(request: NextRequest) {
         }
       } else if (t === "sync_table") {
         table = "sync_table_log"
-        if (siteCode) eq("site_code", siteCode)
+        siteEq("site_code")
         if (status) eq("status", status)
         if (dateFrom) gte("started_at", dateFrom)
         if (dateTo) lte("started_at", dateTo)
@@ -459,7 +505,7 @@ export async function GET(request: NextRequest) {
         }
       } else if (t === "sync_scheduler") {
         table = "sync_scheduler_log"
-        if (siteCode) eq("site_code", siteCode)
+        siteEq("site_code")
         if (status) {
           if (status === "success") {
             conds.push(`status IN ('success', 'completed')`)
@@ -475,7 +521,7 @@ export async function GET(request: NextRequest) {
         }
       } else if (t === "sync_consistency") {
         table = "sync_consistency_log"
-        if (siteCode) eq("site_code", siteCode)
+        siteEq("site_code")
         if (status) eq("status", status)
         if (dateFrom) gte("checked_at", dateFrom)
         if (dateTo) lte("checked_at", dateTo)
@@ -485,7 +531,7 @@ export async function GET(request: NextRequest) {
         }
       } else if (t === "control") {
         table = "control_command"
-        if (siteCode) eq("source_site_id", siteCode)
+        siteEq("source_site_id")
         if (status) eq("status", status)
         if (dateFrom) gte("requested_at", dateFrom)
         if (dateTo) lte("requested_at", dateTo)
@@ -495,7 +541,7 @@ export async function GET(request: NextRequest) {
         }
       } else if (t === "audit") {
         table = "audit_log"
-        if (siteCode) eq("site_code", siteCode)
+        siteEq("site_code")
         if (status) eq("result", status)
         if (dateFrom) gte("created_at", dateFrom)
         if (dateTo) lte("created_at", dateTo)

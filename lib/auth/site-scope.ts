@@ -3,10 +3,12 @@
  * - 登录 session 携带 accessibleSites
  * - group_admin (*) → 全部已注册站点
  * - 其他角色 → 仅 listed 站点；「全部站点」= 可访问站点并集
+ * - 可选 regionCode：展开为 listed（区域 ∩ 权限）；空区域 → listed:[]
  */
 
 import type { AuthUser } from "./server"
 import { getVisibleSites, requireSiteAccess } from "./middleware"
+import { query } from "@/lib/db"
 
 export type SiteScope =
   | { kind: "single"; siteCode: string }
@@ -33,6 +35,63 @@ export function resolveSiteScope(
     return { kind: "all_registered" }
   }
   return { kind: "listed", siteCodes: visible }
+}
+
+/**
+ * 解析请求范围：具体 siteCode 优先；否则按 regionCode 展开为 listed；
+ * 区域下 0 站或权限交集为空 → listed:[]（页面空数据，不回退全部）。
+ */
+export async function resolveRequestScope(
+  session: AuthUser,
+  opts: { siteCode?: string | null; regionCode?: string | null },
+): Promise<SiteScope> {
+  const rawSite = opts.siteCode?.trim()
+  const siteCode = rawSite && rawSite !== "__all__" ? rawSite : null
+  if (siteCode) {
+    return resolveSiteScope(session, siteCode)
+  }
+
+  const regionRaw = opts.regionCode?.trim()
+  if (!regionRaw || regionRaw.toLowerCase() === "all") {
+    return resolveSiteScope(session, null)
+  }
+
+  const regionCode = regionRaw.toUpperCase()
+  const base = resolveSiteScope(session, null)
+
+  let siteCodes: string[] = []
+  try {
+    const { rows } = await query<{ site_code: string }>(
+      `SELECT site_code FROM sync_sites
+       WHERE enabled IS DISTINCT FROM FALSE
+         AND UPPER(TRIM(COALESCE(region_code, ''))) = $1
+       ORDER BY site_code ASC`,
+      [regionCode],
+    )
+    siteCodes = rows.map((r) => r.site_code).filter(Boolean)
+  } catch {
+    siteCodes = []
+  }
+
+  if (base.kind === "single") {
+    siteCodes = siteCodes.filter((c) => c === base.siteCode)
+  } else if (base.kind === "listed") {
+    siteCodes = filterRegistrySiteCodes(siteCodes, base.siteCodes)
+  }
+  // all_registered：保留区域内全部启用站
+
+  return { kind: "listed", siteCodes }
+}
+
+/** 从 URLSearchParams / Next searchParams 读取 site+region 并解析 */
+export async function resolveRequestScopeFromSearchParams(
+  session: AuthUser,
+  searchParams: URLSearchParams | { get(name: string): string | null },
+): Promise<SiteScope> {
+  return resolveRequestScope(session, {
+    siteCode: searchParams.get("siteCode"),
+    regionCode: searchParams.get("regionCode") ?? searchParams.get("region"),
+  })
 }
 
 /** 生成列 ∈ 站点范围的 SQL 片段（单参 $n 可复用于同一条查询） */

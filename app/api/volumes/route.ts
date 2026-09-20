@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
-import { requireSession, requirePermission, getVisibleSites } from "@/lib/auth/middleware"
+import { requireSession, requirePermission } from "@/lib/auth/middleware"
+import { resolveRequestScope, sqlColumnInSiteScope } from "@/lib/auth/site-scope"
 import type { ApiResponse, VolumeDTO } from "@/lib/api/dto"
 import { mapVolumeTypeToDto, mapVolumeTypeLabel, volumeTypeFilterValues } from "@/lib/devices/volume-type"
 
@@ -88,23 +89,32 @@ export async function GET(request: NextRequest) {
     // Sprint R.29: 防越权
     const session = await requireSession(request)
     requirePermission(session, "volumes:read")
-    const visibleSites = getVisibleSites(session)
+    const scope = await resolveRequestScope(session, {
+      siteCode: request.nextUrl.searchParams.get("siteCode"),
+      regionCode: request.nextUrl.searchParams.get("regionCode"),
+    })
 
     const searchParams = request.nextUrl.searchParams
-    const siteCode = searchParams.get("siteCode")
     const type = searchParams.get("type")
 
     const conditions: string[] = []
     const params: unknown[] = []
     let paramIndex = 1
 
-    if (siteCode) {
-      conditions.push(`v.source_site_id = $${paramIndex++}`)
-      params.push(siteCode)
-    } else if (visibleSites) {
-      conditions.push(`v.source_site_id = ANY($${paramIndex++})`)
-      params.push(visibleSites)
+    if (scope.kind === "listed" && scope.siteCodes.length === 0) {
+      return NextResponse.json({
+        code: 0,
+        message: "ok",
+        data: [],
+        source: "database",
+      })
     }
+
+    const siteClause = sqlColumnInSiteScope("v.source_site_id", scope, paramIndex)
+    conditions.push(siteClause.sql)
+    params.push(...siteClause.params)
+    paramIndex = siteClause.nextParam
+
     if (type && type !== "all") {
       conditions.push(`v.volume_type = ANY($${paramIndex++})`)
       params.push(volumeTypeFilterValues(type))

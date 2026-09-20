@@ -106,7 +106,7 @@ async function jumpToSiteEarlyWarning(siteCode: string): Promise<string> {
 }
 
 export default function EarlyWarningPage() {
-  const { siteCode, isAllSites, isReady: siteReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady: siteReady } = useSite()
   const { sites } = useSiteSites()
   const siteLabelByCode = useMemo(
     () => new Map(sites.map((s) => [s.code, s.label])),
@@ -153,6 +153,7 @@ export default function EarlyWarningPage() {
       qs.set("limit", String(pageSize))
       qs.set("offset", String((page - 1) * pageSize))
       if (!isAllSites && siteCode) qs.set("siteCode", siteCode)
+      else if (regionCode) qs.set("regionCode", regionCode)
       if (applied.keyword) qs.set("keyword", applied.keyword)
       if (applied.type !== "all") qs.set("type", applied.type)
       if (applied.status !== "all") qs.set("status", applied.status)
@@ -185,7 +186,7 @@ export default function EarlyWarningPage() {
     } finally {
       setLoading(false)
     }
-  }, [siteReady, isAllSites, siteCode, applied, page, pageSize])
+  }, [siteReady, isAllSites, siteCode, regionCode, applied, page, pageSize])
 
   useEffect(() => {
     void loadList()

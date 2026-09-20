@@ -47,7 +47,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname() ?? "/"
-  const { siteCode, isAllSites, isReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady } = useSite()
   const [permissions, setPermissions] = useState<string[] | null>(() => {
     const cached = getCachedSession()
     return cached === undefined ? null : (cached?.permissions ?? [])
@@ -71,9 +71,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const hrefWithSite = (href: string) => {
     if (!isReady) return href
-    const code = isAllSites || !siteCode ? ALL_SITES : siteCode
     const params = new URLSearchParams()
-    params.set("siteCode", code)
+    if (!isAllSites && siteCode) {
+      params.set("siteCode", siteCode)
+    } else {
+      params.set("siteCode", ALL_SITES)
+      if (regionCode) params.set("regionCode", regionCode)
+    }
     return `${href}?${params.toString()}`
   }
 

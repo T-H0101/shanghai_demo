@@ -1,9 +1,21 @@
 # Roadmap
 
 > **统一路线图 (取代分散在多个 sprint 文档中的路线图)**
-> 截至: 2026-09-14
+> 截至: 2026-09-20
 
 快速完成率推进目标: `docs/summary/ROADMAP_TO_15_REQUIREMENTS.md`
+
+## R.107 全局区域筛选 (2026-09-20)
+
+- [x] `?regionCode=` 协议 + SiteContext / localStorage
+- [x] SiteSelector 区域-站点树（点区域 / 点站点；一级标记）
+- [x] `resolveRequestScope` + 主列表 API
+- [x] 动作门禁（SSO / 新建 / 同步 trigger 需具体站）
+- [x] e2e:region-scope + requirements review
+- [ ] 检索页合并顶部区域（不做本 Sprint）
+- [ ] 日志页 UI 接顶部区域（不做本 Sprint）
+
+R.107 不宣称区域级控制或检索/日志已统一到顶部筛选。
 
 ## R.106 盘笼再迁（区域选笼 + 仅最新可撤）(2026-09-14)
 
