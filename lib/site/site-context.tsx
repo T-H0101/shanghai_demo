@@ -242,7 +242,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
         const mapped: SiteOption[] = enabledRows.flatMap((r) => {
           const code = r.siteCode
           if (!code) return []
-          const label = r.siteName ? `${code} ${r.siteName}` : code
+          const label = r.siteName?.trim() || code
           return [
             {
               code,

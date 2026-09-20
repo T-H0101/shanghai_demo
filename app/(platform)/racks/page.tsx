@@ -3,14 +3,21 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/platform/page-header"
 import { StatCard } from "@/components/platform/stat-card"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ScopeSiteTree } from "@/components/site/scope-site-tree"
+import { useHeaderScopeTree } from "@/lib/site/use-header-scope-tree"
+import {
+  siteCodesForSelection,
+  type ScopeTreeSelection,
+} from "@/lib/site/scope-tree"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -29,6 +36,7 @@ import type { Rack, RackSlot, RackSlotGroup, RackStats } from "@/lib/types/rack"
 import {
   isHddDeviceTypeLabel,
   isNasDeviceTypeLabel,
+  isOfflineLibraryTypeLabel,
   isOpticalDeviceTypeLabel,
 } from "@/lib/devices/device-display"
 import {
@@ -111,10 +119,31 @@ function formatSlotCapacityLabel(value: string | undefined): string {
 // P1-1: logLevelColor 收敛到 lib/types/colors
 const logLevelColor = LOG_LEVEL_COLORS
 
-interface TreeNode {
-  id: DeviceCategory
-  label: string
-  icon: typeof HardDrive
+const DEVICE_CATEGORY_TABS: Array<{ id: DeviceCategory; label: string }> = [
+  { id: "all", label: "全部" },
+  { id: "hdd", label: "硬盘库" },
+  { id: "optical", label: "光盘库" },
+  { id: "offline", label: "离线库" },
+  { id: "nas", label: "网盘/网络存储" },
+  { id: "abnormal", label: "异常设备" },
+]
+
+function matchDeviceCategory(r: Rack, category: DeviceCategory): boolean {
+  if (category === "all") return true
+  if (category === "hdd") return isHddDeviceTypeLabel(r.deviceType)
+  if (category === "optical") return isOpticalDeviceTypeLabel(r.deviceType)
+  if (category === "offline") return isOfflineLibraryTypeLabel(r.deviceType)
+  if (category === "nas") return isNasDeviceTypeLabel(r.deviceType)
+  if (category === "abnormal") {
+    return (
+      r.deviceStatus === "error" ||
+      r.deviceStatus === "warning" ||
+      r.status === "warning" ||
+      r.status === "fault" ||
+      r.status === "maintenance"
+    )
+  }
+  return true
 }
 
 /** 短字段两列网格：上标签下值，减少单列右侧留白 */
@@ -165,12 +194,16 @@ export default function Page() {
     isApiMode() ? "empty" : "empty"
   )
   const [category, setCategory] = useState<DeviceCategory>("all")
+  const [scopeSelection, setScopeSelection] = useState<ScopeTreeSelection>({
+    kind: "all",
+  })
   const [keyword, setKeyword] = useState("")
   const [exporting, setExporting] = useState(false)
   const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv")
 
-  // Sprint 2F.4: 全局 siteCode
+  // Sprint 2F.4 / R.107: 全局 siteCode / regionCode；页内左树仅分组筛选
   const { siteCode, regionCode, isAllSites, isReady: siteReady } = useSite()
+  const scopeTree = useHeaderScopeTree()
 
   // R.91.1: URL view parameter for sub-view (inspection)
   const searchParams = useSearchParams()
@@ -255,6 +288,11 @@ export default function Page() {
 
   useEffect(() => { if (siteReady) loadRacks() }, [loadRacks, siteReady])
 
+  // 顶栏范围变化时，页内左树回到「全部」
+  useEffect(() => {
+    setScopeSelection({ kind: "all" })
+  }, [siteCode, regionCode, isAllSites])
+
   useEffect(() => {
     const handler = (e: Event) => {
       const ce = e as CustomEvent<{ key: string }>
@@ -264,51 +302,49 @@ export default function Page() {
     return () => window.removeEventListener(MOCK_STORE_EVENT, handler)
   }, [loadRacks])
 
-  // 设备分类树
-  const treeNodes: TreeNode[] = [
-    { id: "all", label: "全部设备", icon: Server },
-    { id: "hdd", label: "硬盘库", icon: HardDrive },
-    { id: "optical", label: "光盘库", icon: Database },
-    { id: "offline", label: "离线库", icon: WifiOff },
-    { id: "nas", label: "网盘/网络存储", icon: Layers },
-    { id: "abnormal", label: "异常设备", icon: AlertTriangle },
-  ]
-
-  // 筛选
-  const filtered = useMemo(() => {
-    return rackList.filter(r => {
-      const matchCat = category === "all" ? true :
-        category === "hdd" ? isHddDeviceTypeLabel(r.deviceType) :
-        category === "optical" ? isOpticalDeviceTypeLabel(r.deviceType) :
-        category === "offline" ? (r.deviceType?.includes("离线库") || r.deviceStatus === "offline") :
-        category === "nas" ? isNasDeviceTypeLabel(r.deviceType) :
-        category === "abnormal" ? (r.deviceStatus === "error" || r.deviceStatus === "warning" || r.status === "warning" || r.status === "fault" || r.status === "maintenance") : true
-      const matchKw = !keyword
-        || r.rackId.includes(keyword)
-        || (r.rackName ?? "").includes(keyword)
-        || r.siteName.includes(keyword)
-        || (r.ip ?? "").includes(keyword)
-        || (r.deviceType ?? "").includes(keyword)
-      return matchCat && matchKw
-    })
-  }, [rackList, category, keyword])
-
-  // 树节点计数
-  const treeCounts = useMemo(() => {
+  // 左树角标：按站点聚合（基于顶栏已拉取列表）
+  const siteDeviceCounts = useMemo(() => {
     const map: Record<string, number> = {}
-    treeNodes.forEach(n => {
-      map[n.id] = rackList.filter(r => {
-        if (n.id === "all") return true
-        if (n.id === "hdd") return isHddDeviceTypeLabel(r.deviceType)
-        if (n.id === "optical") return isOpticalDeviceTypeLabel(r.deviceType)
-        if (n.id === "offline") return r.deviceType?.includes("离线库") || r.deviceStatus === "offline"
-        if (n.id === "nas") return isNasDeviceTypeLabel(r.deviceType)
-        if (n.id === "abnormal") return r.deviceStatus === "error" || r.deviceStatus === "warning" || r.status === "warning" || r.status === "fault" || r.status === "maintenance"
-        return false
-      }).length
-    })
+    for (const r of rackList) {
+      const code = r.siteCode
+      if (!code) continue
+      map[code] = (map[code] ?? 0) + 1
+    }
     return map
   }, [rackList])
+
+  // 顶栏范围 → 左树分组 → 设备分类 Tab → 关键词
+  const scopeFiltered = useMemo(() => {
+    const scopeCodes = siteCodesForSelection(scopeSelection, {
+      regions: scopeTree.regions,
+      unassigned: scopeTree.unassigned,
+    })
+    const scopeSet = scopeCodes ? new Set(scopeCodes) : null
+    if (!scopeSet) return rackList
+    return rackList.filter((r) => scopeSet.has(r.siteCode))
+  }, [rackList, scopeSelection, scopeTree.regions, scopeTree.unassigned])
+
+  const categoryCounts = useMemo(() => {
+    const map = {} as Record<DeviceCategory, number>
+    for (const tab of DEVICE_CATEGORY_TABS) {
+      map[tab.id] = scopeFiltered.filter((r) => matchDeviceCategory(r, tab.id)).length
+    }
+    return map
+  }, [scopeFiltered])
+
+  const filtered = useMemo(() => {
+    return scopeFiltered.filter((r) => {
+      const matchCat = matchDeviceCategory(r, category)
+      const matchKw =
+        !keyword ||
+        r.rackId.includes(keyword) ||
+        (r.rackName ?? "").includes(keyword) ||
+        r.siteName.includes(keyword) ||
+        (r.ip ?? "").includes(keyword) ||
+        (r.deviceType ?? "").includes(keyword)
+      return matchCat && matchKw
+    })
+  }, [scopeFiltered, category, keyword])
 
   const loadSlotDetails = async (rack: Rack) => {
     if (isNasDeviceTypeLabel(rack.deviceType)) {
@@ -698,39 +734,37 @@ export default function Page() {
           </div>
         </GlassPanel>
 
-        {/* ── 主体：左侧树 + 右侧表格（定高内滚动） ─────────────── */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[200px_1fr] lg:gap-6">
-          <Card className="flex min-h-0 flex-col gap-0 overflow-hidden py-0 xl:h-full">
-            <CardHeader className="shrink-0 border-b border-slate-100 px-4 !py-3 dark:border-slate-700">
-              <CardTitle className="text-sm font-semibold">设备分类</CardTitle>
-            </CardHeader>
-            <CardContent className="min-h-0 flex-1 overflow-auto px-2 py-2">
-              <div className="space-y-0.5">
-                {treeNodes.map(node => {
-                  const Icon = node.icon
-                  const isActive = category === node.id
-                  const count = treeCounts[node.id] ?? 0
-                  return (
-                    <button
-                      key={node.id}
-                      onClick={() => setCategory(node.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left",
-                        isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                      )}
-                    >
-                      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-blue-600" : "text-slate-400")} />
-                      <span className="flex-1">{node.label}</span>
-                      <span className={cn("text-xs tabular-nums", isActive ? "text-blue-600" : "text-slate-400")}>{count}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
+        {/* ── 主体：左侧区域-站点树 + 右侧表格（定高内滚动） ─────────────── */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[220px_1fr] lg:gap-6">
+          <ScopeSiteTree
+            tree={{
+              regions: scopeTree.regions,
+              unassigned: scopeTree.unassigned,
+            }}
+            selected={scopeSelection}
+            onSelect={setScopeSelection}
+            counts={siteDeviceCounts}
+            showCounts
+            allCount={rackList.length}
+            loading={scopeTree.loading}
+            title="区域 / 站点"
+          />
 
           <Card className="flex min-h-0 flex-col gap-0 overflow-hidden py-0" data-testid="racks-device-list">
             <CardHeader className="flex shrink-0 flex-row flex-wrap items-center gap-2 space-y-0 border-b border-slate-100 px-4 !py-3 dark:border-slate-700">
+              <Tabs
+                value={category}
+                onValueChange={(v) => setCategory(v as DeviceCategory)}
+              >
+                <TabsList className="h-8">
+                  {DEVICE_CATEGORY_TABS.map((tab) => (
+                    <TabsTrigger key={tab.id} value={tab.id} className="text-xs gap-1">
+                      <span>{tab.label}</span>
+                      <span className="tabular-nums text-slate-400">{categoryCounts[tab.id] ?? 0}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
               <div className="relative min-w-[12rem] flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input

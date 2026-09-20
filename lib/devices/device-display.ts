@@ -30,6 +30,8 @@ const OPTICAL_LABELS = new Set([
 
 const HDD_LABELS = new Set(["硬盘库", "新SAS硬盘库"])
 
+const OFFLINE_LIBRARY_LABELS = new Set(["二代离线库", "一代离线库"])
+
 const TAPE_LABELS = new Set(["磁带库", "磁带机"])
 
 export function isOpticalDeviceTypeLabel(label: string | undefined): boolean {
@@ -38,6 +40,11 @@ export function isOpticalDeviceTypeLabel(label: string | undefined): boolean {
 
 export function isHddDeviceTypeLabel(label: string | undefined): boolean {
   return !!label && HDD_LABELS.has(label)
+}
+
+/** 离线库设备类型（与光盘库/硬盘库同级，非在线/离线状态） */
+export function isOfflineLibraryTypeLabel(label: string | undefined): boolean {
+  return !!label && OFFLINE_LIBRARY_LABELS.has(label)
 }
 
 export function isTapeDeviceTypeLabel(label: string | undefined): boolean {

@@ -2,7 +2,8 @@
 
 /**
  * 全局站点/区域选择器
- * - 第一级：区域 + 未挂靠站点平铺；灰色标记 ·区域 / ·站点
+ * - 第一级：区域 + 未挂靠站点平铺；均标 ·区域 / ·站点
+ * - 区域下站点同样标 ·站点
  * - 仅展示权限内至少有 1 个可用站的区域（空区域 / 无权区域不展示）
  * - 点区域 → regionCode；点站点 → siteCode；全部 → 清范围
  * - 「进入站点」仅具体站可点
@@ -92,7 +93,7 @@ export function SiteSelector({ className }: { className?: string }) {
               .filter((s) => allowed.has(s.code))
               .map((s) => ({
                 code: s.code,
-                label: s.name ? `${s.code} ${s.name}` : s.code,
+                label: s.name?.trim() || s.code,
               })),
           }))
           // 权限内无站的区域不展示（含：全平台空区域、或用户无权的区域）
@@ -143,8 +144,6 @@ export function SiteSelector({ className }: { className?: string }) {
     () => sites.filter((s) => s.code !== ALL_SITES && !assignedCodes.has(s.code)),
     [sites, assignedCodes],
   )
-
-  const showTypeMarks = regions.length > 0 && unassignedSites.length > 0
 
   const triggerLabel = useMemo(() => {
     if (isRegionScope && regionCode) {
@@ -371,9 +370,7 @@ export function SiteSelector({ className }: { className?: string }) {
                       data-testid={`site-selector-region-${region.code}`}
                     >
                       <span className="truncate">{region.name}</span>
-                      {showTypeMarks && (
-                        <span className="shrink-0 text-[10px] text-slate-400">·区域</span>
-                      )}
+                      <span className="shrink-0 text-[10px] text-slate-400">·区域</span>
                     </button>
                   </div>
                   {isOpenRegion &&
@@ -382,7 +379,7 @@ export function SiteSelector({ className }: { className?: string }) {
                         key={s.code}
                         type="button"
                         className={cn(
-                          "flex w-full items-center py-1.5 pl-10 pr-3 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800",
+                          "flex w-full items-center gap-1 py-1.5 pl-10 pr-3 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800",
                           siteCode === s.code && "bg-slate-100 font-medium dark:bg-slate-800",
                         )}
                         onClick={() => {
@@ -392,6 +389,7 @@ export function SiteSelector({ className }: { className?: string }) {
                         data-testid={`site-selector-site-${s.code}`}
                       >
                         <span className="truncate">{s.label}</span>
+                        <span className="shrink-0 text-[10px] text-slate-400">·站点</span>
                       </button>
                     ))}
                 </div>
@@ -414,9 +412,7 @@ export function SiteSelector({ className }: { className?: string }) {
                 data-testid={`site-selector-site-${s.code}`}
               >
                 <span className="truncate">{s.label}</span>
-                {showTypeMarks && (
-                  <span className="shrink-0 text-[10px] text-slate-400">·站点</span>
-                )}
+                <span className="shrink-0 text-[10px] text-slate-400">·站点</span>
               </button>
             ))}
         </div>
