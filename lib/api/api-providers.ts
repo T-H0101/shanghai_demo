@@ -401,10 +401,12 @@ export const apiRackProvider: RackProvider = {
 // API Volume Provider (通过 Rack 端点)
 // ============================================================
 
-export async function fetchVolumes(siteCode?: string) {
-  const url = siteCode
-    ? `${API_BASE}/api/volumes?siteCode=${siteCode}`
-    : `${API_BASE}/api/volumes`
+export async function fetchVolumes(siteCode?: string, regionCode?: string) {
+  const qs = new URLSearchParams()
+  if (siteCode) qs.set("siteCode", siteCode)
+  else if (regionCode) qs.set("regionCode", regionCode)
+  const q = qs.toString()
+  const url = q ? `${API_BASE}/api/volumes?${q}` : `${API_BASE}/api/volumes`
 
   try {
     const response = await fetch(url)

@@ -16,6 +16,12 @@ import {
   ExternalLink, Loader2,
 } from "lucide-react"
 import { useSite } from "@/lib/site/site-context"
+import { ScopeSiteTree } from "@/components/site/scope-site-tree"
+import { useHeaderScopeTree } from "@/lib/site/use-header-scope-tree"
+import {
+  siteCodesForSelection,
+  type ScopeTreeSelection,
+} from "@/lib/site/scope-tree"
 import { fetchVolumes } from "@/lib/api/api-providers"
 import type { VolumeDTO, VolumeMediaGroupDTO } from "@/lib/api/dto"
 import { VOLUME_TYPE_DTO_LABELS } from "@/lib/devices/volume-type"
@@ -100,6 +106,14 @@ async function jumpToSiteVolumeManagement(siteCode: string): Promise<string> {
   return fetchSiteSsoJumpUrl(siteCode, SITE_VOLUME_MANAGEMENT_PATH)
 }
 
+const VOLUME_TYPE_TABS: Array<{ id: string; label: string }> = [
+  { id: "all", label: "全部" },
+  { id: "optical", label: "光存储" },
+  { id: "magnetic", label: "磁存储" },
+  { id: "tape", label: "磁带" },
+  { id: "composite", label: "组合卷" },
+]
+
 export interface VolumesViewProps {
   className?: string
   refreshRef?: MutableRefObject<(() => Promise<void>) | null>
@@ -107,12 +121,16 @@ export interface VolumesViewProps {
 }
 
 export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesViewProps) {
-  const { siteCode, isReady: siteReady } = useSite()
+  const { siteCode, regionCode, isAllSites, isReady: siteReady } = useSite()
+  const scopeTree = useHeaderScopeTree()
   const [volumes, setVolumes] = useState<VolumeDTO[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [scopeSelection, setScopeSelection] = useState<ScopeTreeSelection>({
+    kind: "all",
+  })
   const [selected, setSelected] = useState<VolumeDTO | null>(null)
   const [mediaGroups, setMediaGroups] = useState<VolumeMediaGroupDTO[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
@@ -162,7 +180,9 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
     onLoadingChange?.(true)
     setError(null)
     try {
-      const result = await fetchVolumes(siteCode ?? undefined)
+      const listSite = !isAllSites && siteCode ? siteCode : undefined
+      const listRegion = !listSite && regionCode ? regionCode : undefined
+      const result = await fetchVolumes(listSite, listRegion)
       if (Array.isArray(result)) {
         setVolumes(result)
       } else if (result && typeof result === "object" && "data" in result) {
@@ -176,7 +196,7 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
       setLoading(false)
       onLoadingChange?.(false)
     }
-  }, [siteCode, onLoadingChange])
+  }, [siteCode, regionCode, isAllSites, onLoadingChange])
 
   useEffect(() => {
     if (refreshRef) refreshRef.current = load
@@ -188,6 +208,42 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
   useEffect(() => {
     if (siteReady) void load()
   }, [load, siteReady])
+
+  // 顶栏范围变化时，页内左树回到「全部」
+  useEffect(() => {
+    setScopeSelection({ kind: "all" })
+  }, [siteCode, regionCode, isAllSites])
+
+  const siteVolumeCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const v of volumes) {
+      const code = (v.siteCode ?? "").trim()
+      if (!code) continue
+      map[code] = (map[code] ?? 0) + 1
+    }
+    return map
+  }, [volumes])
+
+  const scopeFiltered = useMemo(() => {
+    const scopeCodes = siteCodesForSelection(scopeSelection, {
+      regions: scopeTree.regions,
+      unassigned: scopeTree.unassigned,
+    })
+    const scopeSet = scopeCodes ? new Set(scopeCodes) : null
+    if (!scopeSet) return volumes
+    return volumes.filter((v) => v.siteCode && scopeSet.has(v.siteCode))
+  }, [volumes, scopeSelection, scopeTree.regions, scopeTree.unassigned])
+
+  const typeCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const tab of VOLUME_TYPE_TABS) {
+      map[tab.id] =
+        tab.id === "all"
+          ? scopeFiltered.length
+          : scopeFiltered.filter((v) => v.type === tab.id).length
+    }
+    return map
+  }, [scopeFiltered])
 
   const stats = useMemo(() => {
     const total = volumes.length
@@ -221,7 +277,7 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
   }, [volumes])
 
   const filtered = useMemo(() => {
-    return volumes.filter((v) => {
+    return scopeFiltered.filter((v) => {
       if (typeFilter !== "all" && v.type !== typeFilter) return false
       if (search) {
         const s = search.toLowerCase()
@@ -237,7 +293,7 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
       }
       return true
     })
-  }, [volumes, search, typeFilter])
+  }, [scopeFiltered, search, typeFilter])
 
   // 有数据时默认选中第一条；筛选后若当前项不在结果中则改选第一条
   useEffect(() => {
@@ -336,28 +392,45 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
         />
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-3">
-        <Card className="flex min-h-0 flex-col gap-0 overflow-hidden py-0 xl:col-span-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[220px_minmax(0,1.6fr)_minmax(0,1fr)]">
+        <ScopeSiteTree
+          tree={{
+            regions: scopeTree.regions,
+            unassigned: scopeTree.unassigned,
+          }}
+          selected={scopeSelection}
+          onSelect={setScopeSelection}
+          counts={siteVolumeCounts}
+          showCounts
+          allCount={volumes.length}
+          loading={scopeTree.loading}
+          title="区域 / 站点"
+        />
+
+        <Card className="flex min-h-0 flex-col gap-0 overflow-hidden py-0">
           <CardHeader className="flex shrink-0 flex-row flex-wrap items-center gap-2 space-y-0 border-b border-slate-100 px-5 !py-3 dark:border-slate-700">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Tabs value={typeFilter} onValueChange={setTypeFilter}>
+              <TabsList className="h-8">
+                {VOLUME_TYPE_TABS.map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id} className="gap-1 text-xs">
+                    <span>{tab.label}</span>
+                    <span className="tabular-nums text-slate-400">
+                      {typeCounts[tab.id] ?? 0}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <div className="relative min-w-[10rem] flex-1">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="搜索卷 / 站点..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 w-44"
+                className="h-8 pl-8"
               />
             </div>
-            <Tabs value={typeFilter} onValueChange={setTypeFilter}>
-              <TabsList>
-                <TabsTrigger value="all">全部</TabsTrigger>
-                <TabsTrigger value="optical">光存储</TabsTrigger>
-                <TabsTrigger value="magnetic">磁存储</TabsTrigger>
-                <TabsTrigger value="tape">磁带</TabsTrigger>
-                <TabsTrigger value="composite">组合卷</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <span className="ml-auto text-xs text-muted-foreground">
+            <span className="shrink-0 text-xs text-muted-foreground">
               共 {filtered.length} 条
               {loading ? " · 加载中" : ""}
               {error ? " · 加载失败" : ""}
@@ -387,7 +460,11 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
                 <p className="text-sm">暂无存储卷数据</p>
                 {volumes.length === 0 && (
                   <p className="text-xs mt-1">
-                    {siteCode ? `站点 ${siteCode} 没有存储卷记录` : "当前权限范围内暂无卷记录"}
+                    {!isAllSites && siteCode
+                      ? `站点 ${siteCode} 没有存储卷记录`
+                      : regionCode
+                        ? `区域 ${regionCode} 没有存储卷记录`
+                        : "当前权限范围内暂无卷记录"}
                   </p>
                 )}
               </div>
@@ -463,7 +540,7 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
         </Card>
 
         <DetailPanel
-          className="min-h-0 overflow-hidden xl:col-span-1"
+          className="min-h-0 overflow-hidden"
           title={selected ? selected.name : "卷详情"}
           empty={!selected}
           emptyText="点击左侧存储卷查看详情"

@@ -160,11 +160,11 @@ export async function getDashboardSummary() {
   }
 }
 
-export async function getVolumes(siteCode?: string) {
+export async function getVolumes(siteCode?: string, regionCode?: string) {
   if (isApiMode()) {
-    return fetchVolumes(siteCode)
+    return fetchVolumes(siteCode, regionCode)
   }
-  const racks = await mockRackProvider.getAll(siteCode)
+  const racks = await mockRackProvider.getAll(siteCode, regionCode)
   return racks.flatMap((r: { volumes?: unknown[] }) => r.volumes ?? [])
 }
 
