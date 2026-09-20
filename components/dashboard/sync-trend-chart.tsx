@@ -128,7 +128,7 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              数据同步趋势
+              数据同步态势
             </CardTitle>
             <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs dark:bg-slate-800 dark:text-slate-300">
               {badgeLabel}
@@ -148,7 +148,7 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              数据同步趋势
+              数据同步态势
             </CardTitle>
             <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs dark:bg-slate-800 dark:text-slate-300">
               {badgeLabel}
@@ -170,7 +170,7 @@ export function SyncTrendChart({ className }: SyncTrendChartProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              数据同步趋势
+              数据同步态势
             </CardTitle>
             <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-xs dark:bg-slate-800 dark:text-slate-300">
               {badgeLabel}
