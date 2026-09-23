@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (e) {
     return NextResponse.json(
-      { code: 500, message: e instanceof Error ? e.message : String(e) },
+      { code: 500, message: "未知异常" },
       { status: 500 },
     )
   }
@@ -169,8 +169,8 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes("unique") || msg.includes("duplicate")) {
-      return NextResponse.json({ code: 409, message: "mapping already exists" }, { status: 409 })
+      return NextResponse.json({ code: 409, message: "映射已存在" }, { status: 409 })
     }
-    return NextResponse.json({ code: 500, message: msg }, { status: 500 })
+    return NextResponse.json({ code: 500, message: "未知异常" }, { status: 500 })
   }
 }

@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     )
   } catch (err) {
     return NextResponse.json(
-      { code: 500, error: err instanceof Error ? err.message : String(err) },
+      { code: 500, message: "未知异常", error: "UNKNOWN_EXCEPTION" },
       { status: 500 }
     )
   }

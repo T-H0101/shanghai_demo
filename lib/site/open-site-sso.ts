@@ -4,6 +4,8 @@
  * GET /api/sites/{siteCode}/sso?redirect=...
  */
 
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
+
 export type SiteSsoJumpOptions = {
   /** 站点落地相对路径，如 /task-list、/device-management */
   redirect?: string
@@ -12,7 +14,7 @@ export type SiteSsoJumpOptions = {
 }
 
 /**
- * 签发站点跳转 URL；失败抛 Error（文案可直接给 toast）。
+ * 签发站点跳转 URL；失败抛 Error（文案经 formatApiErrorMessage 后可给 toast）。
  */
 export async function fetchSiteSsoJumpUrl(
   siteCode: string,
@@ -34,29 +36,29 @@ export async function fetchSiteSsoJumpUrl(
     throw new Error("请先登录后再跳转站点")
   }
   if (!res.ok) {
-    throw new Error(
-      (typeof json.message === "string" && json.message) || `HTTP ${res.status}`,
-    )
+    const fromApi =
+      (typeof json.message === "string" && json.message) ||
+      (typeof json.error === "string" && json.error) ||
+      ""
+    throw new Error(formatApiErrorMessage(fromApi || httpStatusMessage(res.status)))
   }
   if (json.status !== "ready" || !json.jumpUrl) {
-    throw new Error(
+    const fromApi =
       (typeof json.message === "string" && json.message) ||
-        (typeof json.blocker === "string" && json.blocker) ||
-        "无法签发站点跳转",
-    )
+      (typeof json.blocker === "string" && json.blocker) ||
+      ""
+    throw new Error(formatApiErrorMessage(fromApi || "无法签发站点跳转"))
   }
   return String(json.jumpUrl)
 }
 
-/**
- * 签发并新标签打开站点；返回 jumpUrl。
- */
+/** 签发并可选打开新窗口；返回 jumpUrl */
 export async function openSiteSsoJump(
   siteCode: string,
-  options?: SiteSsoJumpOptions,
+  opts?: SiteSsoJumpOptions,
 ): Promise<string> {
-  const jumpUrl = await fetchSiteSsoJumpUrl(siteCode, options?.redirect)
-  if (options?.open !== false) {
+  const jumpUrl = await fetchSiteSsoJumpUrl(siteCode, opts?.redirect)
+  if (opts?.open !== false) {
     window.open(jumpUrl, "_blank", "noopener,noreferrer")
   }
   return jumpUrl

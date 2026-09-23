@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 未知错误
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage = error instanceof Error ? error.message : '未知异常'
     console.error('[Ingest API Error]', error)
     return createErrorResponse(ERROR_CODES.INTERNAL_ERROR, errorMessage)
   }

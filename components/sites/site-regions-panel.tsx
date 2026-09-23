@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 import { cn } from "@/lib/utils"
 
 export type RegionRow = {
@@ -95,7 +96,7 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
         return list[0]?.code ?? null
       })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const msg = formatApiErrorMessage(e)
       setError(msg)
       setRegions([])
       toast({ title: "加载站点区域失败", description: msg, variant: "destructive" })
@@ -183,7 +184,7 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
     } catch (e) {
       toast({
         title: "保存顺序失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
       await load()
@@ -220,7 +221,7 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
     } catch (e) {
       toast({
         title: "创建失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -252,7 +253,7 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
     } catch (e) {
       toast({
         title: "保存失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -286,7 +287,7 @@ export function SiteRegionsPanel({ availableSites, className, onChanged }: Props
     } catch (e) {
       toast({
         title: "删除失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

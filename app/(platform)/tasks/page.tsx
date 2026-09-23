@@ -433,7 +433,7 @@ function TasksPageContent() {
     } catch (e) {
       toast({
         title: "跳转失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -558,7 +558,7 @@ function TasksPageContent() {
     } catch (err) {
       toast({
         title: "提交失败",
-        description: err instanceof Error ? err.message : String(err),
+        description: formatApiErrorMessage(err),
         variant: "destructive",
       })
     }
@@ -600,7 +600,7 @@ function TasksPageContent() {
     } catch (err) {
       toast({
         title: "跳转失败",
-        description: err instanceof Error ? err.message : String(err),
+        description: formatApiErrorMessage(err),
         variant: "destructive",
       })
     }

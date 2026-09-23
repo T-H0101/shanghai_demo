@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 
 type ChangeType = "feature" | "fix" | "improve"
 
@@ -69,7 +70,7 @@ export function VersionDrawer({ open, onOpenChange }: VersionDrawerProps) {
       })
       .catch((e) => {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : String(e))
+        setError(formatApiErrorMessage(e))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

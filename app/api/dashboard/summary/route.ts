@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
     console.error('[API] /api/dashboard/summary error:', error)
     const response: ApiResponse<DashboardSummaryData> = {
       code: 500,
-      message: 'failed to query summary',
+      message: "未知异常",
       source: 'database',
       data: emptySummary(null),
       siteCode: null,

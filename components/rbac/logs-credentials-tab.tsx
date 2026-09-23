@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
 import { formatBeijingTime } from "@/components/shared/time-format"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 
 interface LogRecord {
   source_site_id?: string
@@ -56,7 +57,7 @@ export function LogsCredentialsTab() {
       }
       setItems(json.data?.items ?? [])
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const msg = formatApiErrorMessage(e)
       setError(msg)
       toast({
         title: "加载日志失败",

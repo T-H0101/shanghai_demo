@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         code: 500,
-        message: "Internal server error",
+        message: "未知异常",
         data: { sites: [] },
       },
       { status: 500 },

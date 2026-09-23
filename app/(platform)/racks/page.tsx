@@ -57,6 +57,7 @@ import {
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 import { formatBeijingTime } from "@/components/shared/time-format"
 import { LOG_LEVEL_COLORS } from "@/lib/types/colors"
 
@@ -638,7 +639,7 @@ export default function Page() {
     } catch (e) {
       toast({
         title: "跳转失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

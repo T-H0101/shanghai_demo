@@ -47,6 +47,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 
 type DataSource = "database" | "empty" | "error" | "loading"
 
@@ -180,7 +181,7 @@ export default function EarlyWarningPage() {
       setDataSource("error")
       toast({
         title: "加载预警失败",
-        description: e instanceof Error ? e.message : "unknown",
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -266,7 +267,7 @@ export default function EarlyWarningPage() {
     } catch (e) {
       toast({
         title: "跳转失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

@@ -72,7 +72,7 @@ export async function GET(
     return NextResponse.json(
       {
         code: 500,
-        message: e instanceof Error ? e.message : String(e),
+        message: "未知异常",
       },
       { status: 500 },
     )
@@ -142,7 +142,7 @@ export async function GET(
       {
         code: 0,
         status: "blocked_by_config",
-        message: e instanceof Error ? e.message : String(e),
+        message: "未知异常",
       },
       { status: 200 },
     )

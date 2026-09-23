@@ -5,6 +5,8 @@
  */
 
 import type { PhysicalRestorePayload } from "@/lib/search/restore-physical"
+import { UNKNOWN_EXCEPTION_MESSAGE } from "@/lib/api/http-error"
+import { formatRestoreUserMessage } from "@/lib/control/restore-user-message"
 
 export type SiteRestoreFileResult = {
   ok: boolean
@@ -94,13 +96,18 @@ export async function callSiteRestoreFile(
     const accepted = body.accepted === true || code === 0
     const idRaw = body.restoreFileId ?? body.id ?? body.restore_file_id ?? null
     const taskRaw = body.taskId ?? body.task_id ?? null
+    const reasonCode = (body.reasonCode as string) ?? (accepted ? null : "EXEC_FAILED")
+    const rawMessage =
+      typeof body.message === "string"
+        ? body.message
+        : res.statusText || UNKNOWN_EXCEPTION_MESSAGE
     return {
       ok: res.ok && accepted,
       httpStatus: res.status,
       code,
       accepted,
-      reasonCode: (body.reasonCode as string) ?? (accepted ? null : "EXEC_FAILED"),
-      message: typeof body.message === "string" ? body.message : res.statusText || "unknown",
+      reasonCode,
+      message: formatRestoreUserMessage(rawMessage, reasonCode),
       restoreFileId:
         typeof idRaw === "string" || typeof idRaw === "number" ? idRaw : null,
       taskId: typeof taskRaw === "string" || typeof taskRaw === "number" ? taskRaw : null,
@@ -110,14 +117,14 @@ export async function callSiteRestoreFile(
       raw,
     }
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
+    console.error("[site-restore-file] network error:", e)
     return {
       ok: false,
       httpStatus: 0,
       code: -1,
       accepted: false,
       reasonCode: "NETWORK_ERROR",
-      message,
+      message: UNKNOWN_EXCEPTION_MESSAGE,
       restoreFileId: null,
       taskId: null,
       libIp: null,

@@ -22,6 +22,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { formatBeijingTime } from "@/components/shared/time-format"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 import { cn } from "@/lib/utils"
 import { Loader2, Trash2 } from "lucide-react"
 
@@ -248,7 +249,7 @@ export function CageMoveHistoryView({
       if (!res.ok || json?.code !== 0) {
         toast({
           title: "登记未撤销",
-          description: json?.error ?? `HTTP ${res.status}`,
+          description: formatApiErrorMessage(json?.error ?? httpStatusMessage(res.status)),
           variant: "destructive",
         })
         return

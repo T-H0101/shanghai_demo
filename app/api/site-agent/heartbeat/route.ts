@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         code: 500,
-        message: "Internal server error",
+        message: "未知异常",
         dataSource: "error",
         traceId: `api-${Date.now()}`,
       },

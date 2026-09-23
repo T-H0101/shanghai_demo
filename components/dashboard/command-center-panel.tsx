@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { getSession } from "@/lib/auth/session"
 import { canAccessPath } from "@/lib/auth/menu-permissions"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 
 interface SummaryData {
   taskCount: number
@@ -428,7 +429,7 @@ export function CommandCenterPanel() {
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: formatApiErrorMessage(error),
           updatedAt: new Date().toISOString(),
         }))
       }
@@ -665,7 +666,7 @@ export function CommandCenterPanel() {
             <Evidence icon={ShieldCheck} text="中心库状态实时呈现" />
             <Evidence icon={Gauge} text="同步 / 控制 / 告警统一汇总" />
             <Evidence icon={Clock3} text={`刷新 ${state.updatedAt ? compactTime(state.updatedAt) : "加载中"}`} />
-            {state.error && <Evidence icon={AlertTriangle} text={`error: ${state.error}`} danger />}
+            {state.error && <Evidence icon={AlertTriangle} text={state.error} danger />}
           </div>
           <div className="flex gap-2">
             {canGo("/sync") ? (

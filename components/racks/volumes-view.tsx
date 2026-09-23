@@ -34,6 +34,7 @@ import {
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
 import { fetchSiteSsoJumpUrl } from "@/lib/site/open-site-sso"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 
 /** 站点业务系统存储卷管理页（SSO redirect，hash 路由由服务端规范化） */
 const SITE_VOLUME_MANAGEMENT_PATH = "/volume-management"
@@ -191,7 +192,7 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
         setVolumes([])
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "unknown")
+      setError(formatApiErrorMessage(e))
     } finally {
       setLoading(false)
       onLoadingChange?.(false)
@@ -333,7 +334,7 @@ export function VolumesView({ className, refreshRef, onLoadingChange }: VolumesV
     } catch (e) {
       toast({
         title: "跳转失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 import { useState, useEffect, useCallback } from 'react'
 import { PageHeader } from '@/components/platform/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -246,7 +247,7 @@ export default function SyncCenterPage() {
       setPackages(json.data.items)
       setTotal(json.data.total)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error'
+      const msg = formatApiErrorMessage(e)
       setError(msg)
       setPackages([])
       setTotal(0)
@@ -266,7 +267,7 @@ export default function SyncCenterPage() {
       const json: TableListResponse = await res.json()
       setTables(json.data)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error'
+      const msg = formatApiErrorMessage(e)
       console.error('Load tables failed:', msg)
       setTables([])
     } finally {
@@ -401,7 +402,7 @@ export default function SyncCenterPage() {
         if (cancelled) return
         setSyncAlerts([])
         setSyncAlertTotal(0)
-        setSyncAlertError(err instanceof Error ? err.message : "同步告警读取失败")
+        setSyncAlertError(formatApiErrorMessage(err))
       })
     return () => { cancelled = true }
   }, [siteCodeFilter, isAllSites, siteCode, regionCode])
@@ -480,7 +481,7 @@ export default function SyncCenterPage() {
     } catch (error) {
       toast({
         title: "通知站点失败",
-        description: error instanceof Error ? error.message : "请检查站点地址与密钥配置。",
+        description: formatApiErrorMessage(error),
         variant: "destructive",
       })
     } finally {
@@ -518,7 +519,7 @@ export default function SyncCenterPage() {
     } catch (error) {
       toast({
         title: '同步命令提交失败',
-        description: error instanceof Error ? error.message : '请检查登录状态和中心库连接。',
+        description: formatApiErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -555,7 +556,7 @@ export default function SyncCenterPage() {
     } catch (error) {
       toast({
         title: '同步失败',
-        description: error instanceof Error ? error.message : '请检查中心库连接和站点接入状态。',
+        description: formatApiErrorMessage(error),
         variant: 'destructive',
       })
     } finally {

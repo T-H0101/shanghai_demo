@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(response)
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    const errorMessage = err instanceof Error ? err.message : '未知异常'
     console.error(`[API/sync/packages/trend] Error: ${errorMessage}`)
     return NextResponse.json(
       { code: 0, message: 'ok', source: 'empty', data: [] },

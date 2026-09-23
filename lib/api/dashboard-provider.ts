@@ -6,6 +6,7 @@
  */
 
 import { isApiMode } from "@/lib/api"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 
 export interface DashboardSummaryData {
   taskCount: number
@@ -96,15 +97,19 @@ export async function fetchDashboardSummary(
       },
     )
     if (!res.ok) {
-      return { data: null, source: "unavailable", error: `HTTP ${res.status}` }
+      return { data: null, source: "unavailable", error: httpStatusMessage(res.status) }
     }
     const json = (await res.json()) as DashboardSummaryResponse
     if (json.code !== 0 || !json.data) {
-      return { data: null, source: "unavailable", error: json.message ?? "invalid response" }
+      return {
+        data: null,
+        source: "unavailable",
+        error: formatApiErrorMessage(json.message ?? "invalid response"),
+      }
     }
     return { data: json.data, source: "database", error: null }
   } catch (e) {
-    return { data: null, source: "unavailable", error: e instanceof Error ? e.message : "fetch failed" }
+    return { data: null, source: "unavailable", error: formatApiErrorMessage(e) }
   }
 }
 
@@ -126,14 +131,18 @@ export async function fetchRecentSyncs(
       { cache: "no-store", credentials: "include" },
     )
     if (!res.ok) {
-      return { data: null, source: "unavailable", error: `HTTP ${res.status}` }
+      return { data: null, source: "unavailable", error: httpStatusMessage(res.status) }
     }
     const json = (await res.json()) as RecentSyncsResponse
     if (json.code !== 0) {
-      return { data: null, source: "unavailable", error: json.message ?? "invalid response" }
+      return {
+        data: null,
+        source: "unavailable",
+        error: formatApiErrorMessage(json.message ?? "invalid response"),
+      }
     }
     return { data: json.data ?? [], source: "database", error: null }
   } catch (e) {
-    return { data: null, source: "unavailable", error: e instanceof Error ? e.message : "fetch failed" }
+    return { data: null, source: "unavailable", error: formatApiErrorMessage(e) }
   }
 }

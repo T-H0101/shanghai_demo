@@ -82,12 +82,12 @@ export async function GET(
     }
     return NextResponse.json(response)
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    const errorMessage = err instanceof Error ? err.message : '未知异常'
     console.error(`[API/sync/packages/tables] Error: ${errorMessage}`)
     return NextResponse.json(
       {
         code: 500,
-        message: 'Internal server error',
+        message: '未知异常',
         source: 'database',
         data: [],
       },

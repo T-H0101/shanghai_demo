@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const data = await queryProgress({ site, table })
     return NextResponse.json({ data })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage = error instanceof Error ? error.message : '未知异常'
     return NextResponse.json(
       { data: [], error: errorMessage },
       { status: 500 }

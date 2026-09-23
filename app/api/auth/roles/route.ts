@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (e) {
     return NextResponse.json(
-      { code: 500, error: e instanceof Error ? e.message : String(e) },
+      { code: 500, message: "未知异常", error: "UNKNOWN_EXCEPTION" },
       { status: 500 },
     )
   }
@@ -278,7 +278,7 @@ export async function POST(req: NextRequest) {
     )
   } catch (e) {
     return NextResponse.json(
-      { code: 500, error: e instanceof Error ? e.message : String(e) },
+      { code: 500, message: "未知异常", error: "UNKNOWN_EXCEPTION" },
       { status: 500 },
     )
   }

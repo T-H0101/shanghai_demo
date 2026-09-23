@@ -27,6 +27,11 @@ import {
   RESTORE_RELOCATED_HINT,
 } from "@/lib/search/location-display"
 import { openSiteSsoJump } from "@/lib/site/open-site-sso"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
+import {
+  formatRestoreMissingFields,
+  formatRestoreUserMessage,
+} from "@/lib/control/restore-user-message"
 
 interface SearchBlkInfo {
   blocker: string
@@ -680,9 +685,6 @@ export default function Page() {
       const attempts = Array.isArray(body?.data?.attempts) ? body.data.attempts : []
 
       if (!res.ok || body?.code !== 0) {
-        const missingFields = Array.isArray(body?.data?.missing)
-          ? body.data.missing.join(", ")
-          : ""
         const inProgress =
           siteReasonCode === "RESTORE_IN_PROGRESS" ||
           attempts.some(
@@ -706,16 +708,24 @@ export default function Page() {
                 message?: string
                 reasonCode?: string
               }) =>
-                `${a.siteName || a.siteCode || "站点"}（${a.siteCode || "—"}）：${
-                  a.message || a.reasonCode || "失败"
-                }`,
+                `${a.siteName || a.siteCode || "站点"}（${a.siteCode || "—"}）：${formatRestoreUserMessage(
+                  a.message,
+                  a.reasonCode,
+                )}`,
             ),
           })
           return
         }
+        const missingLabels = Array.isArray(body?.data?.missing)
+          ? formatRestoreMissingFields(
+              (body.data.missing as unknown[]).map(String),
+            )
+          : ""
         toast({
           title: "回迁记录未提交",
-          description: missingFields ? `${message}（${missingFields}）` : message,
+          description: missingLabels
+            ? `${formatRestoreUserMessage(message)}（${missingLabels}）`
+            : formatRestoreUserMessage(message),
           variant: "destructive",
         })
         return
@@ -749,7 +759,7 @@ export default function Page() {
     } catch (e) {
       toast({
         title: "回迁记录未提交",
-        description: e instanceof Error ? e.message : "网络异常",
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -807,7 +817,7 @@ export default function Page() {
     } catch (e) {
       toast({
         title: "无法跳转站点",
-        description: e instanceof Error ? e.message : "签发跳转失败",
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

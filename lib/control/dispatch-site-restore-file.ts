@@ -20,6 +20,10 @@ import {
   siteRestoreFilePath,
   type SiteRestoreFileResult,
 } from "@/lib/control/site-restore-file-client"
+import {
+  formatPhysicalIncompleteMessage,
+  formatRestoreUserMessage,
+} from "@/lib/control/restore-user-message"
 import { hasAllSitesAccess } from "@/lib/auth/site-scope"
 
 interface SyncSiteRow {
@@ -176,7 +180,7 @@ async function callOneSite(opts: {
     siteCode,
     siteName,
     ok: siteResult.ok,
-    message: siteResult.message,
+    message: formatRestoreUserMessage(siteResult.message, siteResult.reasonCode),
     reasonCode: siteResult.reasonCode,
     httpStatus: siteResult.httpStatus,
     restoreFileId: siteResult.restoreFileId,
@@ -198,7 +202,10 @@ function pickWinner(attempts: RestoreSiteAttempt[]): RestoreSiteAttempt | null {
 function formatAllFailedMessage(attempts: RestoreSiteAttempt[]): string {
   if (!attempts.length) return "区域内无可用站点，无法发起回迁"
   return attempts
-    .map((a) => `${a.siteName}（${a.siteCode}）：${a.message || a.reasonCode || "失败"}`)
+    .map(
+      (a) =>
+        `${a.siteName}（${a.siteCode}）：${formatRestoreUserMessage(a.message, a.reasonCode)}`,
+    )
     .join("；")
 }
 
@@ -227,7 +234,7 @@ export async function dispatchSiteRestoreFile(
     return empty({
       ok: false,
       httpStatus: 400,
-      message: `物理位置不齐全，缺少: ${validated.missing.join(", ")}`,
+      message: formatPhysicalIncompleteMessage(validated.missing),
       missing: validated.missing,
     })
   }

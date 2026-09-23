@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({ ok: true, message: "site updated" })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return NextResponse.json({ message: "未知异常", error: "UNKNOWN_EXCEPTION" }, { status: 500 })
   }
 }
 
@@ -107,6 +107,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ ok: true, message: "site disabled" })
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+    return NextResponse.json({ message: "未知异常", error: "UNKNOWN_EXCEPTION" }, { status: 500 })
   }
 }

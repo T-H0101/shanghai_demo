@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ ok: true, account: result.rows[0] })
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { message: "未知异常", error: "UNKNOWN_EXCEPTION" },
       { status: 500 },
     )
   }
@@ -198,9 +198,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes("unique") || msg.includes("duplicate")) {
-      return NextResponse.json({ error: "employee_id or email already exists" }, { status: 409 })
+      return NextResponse.json({ error: "employee_id or email already exists", message: "工号或邮箱已存在" }, { status: 409 })
     }
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ message: "未知异常", error: "UNKNOWN_EXCEPTION" }, { status: 500 })
   }
 }
 
@@ -287,7 +287,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ ok: true, message: `account ${row.username} deleted` })
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e) },
+      { message: "未知异常", error: "UNKNOWN_EXCEPTION" },
       { status: 500 },
     )
   }

@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 import { formatBeijingTime } from "@/components/shared/time-format"
 import {
   formatAccessibleSites,
@@ -201,7 +202,7 @@ export function AuthAccountsPanel({
     } catch (e) {
       toast({
         title: "加载账号失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -317,7 +318,7 @@ export function AuthAccountsPanel({
     } catch (e) {
       toast({
         title: formMode === "create" ? "创建失败" : "更新失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     }
@@ -339,7 +340,7 @@ export function AuthAccountsPanel({
     } catch (e) {
       toast({
         title: "删除失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -361,7 +362,7 @@ export function AuthAccountsPanel({
     } catch (e) {
       toast({
         title: "解锁失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -384,7 +385,7 @@ export function AuthAccountsPanel({
     } catch (e) {
       toast({
         title: "重置失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

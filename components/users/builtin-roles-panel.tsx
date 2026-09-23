@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 import { menusForPermissions } from "@/lib/auth/menu-permissions"
 
 type CatalogGroup = {
@@ -100,7 +101,7 @@ export function BuiltinRolesPanel({
         return list[0]?.code ?? null
       })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const msg = formatApiErrorMessage(e)
       setError(msg)
       setRoles([])
       toast({ title: "加载角色失败", description: msg, variant: "destructive" })
@@ -165,7 +166,7 @@ export function BuiltinRolesPanel({
     } catch (e) {
       toast({
         title: "保存失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -222,7 +223,7 @@ export function BuiltinRolesPanel({
     } catch (e) {
       toast({
         title: "创建失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -253,7 +254,7 @@ export function BuiltinRolesPanel({
     } catch (e) {
       toast({
         title: "更新失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {
@@ -280,7 +281,7 @@ export function BuiltinRolesPanel({
     } catch (e) {
       toast({
         title: "删除失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

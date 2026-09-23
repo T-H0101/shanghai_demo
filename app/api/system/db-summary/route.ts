@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage = error instanceof Error ? error.message : '未知异常'
 
     return NextResponse.json(
       {

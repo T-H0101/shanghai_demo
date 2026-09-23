@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const result = await syncDevices()
     return NextResponse.json(result)
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage = error instanceof Error ? error.message : '未知异常'
     return NextResponse.json(
       {
         status: 'failed',

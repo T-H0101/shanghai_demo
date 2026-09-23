@@ -26,6 +26,7 @@ import type { Site } from "@/lib/types/site"
 import { LayoutGrid, Server, RefreshCw, AlertTriangle, ExternalLink, Search, Loader2, ShieldCheck, MapPinned } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import type { SiteDTO } from "@/lib/api/dto"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SiteRegionsPanel } from "@/components/sites/site-regions-panel"
 
@@ -165,7 +166,7 @@ export default function Page() {
                   ...s,
                   status: "offline" as const,
                   reachabilitySource: "probe_error",
-                  reachabilityNote: `可达性探测失败（HTTP ${res.status}）`,
+                  reachabilityNote: `可达性探测失败（${httpStatusMessage(res.status)}）`,
                 }
               : s,
           ),
@@ -248,7 +249,7 @@ export default function Page() {
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return
       setDataSource("error")
-      setLoadError(e instanceof Error ? e.message : String(e))
+      setLoadError(formatApiErrorMessage(e))
       setSites([])
       setSelected(null)
     } finally {
@@ -333,7 +334,7 @@ export default function Page() {
       if (!res.ok) {
         toast({
           title: "SSO 跳转失败",
-          description: json.message || `HTTP ${res.status}`,
+          description: formatApiErrorMessage(json.message || httpStatusMessage(res.status)),
           variant: "destructive",
         })
         return
@@ -341,7 +342,9 @@ export default function Page() {
       if (json.status !== "ready" || !json.jumpUrl) {
         toast({
           title: "SSO 跳转未就绪",
-          description: json.message || json.blocker || "站点侧或密钥未配置",
+          description: formatApiErrorMessage(
+            json.message || json.blocker || "站点侧或密钥未配置，无法跳转",
+          ),
           variant: "destructive",
         })
         return
@@ -354,7 +357,7 @@ export default function Page() {
     } catch (e) {
       toast({
         title: "SSO 跳转失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

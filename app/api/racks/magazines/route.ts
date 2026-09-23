@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     if (e instanceof NextResponse) return e
     return NextResponse.json(
-      { code: 500, error: e instanceof Error ? e.message : String(e) },
+      { code: 500, message: "未知异常", error: "UNKNOWN_EXCEPTION" },
       { status: 500 }
     )
   }

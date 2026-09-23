@@ -449,7 +449,7 @@ export async function GET(
   } catch (error) {
     console.error("[API Error] /api/racks/[id]:", error)
     return NextResponse.json(
-      { code: 500, message: "Internal server error", data: null, traceId: `api-${Date.now()}` },
+      { code: 500, message: "未知异常", data: null, traceId: `api-${Date.now()}` },
       { status: 500 }
     )
   }

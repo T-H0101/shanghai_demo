@@ -142,12 +142,12 @@ export async function GET(
       },
     })
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    const errorMessage = err instanceof Error ? err.message : '未知异常'
     console.error(`[API/tasks/files] Error: ${errorMessage}`)
     return NextResponse.json<ApiResponse>(
       {
         code: 500,
-        message: 'Internal server error',
+        message: '未知异常',
         source: 'empty-index',
         indexStatus: 'missing',
         data: {

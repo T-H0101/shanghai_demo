@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
       devWarning,
     })
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    const errorMessage = err instanceof Error ? err.message : '未知异常'
     console.error(`[sync/package] unhandled: ${errorMessage}`, err)
     return NextResponse.json(
       { code: 500, message: errorMessage },

@@ -229,7 +229,7 @@ export async function GET(
   } catch (error) {
     console.error("[API Error] /api/volumes/[id]:", error)
     return NextResponse.json(
-      { code: 500, message: "Internal server error", data: null },
+      { code: 500, message: "未知异常", data: null },
       { status: 500 }
     )
   }

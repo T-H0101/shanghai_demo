@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const data = await queryLogs({ site, table }, limit)
     return NextResponse.json({ data, limit })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage = error instanceof Error ? error.message : '未知异常'
     return NextResponse.json(
       { data: [], limit, error: errorMessage },
       { status: 500 }

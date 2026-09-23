@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     console.error('[API] /api/dashboard/recent-syncs error:', error)
     const response: ApiResponse<RecentSyncItem[]> = {
       code: 500,
-      message: 'failed to query recent syncs',
+      message: "未知异常",
       source: 'database',
       data: [],
       siteCode: null,

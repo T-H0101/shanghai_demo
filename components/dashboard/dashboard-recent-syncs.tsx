@@ -16,6 +16,7 @@ import { useSite, useSiteSites } from "@/lib/site/site-context"
 import { TimeDisplay } from "@/components/shared/time-format"
 import { formatSiteLabel } from "@/components/users/site-field"
 import { isApiMode } from "@/lib/api"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 import {
   fetchRecentSyncs,
   type RecentSyncItem,
@@ -63,7 +64,7 @@ export function DashboardRecentSyncs() {
       if (cancelled) return
       setItems(res.data ?? [])
       setSource(res.source)
-      setError(res.error)
+      setError(res.error ? formatApiErrorMessage(res.error) : null)
       setLoading(false)
     })
     return () => {
@@ -91,7 +92,7 @@ export function DashboardRecentSyncs() {
               fetchRecentSyncs(siteCode, 10, { regionCode }).then((res) => {
                 setItems(res.data ?? [])
                 setSource(res.source)
-                setError(res.error)
+                setError(res.error ? formatApiErrorMessage(res.error) : null)
                 setLoading(false)
               })
             }}

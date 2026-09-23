@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 import { formatSiteLabel, SiteSelect, useRegisteredSites } from "@/components/users/site-field"
 import { cn } from "@/lib/utils"
 
@@ -67,9 +68,11 @@ const MAPPING_FETCH_INIT: RequestInit = { credentials: "include" }
 function apiErrorMessage(json: unknown, status: number): string {
   if (json && typeof json === "object" && "message" in json) {
     const message = (json as { message?: unknown }).message
-    if (typeof message === "string" && message.trim()) return message
+    if (typeof message === "string" && message.trim()) {
+      return formatApiErrorMessage(message)
+    }
   }
-  return `HTTP ${status}`
+  return httpStatusMessage(status)
 }
 
 type Props = {

@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
     })
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : String(e), dataSource: "error" },
+      { message: "未知异常", error: "UNKNOWN_EXCEPTION", dataSource: "error" },
       { status: 500 },
     )
   }
@@ -232,8 +232,8 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes("unique") || msg.includes("duplicate")) {
-      return NextResponse.json({ error: uniqueConflictMessage(msg) }, { status: 409 })
+      return NextResponse.json({ error: uniqueConflictMessage(msg), message: "账号信息冲突，请检查工号或邮箱" }, { status: 409 })
     }
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ message: "未知异常", error: "UNKNOWN_EXCEPTION" }, { status: 500 })
   }
 }

@@ -25,6 +25,7 @@ import {
 import { useSite } from "@/lib/site/site-context"
 import { formatBeijingTime, formatBeijingTimeOnly } from "@/components/shared/time-format"
 import { isApiMode } from "@/lib/api"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 import {
   fetchDashboardSummary,
   type DashboardSummaryData,
@@ -137,7 +138,7 @@ export function DashboardSummaryBar() {
       if (cancelled) return
       setData(res.data)
       setSource(res.source)
-      setError(res.error)
+      setError(res.error ? formatApiErrorMessage(res.error) : null)
       setLoading(false)
     })
     return () => {
@@ -161,7 +162,7 @@ export function DashboardSummaryBar() {
             fetchDashboardSummary(siteCode, { regionCode }).then((res) => {
               setData(res.data)
               setSource(res.source)
-              setError(res.error)
+              setError(res.error ? formatApiErrorMessage(res.error) : null)
               setLoading(false)
             })
           }}

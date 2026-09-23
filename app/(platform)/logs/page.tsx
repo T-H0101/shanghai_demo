@@ -125,14 +125,18 @@ function localDateTimeToIso(local: string): string {
   return d.toISOString()
 }
 
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
+
 const LOGS_FETCH_INIT: RequestInit = { cache: "no-store", credentials: "include" }
 
 function apiErrorMessage(json: unknown, status: number): string {
   if (json && typeof json === "object" && "message" in json) {
     const message = (json as { message?: unknown }).message
-    if (typeof message === "string" && message.trim()) return message
+    if (typeof message === "string" && message.trim()) {
+      return formatApiErrorMessage(message)
+    }
   }
-  return `HTTP ${status}`
+  return httpStatusMessage(status)
 }
 
 async function readApiErrorMessage(res: Response): Promise<string> {
@@ -259,7 +263,7 @@ export default function Page() {
       setSelected(list[0] ?? null)
     } catch (e) {
       setDataSource("error")
-      setLoadError(e instanceof Error ? e.message : String(e))
+      setLoadError(formatApiErrorMessage(e))
       setItems([])
       setTotal(0)
       setSelected(null)
@@ -345,7 +349,11 @@ export default function Page() {
       if (res.status === 501) {
         const body = await res.json().catch(() => null)
         const msg = apiErrorMessage(body, res.status)
-        toast({ title: "导出格式暂未接入", description: msg === `HTTP ${res.status}` ? "Excel 暂未接入, 请选择 CSV 或 JSON" : msg, variant: "destructive" })
+        toast({
+          title: "导出格式暂未接入",
+          description: "Excel 暂未接入, 请选择 CSV 或 JSON",
+          variant: "destructive",
+        })
         return
       }
       if (!res.ok) {
@@ -372,7 +380,7 @@ export default function Page() {
     } catch (e) {
       toast({
         title: "导出失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

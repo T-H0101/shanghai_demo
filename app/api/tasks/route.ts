@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { requireSession, requirePermission } from "@/lib/auth/middleware"
 import { resolveRequestScope, sqlColumnInSiteScope } from "@/lib/auth/site-scope"
+import { handleRouteError } from "@/lib/api/api-result"
 import type { ApiResponse, PaginatedResponse, TaskDTO, TaskType, TaskPhase, Priority } from "@/lib/api/dto"
 import { formatTaskTypeLabelFromUnified, resolveNumericTaskType, buildTaskTypeFilterSql } from "@/lib/tasks/task-type-display"
 import {
@@ -404,17 +405,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response)
   } catch (error) {
-    // Sprint R.29: Auth 错误直接返回
-    if (error instanceof NextResponse) return error
-    console.error("[API Error] /api/tasks:", error)
-    return NextResponse.json(
-      {
-        code: 500,
-        message: "Internal server error",
-        data: null,
-        traceId: `api-${Date.now()}`,
-      },
-      { status: 500 }
-    )
+    return handleRouteError(error, "/api/tasks")
   }
 }

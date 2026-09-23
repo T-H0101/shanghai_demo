@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+import { formatApiErrorMessage, httpStatusMessage } from "@/lib/api/http-error"
 
 interface ChangePasswordDialogProps {
   open: boolean
@@ -71,7 +72,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
     } catch (e) {
       toast({
         title: "修改失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

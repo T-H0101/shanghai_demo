@@ -223,7 +223,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[API Error] /api/sync/export:", error)
     return NextResponse.json(
-      { code: 500, message: "Internal server error", dataSource: "error", traceId: `api-${Date.now()}` },
+      { code: 500, message: "未知异常", dataSource: "error", traceId: `api-${Date.now()}` },
       { status: 500 }
     )
   }

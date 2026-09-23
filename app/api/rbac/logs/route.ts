@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         code: 500,
-        message: err instanceof Error ? err.message : "unknown",
+        message: "未知异常",
         traceId,
       },
       { status: 500 }

@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         code: 500,
-        message: err instanceof Error ? err.message : "unknown",
+        message: "未知异常",
         traceId,
       },
       { status: 500 },
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         code: 400,
-        message: err instanceof Error ? err.message : "invalid request",
+        message: "请求无效，请检查后重试",
         traceId,
       },
       { status: 400 },
@@ -165,7 +165,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(
       {
         code: 400,
-        message: err instanceof Error ? err.message : "invalid request",
+        message: "请求无效，请检查后重试",
         traceId,
       },
       { status: 400 },
@@ -190,7 +190,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json(
       {
         code: 400,
-        message: err instanceof Error ? err.message : "invalid request",
+        message: "请求无效，请检查后重试",
         traceId,
       },
       { status: 400 },

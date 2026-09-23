@@ -119,6 +119,6 @@ export async function PUT(req: NextRequest) {
         { status: 503 },
       )
     }
-    return NextResponse.json({ code: 500, error: msg }, { status: 500 })
+    return NextResponse.json({ code: 500, message: "未知异常", error: "UNKNOWN_EXCEPTION" }, { status: 500 })
   }
 }

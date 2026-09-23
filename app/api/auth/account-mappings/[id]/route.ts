@@ -114,7 +114,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (msg.includes("unique") || msg.includes("duplicate")) {
       return NextResponse.json({ code: 409, message: "mapping already exists" }, { status: 409 })
     }
-    return NextResponse.json({ code: 500, message: msg }, { status: 500 })
+    return NextResponse.json({ code: 500, message: "未知异常" }, { status: 500 })
   }
 }
 

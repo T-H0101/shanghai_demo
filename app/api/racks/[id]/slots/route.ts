@@ -389,7 +389,7 @@ export async function GET(
     return NextResponse.json(
       {
         code: 500,
-        message: "Internal server error",
+        message: "未知异常",
         data: null,
         source: "empty",
         traceId: `api-${Date.now()}`,

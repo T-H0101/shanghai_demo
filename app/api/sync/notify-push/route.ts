@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     site = result.rows[0] ?? null
   } catch (e) {
     return NextResponse.json(
-      { code: 500, message: e instanceof Error ? e.message : String(e) },
+      { code: 500, message: "未知异常" },
       { status: 500 },
     )
   }

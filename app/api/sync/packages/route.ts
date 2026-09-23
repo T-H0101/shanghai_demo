@@ -136,12 +136,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
   } catch (err) {
     if (err instanceof NextResponse) return err
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    const errorMessage = err instanceof Error ? err.message : '未知异常'
     console.error(`[API/sync/packages] Error: ${errorMessage}`)
     return NextResponse.json(
       {
         code: 500,
-        message: 'Internal server error',
+        message: '未知异常',
         source: 'database',
         data: { items: [], total: 0, page: 1, pageSize: DEFAULT_PAGE_SIZE },
       },

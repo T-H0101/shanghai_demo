@@ -16,6 +16,7 @@ import { AppTooltip } from "@/components/shared/tooltip"
 import { useSite, ALL_SITES, useSiteSites } from "@/lib/site/site-context"
 import { toast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { formatApiErrorMessage } from "@/lib/api/http-error"
 
 type RegionNode = {
   code: string
@@ -179,7 +180,7 @@ export function SiteSelector({ className }: { className?: string }) {
     } catch (e) {
       toast({
         title: "进入站点失败",
-        description: e instanceof Error ? e.message : String(e),
+        description: formatApiErrorMessage(e),
         variant: "destructive",
       })
     } finally {

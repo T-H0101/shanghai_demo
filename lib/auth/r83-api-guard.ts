@@ -4,6 +4,7 @@ import {
   requireSession,
   requireSiteAccess,
 } from "@/lib/auth/middleware"
+import { handleRouteError } from "@/lib/api/api-result"
 
 type R83Action = "read" | "write" | "sync"
 
@@ -24,10 +25,6 @@ export async function guardR83Api(
     requireSiteAccess(session, siteCode)
     return null
   } catch (err) {
-    if (err instanceof NextResponse) return err
-    return NextResponse.json(
-      { code: 500, message: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    )
+    return handleRouteError(err, "guardR83Api")
   }
 }
